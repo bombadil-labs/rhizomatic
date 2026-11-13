@@ -113,6 +113,7 @@ O(holdings).
 
 ```ts
 interface PeerStore {
+  readonly history: History;               // the identity of this peer's revision history (§4.6)
   read(): Promise<Snapshot>;               // a consistent, repeatable view at one revision
   append(batch: Admission): Promise<AppendResult>;               // §4.5
   purge(ids: readonly Id[]): Promise<PurgeReport>;               // §4.7.2
@@ -120,6 +121,7 @@ interface PeerStore {
 }
 interface Snapshot {
   readonly revision: Revision;
+  readonly history: History;               // the history `revision` belongs to, read with it
   readonly head: Head | null;              // the journal head at this revision
   readonly count: number;                  // how many deltas the peer holds, O(1)
   get(ids: readonly Id[]): Promise<readonly Delta[]>;            // exact, held ids only
@@ -355,10 +357,129 @@ type ChangePage =
 - The feed replaces the reactor's in-memory dispatch log, `deltasSince(knownIds)` catch-up and
   Loam's `data_version` detection of other writers. A reader in another process follows the feed.
 
-**Freshness check.** A capture at revision r is current at r′ when no change in `changes(r, r′)`
-touches its scope: no added delta is yielded by one of its anchors or negates a member, and no
-removed id is a member. This costs O(changes since capture). It replaces SPEC-16's recompute-the-
-whole-scope check.
+**Freshness check.** A **capture** records what one anchored read depended on in the store. It
+holds ids, never bytes:
+
+```ts
+type Capture = {
+  history: History;              // the peer's history at the snapshot the read ran on
+  revision: Revision;            // the revision of that snapshot
+  anchors: readonly Anchor[];    // the read's whole scope E*: static and dynamic anchors; ascending, unique
+  members: readonly Id[];        // the raw scope S(anchors over H) at that revision; ascending, unique
+  since: number | null;          // the window of the read's operand at its `now`
+  expiresAt: number | null;
+};
+```
+
+- Both lists are strictly ascending by the UTF-8 bytes of the entity or the id. A capture is
+  built only by `makeCapture`, from a snapshot, or by `parseCapture`, for one that was stored and
+  read back. Both refuse `invalid-request` for a list out of order or with a repeat, an empty
+  history, a revision that is not an integer from 0 to 2^53 − 1, a bound that is not null or
+  finite, or a window with `since ≥ expiresAt`; `parseCapture` also refuses another shape and a
+  history local to a process (below). Neither sorts. Each capture is frozen, lists included.
+- `makeCapture(snapshot, anchors, members, window)` builds a capture from a live snapshot and
+  reads `history` and `revision` from it. It is not a way to reload a stored capture. A stored
+  capture comes back only through `parseCapture`, which refuses a process-local history. A host
+  that fabricates a snapshot to feed stored values to the maker defeats that refusal and can get
+  a false `current`.
+- **The capture JSON** is one shape in every witness: an object with exactly the keys
+  `history`, `revision`, `anchors`, `members`, `since` and `expiresAt`; an open bound is `null`;
+  each anchor has exactly the keys `kind` and `entity`. Key order and number spelling are free.
+  JSON has one number type, so a `revision` written `1.0` is the integer 1, and `1.5` is refused.
+- `touching` and `checkFresh` answer only for a capture one of the two constructors built in this
+  module, and refuse any other object `invalid-request`, in O(1): a copy, a cast object or a
+  parsed value has not been checked, and `touching` searches the lists by binary search.
+  (TypeScript keeps the built captures in a module-level `WeakSet`. A typed witness whose capture
+  type has private fields and two constructors meets this by construction.)
+- `parseCapture` checks shape, not truth: a stored capture is believed as its maker wrote it. A
+  host that stores captures on a medium it does not trust (§4.9) protects their integrity
+  itself.
+- `history` and `revision` come from one snapshot (`Snapshot.history`, `Snapshot.revision`).
+- `members` is the **raw** scope: every held delta an anchor yields, closed under held negators,
+  with no selection and no pushdown. It is computed from ids alone, with `targets` and `negators`
+  on the read's own snapshot, in O(|members| × log N). A read that pushed no selection down
+  already holds it: each answer lies inside S(its anchors over H), and the rounds together hold
+  all of S(E* over H). A read that pushed a selection down makes its own id-only calls. A capture
+  never takes its members from a pushed-down fetch.
+- Anchors are entity anchors. Slices 1 and 2 built no other kind; value and derived-index anchors
+  join a capture when their indexes exist. Until then, `parseCapture` refuses an anchor whose
+  `kind` is `value` or `derived-index` with `capability-absent`, whatever its other keys: it is a
+  kind of §4.7.1 that the witness cannot hold yet. Any other anchor that is not exactly
+  `{kind: "entity", entity: <string>}` (wrong keys, wrong types, an unknown kind) is malformed and
+  refused `invalid-request`.
+
+**The window.** Take the read's operand: the deltas of its exact trimmed scope, what remains
+after the read's whole selection (the trim lemma, §4.3). Its validity boundaries are the
+`validFrom` and `validUntil` of those deltas, negators included. `since` is the greatest boundary
+at or before the read's `now`; `expiresAt` is the least boundary strictly after it. Each is null
+when there is none, and a null bound is open. Evaluation keeps exactly the deltas valid at its
+time (`validFrom ≤ t < validUntil`, SPEC-2, `evalTerm`), so no delta of the operand changes
+validity at any t with `since ≤ t < expiresAt`. **The claim:** with no touch, the read answers the
+same at every such t. At `since` itself a delta has already started or stopped, so `since` is
+inside the window; just below it, and at `expiresAt`, some delta of the operand has another
+validity. The window is per read, never per peer, and it is never taken over what a store
+returned: a store may return more than the scope, and two stores must agree.
+
+`touching(capture, records, added)` is pure. `records` are the change records with
+`capture.revision < revision ≤ r′`, ascending. `added` holds, by id, the delta of every id in some
+record's `added` that the peer still holds at r′. It answers the first touch
+`{revision, id, reason}`, or null. The rule is defined by the state at r′. The capture is
+touched when:
+
+1. some record's `removed` names a member (`removed-member`), also when the id is added again
+   later: its arrival record changed; or
+2. an added id that the peer still holds at r′ has a pointer whose target is an anchor entity
+   (`targets-anchor`), or a `negates` pointer at a member (`negates-member`).
+
+An added id that the peer no longer holds at r′ is ignored, unless rule 1 applies to it. No
+closure over added negators is needed: an added delta that negates a delta which is neither a
+member nor a toucher cannot enter the scope. The first touch is in record order. Within one
+record, `removed` comes before `added`, and each list is read in its own ascending order. A delta
+that both points at an anchor and negates a member reports `targets-anchor`.
+
+**The claim of the feed.** With no touch, `S(anchors over H at r′)` equals `members`, id for id,
+with the same arrival records. With a touch, the id set or an arrival record differs at r′, or a
+member left and came back. So without a selection the check is **exact**. With a selection it is
+**sound**: a touch by a delta the selection rejects gives a false "stale", never a false
+"current". With no touch the raw scope is unchanged, so its trim under an unchanged selection is
+unchanged too, and so is the window.
+
+**History.** A revision means something only within one history of one peer. `PeerStore.history`
+and `Snapshot.history` are an opaque identity of that history, compared for equality only. It
+stays the same while the peer's revisions only advance from that history. A peer created anew,
+also under a name that existed before, and a store restored to an earlier state, MUST carry
+another value. The memory store's default history is `memory:local:<n>`, from one counter for
+the module: unique within the process and marked as local to it. With a process-local history, a
+capture that outlives its process could be judged against another history and answer `current`
+falsely, which is why `parseCapture` refuses it. A host that keeps captures across a
+serialization boundary passes `mintHistory(peer)`, a mint unique across processes. It takes
+the peer's id and runs after every other check of `createPeer`, `peer-exists` included. A
+minted history that is empty, starts with `memory:local:`, or repeats a history this store has
+issued to any peer, now or before, is refused `invalid-request` when the peer is created, and
+the peer is not created. The store keeps every history it issued. A caller that keeps a revision
+across calls (a capture, a feed cursor) keeps the history with it and compares it. `changes` takes no history. This history is the "history epoch"
+of plan decision O3.
+
+`checkFresh(peer, capture, now)` answers `current`, `stale` with the touch, `not-yet` with
+`since`, `expired` with `expiresAt`, or `resync-required` with the current revision. `now` is
+required: a result is current only relative to a time. A `now` that is not finite (NaN or
+±Infinity) is refused `invalid-request`, here and in the capture-from-scope function. It makes one `read()`. When the snapshot's
+history is not the capture's, it answers `resync-required` at once, with no feed call. When the
+snapshot's revision r′ equals the capture's, it reads no feed. When r′ is below it, it answers
+`resync-required`. Otherwise it reads `changes(capture.revision, r′)` page by page, with that
+explicit `to`. For each page that names an added id, it makes one `get` of those ids on the
+snapshot, and then judges the page. It stops at the first touch. A page that makes no progress
+short of r′ (`through ≤ from`) is a store fault, not a verdict: the call fails with an error
+(§4.13 reading 46). **The order of the answers:**
+`resync-required`, then `stale`, then the window (`not-yet` when `now < since`, `expired` when
+`now ≥ expiresAt`), else `current`. Its calls and cost depend on the records and ids since the
+capture, never on what the peer holds and never on records before the capture. It replaces
+SPEC-16's recomputation of the whole scope (SPEC-16 MR-10b).
+
+**What the check does not cover.** The feed check sees the store only. A host whose selection or
+authority reads state outside the capture's scope (trust, grants, a clock other than the window)
+keeps its own epoch for that state and compares it itself. A selection that depends on time is
+such state.
 
 ### 4.7 Capabilities
 
@@ -1051,9 +1172,11 @@ that a vector can pin.
 
 ### 4.13 Slice 3 readings
 
-Slice 3 builds the change feed of §4.6 (`18-store.SLICE-3.PLAN.md`, steps 1 and 3). Where §4.6 and
-the plan were silent, the feed decided as follows. `vectors/store/scripts.json` and
-`vectors/store/README.md` §3.9 pin each point that a vector can pin.
+Slice 3 builds the change feed of §4.6 (`18-store.SLICE-3.PLAN.md`, steps 1 to 4) and freshness
+(steps 5 and 6, readings 24 to 53). Where §4.6 and the plan were silent, the feed decided as
+follows.
+`vectors/store/scripts.json`, `vectors/store/freshness.json` and `vectors/store/README.md` §3.9
+and §9 pin each point that a vector can pin.
 
 1. **Revisions are integers.** A revision is an integer from 0 to 2^53 − 1 in every witness. The
    vectors need this to name a revision past the current one (`ahead`, README §3.9).
@@ -1120,8 +1243,8 @@ the plan were silent, the feed decided as follows. `vectors/store/scripts.json` 
     every other step wrote none. Each witness runs the scripts again on a reference store that
     keeps two records, and on one whose pages hold one record (README §3.9).
 18. **A witness without the feed skips it.** The requirement `changes` skips the feed scripts on a
-    store whose retention is `none`, as `purge` does (§4.11 reading 44). The Rust witness skips
-    them until slice 3 step 2 builds its feed.
+    store whose retention is `none`, as `purge` does (§4.11 reading 44). Both witnesses serve the
+    feed and run the feed scripts.
 19. **Cost is timed.** The two cost promises of §4.6 have rails timed from outside, as §4.11
     reading 36 does: a window of fixed size read once after each of N records, and N appends that
     keep N / 4 records, each at N and 8N (README §3.9).
@@ -1133,14 +1256,140 @@ the plan were silent, the feed decided as follows. `vectors/store/scripts.json` 
 21. **Revisions that skip values conform.** A store whose revisions are two or three apart, kept
     whole or bounded, with any page size, passes every vector. Each witness pins this with
     stores that scale the reference store's revisions (README §8).
-22. **Below the floor, between revisions.** Where revisions skip values, a `from` between the
-    previous kept revision and the floor is below the floor and answers `resync-required`. The
-    runner asks there, just below the floor (README §3.9.4, item 2). A store that reads on from
-    past the newest dropped record and answers `ok` there loses that record silently.
+22. **Below the floor, between revisions.** Where revisions skip values, every `from` between the
+    revision before the newest dropped record and the floor is below the floor and answers
+    `resync-required`. The runner asks at every such integer (README §3.9.4, item 2). A store that
+    reads on from past the newest dropped record and answers `ok` there loses that record
+    silently.
 23. **Asking again may give another prefix.** The ownership check asks a range again after
     changing the first answer. The second answer may hold more or fewer records, because a
     store may return any prefix (§4.6). Only the records the two answers share by revision must
     be equal (README §3.9.5, check 14).
+24. **Validity in a read.** Evaluation keeps exactly the deltas valid at the read's `now`
+    (`validFrom ≤ now < validUntil`), once, at its boundary. So between two boundaries of the
+    operand the read cannot change with time, and a boundary at `now` has already taken effect:
+    `since` takes the greatest boundary at or before `now`, `expiresAt` the least after it.
+25. **A window, not an expiry.** A capture is valid over `[since, expiresAt)`. With `expiresAt`
+    alone, a capture of a read at 100 that holds one fact valid from 100 answered `current` at 99,
+    where a read at 99 differs (`freshness.json`, `a-fact-that-starts-at-now`). `checkFresh`
+    therefore needs `now`, and answers `not-yet` below `since`.
+26. **The operand, not the answer of a store.** The window is taken over the read's exact members
+    (§4.12 reading 3), negators included, never over what the store returned. A store may return
+    more than the scope, and two stores must give one window. The vectors run once on a store
+    that applies no pushdown field, so a window over what it returned fails.
+27. **A fetched scope has no `now`.** A law reader asks a fetched scope questions at its own times.
+    So a fetched scope answers `validityAt(now)`, the window of its members at that `now`, instead
+    of carrying one. TypeScript precomputes the sorted boundaries, so a call costs O(log members).
+28. **A capture is asked for.** `readAnchored` and `StoreReactor.read` carry `since` and
+    `expiresAt` always, and a capture only on request (`capture: true`). With nothing pushed
+    down, the read's fetch cache is the raw scope (§4.6), and the capture costs no store call.
+    With a pushdown, the read makes the id-only calls of the raw scope after its last round. This
+    is the one exception to §4.12 reading 7, and only a read that asks for a capture makes it.
+    `captureScope(snapshot, entities, now, selection)` takes a capture beside a fetched scope.
+29. **The raw scope from ids.** `rawScope(snapshot, anchors)` asks `targets` of the anchors once,
+    then `negators` of each new layer until a layer adds nothing. It asks for each member once,
+    so it costs O(|members| × log N) in closure depth plus one calls.
+30. **Entity anchors only.** A capture, `rawScope` and `touching` read entity anchors, the only
+    kind slices 1 and 2 built. A well-formed anchor of another kind of §4.7.1 (`kind` is `value`
+    or `derived-index`) is refused `capability-absent`, as `scope` refuses it. A malformed anchor
+    (wrong keys, wrong types, an unknown kind) is refused `invalid-request` (§4.6).
+31. **The order of the first touch.** Records in revision order; within one record, `removed`
+    before `added`; each list in its own ascending order; for one delta, `targets-anchor` before
+    `negates-member`. Two witnesses then report one touch. No store yet writes a record with
+    both lists, so the shared `touching` cases pin the order within one record.
+32. **A re-added member touches twice.** A member is yielded by an anchor or negates a member. So
+    when it comes back, rule 2 of §4.6 also touches. Rule 1's clause "also when the id is added
+    again" decides only that the first touch is the removal. A reader that ignores a re-add
+    therefore reports the touch one record late, and the vectors catch it by the touch.
+33. **`checkFresh`'s calls are normative.** One `read`; when its history is not the capture's,
+    nothing more; no feed at equal revisions; a capture from a later revision answers
+    `resync-required` with no feed call; `changes(c, r′)` with an explicit `to`, then from each
+    `through`; one `get` per page that names an added id, of exactly those ids, ascending, before
+    the page is judged, and none for a page with no added id; no call after the page that touches
+    or after `resync-required`; the release of the snapshot. Cost is a property of calls, and a
+    reader that reads past r′ shows only in its calls.
+34. **The answers in order.** `resync-required` first, then `stale`, then the window: `not-yet`
+    when `now < since`, `expired` when `now ≥ expiresAt`; else `current`. A touch decides before
+    time does, because a stale capture is wrong at every time.
+35. **A moved snapshot.** On a store without read transactions, a commit during a check moves its
+    snapshot, and its `get` refuses `snapshot-moved`. `checkFresh` then starts again on a new
+    snapshot, as `StoreReactor` does (§4.12 reading 11): at most four snapshots, each released.
+    A `current` answer speaks for the snapshot the check read; a later commit is a later check.
+36. **Freshness needs the feed.** Every freshness case requires `changes`. A store that keeps
+    fewer records than a case needs answers `resync-required` for a capture below its floor; the
+    runner expects that answer there, as it does for `changes` steps (README §9.3).
+37. **The history is read with the revision.** `Snapshot.history` is there so that a capture's
+    history and revision come from one read, and a check's comparison too. `PeerStore.history`
+    is the same value, for a caller that holds no snapshot. Every handle of a peer reports it.
+38. **The memory store's history.** Each `createPeer` mints a value: `memory:local:<n>` from one
+    counter for the module, so two peers, two stores, or one name created twice never share one
+    in a process. The prefix marks it as local to the process, and `parseCapture` refuses it: a
+    capture serialized in one process and parsed in another could otherwise meet another peer
+    with the same `memory:local:1` and answer `current` falsely. The package boundary forbids
+    ambient randomness and `globalThis` in the store, so the counter is per copy of the module; a
+    capture from another copy fails the built-capture check (§4.6). A host passes `mintHistory`;
+    a mint that answers no non-empty string, or a string with the local prefix, is refused
+    `invalid-request` when the peer is created, since the mint is a function and runs then.
+39. **The runner checks histories by equality only.** A random value cannot be pinned. A created
+    handle's history is a non-empty string, other peers of the store have other values, a
+    reopened handle and every snapshot report the peer's value (README §1.3). One name created in
+    two stores has two values; no script can delete a peer, so each witness tests that itself.
+40. **A capture is checked, never repaired.** `makeCapture` and `parseCapture` refuse a list that
+    is not strictly ascending by UTF-8 bytes; they do not sort. A capture stored by code that
+    sorted by UTF-16 code units (JavaScript's default `sort`) is refused, not searched in the
+    wrong order and answered `current`. The runner checks every capture a witness returns this
+    way. `parseCapture` checks shape, not truth: a host that keeps captures where it does not
+    trust what is at rest (§4.9) protects their integrity itself.
+41. **`rounds.json` pins the window and the raw scope.** Each expected answer carries `since`,
+    `expiresAt` and `rawMembers`, the raw scope of `scope` (a capture's members). Four cases read
+    at `now` 55, inside the fixture's boundaries, so the window is closed at both ends and the
+    dynamic anchors differ from those at 100.
+42. **Only built captures are answered for.** A capture copied with a spread, cast from a plain
+    object, or parsed from JSON without `parseCapture` is refused by `touching` and `checkFresh`.
+    The type brand alone is a compile-time check; a reversed member list in a copy otherwise
+    searched wrong and answered `current` after a member was purged. The maker takes a live
+    snapshot and reads its history and revision; it never reloads a stored capture. A host that
+    fabricates a snapshot to feed stored values to the maker defeats `parseCapture`'s refusal of
+    a process-local history, and can get a false `current`.
+43. **The generators prove each window.** For every capture and every round read, the generator
+    checks over the model that the operand's valid set is the same at `now`, at `since`, at a
+    midpoint and just below `expiresAt`, and differs just below `since` and at `expiresAt`; a
+    null bound means no boundary on that side. A window scan that is wrong fails generation.
+44. **Run 6.** A store may trim by the whole selection and report nothing applied (§4.3). The
+    reference store with no field applied returns the whole raw scope, so a capture that takes
+    the fetch as its members whenever nothing is reported applied passes runs 1 to 5. Run 6
+    trims and reports nothing, and that capture fails (README §9.4).
+45. **The probe below the floor is bounded.** It asks at most 24 values below the floor, at fixed
+    points (README §3.9.4, item 2), so a store whose revisions are far apart keeps the runner
+    cheap. Both witnesses ask at the same points.
+46. **A page with no progress is a store fault.** Inside `checkFresh`, a page of the feed whose
+    `through` is not above its `from`, short of r′, breaks §4.6 ("Pages"). It is not a verdict:
+    `resync-required` would send the caller to rebuild over a broken store. The call fails with
+    an error. The vocabulary has no code for a store that breaks its contract, so the error is a
+    plain one: TypeScript throws an `Error` that is not a `StoreError`, and Rust panics, as it
+    does for a delta source that breaks its contract.
+47. **`now` is finite.** `checkFresh` and the capture-from-scope function (TypeScript
+    `captureScope`, Rust `capture_scope`) refuse NaN, Infinity and −Infinity with
+    `invalid-request`, before any store call.
+48. **One capture JSON.** The shape of §4.6 ("The capture JSON") is the Rust witness's
+    `Capture::to_json` and the TypeScript capture itself. `vectors/store/capture-interchange.json`
+    holds one capture written by each witness, with a minted history, and each witness parses both
+    (README §9.8).
+49. **A repeated mint is refused.** A mint that answers a history this store already issued to a
+    peer is refused `invalid-request` when the peer is created. A host mint that repeats would
+    otherwise give two peers, or a peer created anew, one history, and a capture of one could be
+    judged against the other. The mint takes the peer's id in both witnesses and runs after
+    `peer-exists`, so a refused name never spends a minted value.
+50. **A revision written `1.0`.** JSON has one number type, so `parseCapture` reads `1.0` as the
+    integer 1 and refuses `1.5`. A witness whose JSON reader keeps integers apart accepts a whole
+    float as the integer.
+51. **An empty pushdown pushes nothing.** A pushdown object with no fields is nothing pushed down:
+    a read or a capture takes its raw scope from the fetch, as with no pushdown at all.
+52. **`touching` trusts its records.** Its precondition is that `records` are ascending by
+    revision and lie in `(capture.revision, r′]`. It does not check this; `checkFresh` meets it,
+    and a host that calls `touching` itself must.
+53. **The runner's message for a refusal.** A store refusal that passes up out of a check fails
+    with `checkFresh refused with <code>` (README §9.3).
 
 
 ## 5. Architectures
@@ -1287,8 +1536,9 @@ cache.
    values, the derived indexes it entered). For a negation of x, it uses x's anchors, from
    `get(x)`. Each affected view is evaluated again over its scope, or marked stale and evaluated
    on its next read.
-4. **Views.** A maintained view is a stored, anchored read. It is current when no change since its
-   revision touches its anchors (§4.6) and `now` is before `expiresAt`. Incremental equivalence
+4. **Views.** A maintained view is a stored, anchored read with its capture. It is current when no
+   change since its revision touches the capture (§4.6), `now` is before `expiresAt`, and the
+   host's own epoch for its selection and authority has not moved. Incremental equivalence
    (SPEC-4 §1) still holds: a view evaluated again over its scope equals a batch evaluation over
    the surface (SPEC-17 §6 theorem). A very large view is evaluated again whole when it changes;
    finer maintenance is an optimization, not a contract change.

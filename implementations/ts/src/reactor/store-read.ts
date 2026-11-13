@@ -20,6 +20,13 @@ import type { SchemaRefT, Term } from "../syntax/model.js";
 import type { Bindings } from "../syntax/pred.js";
 import type { ArrivalRecord } from "../storage/arrival-record.js";
 import { createReadCache, type HeldMembers } from "../storage/fetch-cache.js";
+import {
+  makeCapture,
+  rawScope,
+  validityWindow,
+  type Capture,
+  type ValidityWindow,
+} from "../storage/freshness.js";
 import type { ScopeSource } from "../storage/scope-source.js";
 import {
   StoreError,
@@ -69,6 +76,12 @@ export interface StoreReadRequest extends StoreSelection {
    * report. A returned promise is awaited. For route reports and tests.
    */
   readonly onRound?: (round: StoreRoundReport) => void | Promise<void>;
+  /**
+   * Also answer a capture of the read (SPEC-18 §4.6): its raw scope as ids, on the same
+   * snapshot. A read that pushed no selection down already holds its raw scope; one that did
+   * makes the id-only calls of `rawScope` after its last round.
+   */
+  readonly capture?: boolean;
 }
 
 /** What one round did. */
@@ -104,6 +117,19 @@ export interface StoreRead extends AnchoredRead {
    * read shows whether it used one.
    */
   readonly memoStored: number;
+  /**
+   * The greatest `validFrom` or `validUntil` at or before `now` among the read's exact members,
+   * or null.
+   */
+  readonly since: number | null;
+  /**
+   * The least `validFrom` or `validUntil` strictly after `now` among the read's exact members,
+   * or null. The same read on the same snapshot answers the same at every time t with
+   * `since <= t < expiresAt` (a null bound is open).
+   */
+  readonly expiresAt: number | null;
+  /** Present exactly when the request asked for it. */
+  readonly capture?: Capture;
 }
 
 /** The evaluation memo of one attempt, and how many child evaluations it holds. */
@@ -342,13 +368,30 @@ export async function readAnchoredWith(
         gather === term
           ? gathered
           : evalTerm(term, set, request.now, root, registry, request.bindings, memo);
+      const scope = [...anchors].sort(compareUtf8);
+      const validity = validityWindow(set, request.now);
+      const capture =
+        request.capture === true
+          ? makeCapture(
+              snapshot,
+              entityAnchors(scope),
+              // With nothing pushed down, every round's answer lies inside S(its anchors over H)
+              // and the rounds together hold all of S(scope over H): the cache is the raw scope.
+              pushedDown(request.pushdown)
+                ? await rawScope(snapshot, entityAnchors(scope))
+                : [...cache.ids()].sort(compareUtf8),
+              validity,
+            )
+          : undefined;
       return {
         result,
-        scope: [...anchors].sort(compareUtf8),
+        scope,
         members,
         revision: snapshot.revision,
         rounds,
         memoStored: memo?.stored ?? 0,
+        ...validity,
+        ...(capture === undefined ? {} : { capture }),
       };
     }
   }
@@ -441,6 +484,28 @@ export interface FetchedScope {
   /** Knows exactly S(entities) under the selection. An id outside it reads as not held. */
   readonly source: ScopeSource;
   readonly revision: Revision;
+  /**
+   * The validity window of the source's members at `now` (`validityWindow`). A fetched scope has
+   * no evaluation time of its own: each question to the source names its own `now`.
+   * O(log members).
+   */
+  validityAt(now: number): ValidityWindow;
+}
+
+/** Did this selection push any field down to the store? */
+const pushedDown = (pushdown: Pushdown | undefined): boolean =>
+  FIELDS.some((field) => pushdown?.[field] !== undefined);
+
+/** The window of an ascending list of boundaries at `now`: the last at or before, the first after. */
+function windowIn(sorted: readonly number[], now: number): ValidityWindow {
+  let low = 0;
+  let high = sorted.length;
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    if (sorted[mid]! > now) high = mid;
+    else low = mid + 1;
+  }
+  return { since: sorted[low - 1] ?? null, expiresAt: sorted[low] ?? null };
 }
 
 /**
@@ -466,7 +531,46 @@ export async function fetchScope(
     anchors,
     residualSelection(held, asked.pushdown, unapplied, selection.admits),
   );
-  return { source: cache.source(members), revision: snapshot.revision };
+  const boundaries = [
+    ...new Set(
+      members.flatMap((id) => {
+        const { validFrom, validUntil } = held.get(id)!.claims;
+        return validUntil === undefined ? [validFrom] : [validFrom, validUntil];
+      }),
+    ),
+  ].sort((a, b) => a - b);
+  return {
+    source: cache.source(members),
+    revision: snapshot.revision,
+    validityAt: (now) => windowIn(boundaries, now),
+  };
+}
+
+/**
+ * A capture of the scope of these entities on this snapshot (SPEC-18 §4.6), as a host takes one
+ * beside a fetched scope: `members` is the raw scope, from ids alone and never from a pushed-down
+ * fetch; `since` and `expiresAt` are the validity window at `now` of the exact scope under the
+ * selection. One `scope` call, then the calls of `rawScope`.
+ */
+export async function captureScope(
+  snapshot: Snapshot,
+  entities: Iterable<Entity>,
+  now: number,
+  selection: StoreSelection = {},
+): Promise<Capture> {
+  if (!Number.isFinite(now)) throw new StoreError("invalid-request", "now must be a finite number");
+  const anchors = entityAnchors([...new Set(entities)].sort(compareUtf8));
+  const fetched = await fetchScope(
+    snapshot,
+    anchors.map((anchor) => anchor.entity),
+    selection,
+  );
+  // With no selection at all, the exact scope is the raw scope and needs no second look.
+  const raw =
+    !pushedDown(selection.pushdown) && selection.admits === undefined
+      ? [...fetched.source.ids()].sort(compareUtf8)
+      : await rawScope(snapshot, anchors);
+  return makeCapture(snapshot, anchors, raw, fetched.validityAt(now));
 }
 
 /** How many times `StoreReactor` starts a read again after `snapshot-moved`. */

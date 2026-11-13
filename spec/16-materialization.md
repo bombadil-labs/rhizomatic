@@ -542,6 +542,19 @@ host testimony. `rawIds` are the ids each peer holds within that scope.
 
 **MR-10b.** `checkCurrent` receives the captured scope. A host recomputes the scoped revision
 from its indexes, in O(|S(scope)|), and never rebuilds the whole source.
+A host MAY instead judge a scoped capture current without recomputing the scoped revision when
+all of these hold (SPEC-18 §4.6, amendment of 2026-11-13): for each component, the feed check of
+its peer's store reports no touch since the store history and revision the host recorded at
+capture, taken over the component's `rawIds` (so a raw id the selection excluded, and any
+negator of it, is covered); each component's `revision` is one the host changes only when that
+scope's own inventory changes, never one derived from the revision of the whole store; the
+host's own epoch for its selection and authority inputs has not moved, and that epoch includes
+every way the selection or the exclusions depend on time (for example the validity of an
+excluded raw id); and `since ≤ servingAt < expiresAt`, where `since` and `expiresAt` are the
+capture's validity window: the greatest validity boundary at or before the capture's `servingAt`
+and the least after it, among its operands. Otherwise the host recomputes as above. A scoped
+capture's `rawIds` come from an unfiltered id-only read of S(scope), never from a pushed-down
+fetch.
 
 **MR-11a.** A gather under a scoped capture requires an anchored program (SPEC-17 §5); an
 unanchored program refuses `unsupported-operation` before evaluation. The scope must contain the

@@ -48,6 +48,7 @@ import {
 import { EvaluationBudget } from "../src/resolve/evaluation-budget.js";
 import { SchemaRegistry } from "../src/schema/schema.js";
 import { createFetchCache } from "../src/storage/fetch-cache.js";
+import { validityWindow } from "../src/storage/freshness.js";
 import { createMemoryStore, type StoreMeter } from "../src/storage/memory-store.js";
 import {
   PUSHDOWN_FIELDS,
@@ -157,6 +158,7 @@ const requestOf = (read: RoundsRead, extra: Partial<StoreReadRequest> = {}): Sto
     registry,
     ...(read.bindings === undefined ? {} : { bindings: new Map(Object.entries(read.bindings)) }),
     ...(Object.keys(pushdown).length === 0 ? {} : { pushdown }),
+    capture: true,
     ...extra,
   };
 };
@@ -167,12 +169,26 @@ const answerOf = (read: StoreRead): Required<Answer> => ({
   canonicalHex: resultCanonicalHex(read.result),
   scope: [...read.scope],
   members: read.members.map((id) => nameOf.get(id) ?? id),
+  since: read.since,
+  expiresAt: read.expiresAt,
+  // A read that was not asked for a capture answers no raw members, and fails the vector.
+  rawMembers: (read.capture?.members ?? []).map((id) => nameOf.get(id) ?? id),
   rounds: read.rounds.map((round) => ({ anchors: [...round.anchors] })),
 });
-const unpinned = ({ canonicalHex, scope, members }: Answer): Answer => ({
+const unpinned = ({
   canonicalHex,
   scope,
   members,
+  since,
+  expiresAt,
+  rawMembers,
+}: Answer): Answer => ({
+  canonicalHex,
+  scope,
+  members,
+  since,
+  expiresAt,
+  rawMembers,
 });
 
 async function onSnapshot<T>(peer: PeerStore, run: (snapshot: Snapshot) => Promise<T>): Promise<T> {
@@ -230,10 +246,16 @@ const MODES: readonly Mode[] = [
       const scope = [
         ...new Set([request.root, ...analysis.anchors, ...hviewAnchors(gathered.hview)]),
       ].sort(compareUtf8);
+      const members = new Set(scopeOver(admitted, scope));
       return {
         canonicalHex: resultCanonicalHex(evaluate(request.term)),
         scope,
         members: scopeOver(admitted, scope).map((id) => nameOf.get(id)!),
+        ...validityWindow(
+          admitted.filter((e) => members.has(e.delta.id)).map((e) => e.delta),
+          request.now,
+        ),
+        rawMembers: scopeOver(held, scope).map((id) => nameOf.get(id)!),
       };
     },
   },
@@ -340,10 +362,15 @@ describe("round vectors: one read, every way, every pushdown profile", () => {
         read.rounds.map((round) => [round.round, round.attempt, round.revision]),
         c.name,
       ).toEqual(c.expect.rounds.map((_, i) => [i + 1, 1, revision]));
+      // The capture adds id-only calls after the last round, and only when the read pushed a
+      // selection down (SPEC-18 §4.13, "A capture is asked for").
+      const ops = trace.map((call) => call.op);
+      const pushed = Object.keys(selectionOf(c)).length > 0;
       expect(
-        trace.map((call) => call.op),
+        ops.filter((op) => op !== "targets" && op !== "negators"),
         c.name,
       ).toEqual(["read", ...c.expect.rounds.map(() => "scope"), "release"]);
+      expect(ops.includes("targets"), c.name).toBe(pushed && c.expect.rawMembers.length > 0);
     }
   });
 });
@@ -1331,7 +1358,7 @@ describe("readFullSurface: the explicit full-surface read (SPEC-18 §6.6)", () =
     expect(ran).toContain("signed-time-cuts-a-link-and-a-strike");
     expect(ran).toContain("an-excluded-id-in-the-middle-of-a-chain");
     expect(ran).toContain("the-selection-admits-nothing");
-    expect(ran).toHaveLength(18);
+    expect(ran).toHaveLength(21);
   });
 
   it("refuses a selection by arrival before it lists anything", async () => {
@@ -1403,10 +1430,17 @@ describe("the store-backed read: cost", () => {
     const loaded = await load({ extra });
     const trace: StoreCall[] = [];
     const before = { ...loaded.meter };
+    const all: StoreCall[] = [];
     const raw = await onSnapshot(loaded.peer, (snapshot) =>
-      readAnchored(countingSnapshot(snapshot, trace), requestOf(read)),
+      readAnchored(countingSnapshot(snapshot, all), requestOf(read)),
     );
     const got = answerOf(raw);
+    // The capture's id-only calls come after the rounds; the rounds are the scope calls.
+    trace.push(...all.filter((call) => call.op === "scope"));
+    const capture = all.filter((call) => call.op !== "scope").map((call) => call.op);
+    expect(new Set(capture)).toEqual(
+      new Set(Object.keys(selectionOf(read)).length > 0 ? ["targets", "negators"] : []),
+    );
     // Each round excludes exactly what the read held when it asked.
     expect(trace.map((call) => call.excludeCount)).toEqual([
       0,
@@ -1417,7 +1451,7 @@ describe("the store-backed read: cost", () => {
       visited: loaded.meter.visited - before.visited,
       scans: loaded.meter.scans - before.scans,
     };
-    return { got, trace, meter };
+    return { got, trace, capture, meter };
   };
 
   for (const name of ["the-whole-garden", "every-field", "lawful-strikers"]) {

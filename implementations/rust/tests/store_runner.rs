@@ -122,6 +122,9 @@ impl StandinPeer {
 }
 
 impl PeerStore for StandinPeer {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn id(&self) -> &str {
         &self.id
     }
@@ -204,6 +207,9 @@ impl StandinSnapshot {
 }
 
 impl Snapshot for StandinSnapshot {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn revision(&self) -> Revision {
         self.revision
     }

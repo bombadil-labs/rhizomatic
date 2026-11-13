@@ -3,9 +3,11 @@
 // for these documents is `vectors/store/README.md`.
 
 import { compareUtf8 } from "../delta/cbor.js";
+import type { TouchReason } from "./freshness.js";
 import type {
   Anchor,
   AppliedPushdown,
+  ChangeRetention,
   ErasurePosture,
   PurgeOutcome,
   Pushdown,
@@ -16,6 +18,7 @@ import type {
 
 export const STORE_SCRIPTS_FORMAT = "rhizomatic-store-scripts/1";
 export const STORE_SCOPE_FORMAT = "rhizomatic-store-scope/1";
+export const STORE_FRESHNESS_FORMAT = "rhizomatic-store-freshness/1";
 
 export type PushdownField = keyof AppliedPushdown;
 /** The fixed order of pushdown field names in every vector. */
@@ -238,6 +241,106 @@ export type StoreScopeDocument = VectorHeader & {
   readonly setup: readonly StoreVectorStep[];
   readonly cases: readonly StoreScopeCase[];
 };
+/** A touch in a freshness vector: a revision name, a corpus name and the reason. */
+export type VectorTouch = {
+  readonly revision: string;
+  readonly delta: string;
+  readonly reason: TouchReason;
+};
+/** Takes a capture on a new snapshot of `peer` (README §9.2). */
+export type CaptureStep = {
+  readonly op: "capture";
+  readonly peer: string;
+  /** The name later `check` steps use for this capture. */
+  readonly as: string;
+  readonly anchors: readonly Anchor[];
+  /** The read's whole selection, in pushdown form. Absent: none. */
+  readonly selection?: VectorPushdown;
+  /** The read's evaluation time. */
+  readonly now: number;
+  readonly expect: {
+    readonly revision: string;
+    readonly anchors: readonly Anchor[];
+    readonly members: readonly string[];
+    readonly since: number | null;
+    readonly expiresAt: number | null;
+  };
+};
+export type VectorVerdict =
+  | { readonly status: "current" }
+  | { readonly status: "stale"; readonly touch: VectorTouch }
+  | { readonly status: "not-yet"; readonly since: number }
+  | { readonly status: "expired"; readonly expiresAt: number }
+  | { readonly status: "resync-required" };
+/** Checks a capture against the peer's current revision (README §9.3). */
+export type CheckStep = {
+  readonly op: "check";
+  readonly peer: string;
+  readonly capture: string;
+  /** The time the check is asked about. */
+  readonly now: number;
+  /**
+   * The check runs on a peer other than the capture's, on purpose. Its history differs, so the
+   * verdict is `resync-required`, and `touching` is not run.
+   */
+  readonly anotherPeer?: true;
+  /**
+   * True: the generator proved the verdict exact by recomputing the raw scope. False: the
+   * capture has a selection, and the verdict is only sound.
+   */
+  readonly exact: boolean;
+  readonly expect: {
+    /** The peer's revision when the check runs. */
+    readonly revision: string;
+    readonly verdict: VectorVerdict;
+    /**
+     * What `touching` answers over every record since the capture, kept or not. Null also for a
+     * check on another peer, where it is not run.
+     */
+    readonly touching: VectorTouch | null;
+  };
+};
+export type FreshnessStep = StoreVectorStep | CaptureStep | CheckStep;
+export type StoreFreshnessCase = {
+  readonly name: string;
+  readonly note: string;
+  readonly spec: string;
+  readonly requires?: readonly VectorRequirement[];
+  /** Absent: the reference store as built by default. */
+  readonly store?: { readonly changeRetention: Exclude<ChangeRetention, "none"> };
+  readonly steps: readonly FreshnessStep[];
+};
+/** `touching` alone, over records no store wrote (README §9.5). Revisions are integers. */
+export type StoreTouchingCase = {
+  readonly name: string;
+  readonly note: string;
+  readonly capture: {
+    readonly revision: number;
+    readonly anchors: readonly Anchor[];
+    readonly members: readonly string[];
+  };
+  readonly records: readonly {
+    readonly revision: number;
+    readonly head: string | null;
+    readonly added: readonly string[];
+    readonly removed: readonly string[];
+  }[];
+  /** The added ids the peer still holds at the end, as corpus names. */
+  readonly held: readonly string[];
+  readonly expect: {
+    readonly touch: {
+      readonly revision: number;
+      readonly delta: string;
+      readonly reason: TouchReason;
+    } | null;
+  };
+};
+export type StoreFreshnessDocument = VectorHeader & {
+  readonly format: typeof STORE_FRESHNESS_FORMAT;
+  readonly cases: readonly StoreFreshnessCase[];
+  readonly touching: readonly StoreTouchingCase[];
+};
+
 export type StoreVectors = {
   readonly scripts: StoreScriptsDocument;
   readonly scope: StoreScopeDocument;

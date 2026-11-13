@@ -277,6 +277,11 @@ pub fn signature_form(sig: &str) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Revision(pub u64);
 
+/// The prefix of a history that is unique only within one process: the memory store's default
+/// (SPEC-18 §4.6, "History"). `parse_capture` refuses a capture whose history starts with it, and
+/// a store refuses a minted history that does.
+pub const LOCAL_HISTORY_PREFIX: &str = "memory:local:";
+
 /// The largest revision every witness carries exactly: 2^53 − 1. A `changes` bound above it is
 /// refused `invalid-request` (SPEC-18 §4.13 reading 2).
 pub const MAX_REVISION: u64 = (1 << 53) - 1;
@@ -476,6 +481,10 @@ pub trait Store {
 pub trait PeerStore {
     fn id(&self) -> &str;
     fn erasure(&self) -> PeerErasure;
+    /// The identity of this peer's revision history (SPEC-18 §4.6, "History"): an opaque,
+    /// non-empty string, compared for equality only. Every handle of one peer reports it. A peer
+    /// created anew, also under a name that existed before, carries another value.
+    fn history(&self) -> &str;
     /// A repeatable view at the peer's current revision.
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError>;
     /// Atomic and idempotent by id. A refusal commits nothing.
@@ -496,6 +505,8 @@ pub trait PeerStore {
 /// `snapshot-moved` or answers as of the snapshot's revision, never from the later state.
 pub trait Snapshot {
     fn revision(&self) -> Revision;
+    /// The history `revision` belongs to, read with it (SPEC-18 §4.13 reading 37).
+    fn history(&self) -> &str;
     fn head(&self) -> Option<&str>;
     fn count(&self) -> u64;
     /// The held deltas among `ids`, each with the signature this peer admitted.

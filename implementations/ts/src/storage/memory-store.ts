@@ -7,6 +7,7 @@ import { computeId } from "../delta/delta.js";
 import type { Claims, Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
 import { copyArrival, copyClaims, copyMember, isPlainObject } from "./copy.js";
+import { LOCAL_HISTORY_PREFIX } from "./freshness.js";
 import {
   PURGE_BOUNDARY,
   StoreError,
@@ -22,6 +23,7 @@ import {
   type ErasurePosture,
   type Exporter,
   type Head,
+  type History,
   type Id,
   type PeerId,
   type PeerStore,
@@ -61,6 +63,17 @@ export type MemoryStoreOptions = {
    * An integer of 1 or more. The default has no limit.
    */
   readonly changePageSize?: number;
+  /**
+   * Mints the history of each peer this store creates (§4.6). The default is unique only within
+   * the process (`memory:local:<n>`). With a process-local history, a capture that outlives its
+   * process could be judged against another history and answer `current` falsely, which is why
+   * `parseCapture` refuses one. A host that keeps captures across a serialization boundary passes
+   * a mint unique across processes, such as 128 random bits. A minted history that is empty,
+   * starts with `memory:local:`, or repeats one this store has issued to any peer is refused
+   * `invalid-request` when the peer is created. The mint runs after every other check of
+   * `createPeer`, `peer-exists` included, and takes the peer's id.
+   */
+  readonly mintHistory?: (peer: PeerId) => History;
 };
 
 // The only door to the store's maps. Everything keyed counts a lookup; `scan` is the single way
@@ -108,6 +121,7 @@ type Feed = {
 
 type PeerState = {
   readonly id: PeerId;
+  readonly history: History;
   readonly posture: ErasurePosture;
   readonly holdings: Index<Holding>;
   readonly targets: Index<Set<Id>>;
@@ -120,6 +134,15 @@ type PeerState = {
   lastSequence: number;
   readonly feed: Feed;
 };
+
+// The default histories: one counter for every memory store in this copy of the module, so two
+// peers, two stores, or one name created twice never share one. They are unique only within the
+// process, and say so by their prefix: `parseCapture` refuses a capture that carries one. The
+// counter is per module copy, not on `globalThis`, which the package boundary forbids; a second
+// copy of the module counts again, and a capture from one copy that is checked against the
+// other fails `checkFresh`'s own check, because the other copy did not build it.
+let minted = 0;
+const mintMemoryHistory = (): History => `${LOCAL_HISTORY_PREFIX}${++minted}`;
 
 const sorted = (ids: Iterable<Id>): Id[] => [...new Set(ids)].sort(compareUtf8);
 
@@ -259,6 +282,9 @@ class MemoryStore implements Store {
   /** The most records a peer keeps; infinite when unbounded. */
   readonly #keep: number;
   readonly #pageSize: number;
+  readonly #mint: (peer: PeerId) => History;
+  /** Every history this store has issued, kept after its peer is gone: none is issued twice. */
+  readonly #issued = new Set<History>();
   #closed = false;
 
   constructor(options: MemoryStoreOptions) {
@@ -282,6 +308,26 @@ class MemoryStore implements Store {
     if (pageSize !== undefined && !positive(pageSize))
       throw new StoreError("invalid-request", "memory store: changePageSize is 1 or more");
     this.#pageSize = pageSize ?? Number.POSITIVE_INFINITY;
+    const mint = options.mintHistory;
+    if (mint !== undefined && typeof mint !== "function")
+      throw new StoreError("invalid-request", "memory store: mintHistory is a function");
+    this.#mint = (peer) => {
+      const history: unknown = mint === undefined ? mintMemoryHistory() : mint(peer);
+      if (typeof history !== "string" || history === "")
+        throw new StoreError("invalid-request", "memory store: a history is a non-empty string");
+      if (mint !== undefined && history.startsWith(LOCAL_HISTORY_PREFIX))
+        throw new StoreError(
+          "invalid-request",
+          `memory store: a minted history must not start with ${LOCAL_HISTORY_PREFIX}, which marks a history local to one process`,
+        );
+      if (this.#issued.has(history))
+        throw new StoreError(
+          "invalid-request",
+          `memory store: the mint answered ${history}, a history this store already issued; a history is never reused`,
+        );
+      this.#issued.add(history);
+      return history;
+    };
     this.#own = {
       capabilities: {
         values: false,
@@ -340,6 +386,7 @@ class MemoryStore implements Store {
       throw new StoreError("peer-exists", "createPeer: the peer already exists");
     const state: PeerState = {
       id,
+      history: this.#mint(id),
       posture,
       holdings: new Index(this.#meter),
       targets: new Index(this.#meter),
@@ -366,6 +413,7 @@ class MemoryStore implements Store {
   #handle(state: PeerState): PeerStore {
     return {
       id: state.id,
+      history: state.history,
       erasure: { posture: state.posture, storeClass: this.#own.capabilities.erasure },
       read: async () => {
         this.#open();
@@ -478,6 +526,7 @@ class MemoryStore implements Store {
     // same way on a current, a moved and a released snapshot.
     return {
       revision,
+      history: state.history,
       head,
       count,
       arrivals: async (ids) => {

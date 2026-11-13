@@ -14,6 +14,12 @@
 //! The evaluation memo (§4.12 readings 21 to 26) keeps, for one attempt of one read, each child
 //! evaluation that is final: every anchor its HView shows has been asked for. A later round, and
 //! the final `resolve` evaluation, use it and do not evaluate that child again.
+//!
+//! Every read carries the validity window of its operand (`since`, `expires_at`), and a capture
+//! for the freshness check when asked (SPEC-18 §4.6; §4.13 readings 26 to 29). A capture's
+//! members are the raw scope: a read that pushed nothing down holds it in its fetch cache, and a
+//! read that pushed a selection down reads it with id-only calls on the same snapshot after its
+//! last round.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -29,8 +35,13 @@ use crate::pred::Bindings;
 use crate::schema::SchemaRegistry;
 use crate::set::{fork, DeltaSource};
 use crate::store::{
-    collect_delta_set, Anchor, ArrivalRecord, PeerExporter, PeerStore, Pushdown, PushdownFields,
-    Revision, ScopeRequest, ScopeSource, Snapshot, StoreError, StoreErrorCode,
+    collect_delta_set, Anchor, ArrivalRecord, ChangeRecord, PeerExporter, PeerStore, Pushdown,
+    PushdownFields, Revision, ScopeRequest, ScopeSource, Snapshot, StoreError, StoreErrorCode,
+};
+use crate::store_conformance::FreshnessReader;
+use crate::store_fresh::{
+    check_fresh, make_capture, raw_scope, touching, validity_boundaries, validity_window,
+    window_at, Capture, Freshness, Touch, ValidityWindow,
 };
 use crate::types::{Delta, Primitive};
 
@@ -201,6 +212,9 @@ pub struct ReadRequest<'a> {
     pub cache: FetchCache,
     pub memo: EvalMemo,
     pub on_round: Option<RoundHook<'a>>,
+    /// Whether the read returns a capture of its raw scope (SPEC-18 §4.13 reading 28). With a
+    /// pushdown, the capture costs the id-only calls of the raw scope after the last round.
+    pub capture: bool,
 }
 
 impl<'a> ReadRequest<'a> {
@@ -216,6 +230,7 @@ impl<'a> ReadRequest<'a> {
             cache: FetchCache::On,
             memo: EvalMemo::On,
             on_round: None,
+            capture: false,
         }
     }
 }
@@ -240,6 +255,12 @@ pub struct StoreRead {
     /// changes no answer, so this count is how a caller sees whether a read used it. It counts
     /// the last attempt only; each attempt starts a new memo.
     pub memo_stored: usize,
+    /// The window of the read's operand, its exact members, at its `now` (SPEC-18 §4.6). The
+    /// answer is the same at every time in `[since, expires_at)` while nothing touches the read.
+    pub since: Option<f64>,
+    pub expires_at: Option<f64>,
+    /// The capture, when the request asked for one.
+    pub capture: Option<Capture>,
 }
 
 /// Why a store-backed read failed.
@@ -361,6 +382,45 @@ fn scope_request(
         pushdown: pushdown.cloned(),
         exclude,
     }
+}
+
+/// Whether a selection pushes any field down. A pushdown with no field selects nothing, so the
+/// store's answer is the raw scope.
+fn pushes(pushdown: Option<&Pushdown>) -> bool {
+    pushdown.is_some_and(|p| {
+        p.timestamp_at_most.is_some() || p.arrival_at_most.is_some() || p.exclude_ids.is_some()
+    })
+}
+
+/// The capture of a read or a fetch on `snapshot` (SPEC-18 §4.6). With nothing pushed down, the
+/// fetch cache is the raw scope and the capture makes no store call; with a pushdown, the raw
+/// scope comes from id-only calls on the same snapshot, never from the pushed-down fetch.
+fn capture_of(
+    snapshot: &dyn Snapshot,
+    asked: &BTreeSet<String>,
+    pushdown: Option<&Pushdown>,
+    cache: &ScopeSource,
+    window: ValidityWindow,
+) -> Result<Capture, StoreError> {
+    let entities: Vec<String> = asked.iter().cloned().collect();
+    let members = match pushes(pushdown) {
+        true => raw_scope(snapshot, &entities)?,
+        false => cache.ids().into_iter().map(str::to_string).collect(),
+    };
+    make_capture(
+        snapshot,
+        entities
+            .into_iter()
+            .map(|entity| Anchor::Entity { entity })
+            .collect(),
+        members,
+        window,
+    )
+}
+
+/// The window of a read's operand: the exact members, each from the cache.
+fn operand_window(cache: &ScopeSource, members: &[String], now: f64) -> ValidityWindow {
+    validity_window(members.iter().filter_map(|id| cache.get(id)), now)
 }
 
 /// The static anchors of an anchored term, or the reason it is not anchored (SPEC-17 §5).
@@ -494,6 +554,11 @@ fn read_rounds(
             } else {
                 gathered
             };
+            let window = operand_window(cache, &members, request.now);
+            let capture = match request.capture {
+                true => Some(capture_of(snapshot, &asked, pushdown, cache, window)?),
+                false => None,
+            };
             return Ok(StoreRead {
                 result,
                 scope: asked.into_iter().collect(),
@@ -502,6 +567,9 @@ fn read_rounds(
                 rounds,
                 snapshots: 1,
                 memo_stored: memo.as_deref().map_or(0, |m| m.stored()),
+                since: window.since,
+                expires_at: window.expires_at,
+                capture,
             });
         }
         next = shown;
@@ -514,6 +582,16 @@ fn read_rounds(
 pub struct FetchedScope {
     pub source: ScopeSource,
     pub revision: Revision,
+    /// Every validity boundary of the members, ascending and distinct.
+    boundaries: Vec<f64>,
+}
+
+impl FetchedScope {
+    /// The window of the members at `now` (SPEC-18 §4.13 reading 27). A law reader asks a fetched
+    /// scope at its own times, so the scope carries no `now`. O(log members).
+    pub fn validity_at(&self, now: f64) -> ValidityWindow {
+        window_at(&self.boundaries, now)
+    }
 }
 
 /// One `scope` call for `entities` (each once, ascending), then a source that knows exactly
@@ -523,6 +601,37 @@ pub fn fetch_scope(
     entities: &[String],
     selection: Selection<'_>,
 ) -> Result<FetchedScope, StoreError> {
+    fetched(snapshot, entities, selection).map(|(fetched, _, _)| fetched)
+}
+
+/// `fetch_scope` and a capture beside it (SPEC-18 §4.13 reading 28), with the window at `now`.
+/// With nothing pushed down the capture's members are what the one `scope` call returned; with a
+/// pushdown they come from `targets` and `negators` on the same snapshot. Refuses
+/// `invalid-request` for a `now` that is not finite, before any store call.
+pub fn capture_scope(
+    snapshot: &dyn Snapshot,
+    entities: &[String],
+    now: f64,
+    selection: Selection<'_>,
+) -> Result<(FetchedScope, Capture), StoreError> {
+    if !now.is_finite() {
+        return Err(StoreError::new(
+            StoreErrorCode::InvalidRequest,
+            "captureScope needs a now that is a finite number",
+        ));
+    }
+    let (fetched, anchors, cache) = fetched(snapshot, entities, selection)?;
+    let window = fetched.validity_at(now);
+    let capture = capture_of(snapshot, &anchors, selection.pushdown, &cache, window)?;
+    Ok((fetched, capture))
+}
+
+/// The fetch, with the anchors it asked for and everything the store returned.
+fn fetched(
+    snapshot: &dyn Snapshot,
+    entities: &[String],
+    selection: Selection<'_>,
+) -> Result<(FetchedScope, BTreeSet<String>, ScopeSource), StoreError> {
     let anchors: BTreeSet<String> = entities.iter().cloned().collect();
     let call = scope_request(
         &anchors.iter().cloned().collect::<Vec<_>>(),
@@ -535,10 +644,14 @@ pub fn fetch_scope(
     let mut residual = Residual::default();
     residual.record(selection.pushdown, answer.applied);
     let members = exact_members(&cache, &anchors, &selection, residual);
-    Ok(FetchedScope {
-        source: cache.restrict(&members),
+    let source = cache.restrict(&members);
+    let boundaries = validity_boundaries(members.iter().filter_map(|id| cache.get(id)));
+    let fetched = FetchedScope {
+        source,
         revision: snapshot.revision(),
-    })
+        boundaries,
+    };
+    Ok((fetched, anchors, cache))
 }
 
 /// One explicit full-surface read (SPEC-18 §6.6, §4.12 reading 28). The term may be anchored or
@@ -706,6 +819,7 @@ impl StoreReactor {
                     on_round: hook
                         .as_mut()
                         .map(|h| &mut **h as &mut dyn FnMut(&RoundReport)),
+                    capture: request.capture,
                 };
                 // A new cache and a new memo for every attempt: what an older snapshot held may be
                 // purged now, and a child stored on it may read differently on this one.
@@ -730,5 +844,44 @@ impl StoreReactor {
             |e: &StoreError| e.code == StoreErrorCode::SnapshotMoved,
         )
         .map(|(fetched, _)| fetched)
+    }
+}
+
+/// This witness's freshness functions, as the conformance runner calls them (`vectors/store/
+/// README.md` §9): `capture_scope`, `touching` and `check_fresh`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct StoreFreshness;
+
+impl FreshnessReader for StoreFreshness {
+    fn capture(
+        &self,
+        snapshot: &dyn Snapshot,
+        entities: &[String],
+        now: f64,
+        pushdown: Option<&Pushdown>,
+    ) -> Result<Capture, StoreError> {
+        let selection = Selection {
+            pushdown,
+            admits: None,
+        };
+        capture_scope(snapshot, entities, now, selection).map(|(_, capture)| capture)
+    }
+
+    fn touching(
+        &self,
+        capture: &Capture,
+        records: &[ChangeRecord],
+        added: &BTreeMap<String, Delta>,
+    ) -> Option<Touch> {
+        touching(capture, records, added)
+    }
+
+    fn check_fresh(
+        &self,
+        peer: &dyn PeerStore,
+        capture: &Capture,
+        now: f64,
+    ) -> Result<Freshness, StoreError> {
+        check_fresh(peer, capture, now)
     }
 }

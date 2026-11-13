@@ -77,11 +77,15 @@ enum Wrong {
     ResyncAboveFloor,
     AnswersTwoWays,
     ReadsOnPastFloor,
+    /// Reads on past the newest dropped record only at F − 2: where `from % k` is `k − 2`.
+    ReadsOnPastFloorTwoBelow,
     CurrentOffBelowFloor,
     RefusesBelowFloor,
     IdsOutOfOrderInRange,
     /// A right store: pages of at most 1, 2, 1, 2 records, call by call.
     AlternatesPageCap,
+    /// A right store that records the `from` and the current revision of each call with no `to`.
+    RecordsProbes,
     ChangedAfterWritten,
     DiffersFirstSeen,
     // Retention (§3.9.4, §3.9.6).
@@ -164,6 +168,8 @@ struct Books {
     last: BTreeMap<String, (Revision, Option<Revision>, usize)>,
     /// For each purge that advanced: every target that is not `not-held`, a settled debt too.
     settled: BTreeMap<(String, u64), Vec<String>>,
+    /// `(from, current)` of every call with no `to`, for `RecordsProbes`.
+    probes: Vec<(u64, u64)>,
 }
 
 type Shared = Rc<RefCell<Books>>;
@@ -273,10 +279,12 @@ impl FeedyPeer {
         }
         let down = |r: Revision| Revision(r.0 / k);
         let mut answer = self.inner.changes(down(from), to.map(down))?;
-        if self.wrong == Wrong::ReadsOnPastFloor
-            && !from.0.is_multiple_of(k)
-            && matches!(answer, ChangePage::ResyncRequired { .. })
-        {
+        let reads_on = match self.wrong {
+            Wrong::ReadsOnPastFloor => !from.0.is_multiple_of(k),
+            Wrong::ReadsOnPastFloorTwoBelow => k >= 3 && from.0 % k == k - 2,
+            _ => false,
+        };
+        if reads_on && matches!(answer, ChangePage::ResyncRequired { .. }) {
             // Reads on past the newest dropped record, which goes missing silently.
             answer = self
                 .inner
@@ -350,6 +358,9 @@ impl FeedyPeer {
 }
 
 impl PeerStore for FeedyPeer {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn id(&self) -> &str {
         &self.id
     }
@@ -395,6 +406,9 @@ impl PeerStore for FeedyPeer {
         let just_committed = self.books.borrow_mut().committed.remove(&self.id);
         let pending = self.books.borrow_mut().pending.remove(&self.id);
         let current = self.out(self.current()?);
+        if w == Wrong::RecordsProbes && to.is_none() {
+            self.books.borrow_mut().probes.push((from.0, current.0));
+        }
         match w {
             Wrong::Refuses => return Err(refusal(StoreErrorCode::InvalidRequest)),
             Wrong::ResyncWithTo if to.is_some() => {
@@ -561,6 +575,9 @@ struct FeedySnapshot {
 }
 
 impl Snapshot for FeedySnapshot {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn revision(&self) -> Revision {
         self.revision
     }
@@ -930,6 +947,22 @@ const TABLE: &[Row] = &[
         docs: SC,
     },
     Row {
+        rule: "ok two below the floor and right one below it, revisions times 3",
+        wrong: W::ReadsOnPastFloorTwoBelow,
+        setup: scaled(3, Some(2), None),
+        doc: None,
+        messages: &["below the retention floor"],
+        docs: SC,
+    },
+    Row {
+        rule: "ok two below the floor and right one below it, revisions times 1000",
+        wrong: W::ReadsOnPastFloorTwoBelow,
+        setup: scaled(1000, Some(2), None),
+        doc: None,
+        messages: &["below the retention floor"],
+        docs: SC,
+    },
+    Row {
         rule: "a wrong current on the call below the floor only, with no changes step",
         wrong: W::CurrentOffBelowFloor,
         setup: KEEPS_TWO,
@@ -1139,6 +1172,8 @@ fn the_same_feeds_conform_where_no_rule_forbids_them() {
         (W::Nothing, scaled(3, None, Some(1))),
         (W::Nothing, scaled(2, Some(2), None)),
         (W::Nothing, scaled(3, Some(2), Some(1))),
+        // Revisions 1000 apart, two kept: the bounded probe keeps the runner cheap (§3.9.4).
+        (W::Nothing, scaled(1000, Some(2), None)),
         // The fifth: the same request gets another prefix (§4.13 reading 23).
         (W::AlternatesPageCap, PLAIN),
         (W::Nothing, paged(ChangeRetention::Unbounded, Some(1))),
@@ -1263,4 +1298,40 @@ fn the_broken_feeds_fail_where_their_fault_first_shows() {
             "scope/setup",
         ]
     );
+}
+
+/// README §3.9.4 item 2 and SPEC-18 §4.13 reading 45: with revisions 1000 apart, the runner asks
+/// below the floor at exactly 24 fixed points, the same points in every witness.
+#[test]
+fn the_probe_below_the_floor_asks_at_the_fixed_points() {
+    let mut vectors = vectors();
+    without_feed_scripts(&mut vectors);
+    // One record of calls for every store of the run; this right store reads no other book.
+    let books = Shared::default();
+    run_store_conformance(
+        &|| {
+            let mut store = Feedy::new(W::RecordsProbes, scaled(1000, Some(2), None));
+            store.books = books.clone();
+            Ok(Box::new(store) as Box<dyn Store>)
+        },
+        &vectors,
+    )
+    .unwrap_or_else(|e| panic!("{e}"));
+    // Group the calls by the peer's revision: at current c the floor is F = c − 2000 and the
+    // revision before the newest dropped record is p = F − 1000.
+    let mut asked: BTreeMap<u64, BTreeSet<u64>> = BTreeMap::new();
+    for (from, current) in books.borrow().probes.iter().copied() {
+        if current >= 3000 && from > current - 3000 && from < current - 2000 {
+            asked.entry(current).or_default().insert(from);
+        }
+    }
+    assert!(!asked.is_empty(), "no peer dropped a record");
+    for (current, froms) in asked {
+        let (p, f) = (current - 3000, current - 2000);
+        let mut want: BTreeSet<u64> = (p + 1..=p + 8).collect();
+        want.extend((0..8).map(|k| p + 9 + k * (f - p - 19) / 7));
+        want.extend(f - 8..f);
+        assert_eq!(want.len(), 24);
+        assert_eq!(froms, want, "at {current}");
+    }
 }

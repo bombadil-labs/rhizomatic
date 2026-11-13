@@ -7,6 +7,10 @@
 //!
 //! Interleaved cases move the peer between two rounds, by an append or a purge (README §5.5).
 //!
+//! Every mode also gives the window of the read's operand and its raw scope (`since`, `expiresAt`,
+//! `rawMembers`; SPEC-18 §4.13 reading 41): modes 2 to 5 through a capture, mode 1 by scanning.
+//! The rails of README §9.7 for a read's window and capture are at the end of this file.
+//!
 //! The rails of README §5.8: five wrong readers that must each fail a case, a store that returns
 //! an unclosed extra, a sticky residual in both parities, the hook, refusals, a store that lies
 //! about `applied`, the fetch cache's index and arrival rules, call traces and meter deltas beside
@@ -34,10 +38,11 @@ use rhizomatic::store::{
     PurgeReport, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource,
     Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta,
 };
+use rhizomatic::store_fresh::{raw_scope, validity_window};
 use rhizomatic::store_read::{
-    fetch_scope, read_anchored, read_anchored_with_memo, read_full_surface, EvalMemo, FetchCache,
-    FinalChildMemo, FullSurfaceRequest, FullSurfaceRoute, ReadRequest, RoundMemo, RoundReport,
-    Selection, StoreReactor, StoreRead, StoreReadError, SNAPSHOT_RETRIES,
+    capture_scope, fetch_scope, read_anchored, read_anchored_with_memo, read_full_surface,
+    EvalMemo, FetchCache, FinalChildMemo, FullSurfaceRequest, FullSurfaceRoute, ReadRequest,
+    RoundMemo, RoundReport, Selection, StoreReactor, StoreRead, StoreReadError, SNAPSHOT_RETRIES,
 };
 use rhizomatic::term_json::parse_term;
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
@@ -263,6 +268,15 @@ impl Fixture {
                 .as_array()
                 .map(|rs| rs.iter().map(|r| strings(&r["anchors"])).collect())
                 .unwrap_or_default(),
+            window: Window {
+                since: e["since"].as_f64(),
+                expires_at: e["expiresAt"].as_f64(),
+                raw: if e["rawMembers"].is_array() {
+                    self.ids(&e["rawMembers"])
+                } else {
+                    Vec::new()
+                },
+            },
         }
     }
 }
@@ -378,6 +392,16 @@ struct Expect {
     scope: Vec<String>,
     members: Vec<String>,
     rounds: Vec<Vec<String>>,
+    /// The window of the operand and the raw scope (README §5.4, SPEC-18 §4.13 reading 41).
+    window: Window,
+}
+
+/// `since`, `expiresAt` and `rawMembers`: what a read's capture and window carry.
+#[derive(Debug, Clone, PartialEq, Default)]
+struct Window {
+    since: Option<f64>,
+    expires_at: Option<f64>,
+    raw: Vec<String>,
 }
 
 /// What a reader answered, in the vector's terms.
@@ -387,6 +411,8 @@ struct Answer {
     scope: Vec<String>,
     members: Vec<String>,
     rounds: Vec<Vec<String>>,
+    /// The read's window, and its capture's members when it returned a capture.
+    window: Option<Window>,
 }
 
 impl Answer {
@@ -396,6 +422,11 @@ impl Answer {
             scope: read.scope.clone(),
             members: read.members.clone(),
             rounds: read.rounds.iter().map(|r| r.anchors.clone()).collect(),
+            window: read.capture.as_ref().map(|capture| Window {
+                since: read.since,
+                expires_at: read.expires_at,
+                raw: capture.members().to_vec(),
+            }),
         }
     }
 
@@ -440,6 +471,22 @@ fn check(fx: &Fixture, label: &str, got: &Answer, e: &Expect, rounds: Rounds) {
         Rounds::Cumulative => assert_eq!(got.rounds, cumulative(&e.rounds), "{label}: rounds"),
         Rounds::None => {}
     }
+}
+
+/// `since`, `expiresAt` and `rawMembers` (README §5.4). A read with a capture carries all three;
+/// so does mode 1, by scanning.
+fn check_window(fx: &Fixture, label: &str, got: &Answer, e: &Expect) {
+    let got = got
+        .window
+        .as_ref()
+        .unwrap_or_else(|| panic!("{label}: no window"));
+    assert_eq!(got.since, e.window.since, "{label}: since");
+    assert_eq!(got.expires_at, e.window.expires_at, "{label}: expiresAt");
+    assert_eq!(
+        fx.names(&got.raw),
+        fx.names(&e.window.raw),
+        "{label}: rawMembers"
+    );
 }
 
 fn profiles() -> Vec<PushdownFields> {
@@ -563,11 +610,21 @@ fn whole_surface(fx: &Fixture, store: &MemoryStore, case: &Case) -> Answer {
     } else {
         gathered
     };
+    // The window over the members found by scanning, the raw scope over everything held.
+    let window = validity_window(members.iter().filter_map(|id| source.get(id)), case.now);
+    let held: Vec<VerifiedDelta> = fx.loaded_members();
+    let everything = scope_source(&held).unwrap();
+    let raw = scope_ids(&everything, scope.iter().map(String::as_str), None);
     Answer {
         hex: result_canonical_hex(&result),
         scope: scope.into_iter().collect(),
         members,
         rounds: Vec::new(),
+        window: Some(Window {
+            since: window.since,
+            expires_at: window.expires_at,
+            raw,
+        }),
     }
 }
 
@@ -598,6 +655,9 @@ impl Tracing {
 }
 
 impl Snapshot for Tracing {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn revision(&self) -> Revision {
         self.inner.revision()
     }
@@ -641,6 +701,9 @@ struct TracingPeer {
 }
 
 impl PeerStore for TracingPeer {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn id(&self) -> &str {
         self.inner.id()
     }
@@ -698,6 +761,9 @@ struct Double {
 }
 
 impl Snapshot for Double {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn revision(&self) -> Revision {
         self.inner.revision()
     }
@@ -922,6 +988,7 @@ fn model_read(
                 scope: asked.into_iter().collect(),
                 members,
                 rounds,
+                window: None,
             });
         }
         next = shown;
@@ -991,13 +1058,9 @@ fn every_round_case_reads_the_same_five_ways_under_every_pushdown_profile() {
         for case in &cases {
             let e = case.expect.as_ref().unwrap();
             let label = |mode: &str| format!("{}/{profile:?}/{mode}", case.name);
-            check(
-                &fx,
-                &label("whole"),
-                &whole_surface(&fx, &store, case),
-                e,
-                Rounds::None,
-            );
+            let whole = whole_surface(&fx, &store, case);
+            check(&fx, &label("whole"), &whole, e, Rounds::None);
+            check_window(&fx, &label("whole"), &whole, e);
             let mut reports: Vec<Vec<RoundReport>> = Vec::new();
             for (mode, cache, memo, rule) in ROUND_MODES {
                 let mut snapshot = peer.read().unwrap();
@@ -1007,6 +1070,7 @@ fn every_round_case_reads_the_same_five_ways_under_every_pushdown_profile() {
                     snapshot.as_ref(),
                     ReadRequest {
                         on_round: Some(&mut hook),
+                        capture: true,
                         ..request_with(&fx, case, cache, memo)
                     },
                 )
@@ -1014,6 +1078,7 @@ fn every_round_case_reads_the_same_five_ways_under_every_pushdown_profile() {
                 assert_eq!(read.revision, snapshot.revision());
                 assert_eq!(read.snapshots, 1);
                 check(&fx, &label(mode), &Answer::of(&read), e, rule);
+                check_window(&fx, &label(mode), &Answer::of(&read), e);
                 assert_eq!(seen, read.rounds, "{}: the hook", label(mode));
                 reports.push(read.rounds);
                 snapshot.release();
@@ -1587,6 +1652,9 @@ struct ScriptedPeer {
 type SharedScope = Rc<dyn Fn(&dyn Snapshot, &ScopeRequest) -> Result<ScopeResult, StoreError>>;
 
 impl PeerStore for ScriptedPeer {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn id(&self) -> &str {
         self.inner.id()
     }
@@ -1619,6 +1687,9 @@ struct Released {
 }
 
 impl Snapshot for Released {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn revision(&self) -> Revision {
         self.inner.revision()
     }
@@ -2870,7 +2941,7 @@ fn the_full_surface_read_answers_every_round_case_it_can_take() {
         assert_eq!(exporter.listings.get(), 1, "{}", case.name);
         answered += 1;
     }
-    assert_eq!((answered, refused), (18, 4));
+    assert_eq!((answered, refused), (21, 5));
 }
 
 /// A host predicate is refused before anything is listed, as `arrivalAtMost` is.
@@ -2916,4 +2987,288 @@ fn a_listed_delta_whose_id_does_not_recompute_is_refused() {
     )
     .unwrap_err();
     assert_eq!(err.store_code(), Some(StoreErrorCode::InvalidRequest));
+}
+
+// ---------------------------------------------------------------------------------------------
+// The window and the capture of a read (SPEC-18 §4.6; README §9.7)
+// ---------------------------------------------------------------------------------------------
+
+fn window_holds(got: &Answer, e: &Expect) -> bool {
+    got.window.as_ref() == Some(&e.window)
+}
+
+/// The cases at `now` 55 and 100.
+fn timed_cases(fx: &Fixture) -> Vec<Case> {
+    fx.cases("cases")
+        .into_iter()
+        .filter(|c| c.now == 55.0 || c.now == 100.0)
+        .collect()
+}
+
+fn just_below(x: f64) -> f64 {
+    let below = if x > 0.0 {
+        f64::from_bits(x.to_bits() - 1)
+    } else if x == 0.0 {
+        -f64::from_bits(1)
+    } else {
+        f64::from_bits(x.to_bits() + 1)
+    };
+    assert!(below < x);
+    below
+}
+
+/// README §9.7 "The window of a read": a read at `since`, in the middle of the window and just
+/// below `expiresAt` answers the same bytes; just below `since` and at `expiresAt` some delta of
+/// the operand has another validity. A null bound means no boundary on that side.
+#[test]
+fn a_read_answers_the_same_bytes_across_its_window() {
+    let fx = fixture();
+    let store = MemoryStore::new();
+    let peer = fx.load(&store);
+    let mut closed = 0;
+    for case in timed_cases(&fx) {
+        let e = case.expect.as_ref().unwrap();
+        let read_at = |now: f64| {
+            let snapshot = peer.read().unwrap();
+            let moved = Case {
+                now,
+                ..case.clone()
+            };
+            let read = read_anchored(snapshot.as_ref(), request(&fx, &moved, FetchCache::On))
+                .unwrap_or_else(|err| panic!("{} at {now}: {err}", case.name));
+            (result_canonical_hex(&read.result), read)
+        };
+        let (hex, read) = read_at(case.now);
+        assert_eq!(hex, e.hex, "{}", case.name);
+        assert_eq!(
+            (read.since, read.expires_at),
+            (e.window.since, e.window.expires_at),
+            "{}",
+            case.name
+        );
+        let low = e.window.since.unwrap_or(case.now - 1000.0);
+        let high = e.window.expires_at.unwrap_or(case.now + 1000.0);
+        for t in [low, (low + high) / 2.0, just_below(high)] {
+            assert_eq!(read_at(t).0, e.hex, "{} at {t}", case.name);
+        }
+        // The operand's validity changes at each bound.
+        let operand: Vec<Delta> = e
+            .members
+            .iter()
+            .map(|id| fx.by_name[&fx.name_of[id]].clone())
+            .collect();
+        let valid = |t: f64| -> Vec<bool> {
+            operand
+                .iter()
+                .map(|d| d.claims.valid_from <= t && d.claims.valid_until.is_none_or(|u| t < u))
+                .collect()
+        };
+        if let Some(since) = e.window.since {
+            assert_ne!(
+                valid(just_below(since)),
+                valid(case.now),
+                "{} below since",
+                case.name
+            );
+        }
+        if let Some(expires) = e.window.expires_at {
+            assert_ne!(
+                valid(expires),
+                valid(case.now),
+                "{} at expiresAt",
+                case.name
+            );
+        }
+        closed += usize::from(e.window.since.is_some() && e.window.expires_at.is_some());
+    }
+    assert!(
+        closed >= 4,
+        "the four reads at 55 have windows closed at both ends"
+    );
+}
+
+/// README §9.7: three wrong readers of `rounds.json`, each failing the case it names.
+#[test]
+fn wrong_windows_and_captures_fail_the_round_cases() {
+    let fx = fixture();
+    let store = MemoryStore::new();
+    let peer = fx.load(&store);
+    let read = |name: &str| {
+        let case = fx
+            .cases("cases")
+            .into_iter()
+            .find(|c| c.name == name)
+            .unwrap();
+        let snapshot = peer.read().unwrap();
+        let read = read_anchored(
+            snapshot.as_ref(),
+            ReadRequest {
+                capture: true,
+                ..request(&fx, &case, FetchCache::On)
+            },
+        )
+        .unwrap();
+        (case, read, snapshot)
+    };
+    // The standard reader holds every case named below.
+    for name in [
+        "the-whole-garden-at-55",
+        "signed-time-cuts-a-link-and-a-strike",
+        "the-whole-garden",
+    ] {
+        let (case, got, _) = read(name);
+        assert!(
+            window_holds(&Answer::of(&got), case.expect.as_ref().unwrap()),
+            "{name}"
+        );
+    }
+
+    // A window that is always open.
+    let (case, got, _) = read("the-whole-garden-at-55");
+    let mut open = Answer::of(&got);
+    if let Some(w) = open.window.as_mut() {
+        (w.since, w.expires_at) = (None, None);
+    }
+    assert!(!window_holds(&open, case.expect.as_ref().unwrap()));
+
+    // A capture whose members are the read's members.
+    let (case, got, _) = read("signed-time-cuts-a-link-and-a-strike");
+    let mut members = Answer::of(&got);
+    members.window.as_mut().unwrap().raw = got.members.clone();
+    assert!(!window_holds(&members, case.expect.as_ref().unwrap()));
+
+    // A capture over the first round's anchors only.
+    let (case, got, snapshot) = read("the-whole-garden");
+    let mut first = Answer::of(&got);
+    first.window.as_mut().unwrap().raw =
+        raw_scope(snapshot.as_ref(), &got.rounds[0].anchors).unwrap();
+    assert!(!window_holds(&first, case.expect.as_ref().unwrap()));
+}
+
+/// README §9.7 "Captures from reads": a read's capture equals the raw scope of its anchors and
+/// `capture_scope` beside it; a read that pushed nothing down makes no store call for it, and a
+/// read that pushed a selection down makes only `targets` and `negators` after its last round.
+#[test]
+fn a_reads_capture_is_its_raw_scope_and_costs_no_call_without_a_pushdown() {
+    let fx = fixture();
+    for case in fx.cases("cases") {
+        let store = MemoryStore::new();
+        let peer = fx.load(&store);
+        let traced = |capture: bool, pushdown: bool| {
+            let (tracing, _, trace) = tracing_peer(fx.load(&MemoryStore::new()));
+            let snapshot = tracing.read().unwrap();
+            let read = read_anchored(
+                snapshot.as_ref(),
+                ReadRequest {
+                    capture,
+                    selection: Selection {
+                        pushdown: pushdown.then_some(&case.pushdown),
+                        admits: None,
+                    },
+                    ..request(&fx, &case, FetchCache::On)
+                },
+            )
+            .unwrap();
+            if let Some(capture) = &read.capture {
+                assert_eq!(capture.history(), snapshot.history());
+                assert_eq!(capture.revision(), snapshot.revision());
+            }
+            let calls: Vec<&'static str> = trace.borrow().iter().map(|c| c.op).collect();
+            (read, calls)
+        };
+        let (with, calls) = traced(true, true);
+        let capture = with.capture.clone().unwrap();
+        let snapshot = peer.read().unwrap();
+        assert_eq!(
+            capture.members(),
+            raw_scope(snapshot.as_ref(), &with.scope).unwrap(),
+            "{}",
+            case.name
+        );
+        let (_, beside) = capture_scope(
+            snapshot.as_ref(),
+            &with.scope,
+            case.now,
+            Selection {
+                pushdown: Some(&case.pushdown),
+                admits: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(beside.members(), capture.members(), "{}", case.name);
+        assert_eq!(beside.anchors(), capture.anchors(), "{}", case.name);
+        assert_eq!(capture.revision(), snapshot.revision());
+        assert_eq!(
+            (capture.since(), capture.expires_at()),
+            (with.since, with.expires_at)
+        );
+        // With a pushdown: the rounds' scope calls, then id-only calls.
+        let rounds = with.rounds.len();
+        assert!(
+            calls[..rounds].iter().all(|op| *op == "scope"),
+            "{}: {calls:?}",
+            case.name
+        );
+        let pushed = case.pushdown != Pushdown::default();
+        assert!(
+            calls[rounds..]
+                .iter()
+                .all(|op| *op == "targets" || *op == "negators"),
+            "{}: {calls:?}",
+            case.name
+        );
+        assert_eq!(calls.len() > rounds, pushed, "{}: {calls:?}", case.name);
+        // With nothing pushed down: the capture costs no call.
+        let (bare, bare_calls) = traced(false, false);
+        let (captured, captured_calls) = traced(true, false);
+        assert_eq!(bare_calls, captured_calls, "{}", case.name);
+        assert!(bare.capture.is_none());
+        // Its members are the fetch cache, which is the raw scope of the read's anchors.
+        let raw = captured.capture.unwrap();
+        assert_eq!(
+            raw.members(),
+            raw_scope(snapshot.as_ref(), &captured.scope).unwrap(),
+            "{}",
+            case.name
+        );
+    }
+}
+
+/// A fetched scope answers its window at any `now` (SPEC-18 §4.13 reading 27).
+#[test]
+fn a_fetched_scope_answers_its_window_at_any_now() {
+    let fx = fixture();
+    let store = MemoryStore::new();
+    let peer = fx.load(&store);
+    for case in timed_cases(&fx) {
+        let e = case.expect.as_ref().unwrap();
+        let snapshot = peer.read().unwrap();
+        let fetched = fetch_scope(
+            snapshot.as_ref(),
+            &e.scope,
+            Selection {
+                pushdown: Some(&case.pushdown),
+                admits: None,
+            },
+        )
+        .unwrap();
+        let members: Vec<String> = fetched
+            .source
+            .ids()
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        assert_eq!(members, e.members, "{}", case.name);
+        for now in [0.0, 44.5, 55.0, 70.0, 100.0, 1e9] {
+            let scan = validity_window(members.iter().filter_map(|id| fetched.source.get(id)), now);
+            assert_eq!(fetched.validity_at(now), scan, "{} at {now}", case.name);
+        }
+        let at = fetched.validity_at(case.now);
+        assert_eq!(
+            (at.since, at.expires_at),
+            (e.window.since, e.window.expires_at),
+            "{}",
+            case.name
+        );
+    }
 }

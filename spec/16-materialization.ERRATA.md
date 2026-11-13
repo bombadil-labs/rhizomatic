@@ -361,3 +361,31 @@ text it reads and the shared step or tower that pins it.
   claims never reuse a success. The M2 call counts are therefore exact for Rust and an upper bound
   for TypeScript (`tools/measure-materialization.mjs`).
 
+## E14 — MR-10b: a scoped capture may be judged current by the change feed (SPEC-18 slice 3)
+
+- **Gap.** MR-10b made `checkCurrent` recompute the scoped revision on every check, in
+  O(|S(scope)|). SPEC-18 slice 3 gives each peer a change feed and a freshness check whose cost
+  is the changes since a capture (SPEC-18 §4.6). Plan decision O12 asked for MR-10b to allow it.
+- **Resolution.** MR-10b gains one rule: a host MAY skip the recomputation when the feed check
+  over each component's `rawIds` reports no touch, each component's `revision` changes only with
+  that scope's inventory, its own epoch for selection and authority (time dependence included)
+  has not moved, and `since ≤ servingAt < expiresAt`. Otherwise it recomputes.
+- **Why `rawIds`, not the operands.** The scoped revision hashes each component's `rawIds` and
+  the exclusions. A removed raw id that is not an operand changes them. So does an added negator
+  of an excluded raw id: it joins S(scope), and so `rawIds`. The feed check over the raw ids sees
+  both. It therefore needs the raw ids of an unfiltered id-only read; a pushed-down fetch omits
+  exactly the excluded ids.
+- **Why a window, not an expiry.** A capture judged only "before `expiresAt`" is wrong for a
+  `servingAt` earlier than the capture: an operand valid from the capture's `servingAt` is not
+  valid at an earlier time, so a recomputation would differ. The window closes both ends.
+- **Why the component revision.** The scoped revision hashes each component's `revision`. A host
+  that derives it from the revision of the whole store changes it on every commit anywhere, so
+  the feed check over the scope would call a capture current while a recomputation gives another
+  revision. Such a host must recompute.
+- **Why the host's epoch, with time.** The feed sees the store only. Trust, grants and any clock
+  other than the window live outside the capture's scope. So does any time dependence of the
+  selection or the exclusions: the window covers the operands, not an excluded raw id whose
+  validity decides whether it is excluded.
+- **No code path changes.** The rule permits a cheaper check and changes no byte. Neither witness
+  takes it yet; a host does in SPEC-18 slice 5.
+

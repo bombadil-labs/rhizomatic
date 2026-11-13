@@ -50,7 +50,13 @@ import type {
 } from "../src/storage/store.js";
 import { StoreError } from "../src/storage/store.js";
 import type { Delta } from "../src/delta/types.js";
-import { broken, stale, staleAfterSettledDebt, type Break } from "./support/broken-store.js";
+import {
+  broken,
+  sparse,
+  stale,
+  staleAfterSettledDebt,
+  type Break,
+} from "./support/broken-store.js";
 
 const vectors = storeVectors();
 
@@ -569,78 +575,6 @@ const FEED_RULES: Readonly<Record<string, Rule>> = {
 };
 
 /**
- * A store whose revisions are the memory store's times `k`: they skip values, as a store with
- * one counter for many peers would. It answers by the rules of §4.6, scaled. With
- * `partialThroughPlusOne` a partial page says `through = last + 1`, past its last record and
- * short of `to`. With `oldestKeptFloor` a `from` strictly between the newest dropped revision
- * and the oldest kept one answers `resync-required`: the floor read as the revision just before
- * the oldest kept record.
- */
-function sparse(
-  k: number,
-  quirk: {
-    partialThroughPlusOne?: boolean;
-    oldestKeptFloor?: boolean;
-    belowFloorOk?: boolean;
-  } = {},
-): Break {
-  const now = async (peer: PeerStore): Promise<number> => {
-    const snapshot = await peer.read();
-    snapshot.release();
-    return snapshot.revision;
-  };
-  return {
-    peer: (peer) => ({
-      read: async () => {
-        const snapshot = await peer.read();
-        return { ...snapshot, revision: snapshot.revision * k };
-      },
-      append: async (batch) => {
-        const result = await peer.append(batch);
-        return result.status === "committed"
-          ? { ...result, revision: result.revision * k }
-          : result;
-      },
-      purge: async (ids) => {
-        const report = await peer.purge(ids);
-        return { ...report, revision: report.revision * k };
-      },
-      changes: async (from, to) => {
-        const current = await now(peer);
-        if (to !== undefined && to < from)
-          throw new StoreError("invalid-request", "to must not be less than from");
-        if (from > k * current) return { status: "resync-required", current: k * current };
-        const inner = Math.floor(from / k);
-        const innerTo = to === undefined ? undefined : Math.floor(to / k);
-        let page = await peer.changes(inner, innerTo);
-        // The quirk: below the floor at a value the peer never had, read on from just past it.
-        // The newest dropped record is silently missing.
-        if (quirk.belowFloorOk === true && page.status === "resync-required" && from % k !== 0)
-          page = await peer.changes(inner + 1, innerTo);
-        if (page.status === "resync-required") return { ...page, current: page.current * k };
-        if (
-          quirk.oldestKeptFloor === true &&
-          from % k !== 0 &&
-          inner > 0 &&
-          (await peer.changes(inner - 1)).status === "resync-required"
-        )
-          return { status: "resync-required", current: k * current };
-        const innerEnd = Math.min(innerTo ?? current, current);
-        const end = Math.min(to ?? k * current, k * current);
-        const records = page.records.map((r) => ({ ...r, revision: r.revision * k }));
-        const through =
-          page.through === innerEnd
-            ? end
-            : quirk.partialThroughPlusOne === true
-              ? records[records.length - 1]!.revision + 1
-              : page.through * k;
-        return { status: "ok", records, through };
-      },
-    }),
-  };
-}
-
-/**
  * A right store whose pages hold at most 1, then 2, then 1, then 2 records, call by call, so
  * the same request can answer a different prefix.
  */
@@ -797,6 +731,24 @@ const SHAPES_AND_SPARSE: Readonly<Record<string, Rule>> = {
       ...sparse(3, { belowFloorOk: true }),
     },
   },
+  "the feed: revisions times 3, ok two below the floor and right one below it": {
+    doc: "scripts",
+    says: /changes answered ok from \d+, below the retention floor \d+/,
+    // Right at F − 1, wrong at F − 2: a probe of F − 1 alone passes it.
+    store: {
+      options: { changeRetention: { revisions: 2 } },
+      ...sparse(3, { belowFloorOk: 1 }),
+    },
+  },
+  "the feed: revisions times 1000, ok two below the floor and right everywhere else": {
+    doc: "scripts",
+    says: /changes answered ok from \d+, below the retention floor \d+/,
+    // F − 2 is among the last eight values the bounded probe asks.
+    store: {
+      options: { changeRetention: { revisions: 2 } },
+      ...sparse(1000, { belowFloorOk: 998 }),
+    },
+  },
   "the feed: revisions times 2, ok just below the floor without the newest dropped record": {
     doc: "scripts",
     says: /changes answered ok from \d+, below the retention floor \d+/,
@@ -846,6 +798,31 @@ const RULES: Readonly<Record<string, Rule>> = {
   ...SHARED_MESSAGES,
   ...SHAPES_AND_SPARSE,
   ...FEED_RULES,
+  // -- the history of a peer (README §1.3, "History") --
+  "two peers of one store share one history": {
+    doc: "scripts",
+    says: "two peers of one store share the history same",
+    store: { peer: () => ({ history: "same" }), snapshot: () => ({ history: "same" }) },
+  },
+  "a peer's history is empty": {
+    doc: "scripts",
+    says: "the peer's history is not a non-empty string",
+    store: { peer: () => ({ history: "" }), snapshot: () => ({ history: "" }) },
+  },
+  "a reopened handle reports another history": {
+    doc: "scripts",
+    says: /a handle of \w+ reports another history than the peer's/,
+    store: {
+      store: (store) => ({
+        peer: async (id) => ({ ...(await store.peer(id)), history: "reopened" }),
+      }),
+    },
+  },
+  "a snapshot reports another history": {
+    doc: "scripts",
+    says: /a snapshot of \w+ reports another history than the peer's/,
+    store: { snapshot: () => ({ history: "elsewhere" }) },
+  },
   // -- refusals (README §3, "Refusals") --
   "createPeer refuses with a code the step does not list": {
     doc: "scripts",
@@ -1891,6 +1868,10 @@ describe("runner rules: revisions that skip values conform", () => {
       ...sparse(2),
     },
     "pages that hold 1, then 2, then 1 record, call by call": alternatingPages(),
+    "revisions times 1000, two records kept: the probe below the floor stays bounded": {
+      options: { changeRetention: { revisions: 2 } },
+      ...sparse(1000),
+    },
     "revisions times 3, two records kept, pages of one record": {
       options: { changeRetention: { revisions: 2 }, changePageSize: 1 },
       ...sparse(3),
@@ -2216,6 +2197,11 @@ describe("runner rules: a wrong document", () => {
       vectors: feedSteps(1),
       says: "the profile's changeRetention is not none, unbounded or {revisions: n}",
       store: broken({ profile: (p) => ({ ...p, changeRetention: { revisions: 0 } }) }),
+    },
+    "a profile that keeps 2^53 records, which is not a safe integer": {
+      vectors: feedSteps(1),
+      says: "the profile's changeRetention is not none, unbounded or {revisions: n}",
+      store: broken({ profile: (p) => ({ ...p, changeRetention: { revisions: 2 ** 53 } }) }),
     },
     "a scope case without the scope of an applied subset": {
       vectors: scopeOnly((c) => ({

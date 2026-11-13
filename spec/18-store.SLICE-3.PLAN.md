@@ -107,17 +107,40 @@ change what the system promises.
 These come from the independent review of steps 1 and 3 (2026-11-13) and from the review of the
 proposal (PR #76). Each is owed by the step or slice named.
 
-### Step 5 (freshness) owes
+### Step 5 (freshness) owes — done 2026-11-13
 
-- Freshness covers `expiresAt` as well as the feed.
-- Freshness covers the inputs of the selection and of authority, not the scope alone.
-- A removed raw id that is not an operand can still change a capture. Freshness covers it.
-- An added negator of an excluded raw id can still change a capture. Freshness covers it.
-- The step states how a capture gets its raw ids: its fetch uses no pushdown, or it reads the raw
-  ids from a separate call with no selection.
+- ✓ Freshness covers time as well as the feed: a capture is valid over its window
+  `[since, expiresAt)`, and `checkFresh` answers `not-yet` or `expired` after the feed (§4.6
+  "The window"; §4.13 readings 24, 25 and 34; SPEC-16 MR-10b).
+- ✓ Freshness covers the inputs of the selection and of authority, not the scope alone. The host
+  keeps its own epoch for them (§4.6 "What the check does not cover"; SPEC-16 MR-10b, ERRATA E14).
+- ✓ A removed raw id that is not an operand can still change a capture. A capture's members are
+  the raw scope, so its removal touches (§4.6; `freshness.json` case
+  `a-selection-and-a-purged-raw-id`; SPEC-16 ERRATA E14).
+- ✓ An added negator of an excluded raw id can still change a capture. It negates a member of the
+  raw scope, so it touches (`freshness.json` case `a-selection-and-a-negator-of-a-raw-id`).
+- ✓ How a capture gets its raw ids: a read that pushed nothing down holds them in its fetch cache;
+  otherwise it reads them with id-only calls on the same snapshot, never from a pushed-down fetch
+  (§4.6; §4.13 readings 28 and 29; SPEC-16 MR-10b).
+- ✓ A capture is compared only within one history of its peer: `PeerStore.history`,
+  `Snapshot.history` and `Capture.history` (§4.6 "History"; §4.13 readings 37 to 39). Decision
+  O3's history epoch is this field.
+
+### Steps 5 and 6 (freshness, TypeScript and Rust) — done 2026-11-13
+
+- ✓ Step 5 (TypeScript) and step 6 (Rust) are built. The Rust witness was built from the
+  documents alone, and both were reviewed independently.
+- ✓ The integration aligned the two witnesses where the reviews found them apart (§4.13 readings
+  46 to 53): the maker takes a live snapshot; a repeated mint is refused; a page with no progress
+  is a store fault; `now` is finite; anchor kinds; a revision written `1.0`; the runner's message
+  for a refusal; one capture JSON, pinned by `vectors/store/capture-interchange.json`.
 
 ### Slice 4 owes
 
+- **A durable store persists each peer's history** (§4.6 "History") and gives the peer a new
+  history when the store is restored from a backup or a peer is deleted and created again. A
+  capture or a cursor from before then answers `resync-required`. It also keeps every history
+  it issued across a reopen, so a host mint that repeats is refused there too (§4.13 reading 49).
 - **Records appear in revision order** (§4.6, §4.13 reading 5). A record at revision r is visible
   only when every record at or below r is. A store open to several writing processes enforces
   this at commit. Slice 4 adds the rail; a sequential runner cannot test it.
@@ -132,6 +155,9 @@ proposal (PR #76). Each is owed by the step or slice named.
 ### Slice 6 owes
 
 - Stored views (§4.7.4) join the list of purge surfaces.
+- Value and derived-index anchors join a capture, `rawScope` and `touching`. Their fields in the
+  capture JSON are defined then; until then `parseCapture` reads only their kind (§4.13
+  reading 30).
 
 ### Done in steps 1 and 3
 

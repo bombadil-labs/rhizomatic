@@ -172,7 +172,27 @@ const recordText = (r: ChangeRecord): string =>
 const ascending = (ids: readonly string[]): boolean =>
   ids.every((id, i) => i === 0 || compareUtf8(ids[i - 1]!, id) < 0);
 
-class Run {
+/**
+ * The `from` values the check after every step asks below the floor (README §3.9.4, item 2):
+ * every integer in (p, F) when there are at most 24; otherwise the first 8, the last 8, and 8
+ * spread evenly between them: p + 9 + floor(k × (F − p − 19) / 7) for k = 0 to 7. Ascending.
+ */
+export function belowProbes(p: number, floor: number): number[] {
+  const count = floor - p - 1;
+  if (count <= 0) return [];
+  const all = (from: number, to: number): number[] =>
+    Array.from({ length: Math.max(0, to - from + 1) }, (_, i) => from + i);
+  if (count <= 24) return all(p + 1, floor - 1);
+  const span = floor - p - 19;
+  const middle = Array.from({ length: 8 }, (_, k) => p + 9 + Math.floor((k * span) / 7));
+  return [...all(p + 1, p + 8), ...middle, ...all(floor - 8, floor - 1)];
+}
+
+/**
+ * One run of steps against one store, with the runner's bookkeeping and feed model. Not part of
+ * the package surface: the freshness runner reuses it for its own documents.
+ */
+export class Run {
   private readonly corpus = new Map<string, Delta>();
   /** Peer handles by handle name, and the peer name each belongs to. */
   private readonly peers = new Map<string, PeerStore>();
@@ -184,6 +204,8 @@ class Run {
   private readonly feeds = new Map<string, Feed>();
   /** Revision names (`mark`, `revisionAs`), each with the peer it belongs to. */
   private readonly named = new Map<string, { peer: string; revision: number }>();
+  /** Each peer's history, as its first handle reported it (README §1.3, "History"). */
+  private readonly histories = new Map<string, string>();
   readonly reference: boolean;
 
   constructor(
@@ -469,9 +491,10 @@ class Run {
       if (index > 0) {
         const previous = feed.revisions[index - 1]!;
         await this.below(peer, handle, previous, floor);
-        // Where revisions skip values, a `from` just below the floor is not a revision the
-        // peer had, and it is below the floor all the same.
-        if (floor - 1 > previous) await this.below(peer, handle, floor - 1, floor);
+        // Where revisions skip values, every `from` between the previous revision and the floor
+        // is not a revision the peer had, and it is below the floor all the same.
+        for (const from of belowProbes(previous, floor))
+          await this.below(peer, handle, from, floor);
         // The floor is the newest dropped revision, not the one just before the oldest kept
         // record. Where revisions skip values the two differ, and a `from` between them is
         // above the floor.
@@ -483,6 +506,37 @@ class Run {
           );
       }
     }
+  }
+
+  /** The peer a handle belongs to. */
+  ownerOf(handle: string): string {
+    this.peer(handle);
+    return this.owners.get(handle)!;
+  }
+
+  /** The integer a revision reference names, for the peer a handle belongs to. */
+  resolve(ref: RevisionRef, handle: string): number {
+    return this.revisionOf(ref, this.ownerOf(handle));
+  }
+
+  /**
+   * The runner's own model of a peer's feed: every record since creation, kept or not, the
+   * retention floor and the current revision. Undefined when the store serves no feed.
+   */
+  model(peer: string):
+    | {
+        readonly records: readonly ChangeRecord[];
+        readonly floor: number;
+        readonly current: number;
+      }
+    | undefined {
+    const feed = this.feeds.get(peer);
+    if (feed === undefined) return undefined;
+    return {
+      records: feed.records,
+      floor: this.floor(feed).floor,
+      current: feed.revisions[feed.revisions.length - 1]!,
+    };
   }
 
   delta(name: string): Delta {
@@ -529,8 +583,18 @@ class Run {
   private async revision(peer: string): Promise<number> {
     const snapshot = await this.peer(peer).read();
     const revision = snapshot.revision;
+    this.sameHistory(peer, snapshot.history, "a snapshot");
     snapshot.release();
     return revision;
+  }
+
+  /** A handle and every snapshot of one peer report the history the peer was created with. */
+  private sameHistory(handle: string, history: unknown, what: string): void {
+    const owner = this.owners.get(handle) ?? handle;
+    check(
+      history === this.histories.get(owner),
+      `${what} of ${owner} reports another history than the peer's`,
+    );
   }
 
   /** A returned delta must be the named appearance: id, signature and claims. */
@@ -629,6 +693,16 @@ class Run {
             outcome.value.erasure.storeClass === this.store.profile.capabilities.erasure,
             "the peer did not record its store's erasure class",
           );
+          const history: unknown = outcome.value.history;
+          check(
+            typeof history === "string" && history !== "",
+            "the peer's history is not a non-empty string",
+          );
+          check(
+            ![...this.histories.values()].includes(history),
+            `two peers of one store share the history ${history}`,
+          );
+          this.histories.set(step.peer, history);
           this.peers.set(step.peer, outcome.value);
           this.owners.set(step.peer, step.peer);
           this.holdings.set(step.peer, new Map());
@@ -649,6 +723,7 @@ class Run {
         check("value" in outcome, "expected the peer to open");
         check(outcome.value.erasure.posture === step.expect.posture, "the posture differs");
         // With `handle`, the earlier handle stays in use under the peer's own name.
+        this.sameHistory(step.peer, outcome.value.history, "a handle");
         this.peers.set(step.handle ?? step.peer, outcome.value);
         this.owners.set(step.handle ?? step.peer, step.peer);
         return;
@@ -801,12 +876,15 @@ class Run {
         }
         return;
       }
-      case "read":
+      case "read": {
+        const snapshot = await this.peer(step.peer).read();
+        this.sameHistory(step.peer, snapshot.history, "a snapshot");
         this.snapshots.set(step.snapshot, {
           peer: this.owners.get(step.peer) ?? step.peer,
-          snapshot: await this.peer(step.peer).read(),
+          snapshot,
         });
         return;
+      }
       case "release":
         this.snapshot(step.snapshot).snapshot.release();
         return;
@@ -1070,7 +1148,7 @@ class Run {
  * The first requirement of a script the store's profile fails. An absent `requires` means
  * none; a name that is not a requirement is a defect of the document.
  */
-function missing(
+export function missing(
   store: Store,
   requires: readonly VectorRequirement[] | undefined,
 ): VectorRequirement | undefined {
