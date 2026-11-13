@@ -113,5 +113,6 @@ export function countingPeer(peer: PeerStore, trace: StoreCall[]): PeerStore {
     },
     append: (batch) => peer.append(batch),
     purge: (ids) => peer.purge(ids),
+    changes: (from, to) => peer.changes(from, to),
   };
 }
