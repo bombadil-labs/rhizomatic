@@ -2,18 +2,23 @@
 //! counted by holdings; membership, signatures, arrival records and both indexes are per peer.
 //! Every map is read through one counting door (`Index`), so a test can show that no core
 //! operation walks a whole map (SPEC-18 §4.11 reading 17). Only the exporter scans.
+//!
+//! Each peer also keeps its change feed (SPEC-18 §4.6, §4.13): one record per revision advance,
+//! written inside the commit. Revisions advance by one and each advance writes one record, so the
+//! record after `from` sits at a fixed offset from the oldest kept record. A bounded retention
+//! drops the oldest record from the front in O(1).
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::{Arc, Mutex};
 
 use crate::delta::compute_id;
 use crate::store::{
     negated_ids, signature_form, target_entities, Admission, Anchor, AppendResult, ArrivalRecord,
-    AtRest, ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing,
-    PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PurgeSurface, PurgeTarget,
-    Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store,
-    StoreCapabilities, StoreError, StoreErrorCode, StoreProfile, StoreWriters, SurfaceState,
-    VerifiedDelta, MAX_ARRIVAL_COUNTER, PURGE_BOUNDARY,
+    AtRest, ChangePage, ChangeRecord, ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture,
+    Exporter, Listing, PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport,
+    PurgeSurface, PurgeTarget, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult,
+    Snapshot, Store, StoreCapabilities, StoreError, StoreErrorCode, StoreProfile, StoreWriters,
+    SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
 };
 use crate::types::{Claims, Delta};
 
@@ -126,6 +131,31 @@ struct Holding {
     arrival: ArrivalRecord,
 }
 
+/// One peer's change feed. The record at index i has revision `floor + 1 + i`: every revision
+/// advance writes one record and revisions advance by one, so `from` is found by arithmetic and
+/// never by walking the feed.
+#[derive(Debug, Default)]
+struct Feed {
+    records: VecDeque<ChangeRecord>,
+    /// The revision just before the oldest kept record: the peer's first revision until a record
+    /// is dropped, then the revision of the newest dropped record.
+    floor: u64,
+}
+
+impl Feed {
+    /// Writes one record and drops the oldest past `keep`. Each drop is one pop from the front.
+    fn write(&mut self, record: ChangeRecord, keep: ChangeRetention) {
+        self.records.push_back(record);
+        if let ChangeRetention::Revisions(n) = keep {
+            while self.records.len() as u64 > n {
+                if let Some(dropped) = self.records.pop_front() {
+                    self.floor = dropped.revision.0;
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 struct PeerState {
     posture: ErasurePosture,
@@ -138,6 +168,7 @@ struct PeerState {
     negators: Index<BTreeSet<String>>,
     /// Ids this peer purged while another peer still held the bytes.
     debts: Index<()>,
+    feed: Feed,
 }
 
 #[derive(Debug)]
@@ -145,6 +176,9 @@ struct State {
     closed: bool,
     /// The pushdown fields this store applies. It ignores the others and reports so.
     pushdown: PushdownFields,
+    /// How many change records each peer keeps, and how many records one page may hold.
+    retention: ChangeRetention,
+    page_size: Option<u64>,
     meter: StoreMeter,
     stored: Index<Stored>,
     peers: Index<PeerState>,
@@ -184,6 +218,7 @@ impl State {
             meter,
             stored,
             peers,
+            retention,
             ..
         } = self;
         let Some(peer) = peers.get_mut(meter, peer_id) else {
@@ -284,6 +319,16 @@ impl State {
         }
         if head_moved || !fresh.is_empty() {
             peer.revision += 1;
+            // The record is part of the commit: it is written with the holdings and the head.
+            peer.feed.write(
+                ChangeRecord {
+                    revision: Revision(peer.revision),
+                    head: peer.head.clone(),
+                    added: fresh.keys().map(|id| id.to_string()).collect(),
+                    removed: Vec::new(),
+                },
+                *retention,
+            );
         }
         Ok(AppendResult::Committed {
             revision: Revision(peer.revision),
@@ -297,16 +342,18 @@ impl State {
             meter,
             stored,
             peers,
+            retention,
             ..
         } = self;
         let Some(peer) = peers.get_mut(meter, peer_id) else {
             return refuse(StoreErrorCode::PeerAbsent, "no such peer");
         };
         let mut targets = Vec::new();
-        let mut released = false;
+        // The ids that leave this peer's holdings, ascending. A settled debt is not one of them.
+        let mut released = Vec::new();
         for id in distinct(ids) {
             let outcome = if peer.holdings.remove(meter, id).is_some() {
-                released = true;
+                released.push(id.to_string());
                 // The stored claims name the index entries this delta made for the peer.
                 let last_holder = match stored.get_mut(meter, id) {
                     Some(kept) => {
@@ -341,8 +388,18 @@ impl State {
                 outcome,
             });
         }
-        if released {
+        if !released.is_empty() {
             peer.revision += 1;
+            // A purge does not move the head; its record carries the peer's head.
+            peer.feed.write(
+                ChangeRecord {
+                    revision: Revision(peer.revision),
+                    head: peer.head.clone(),
+                    added: Vec::new(),
+                    removed: released,
+                },
+                *retention,
+            );
         }
         let removed = targets.iter().any(|t| t.outcome == PurgeOutcome::Removed);
         let surface = |surface: &str, state| PurgeSurface {
@@ -366,6 +423,68 @@ impl State {
                 surface("index-entries", SurfaceState::Absent),
                 surface("process-memory", SurfaceState::Unprovable),
             ],
+        })
+    }
+
+    /// The records with `from < revision ≤ to` (SPEC-18 §4.6). The answers come in the order of
+    /// §4.13 reading 3: the shape of the bounds, `to` below `from`, a `from` from the future,
+    /// a `from` below the floor. Its cost is the records it returns and their ids.
+    fn changes(
+        &mut self,
+        peer_id: &str,
+        from: Revision,
+        to: Option<Revision>,
+    ) -> Result<ChangePage, StoreError> {
+        self.open()?;
+        if self.retention == ChangeRetention::None {
+            return refuse(
+                StoreErrorCode::CapabilityAbsent,
+                "this store keeps no change feed",
+            );
+        }
+        if from.0 > MAX_REVISION || to.is_some_and(|to| to.0 > MAX_REVISION) {
+            return refuse(
+                StoreErrorCode::InvalidRequest,
+                "a revision is an integer from 0 to 2^53 - 1",
+            );
+        }
+        // A defaulted `to` is never compared (reading 4).
+        if to.is_some_and(|to| to < from) {
+            return refuse(
+                StoreErrorCode::InvalidRequest,
+                "changes: `to` is below `from`",
+            );
+        }
+        let State {
+            meter,
+            peers,
+            page_size,
+            ..
+        } = self;
+        let Some(peer) = peers.get(meter, peer_id) else {
+            return refuse(StoreErrorCode::PeerAbsent, "no such peer");
+        };
+        let current = peer.revision;
+        let feed = &peer.feed;
+        if from.0 > current || from.0 < feed.floor {
+            return Ok(ChangePage::ResyncRequired {
+                current: Revision(current),
+            });
+        }
+        let end = to.map_or(current, |to| to.0.min(current));
+        let pending = end - from.0;
+        let take = page_size.map_or(pending, |size| pending.min(size));
+        // The record of revision `from + 1` sits `from - floor` places after the oldest kept.
+        let start = (from.0 - feed.floor) as usize;
+        let records = feed
+            .records
+            .range(start..start + take as usize)
+            .cloned()
+            .collect();
+        let through = if take == pending { end } else { from.0 + take };
+        Ok(ChangePage::Ok {
+            records,
+            through: Revision(through),
         })
     }
 
@@ -483,6 +602,29 @@ fn with<R>(state: &Shared, f: impl FnOnce(&mut State) -> R) -> R {
     f(&mut guard)
 }
 
+/// How a memory store is built. The default applies every pushdown field, keeps every change
+/// record and has no page limit (SPEC-18 §4.13 reading 15).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MemoryStoreOptions {
+    /// The pushdown fields it applies. It ignores the others and reports so.
+    pub pushdown: PushdownFields,
+    /// `Unbounded` or `Revisions(n)` with n of 1 or more. `None` is refused: this store serves a
+    /// change feed.
+    pub change_retention: ChangeRetention,
+    /// At most this many records in one page, 1 or more. It exists so tests exercise paging.
+    pub change_page_size: Option<u64>,
+}
+
+impl Default for MemoryStoreOptions {
+    fn default() -> Self {
+        Self {
+            pushdown: memory_store_profile().pushdown,
+            change_retention: ChangeRetention::Unbounded,
+            change_page_size: None,
+        }
+    }
+}
+
 /// The memory reference store. Handles share one state; each open store is its own state.
 #[derive(Debug, Clone)]
 pub struct MemoryStore {
@@ -490,8 +632,9 @@ pub struct MemoryStore {
     profile: StoreProfile,
 }
 
-/// The profile slice 1 implements: entity anchors, arrival records, every pushdown field, and
-/// erasure class `unprovable`. Nothing it would have to scan for.
+/// The profile the memory store implements: entity anchors, arrival records, every pushdown
+/// field, erasure class `unprovable`, and a change feed that keeps every record. Nothing it would
+/// have to scan for.
 pub fn memory_store_profile() -> StoreProfile {
     StoreProfile {
         capabilities: StoreCapabilities {
@@ -511,7 +654,7 @@ pub fn memory_store_profile() -> StoreProfile {
         },
         writers: StoreWriters::OneProcess,
         at_rest: AtRest::Trusted,
-        change_retention: ChangeRetention::None,
+        change_retention: ChangeRetention::Unbounded,
         format_version: MEMORY_STORE_FORMAT.to_string(),
     }
 }
@@ -531,19 +674,47 @@ impl MemoryStore {
     /// A new, empty store that applies only these pushdown fields. It ignores the others and
     /// reports so, as a store without the matching index would.
     pub fn with_pushdown(pushdown: PushdownFields) -> Self {
-        Self {
+        Self::with_options(MemoryStoreOptions {
+            pushdown,
+            ..MemoryStoreOptions::default()
+        })
+        .expect("the default retention and page size are legal")
+    }
+
+    /// A new, empty store built with these options. Refuses `invalid-request` for a retention of
+    /// `None` or `Revisions(0)`, and for a page size of 0.
+    pub fn with_options(options: MemoryStoreOptions) -> Result<Self, StoreError> {
+        if matches!(
+            options.change_retention,
+            ChangeRetention::None | ChangeRetention::Revisions(0)
+        ) {
+            return refuse(
+                StoreErrorCode::InvalidRequest,
+                "changeRetention is unbounded or {revisions: n} with n of 1 or more",
+            );
+        }
+        if options.change_page_size == Some(0) {
+            return refuse(
+                StoreErrorCode::InvalidRequest,
+                "changePageSize is an integer of 1 or more",
+            );
+        }
+        Ok(Self {
             state: Arc::new(Mutex::new(State {
                 closed: false,
-                pushdown,
+                pushdown: options.pushdown,
+                retention: options.change_retention,
+                page_size: options.change_page_size,
                 meter: StoreMeter::default(),
                 stored: Index::new(),
                 peers: Index::new(),
             })),
             profile: StoreProfile {
-                pushdown,
+                pushdown: options.pushdown,
+                change_retention: options.change_retention,
                 ..memory_store_profile()
             },
-        }
+        })
     }
 
     /// The index work done since the last reset.
@@ -608,6 +779,7 @@ impl Store for MemoryStore {
                     targets: Index::new(),
                     negators: Index::new(),
                     debts: Index::new(),
+                    feed: Feed::default(),
                 },
             );
             Ok(())
@@ -675,6 +847,10 @@ impl PeerStore for MemoryPeer {
 
     fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
         with(&self.state, |state| state.purge(&self.id, ids))
+    }
+
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+        with(&self.state, |state| state.changes(&self.id, from, to))
     }
 }
 

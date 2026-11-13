@@ -32,10 +32,11 @@ use std::rc::Rc;
 
 use rhizomatic::memory_store::{MemoryStore, MEMORY_STORE_FORMAT};
 use rhizomatic::store::{
-    target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ErasureClaim, ErasureClass,
-    ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter, PeerStore, PurgeOutcome,
-    PurgeReport, PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError,
-    StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER,
+    target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ErasureClaim,
+    ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter, PeerStore,
+    PurgeOutcome, PurgeReport, PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot,
+    Store, StoreError, StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta,
+    MAX_ARRIVAL_COUNTER,
 };
 use rhizomatic::store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceReport,
@@ -615,6 +616,9 @@ impl PeerStore for RigPeer {
             _ => {}
         }
         Ok(report)
+    }
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+        self.inner.changes(from, to)
     }
 }
 
@@ -1890,27 +1894,20 @@ fn the_same_answers_conform_where_no_rule_forbids_them() {
             .unwrap_or_else(|failures| panic!("{wrong:?} {setup:?}: {failures}"));
         assert_eq!(
             (report.passed.len(), report.skipped.len()),
-            (21 + 15, FEED_SCRIPTS.len()),
+            (25 + 15, 0),
             "{wrong:?}"
         );
     }
 }
 
-/// The change-feed scripts (README §3.9). This witness's stores serve no feed yet, so each is
-/// skipped for the requirement `changes`.
-const FEED_SCRIPTS: [&str; 4] = [
-    "scripts/feed-appends-and-head-only-commits",
-    "scripts/feed-purge-and-debts",
-    "scripts/feed-a-debt-ends-on-append",
-    "scripts/feed-two-peers-interleaved",
-];
-
-const PURGE_SCRIPTS: [&str; 5] = [
+const PURGE_SCRIPTS: [&str; 7] = [
     "scripts/purge",
     "scripts/purge-clears-a-debt-on-append",
     "scripts/a-snapshot-across-a-purge",
     "scripts/the-last-sequence-survives-a-purge",
     "scripts/the-last-sequence-survives-an-empty-peer",
+    "scripts/feed-purge-and-debts",
+    "scripts/feed-a-debt-ends-on-append",
 ];
 
 fn skipped(names: &[&str], missing: &str) -> Vec<SkippedScript> {
@@ -1946,11 +1943,10 @@ fn a_class_none_store_skips_the_purge_scripts() {
     );
 
     let report = run_with(W::Nothing, none, &vectors()).unwrap_or_else(|e| panic!("{e}"));
-    // A feed script lists `changes` first, so this store reports it as what it lacks.
-    let mut expected = skipped(&PURGE_SCRIPTS, "purge");
-    expected.extend(skipped(&FEED_SCRIPTS, "changes"));
-    assert_eq!(report.skipped, expected);
-    assert_eq!(report.passed.len(), 21 + 15 - PURGE_SCRIPTS.len());
+    // The two feed scripts that purge list `changes` first; this store serves a feed, so it
+    // reports `purge` as what they lack.
+    assert_eq!(report.skipped, skipped(&PURGE_SCRIPTS, "purge"));
+    assert_eq!(report.passed.len(), 25 + 15 - PURGE_SCRIPTS.len());
     assert!(report
         .passed
         .iter()
@@ -1958,10 +1954,7 @@ fn a_class_none_store_skips_the_purge_scripts() {
 
     let mut unguarded = vectors();
     for script in unguarded.scripts["scripts"].as_array_mut().unwrap() {
-        let name = format!("scripts/{}", script["name"].as_str().unwrap());
-        if !FEED_SCRIPTS.contains(&name.as_str()) {
-            script.as_object_mut().unwrap().remove("requires");
-        }
+        script.as_object_mut().unwrap().remove("requires");
     }
     let error = run_with(W::Nothing, none, &unguarded).expect_err("a purge step must fail");
     let failed: Vec<&str> = error.failures.iter().map(|f| f.name.as_str()).collect();
@@ -1980,10 +1973,11 @@ fn a_store_with_a_journal_skips_the_journal_absent_script() {
         ..PLAIN
     };
     let report = run_with(W::Nothing, journal, &vectors()).unwrap_or_else(|e| panic!("{e}"));
-    let mut expected = skipped(&["scripts/a-frame-needs-the-journal"], "journal-absent");
-    expected.extend(skipped(&FEED_SCRIPTS, "changes"));
-    assert_eq!(report.skipped, expected);
-    assert_eq!(report.passed.len(), 21 + 15 - 1);
+    assert_eq!(
+        report.skipped,
+        skipped(&["scripts/a-frame-needs-the-journal"], "journal-absent")
+    );
+    assert_eq!(report.passed.len(), 25 + 15 - 1);
 }
 
 /// README §3: each script runs on a new, empty store. A factory that hands out one store again

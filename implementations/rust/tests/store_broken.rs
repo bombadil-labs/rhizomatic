@@ -10,8 +10,8 @@ use std::rc::Rc;
 
 use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::store::{
-    Admission, Anchor, AppendResult, ArrivalRecord, ErasureClaim, ErasurePosture, Exporter,
-    Listing, PeerErasure, PeerExporter, PeerStore, PurgeReport, PushdownFields, Revision,
+    Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ErasureClaim, ErasurePosture,
+    Exporter, Listing, PeerErasure, PeerExporter, PeerStore, PurgeReport, PushdownFields, Revision,
     ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreProfile,
 };
 use rhizomatic::store_conformance::{run_store_conformance, StoreConformanceError, StoreVectors};
@@ -146,6 +146,9 @@ impl PeerStore for FaultyPeer {
             report.claim = ErasureClaim::Proven;
         }
         Ok(report)
+    }
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+        self.inner.changes(from, to)
     }
 }
 
@@ -324,7 +327,7 @@ fn failed(fault: Fault, reasons: &[&str]) -> Vec<String> {
 
 #[test]
 fn a_faithful_store_that_is_not_the_reference_passes() {
-    assert_eq!(run(Fault::None).unwrap(), 21 + 15);
+    assert_eq!(run(Fault::None).unwrap(), 25 + 15);
 }
 
 #[test]
@@ -430,6 +433,7 @@ fn a_store_that_ignores_the_head_fails_the_compare_and_set() {
             "scripts/head-compare-and-set",
             "scripts/an-older-handle-stays-valid",
             "scripts/append-checks-before-and-after-the-head",
+            "scripts/feed-appends-and-head-only-commits",
         ]
     );
 }
@@ -458,6 +462,7 @@ fn a_store_that_reports_held_ids_as_added_fails_idempotence() {
             "scripts/a-skipped-entry-spends-no-sequence",
             "scripts/the-first-appearance-is-kept",
             "scripts/append-checks-before-and-after-the-head",
+            "scripts/feed-appends-and-head-only-commits",
         ]
     );
 }
@@ -481,6 +486,8 @@ fn a_store_that_claims_proof_it_cannot_give_fails_every_purge() {
             "scripts/a-snapshot-across-a-purge",
             "scripts/the-last-sequence-survives-a-purge",
             "scripts/the-last-sequence-survives-an-empty-peer",
+            "scripts/feed-purge-and-debts",
+            "scripts/feed-a-debt-ends-on-append",
         ]
     );
 }

@@ -272,9 +272,42 @@ pub fn signature_form(sig: &str) -> bool {
 }
 
 /// A peer-local value that increases with each commit that changes the holdings or the head.
-/// Only its order inside one peer is contract.
+/// Only its order inside one peer is contract. It is an integer from 0 to [`MAX_REVISION`]
+/// (SPEC-18 §4.13 reading 1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Revision(pub u64);
+
+/// The largest revision every witness carries exactly: 2^53 − 1. A `changes` bound above it is
+/// refused `invalid-request` (SPEC-18 §4.13 reading 2).
+pub const MAX_REVISION: u64 = (1 << 53) - 1;
+
+/// One revision advance of one peer (SPEC-18 §4.6). It names ids only, never bytes or claims,
+/// and it never changes once written. Both lists are ascending by the bytes of the id.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChangeRecord {
+    /// The peer's revision after this commit.
+    pub revision: Revision,
+    /// The journal head after this commit.
+    pub head: Option<String>,
+    /// Ids this peer newly holds at this commit.
+    pub added: Vec<String>,
+    /// Ids this peer stopped holding at this commit. A settled debt is never here.
+    pub removed: Vec<String>,
+}
+
+/// One answer of `changes` (SPEC-18 §4.6). `ResyncRequired` is a result, not a refusal: the
+/// caller drops what it derived and reads again from `current`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ChangePage {
+    /// Every record in `(from, through]`, ascending by revision. `through` is the clamped `to`
+    /// when the page holds the whole range, and otherwise the revision of its last record.
+    Ok {
+        records: Vec<ChangeRecord>,
+        through: Revision,
+    },
+    /// `from` is below the retention floor, or later than the current revision.
+    ResyncRequired { current: Revision },
+}
 
 /// Anything a store can turn into delta ids from an index (SPEC-18 §4.7.1). Slice 1 has entity
 /// anchors only, so no store can meet a kind it has no index for. When a kind is added, a store
@@ -449,6 +482,13 @@ pub trait PeerStore {
     fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError>;
     /// The only operation that removes a delta from a peer.
     fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError>;
+    /// The change records with `from < revision ≤ to`, from the peer's current feed, not a
+    /// snapshot (SPEC-18 §4.6, §4.13). `to` defaults to the current revision and is clamped to
+    /// it. The answers, in order: a bound above [`MAX_REVISION`] and an explicit `to` below
+    /// `from` refuse `invalid-request`; a `from` later than the current revision, then a `from`
+    /// below the retention floor, answer `ResyncRequired`. A store whose retention is `None`
+    /// refuses `capability-absent`.
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError>;
 }
 
 /// A view of one peer at one revision (SPEC-18 §4.2). `revision`, `head` and `count` are fixed

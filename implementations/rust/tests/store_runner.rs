@@ -13,9 +13,9 @@ use std::rc::Rc;
 
 use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::store::{
-    Admission, AppendResult, ArrivalRecord, ErasureClaim, ErasureClass, ErasurePosture, Exporter,
-    PeerErasure, PeerStore, PurgeReport, Revision, ScopeRequest, ScopeResult, Snapshot, Store,
-    StoreError, StoreErrorCode, StoreProfile, SurfaceState,
+    Admission, AppendResult, ArrivalRecord, ChangePage, ErasureClaim, ErasureClass, ErasurePosture,
+    Exporter, PeerErasure, PeerStore, PurgeReport, Revision, ScopeRequest, ScopeResult, Snapshot,
+    Store, StoreError, StoreErrorCode, StoreProfile, SurfaceState,
 };
 use rhizomatic::store_conformance::{run_store_conformance, StoreConformanceError, StoreVectors};
 use rhizomatic::types::Delta;
@@ -179,6 +179,9 @@ impl PeerStore for StandinPeer {
         }
         Ok(report)
     }
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+        self.inner.changes(from, to)
+    }
 }
 
 struct StandinSnapshot {
@@ -247,28 +250,10 @@ fn vectors() -> StoreVectors {
     }
 }
 
-/// The change-feed scripts (README §3.9). This witness's stores serve no feed yet, so each is
-/// skipped for the requirement `changes`.
-const FEED_SCRIPTS: [&str; 4] = [
-    "scripts/feed-appends-and-head-only-commits",
-    "scripts/feed-purge-and-debts",
-    "scripts/feed-a-debt-ends-on-append",
-    "scripts/feed-two-peers-interleaved",
-];
-
 fn run(quirk: Quirk) -> Result<usize, StoreConformanceError> {
     let factory = || Ok(Box::new(Standin::new(quirk)) as Box<dyn Store>);
     run_store_conformance(&factory, &vectors()).map(|report| {
-        let skipped: Vec<(&str, &str)> = report
-            .skipped
-            .iter()
-            .map(|s| (s.name.as_str(), s.missing.as_str()))
-            .collect();
-        assert_eq!(
-            skipped,
-            FEED_SCRIPTS.map(|name| (name, "changes")),
-            "{quirk:?}"
-        );
+        assert_eq!(report.skipped, vec![], "{quirk:?}");
         report.passed.len()
     })
 }
@@ -287,25 +272,27 @@ fn failed(quirk: Quirk, reason: &str) -> Vec<String> {
     error.failures.into_iter().map(|f| f.name).collect()
 }
 
-const PURGES_THAT_REMOVE: [&str; 5] = [
+const PURGES_THAT_REMOVE: [&str; 7] = [
     "scripts/purge",
     "scripts/purge-clears-a-debt-on-append",
     "scripts/a-snapshot-across-a-purge",
     "scripts/the-last-sequence-survives-a-purge",
     "scripts/the-last-sequence-survives-an-empty-peer",
+    "scripts/feed-purge-and-debts",
+    "scripts/feed-a-debt-ends-on-append",
 ];
 
 /// §3.1: with `unlessStoreErasure: proven`, a proven store creates the peer that an unprovable
 /// store refuses. §3.4: where a target is removed, a proven store's claim is `proven`.
 #[test]
 fn a_proven_store_passes_and_creates_the_peer_that_promises_proof() {
-    assert_eq!(run(Quirk::None).unwrap(), 21 + 15);
+    assert_eq!(run(Quirk::None).unwrap(), 25 + 15);
 }
 
 /// §3.4: "where E is `proven`, `unproven` also conforms."
 #[test]
 fn a_proven_store_may_claim_less() {
-    assert_eq!(run(Quirk::ClaimsLess).unwrap(), 21 + 15);
+    assert_eq!(run(Quirk::ClaimsLess).unwrap(), 25 + 15);
 }
 
 /// §3.4: "If `claim` is `proven`: the surface list is not empty and every state is `absent`."
@@ -329,7 +316,12 @@ fn unproven_does_not_stand_in_for_nothing_removed() {
     let names = failed(Quirk::UnprovenForNothing, reason);
     assert_eq!(
         names,
-        ["scripts/purge", "scripts/purge-clears-a-debt-on-append"]
+        [
+            "scripts/purge",
+            "scripts/purge-clears-a-debt-on-append",
+            "scripts/feed-purge-and-debts",
+            "scripts/feed-a-debt-ends-on-append",
+        ]
     );
 }
 
@@ -374,6 +366,7 @@ fn a_conflict_does_not_move_the_revision() {
             "scripts/head-compare-and-set",
             "scripts/an-older-handle-stays-valid",
             "scripts/append-checks-before-and-after-the-head",
+            "scripts/feed-appends-and-head-only-commits",
         ]
     );
 }

@@ -7,6 +7,10 @@
 //! for the store only where this witness's types cannot hold the vector's value (`1.5`, `-1`, a
 //! missing posture); a value a `u64` holds, 2^53 included, goes to the store. Each check has its
 //! own message, and `tests/store_runner_rules.rs` holds the runner to every one (§8).
+//!
+//! On a store that serves a change feed, the runner keeps its own model of each peer's feed
+//! (§3.9.2), checks that each commit wrote exactly its record (§3.9.3), and reads each peer's
+//! whole kept feed after every step (§3.9.4). `tests/store_feed_rules.rs` holds those checks.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -16,10 +20,10 @@ use serde_json::Value;
 use crate::delta::compute_id;
 use crate::json_profile::parse_claims;
 use crate::store::{
-    negated_ids, target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangeRetention,
-    ErasureClaim, ErasureClass, ErasurePosture, PeerStore, Pushdown, PushdownFields, Revision,
-    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
-    SurfaceState, VerifiedDelta, PURGE_BOUNDARY,
+    negated_ids, target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage,
+    ChangeRecord, ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, PeerStore, Pushdown,
+    PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError,
+    StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta, PURGE_BOUNDARY,
 };
 use crate::types::Delta;
 
@@ -260,6 +264,210 @@ fn scope_over(entities: &BTreeSet<&str>, members: &[&VerifiedDelta]) -> Vec<Stri
     scope.into_iter().map(str::to_string).collect()
 }
 
+/// How many change records a store keeps per peer, as its profile declares (§1.6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Keep {
+    /// `none`: the store serves no feed, and the runner makes no feed check.
+    NoFeed,
+    All,
+    Last(u64),
+    /// Not `none`, `unbounded` or `{revisions: n}` with n of 1 or more.
+    Malformed,
+}
+
+impl Keep {
+    fn of(retention: ChangeRetention) -> Self {
+        match retention {
+            ChangeRetention::None => Self::NoFeed,
+            ChangeRetention::Unbounded => Self::All,
+            ChangeRetention::Revisions(0) => Self::Malformed,
+            ChangeRetention::Revisions(n) => Self::Last(n),
+        }
+    }
+}
+
+/// The runner's model of one peer's feed (§3.9.2).
+#[derive(Debug, Default)]
+struct FeedModel {
+    /// The revision at creation, then the revision after each advance.
+    revisions: Vec<Revision>,
+    /// One expected record per advance, also the ones a bounded store has dropped.
+    records: Vec<ChangeRecord>,
+    head: Option<String>,
+    ever_held: BTreeSet<String>,
+    /// Each record as a page read first returned it, by revision.
+    seen: BTreeMap<Revision, ChangeRecord>,
+}
+
+impl FeedModel {
+    fn current(&self) -> Revision {
+        *self
+            .revisions
+            .last()
+            .expect("a model starts with the revision at creation")
+    }
+
+    /// How many records the store dropped, and the floor: the revision at creation when it
+    /// dropped none, and otherwise the revision of the newest dropped record.
+    fn floor(&self, keep: Keep) -> (usize, Revision) {
+        let kept = match keep {
+            Keep::Last(n) => self.records.len().min(n as usize),
+            _ => self.records.len(),
+        };
+        let dropped = self.records.len() - kept;
+        (dropped, self.revisions[dropped])
+    }
+
+    fn record(&self, revision: Revision) -> Option<&ChangeRecord> {
+        self.records
+            .binary_search_by_key(&revision, |record| record.revision)
+            .ok()
+            .map(|at| &self.records[at])
+    }
+
+    /// Check 1 of §3.9.3 and check 4 of §3.9.5.
+    fn names_only_held(&self, peer: &str, records: &[ChangeRecord]) -> Check {
+        for record in records {
+            for id in record.added.iter().chain(&record.removed) {
+                if !self.ever_held.contains(id) {
+                    return Err(format!(
+                        "the feed of {peer} names {id}, which {peer} never held"
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Check 2 of §3.9.3 and check 7 of §3.9.5.
+fn ids_ascending(records: &[ChangeRecord]) -> Check {
+    for record in records {
+        for ids in [&record.added, &record.removed] {
+            if ids.windows(2).any(|pair| pair[0] >= pair[1]) {
+                return Err("a record's ids are not ascending and distinct".into());
+            }
+        }
+    }
+    Ok(())
+}
+
+fn changes_refused(e: StoreError) -> String {
+    format!("changes refused with {}", e.code.as_str())
+}
+
+fn revisions_of(records: &[ChangeRecord]) -> Vec<u64> {
+    records.iter().map(|record| record.revision.0).collect()
+}
+
+/// What a read of pages ended with (§3.9.5).
+enum Pages {
+    Ok(Vec<ChangeRecord>),
+    Resync,
+}
+
+/// Reads the pages from `from` to `to` and checks each one (§3.9.5).
+fn read_pages(
+    store: &dyn PeerStore,
+    peer: &str,
+    model: &mut FeedModel,
+    from: Revision,
+    to: Option<Revision>,
+) -> Check<Pages> {
+    let current = model.current();
+    let end = to.map_or(current, |to| to.min(current));
+    let mut at = from;
+    let mut collected = Vec::new();
+    loop {
+        let (records, through) = match store.changes(at, to).map_err(changes_refused)? {
+            ChangePage::ResyncRequired { current: c } if at == from => {
+                if c != current {
+                    return Err(format!(
+                        "a resync answer carries current {}, not the peer's revision {}",
+                        c.0, current.0
+                    ));
+                }
+                return Ok(Pages::Resync);
+            }
+            ChangePage::ResyncRequired { .. } => {
+                return Err("changes answered resync-required in the middle of a range".into())
+            }
+            ChangePage::Ok { records, through } => (records, through),
+        };
+        model.names_only_held(peer, &records)?;
+        if records
+            .windows(2)
+            .any(|pair| pair[0].revision >= pair[1].revision)
+        {
+            return Err("the page's records are not ascending by revision".into());
+        }
+        if records.iter().any(|r| r.revision <= at || r.revision > end) {
+            return Err(format!(
+                "a record lies outside the range ({}, {}]",
+                at.0, end.0
+            ));
+        }
+        ids_ascending(&records)?;
+        let last = records.last().map_or(at, |record| record.revision);
+        if through < last || through > end {
+            return Err(format!(
+                "the page's through {} lies outside [{}, {}]",
+                through.0, last.0, end.0
+            ));
+        }
+        for expected in model.records.iter() {
+            let r = expected.revision;
+            if r > at && r <= last && !records.iter().any(|got| got.revision == r) {
+                return Err(format!("the feed has no record for revision {}", r.0));
+            }
+            if r > last && r <= through {
+                return Err(format!(
+                    "the page claims through {} and leaves out the record at {}",
+                    through.0, r.0
+                ));
+            }
+        }
+        if through <= at && at != end {
+            return Err(format!(
+                "the page from {} made no progress toward {}",
+                at.0, end.0
+            ));
+        }
+        if through != last && through != end {
+            return Err(format!(
+                "the page's through {} is past its last record and short of {}",
+                through.0, end.0
+            ));
+        }
+        for record in &records {
+            let r = record.revision;
+            match model.seen.get(&r) {
+                Some(first) if first != record => {
+                    return Err(format!(
+                        "the record at revision {} changed after it was written",
+                        r.0
+                    ))
+                }
+                Some(_) => {}
+                None => {
+                    model.seen.insert(r, record.clone());
+                }
+            }
+            if model.record(r) != Some(record) {
+                return Err(format!(
+                    "the record at revision {} differs from its commit",
+                    r.0
+                ));
+            }
+        }
+        collected.extend(records);
+        if through == end {
+            return Ok(Pages::Ok(collected));
+        }
+        at = through;
+    }
+}
+
 /// One store under test, with the runner's own record of what each peer admitted (§3.3).
 struct Run<'a> {
     corpus: &'a Corpus,
@@ -271,6 +479,11 @@ struct Run<'a> {
     handles: BTreeMap<String, (String, Box<dyn PeerStore>)>,
     snapshots: BTreeMap<String, (String, Box<dyn Snapshot>)>,
     books: BTreeMap<String, BTreeMap<String, VerifiedDelta>>,
+    keep: Keep,
+    /// The feed model of each peer the run created, by peer name (§3.9.2).
+    feeds: BTreeMap<String, FeedModel>,
+    /// Each revision name, with the peer it belongs to and the revision it stands for (§3.9.6).
+    names: BTreeMap<String, (String, Revision)>,
 }
 
 /// The codes an `expect` accepts as a refusal (§3, "Refusals"): one code, or a list when several
@@ -407,11 +620,14 @@ impl<'a> Run<'a> {
         Ok(Self {
             corpus,
             reference: profile.format_version == corpus.reference_format,
+            keep: Keep::of(profile.change_retention),
             profile,
             store,
             handles: BTreeMap::new(),
             snapshots: BTreeMap::new(),
             books: BTreeMap::new(),
+            feeds: BTreeMap::new(),
+            names: BTreeMap::new(),
         })
     }
 
@@ -424,8 +640,6 @@ impl<'a> Run<'a> {
             let holds = match requirement.as_str() {
                 "purge" => self.profile.capabilities.erasure != ErasureClass::None,
                 "journal-absent" => !self.profile.capabilities.journal,
-                // The change feed (README §3.9). This runner has no feed steps yet (slice 3
-                // step 4); its stores serve no feed, so it skips the feed scripts.
                 "changes" => self.profile.change_retention != ChangeRetention::None,
                 other => return Err(format!("unknown script requirement `{other}`")),
             };
@@ -487,12 +701,254 @@ impl<'a> Run<'a> {
             })
     }
 
-    /// Runs steps in order and stops at the first that fails, naming its index.
+    /// Runs steps in order and stops at the first that fails, naming its index. After every
+    /// step, each peer's whole kept feed is read and checked (§3.9.4).
     fn steps(&mut self, steps: &[Value]) -> Result<(), (Option<usize>, String)> {
         for (i, step) in steps.iter().enumerate() {
-            self.step(step).map_err(|message| (Some(i), message))?;
+            self.step(step)
+                .and_then(|()| self.check_feeds())
+                .map_err(|message| (Some(i), message))?;
         }
         Ok(())
+    }
+
+    fn feed(&self) -> bool {
+        self.keep != Keep::NoFeed
+    }
+
+    /// The check after every step (§3.9.4), through the handle under each peer's own name.
+    fn check_feeds(&mut self) -> Check {
+        if !self.feed() {
+            return Ok(());
+        }
+        let keep = self.keep;
+        for (peer, model) in self.feeds.iter_mut() {
+            let store = self
+                .handles
+                .get(peer)
+                .map(|(_, handle)| handle.as_ref())
+                .ok_or_else(|| format!("the script has no handle named {peer}"))?;
+            let (dropped, floor) = model.floor(keep);
+            if let Pages::Resync = read_pages(store, peer, model, floor, None)? {
+                return Err(format!(
+                    "changes answered resync-required from {}, and every record after {} is retained",
+                    floor.0, floor.0
+                ));
+            }
+            if dropped > 0 {
+                let below = model.revisions[dropped - 1];
+                if let ChangePage::Ok { .. } =
+                    store.changes(below, None).map_err(changes_refused)?
+                {
+                    return Err(format!(
+                        "changes answered ok from {}, below the retention floor {}",
+                        below.0, floor.0
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Gives a revision name to one peer's revision (§3.9.6).
+    fn name_revision(&mut self, name: &str, peer: &str, revision: Revision) -> Check {
+        if self.names.contains_key(name) {
+            return Err(format!("the vector names revision {name} twice"));
+        }
+        self.names
+            .insert(name.to_string(), (peer.to_string(), revision));
+        Ok(())
+    }
+
+    /// `revisionAs` on an append or a purge: the peer's revision after the step.
+    fn name_step(&mut self, step: &Value, peer: &str, after: Revision) -> Check {
+        match step.get("revisionAs") {
+            Some(_) => self.name_revision(text(step, "revisionAs")?, peer, after),
+            None => Ok(()),
+        }
+    }
+
+    /// A revision name of this peer, without `ahead`.
+    fn named(&self, name: &str, peer: &str) -> Check<Revision> {
+        let (owner, revision) = self
+            .names
+            .get(name)
+            .ok_or_else(|| format!("the vector names an unknown revision {name}"))?;
+        if owner != peer {
+            return Err(format!("the vector names revision {name} of another peer"));
+        }
+        Ok(*revision)
+    }
+
+    /// A revision reference: `{"revision": <name>}`, optionally with `"ahead": k`.
+    fn reference(&self, v: &Value, peer: &str) -> Check<Revision> {
+        let revision = self.named(text(v, "revision")?, peer)?;
+        let ahead = match v.get("ahead") {
+            Some(_) => whole(v, "ahead")?,
+            None => 0,
+        };
+        Ok(Revision(revision.0 + ahead))
+    }
+
+    fn mark(&mut self, step: &Value) -> Check {
+        let handle = text(step, "peer")?;
+        if !self.handles.contains_key(handle) {
+            return Err(format!("the vector uses peer {handle} before creating it"));
+        }
+        let revision = self.revision(handle)?;
+        let peer = self.peer_name(handle)?;
+        self.name_revision(text(step, "as")?, &peer, revision)
+    }
+
+    /// The check of each commit (§3.9.3): every append and every purge, after the model has
+    /// taken the step.
+    fn check_commit(&mut self, handle: &str, before: Revision, after: Revision) -> Check {
+        if !self.feed() {
+            return Ok(());
+        }
+        let peer = self.peer_name(handle)?;
+        let store = self.peer(handle)?;
+        let mut records = Vec::new();
+        let mut at = before;
+        loop {
+            match store.changes(at, None).map_err(changes_refused)? {
+                ChangePage::Ok {
+                    records: page,
+                    through,
+                } => {
+                    records.extend(page);
+                    if through >= after || through <= at {
+                        break;
+                    }
+                    at = through;
+                }
+                ChangePage::ResyncRequired { .. } => {
+                    return Err("changes from the revision before a commit is not ok".into())
+                }
+            }
+        }
+        let model = self
+            .feeds
+            .get(&peer)
+            .ok_or_else(|| format!("the vector uses peer {peer} before creating it"))?;
+        model.names_only_held(&peer, &records)?;
+        ids_ascending(&records)?;
+        if after == before {
+            if !records.is_empty() {
+                return Err("a step that did not advance the revision wrote a record".into());
+            }
+            return Ok(());
+        }
+        let r = after.0;
+        let want = model
+            .record(after)
+            .ok_or_else(|| format!("the runner has no record for revision {r}"))?;
+        if records.is_empty() {
+            return Err(match want.added.is_empty() && want.removed.is_empty() {
+                true => format!("the head-only commit to revision {r} wrote no record"),
+                false => format!("the commit to revision {r} wrote no record"),
+            });
+        }
+        if records.len() != 1 || records[0].revision != after {
+            return Err(format!(
+                "the commit to revision {r} wrote records at {:?}",
+                revisions_of(&records)
+            ));
+        }
+        let got = &records[0];
+        if got.head != want.head {
+            return Err(format!(
+                "the record of revision {r} has head {:?}, expected {:?}",
+                got.head, want.head
+            ));
+        }
+        if got.added != want.added {
+            return Err(format!(
+                "the record of revision {r} adds {:?}, expected {:?}",
+                got.added, want.added
+            ));
+        }
+        if got.removed != want.removed {
+            return Err(format!(
+                "the record of revision {r} removes {:?}, expected {:?}",
+                got.removed, want.removed
+            ));
+        }
+        Ok(())
+    }
+
+    /// A `changes` step (§3.9.6).
+    fn changes(&mut self, step: &Value) -> Check {
+        let handle = text(step, "peer")?;
+        let peer = self.peer_name(handle)?;
+        let from = self.reference(field(step, "from")?, &peer)?;
+        let to = match step.get("to") {
+            Some(to) => Some(self.reference(to, &peer)?),
+            None => None,
+        };
+        let expect = field(step, "expect")?;
+        if let Some(codes) = codes_of(expect) {
+            return refused("changes", self.peer(handle)?.changes(from, to), &codes);
+        }
+        if !self.feed() {
+            return Err("a changes step on a store that serves no feed".into());
+        }
+        let resync = match text(expect, "status")? {
+            "ok" => false,
+            "resync-required" => true,
+            other => return Err(format!("the vector expects changes status `{other}`")),
+        };
+        let want = match resync {
+            true => Vec::new(),
+            false => list(expect, "records")?
+                .iter()
+                .map(|record| self.expected_record(record, &peer))
+                .collect::<Check<Vec<_>>>()?,
+        };
+        let keep = self.keep;
+        let store = self
+            .handles
+            .get(handle)
+            .map(|(_, handle)| handle.as_ref())
+            .ok_or_else(|| format!("the script has no handle named {handle}"))?;
+        let model = self
+            .feeds
+            .get_mut(&peer)
+            .ok_or_else(|| format!("the vector uses peer {peer} before creating it"))?;
+        let (_, floor) = model.floor(keep);
+        let below = from < floor;
+        match (resync || below, read_pages(store, &peer, model, from, to)?) {
+            (true, Pages::Resync) => Ok(()),
+            (true, Pages::Ok(_)) if below => Err(format!(
+                "changes answered ok from {}, below the retention floor {}",
+                from.0, floor.0
+            )),
+            (true, Pages::Ok(_)) => Err(format!(
+                "changes answered ok from {}, and the step expects resync-required",
+                from.0
+            )),
+            (false, Pages::Resync) => Err(format!(
+                "changes answered resync-required from {}, and every record after {} is retained",
+                from.0, from.0
+            )),
+            (false, Pages::Ok(got)) if got == want => Ok(()),
+            (false, Pages::Ok(got)) => Err(format!(
+                "changes answered the records of {:?}, expected {:?}",
+                revisions_of(&got),
+                revisions_of(&want)
+            )),
+        }
+    }
+
+    /// A record a `changes` step names: its revision is a name of this peer, its ids corpus
+    /// names.
+    fn expected_record(&self, v: &Value, peer: &str) -> Check<ChangeRecord> {
+        Ok(ChangeRecord {
+            revision: self.named(text(v, "revision")?, peer)?,
+            head: field(v, "head")?.as_str().map(str::to_string),
+            added: self.corpus.ids(v, "added")?,
+            removed: self.corpus.ids(v, "removed")?,
+        })
     }
 
     fn step(&mut self, step: &Value) -> Check {
@@ -538,6 +994,8 @@ impl<'a> Run<'a> {
                 }
                 Err(format!("expected count {want}, the snapshot has {got}"))
             }
+            "mark" => self.mark(step),
+            "changes" => self.changes(step),
             "get" => self.get(step),
             "arrivals" => self.arrivals(step),
             "targets" | "negators" => self.index_read(step),
@@ -564,6 +1022,11 @@ impl<'a> Run<'a> {
 
     fn create_peer(&mut self, step: &Value) -> Check {
         let name = text(step, "peer")?;
+        if self.keep == Keep::Malformed {
+            return Err(
+                "the profile's changeRetention is not none, unbounded or {revisions: n}".into(),
+            );
+        }
         // A missing posture, or a value that is not one, cannot reach a typed store.
         let posture = match step.get("erasure").and_then(Value::as_str) {
             Some("proven") => Ok(ErasurePosture::Proven),
@@ -598,6 +1061,16 @@ impl<'a> Run<'a> {
         }
         self.handles
             .insert(name.to_string(), (name.to_string(), handle));
+        if self.feed() {
+            let revision = self.revision(name)?;
+            self.feeds.insert(
+                name.to_string(),
+                FeedModel {
+                    revisions: vec![revision],
+                    ..FeedModel::default()
+                },
+            );
+        }
         Ok(())
     }
 
@@ -694,28 +1167,49 @@ impl<'a> Run<'a> {
         let after = self.revision(name)?;
         if let Some(codes) = codes_of(expect) {
             refused("append", result, &codes)?;
-            return Self::moved("append", expect, before, after);
+            Self::moved("append", expect, before, after)?;
+            return self.check_commit(name, before, after);
         }
         let added_entries = batch.map(|batch| batch.added).unwrap_or_default();
         let result =
             result.map_err(|e| format!("append refused `{}`: {}", e.code.as_str(), e.message))?;
         match (text(expect, "status")?, result) {
-            ("conflict", AppendResult::Conflict) => Self::moved("append", expect, before, after),
+            ("conflict", AppendResult::Conflict) => {
+                Self::moved("append", expect, before, after)?;
+                self.check_commit(name, before, after)
+            }
             ("committed", AppendResult::Committed { revision, added }) => {
-                same_ids("append added", &added, &self.corpus.ids(expect, "added")?)?;
+                let want = self.corpus.ids(expect, "added")?;
+                same_ids("append added", &added, &want)?;
                 if revision != after {
                     return Err(
                         "the append result's revision is not the peer's revision after it".into(),
                     );
                 }
                 Self::moved("append", expect, before, after)?;
-                let book = self.books.entry(self.peer_name(name)?).or_default();
-                for id in added {
-                    if let Some(first) = added_entries.iter().find(|entry| entry.delta.id == id) {
-                        book.insert(id, first.clone());
+                let peer = self.peer_name(name)?;
+                let book = self.books.entry(peer.clone()).or_default();
+                for id in &added {
+                    if let Some(first) = added_entries.iter().find(|entry| entry.delta.id == *id) {
+                        book.insert(id.clone(), first.clone());
                     }
                 }
-                Ok(())
+                let next_head = text(step, "nextHead")?.to_string();
+                if let Some(model) = self.feeds.get_mut(&peer) {
+                    model.head = Some(next_head.clone());
+                    model.ever_held.extend(added);
+                    if after > before {
+                        model.revisions.push(after);
+                        model.records.push(ChangeRecord {
+                            revision: after,
+                            head: Some(next_head),
+                            added: want,
+                            removed: Vec::new(),
+                        });
+                    }
+                }
+                self.name_step(step, &peer, after)?;
+                self.check_commit(name, before, after)
             }
             (want, got) => Err(format!(
                 "append: expected status `{want}`, the store answered {got:?}"
@@ -817,12 +1311,37 @@ impl<'a> Run<'a> {
                 ));
             }
         }
-        if let Some(book) = self.books.get_mut(&self.peer_name(name)?) {
+        let peer = self.peer_name(name)?;
+        // What left the holdings: the targets the bookkeeping held when the purge began. The
+        // outcome alone does not decide, because a settled debt is also `removed` (§3.9.2).
+        let released: Vec<String> = report
+            .targets
+            .iter()
+            .filter(|t| {
+                self.books
+                    .get(&peer)
+                    .is_some_and(|book| book.contains_key(&t.id))
+            })
+            .map(|t| t.id.clone())
+            .collect();
+        if let Some(book) = self.books.get_mut(&peer) {
             for target in &report.targets {
                 book.remove(&target.id);
             }
         }
-        Ok(())
+        if let Some(model) = self.feeds.get_mut(&peer) {
+            if after > before {
+                model.revisions.push(after);
+                model.records.push(ChangeRecord {
+                    revision: after,
+                    head: model.head.clone(),
+                    added: Vec::new(),
+                    removed: released,
+                });
+            }
+        }
+        self.name_step(step, &peer, after)?;
+        self.check_commit(name, before, after)
     }
 
     fn get(&self, step: &Value) -> Check {

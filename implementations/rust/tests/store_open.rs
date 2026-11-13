@@ -83,8 +83,9 @@ fn held(deltas: &[Delta]) -> Vec<VerifiedDelta> {
         .collect()
 }
 
+/// The memory profile: slice 1's, and from slice 3 a change feed that keeps every record.
 #[test]
-fn memory_opens_a_new_empty_store_with_the_slice_1_profile() {
+fn memory_opens_a_new_empty_store_with_its_profile() {
     let store = open_store("memory:", &OpenOptions::default()).unwrap();
     assert_eq!(
         *store.profile(),
@@ -106,7 +107,7 @@ fn memory_opens_a_new_empty_store_with_the_slice_1_profile() {
             },
             writers: StoreWriters::OneProcess,
             at_rest: AtRest::Trusted,
-            change_retention: ChangeRetention::None,
+            change_retention: ChangeRetention::Unbounded,
             format_version: "rhizomatic.store.memory/1".into(),
         }
     );
@@ -238,7 +239,10 @@ fn a_factory_failure_names_the_scheme_only() {
 fn open_refuses_a_store_that_lacks_a_requirement_and_closes_it() {
     use StoreRequirement::*;
     let profile = memory_store_profile();
-    assert_eq!(missing_requirements(&profile, &[Arrival, Purge]), []);
+    assert_eq!(
+        missing_requirements(&profile, &[Arrival, Purge, Changes]),
+        []
+    );
     let all = [
         Values,
         Arrival,
@@ -256,14 +260,10 @@ fn open_refuses_a_store_that_lacks_a_requirement_and_closes_it() {
         Views,
         DerivedIndexes,
         Digest,
-        Changes,
         ErasureProven,
     ];
     assert_eq!(missing_requirements(&profile, &all), missing);
-    assert_eq!(
-        missing_requirements(&profile, &[Changes, Changes]),
-        [Changes]
-    );
+    assert_eq!(missing_requirements(&profile, &[Digest, Digest]), [Digest]);
     assert!(open_store(
         "memory:",
         &OpenOptions {
@@ -287,12 +287,13 @@ fn open_refuses_a_store_that_lacks_a_requirement_and_closes_it() {
         "views",
         "derivedIndexes",
         "digest",
-        "changes",
         "erasure-proven",
     ] {
         assert!(refusal.message.contains(name), "{refusal} lacks {name}");
     }
-    assert!(!refusal.message.contains("arrival") && !refusal.message.contains("purge"));
+    for held in ["arrival", "purge", "changes"] {
+        assert!(!refusal.message.contains(held), "{refusal} names {held}");
+    }
 
     // The refused store is closed, not leaked open.
     let kept = MemoryStore::new();
@@ -307,7 +308,7 @@ fn open_refuses_a_store_that_lacks_a_requirement_and_closes_it() {
         )
         .unwrap();
     let options = OpenOptions {
-        requires: vec![Changes],
+        requires: vec![Digest],
     };
     assert_eq!(
         code(schemes.open("kept:x", &options)),
