@@ -304,11 +304,21 @@ type ChangePage =
   and the head. A refused append and a `conflict` write no record.
 - Each peer has its own feed. A peer's feed never names an id that peer did not hold. A new peer
   starts with an empty feed whose floor is its first revision.
+- **Shape.** A record has exactly the keys `revision`, `head`, `added` and `removed`. An `ok` page
+  has exactly `status`, `records` and `through`. A `resync-required` answer has exactly `status`
+  and `current`. A store adds no other key: a record never carries bytes.
+- **Ownership.** What `changes` returns belongs to the caller. A caller may change the page, its
+  list of records, a record, or a record's `added` or `removed` list. No such change alters any
+  later answer of the store. This binds every store (§4.1).
 
 **`changes(from, to?)`** answers the records with `from < revision ≤ to`, ascending by revision.
 
-- `to` defaults to the current revision. A `to` beyond the current revision is clamped to it.
-- An explicit `to` below `from` is refused `invalid-request`.
+- **The order of the answers.** First, a `from` or `to` that is not an integer from 0 to
+  2^53 − 1 is refused `invalid-request`. Then an explicit `to` below `from` is refused
+  `invalid-request`. After these checks, the answer is `resync-required` exactly when `from` is
+  below the floor or above the current revision. Otherwise it is `ok`.
+- `to` defaults to the current revision. A `to` beyond the current revision is clamped to it. A
+  defaulted `to` is never compared with `from`.
 - `from` equal to the current revision answers `ok` with no records and `through = from`.
 - **Pages.** The store may return a prefix of the range. `through` is the revision the page is
   complete up to: every record in `(from, through]` is in `records`, and `through ≤ to` (clamped).
@@ -316,14 +326,22 @@ type ChangePage =
   revision of the last record returned, and that is greater than `from`: a page with a record
   pending makes progress. A caller with `through` below the clamped `to` calls again from
   `through`.
+- **One answer, one revision.** The clamp of `to` and the records of one answer are read at one
+  revision of the peer. A commit between them does not show in that answer.
+- **Records appear in revision order.** A record at revision r is visible only when every record
+  at or below r is visible. A store open to several writing processes enforces this at commit.
+  A sequential runner cannot test it; slice 4 owns its rail.
 - **`resync-required`** is a result, not a thrown error, like `conflict`. It carries the current
-  revision. A store answers it when `from` is below its retention floor, and when `from` is
-  later than the current revision (a cursor from the future). It never answers it when every
-  record after `from` is still kept.
-- **Retention.** A store MAY drop the oldest records. Its **floor** is the revision just before the
-  oldest record it keeps, or the peer's first revision when it dropped none. A `from` below the
-  floor answers `resync-required`. The caller then rebuilds only what it derived (views, derived
-  indexes, caches), not the store. The profile declares the retention (§4.8).
+  revision. A store answers it exactly when `from` is below the floor or above the current
+  revision (a cursor from the future), after the checks of the bounds.
+- **Retention.** A store MAY drop the oldest records. Its **floor** is the revision of the newest
+  record it dropped, or the peer's first revision when it dropped none. A store keeps this one
+  number. A `from` below the floor answers `resync-required`. A `from` at or above the floor
+  never does, unless it is above the current revision. Where revisions advance by one, the floor
+  is also the revision just before the oldest kept record. Where they skip values, a `from`
+  between the newest dropped revision and the oldest kept one is above the floor and answers
+  `ok`. The caller of a `resync-required` rebuilds only what it derived (views, derived indexes,
+  caches), not the store. The profile declares the retention (§4.8).
 - **Cost.** `changes` costs O(records returned + ids returned). It never costs O(holdings) or
   O(earlier records): finding `from` must not walk the feed from its start. Dropping a record
   costs O(1) amortized per append: an append costs the same with 0 or N kept records.
@@ -421,10 +439,16 @@ type PurgeReport = {
 cover filesystem or SSD remanence after a file is unlinked, or backups made outside the store.
 Every erasure report states this boundary.
 
-**Ids in the change feed lie outside "absent"** (decision O4, 2026-11-12). A change record (§4.6)
-names ids, never bytes or claims, and it never changes once written. So after a purge, kept
-records still name the purged id. A purge does not rewrite them. The retention window bounds how
-long they stay: a store with `{revisions: n}` drops them with the record that names them.
+**Ids in the change feed lie outside "absent"** (decision O4, 2026-11-12). The change feed (§4.6)
+is a store-controlled surface. It keeps the id of a purged delta. It never keeps the bytes or
+the claims of that delta. A record never changes once written, so a purge does not rewrite it.
+
+- An id is a hash of the claims. A reader who holds a kept id can confirm a guess of the delta:
+  it hashes the guessed claims and compares.
+- Under `unbounded` retention, the id stays in the feed for as long as the store lives.
+- A host that needs ids to leave uses a bounded retention, `{revisions: n}`. The id then leaves
+  when the store drops the record that names it.
+- Slice 4 adds the feed to the purge report as a surface that still holds the id.
 
 **Later extensions, not in scope now:**
 
@@ -1028,10 +1052,10 @@ the plan were silent, the feed decided as follows. `vectors/store/scripts.json` 
    vectors need this to name a revision past the current one (`ahead`, README §3.9).
 2. **Bad bounds.** A `from` or `to` that is not such an integer is refused `invalid-request`. It
    joins the closed list of §4.11 reading 21; a typed witness cannot receive one.
-3. **The order of the answers.** First the shape of the bounds, then an explicit `to` below `from`
-   (`invalid-request`), then a `from` above the current revision (`resync-required`), then a
-   `from` below the floor (`resync-required`). The shape of a request comes first, as in §4.11
-   reading 27.
+3. **The order of the answers.** First the shape of the bounds (`invalid-request`), then an
+   explicit `to` below `from` (`invalid-request`). After these, `resync-required` exactly when
+   `from` is below the floor or above the current revision; otherwise `ok`. The shape of a
+   request comes first, as in §4.11 reading 27. §4.6 states the same order.
 4. **A defaulted `to` is never compared.** A cursor from the future with no `to` answers
    `resync-required`, not `invalid-request`. Otherwise the default `to`, the current revision,
    would turn every cursor from the future into a refusal.
@@ -1039,10 +1063,19 @@ the plan were silent, the feed decided as follows. `vectors/store/scripts.json` 
    clamped `to`, also when the last record is below it. A store whose revisions skip values would
    otherwise answer a range with no record by `through = from`, and its caller would never stop.
    For a store whose revisions advance by one, as the memory store's do, this is the last
-   record's revision, or `from` when there is none.
-6. **Below the floor is below the floor.** `from` below the floor answers `resync-required` also
-   when the range holds no record (`from = to`). A store can decide `from < floor` without
-   keeping the revisions of what it dropped.
+   record's revision, or `from` when there is none. One answer reads the clamp of `to` and its
+   records at one revision. Records become visible in revision order: a record at revision r is
+   visible only when every record at or below r is. A sequential runner cannot test the second
+   rule; a store open to several writing processes enforces it at commit, and slice 4 owns its
+   rail.
+6. **The floor is one number.** The floor is the revision of the newest dropped record, or the
+   peer's first revision when nothing was dropped. `from` below the floor answers
+   `resync-required`, also when the range holds no record (`from = to`). `from` at or above the
+   floor never does, unless it is above the current revision. A store keeps this one number and
+   needs no revision of anything else it dropped. Where revisions advance by one, the floor
+   equals the revision just before the oldest kept record. Where they skip values, the two
+   differ, and a `from` between them is above the floor; the runner probes this (README
+   §3.9.4).
 7. **A bounded retention is exact.** `{revisions: n}` keeps exactly the records of the latest n
    advances. The runner then predicts `resync-required` exactly. A store that drops later than
    it writes declares the n it is sure to keep, and fails the vectors if it keeps more.
@@ -1061,8 +1094,11 @@ the plan were silent, the feed decided as follows. `vectors/store/scripts.json` 
     where to start reading again without a second call.
 13. **`changes` belongs to the peer, not to a snapshot.** It reads the current feed. A follower needs
     the newest records, and a snapshot cannot see a later commit.
-14. **Records are owned.** What `changes` returns cannot change the store. The TypeScript memory
-    store hands out records it froze when it wrote them; the list of a page is the caller's.
+14. **Records are owned, in every store.** A caller may change anything `changes` returned: the
+    page, its list of records, a record, a record's `added` or `removed` list. No later answer of
+    the store changes. The runner tests this (README §3.9.5, check 14; §7, test 9). The
+    TypeScript memory store meets it by handing out records it froze when it wrote them, in a
+    new list per page.
 15. **The memory store's options.** `changeRetention` is `unbounded` (the default) or
     `{revisions: n}`. `changePageSize: n` bounds a page to n records; it exists so tests exercise
     paging. Any other value is refused `invalid-request` when the store is made.
@@ -1080,6 +1116,11 @@ the plan were silent, the feed decided as follows. `vectors/store/scripts.json` 
 19. **Cost is timed.** The two cost promises of §4.6 have rails timed from outside, as §4.11
     reading 36 does: a window of fixed size read once after each of N records, and N appends that
     keep N / 4 records, each at N and 8N (README §3.9).
+20. **Exact shape.** Each answer of `changes` has exactly its keys (§4.6, "Shape"). A key the
+    contract does not name fails, so a store cannot carry bytes in a record unseen.
+21. **Revisions that skip values conform.** A store whose revisions are two or three apart, kept
+    whole or bounded, with any page size, passes every vector. Each witness pins this with
+    stores that scale the reference store's revisions (README §8).
 
 
 ## 5. Architectures
@@ -1157,6 +1198,11 @@ J/<peer>/…                      → journal
   compacting copy replaces the file inside `purge`. RocksDB keeps deleted values in old files
   until compaction; it is `proven` only with a forced compaction of the key range inside `purge`.
   IndexedDB is `unprovable`: the browser owns the engine underneath.
+- **A stated exception to the cost rule.** A compacting copy of the LMDB file costs O(store). So
+  a `proven` purge on LMDB breaks the rule that no operation costs O(store) (§3, §4.2). An LMDB
+  store that offers class `proven` states this exception in its documentation. A host that cannot
+  pay it opens the store as `unprovable`, and its purge then costs O(targets × log N). The
+  forced compaction of RocksDB is bounded by the key range of the targets, not by the store.
 
 ### 5.4 Immutable segments (packs plus a sidecar index)
 
@@ -1167,6 +1213,10 @@ class. A small **manifest** lists the live segments at each revision.
 - **Writes** go to a mutable head tier, which is another store (§5.6 overlay). A compactor seals
   the head into a segment and merges segments by size tiers. The segment count stays O(log N), so
   a lookup costs O(log² N).
+- **A stated exception to the cost bound.** O(log² N) per key is above the O(k × log N + result)
+  of §4.2. A segment store meets §4.2 only when one merged segment remains. Otherwise it states
+  the exception: each key costs one lookup per live segment. A Bloom filter skips most segments
+  in practice, but it does not change the bound.
 - **Reads** need only range requests. A segment set on object storage or a CDN is a read-only
   peer that anyone can query with anchored reads (the read side of NOTE-11).
 - **Erasure** rewrites each segment that holds a target, then deletes the old object. A size cap
