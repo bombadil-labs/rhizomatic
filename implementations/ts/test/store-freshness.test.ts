@@ -69,6 +69,13 @@ const here = dirname(fileURLToPath(import.meta.url));
 const committed = readFileSync(resolve(here, "../../../vectors/store/freshness.json"), "utf8");
 const document = JSON.parse(committed) as StoreFreshnessDocument;
 
+/**
+ * A snapshot made up from two values, which only `makeCapture` reads. The rails build wrong
+ * captures with it on purpose; a host that does this to reload a stored capture defeats
+ * `parseCapture`'s refusal of a process-local history (SPEC-18 §4.6).
+ */
+const fabricated = (values: { history: string; revision: number }): Snapshot => values as Snapshot;
+
 const WITNESS: FreshnessWitness = {
   capture: (snapshot, anchors, pushdown, now) =>
     captureScope(
@@ -155,7 +162,7 @@ describe("freshness vectors", () => {
         const answer = await snapshot.scope({ anchors: right.anchors, pushdown });
         const nothing = !Object.values(answer.applied).some(Boolean);
         const ids = answer.deltas.map((d) => d.delta.id).sort(compareUtf8);
-        return nothing ? makeCapture(right, right.anchors, ids, right) : right;
+        return nothing ? makeCapture(snapshot, right.anchors, ids, right) : right;
       },
     });
     for (const [name, fault] of Object.entries(RUNS))
@@ -239,6 +246,16 @@ const READERS: readonly {
   /** The cases added for this reader: without them it passes the vectors. */
   readonly newCases?: readonly string[];
 }[] = [
+  {
+    // A store refusal inside a check passes up; the runner names it in fixed words (§9.3).
+    name: "a check the store refuses",
+    witness: wrong({
+      checkFresh: () =>
+        Promise.reject(new StoreError("snapshot-released", "checkFresh: the snapshot is released")),
+    }),
+    fails: "freshness/no-change",
+    message: "checkFresh refused with snapshot-released",
+  },
   {
     name: "ignores removed",
     witness: withTouching(ignoresRemoved),
@@ -341,9 +358,9 @@ const READERS: readonly {
   {
     name: "a capture with no since",
     witness: wrong({
-      capture: async (...args) => {
-        const right = await WITNESS.capture(...args);
-        return makeCapture(right, right.anchors, right.members, {
+      capture: async (snapshot, ...rest) => {
+        const right = await WITNESS.capture(snapshot, ...rest);
+        return makeCapture(snapshot, right.anchors, right.members, {
           since: null,
           expiresAt: right.expiresAt,
         });
@@ -359,7 +376,7 @@ const READERS: readonly {
         checkFresh(
           peer,
           makeCapture(
-            { history: peer.history, revision: capture.revision },
+            fabricated({ history: peer.history, revision: capture.revision }),
             capture.anchors,
             capture.members,
             capture,
@@ -387,7 +404,7 @@ const READERS: readonly {
         const right = await WITNESS.capture(snapshot, anchors, pushdown, now);
         const out = new Set(pushdown.excludeIds ?? []);
         return makeCapture(
-          right,
+          snapshot,
           right.anchors,
           right.members.filter((id) => !out.has(id)),
           right,
@@ -410,7 +427,7 @@ const READERS: readonly {
             .map((a) => a.id),
         );
         return makeCapture(
-          right,
+          snapshot,
           right.anchors,
           right.members.filter((id) => !late.has(id)),
           right,
@@ -432,7 +449,7 @@ const READERS: readonly {
           { ...pushdown, ...(_ === undefined ? {} : { excludeIds: _ }) },
           now,
         );
-        return makeCapture(full, full.anchors, full.members, right);
+        return makeCapture(snapshot, full.anchors, full.members, right);
       },
     }),
     fails: "freshness/a-selection-excludes-members",
@@ -450,7 +467,7 @@ const READERS: readonly {
           { ...pushdown, ...(_ === undefined ? {} : { arrivalAtMost: _ }) },
           now,
         );
-        return makeCapture(full, full.anchors, full.members, right);
+        return makeCapture(snapshot, full.anchors, full.members, right);
       },
     }),
     fails: "freshness/a-selection-by-arrival",
@@ -467,7 +484,7 @@ const READERS: readonly {
         );
         const window = validityWindow(facts, now);
         // Only the deltas the operand admits; with no selection that is every member.
-        return makeCapture(right, right.anchors, right.members, {
+        return makeCapture(snapshot, right.anchors, right.members, {
           since: right.since,
           expiresAt: Object.keys(pushdown).length === 0 ? window.expiresAt : right.expiresAt,
         });
@@ -485,7 +502,7 @@ const READERS: readonly {
         const direct = await snapshot.targets(right.anchors.map((a) => a.entity));
         const once = await snapshot.negators(direct);
         return makeCapture(
-          right,
+          snapshot,
           right.anchors,
           [...new Set([...direct, ...once])].sort(compareUtf8),
           right,
@@ -502,7 +519,7 @@ const READERS: readonly {
       capture: async (snapshot, anchors, pushdown, now) => {
         const right = await WITNESS.capture(snapshot, anchors, pushdown, now);
         const raw = await snapshot.get(right.members);
-        return makeCapture(right, right.anchors, right.members, validityWindow(raw, now));
+        return makeCapture(snapshot, right.anchors, right.members, validityWindow(raw, now));
       },
     }),
     fails: "freshness/a-selection-rejects-the-toucher",
@@ -730,7 +747,7 @@ describe("touching", () => {
   it("changes nothing it is given", () => {
     const a = fact("plant:a", 1);
     const capture = makeCapture(
-      { history: "h", revision: 1 },
+      fabricated({ history: "h", revision: 1 }),
       [{ kind: "entity", entity: "plant:a" }],
       [a.id],
       { since: null, expiresAt: null },
@@ -744,7 +761,7 @@ describe("touching", () => {
   it("refuses a capture with an anchor kind it cannot read", () => {
     expect(() =>
       makeCapture(
-        { history: "h", revision: 1 },
+        fabricated({ history: "h", revision: 1 }),
         [{ kind: "value", entity: "x" } as unknown as never],
         [],
         { since: null, expiresAt: null },
@@ -795,6 +812,50 @@ describe("parseCapture", () => {
     expect(() => parseCapture({ ...stored([]), revision: -1 })).toThrow(/revision/);
   });
 
+  it("refuses an anchor of another kind capability-absent, and a malformed one invalid-request", () => {
+    const withAnchor = (anchor: unknown) => ({ ...stored([]), anchors: [anchor] });
+    for (const kind of ["value", "derived-index"])
+      expect(() => parseCapture(withAnchor({ kind, role: "r" }))).toThrow(
+        expect.objectContaining({ code: "capability-absent" }),
+      );
+    for (const anchor of [
+      { kind: "bogus", entity: "plant:a" },
+      { kind: 1, entity: "plant:a" },
+      { entity: "plant:a" },
+      { kind: "entity", entity: "plant:a", extra: 1 },
+      { kind: "entity", entity: 7 },
+      { kind: "entity" },
+      ["entity", "plant:a"],
+      null,
+    ])
+      expect(() => parseCapture(withAnchor(anchor)), JSON.stringify(anchor)).toThrow(
+        expect.objectContaining({ code: "invalid-request" }),
+      );
+  });
+
+  it("reads a revision written 1.0 as the integer 1, and refuses 1.5", () => {
+    const text = (revision: string) =>
+      `{"history":"h","revision":${revision},"anchors":[],"members":[],"since":null,"expiresAt":null}`;
+    expect(parseCapture(JSON.parse(text("1.0"))).revision).toBe(1);
+    expect(() => parseCapture(JSON.parse(text("1.5")))).toThrow(/revision/);
+  });
+
+  it("parses the capture JSON each witness writes (vectors/store/capture-interchange.json)", () => {
+    const fixtures = JSON.parse(
+      readFileSync(resolve(here, "../../../vectors/store/capture-interchange.json"), "utf8"),
+    ) as { captures: Record<string, string> };
+    expect(Object.keys(fixtures.captures).sort()).toEqual(["rust", "ts"]);
+    for (const [witness, written] of Object.entries(fixtures.captures)) {
+      const capture = parseCapture(JSON.parse(written));
+      expect(capture.history, witness).toBe("host:interchange");
+      expect(capture.anchors, witness).toEqual([{ kind: "entity", entity: "plant:a" }]);
+      expect(capture.members.length, witness).toBe(2);
+      expect([capture.since, capture.expiresAt], witness).toEqual([10, null]);
+      // Written again by this witness, it reads back the same.
+      expect(parseCapture(JSON.parse(JSON.stringify(capture))), witness).toEqual(capture);
+    }
+  });
+
   it("round-trips a capture through JSON when its history is not local to the process", async () => {
     const w = await writer({ mintHistory: () => "host:7f3a" });
     await w.append([fact("plant:a", 1), fact("plant:a", 2, { until: 9 })]);
@@ -804,7 +865,7 @@ describe("parseCapture", () => {
 });
 
 describe("a capture is built, checked and frozen", () => {
-  const snap = { history: "host:1", revision: 2 };
+  const snap = fabricated({ history: "host:1", revision: 2 });
   const anchors = [{ kind: "entity" as const, entity: "plant:a" }];
   const open = { since: null, expiresAt: null };
 
@@ -813,9 +874,9 @@ describe("a capture is built, checked and frozen", () => {
       [[snap, anchors, ["b", "a"], open], /members is not strictly ascending/],
       [[snap, anchors, ["a", "a"], open], /members is not strictly ascending/],
       [[snap, [...anchors, { kind: "entity", entity: "plant:0" }], [], open], /anchors/],
-      [[{ history: "", revision: 2 }, anchors, [], open], /history/],
-      [[{ history: "h", revision: -1 }, anchors, [], open], /revision/],
-      [[{ history: "h", revision: 0.5 }, anchors, [], open], /revision/],
+      [[fabricated({ history: "", revision: 2 }), anchors, [], open], /history/],
+      [[fabricated({ history: "h", revision: -1 }), anchors, [], open], /revision/],
+      [[fabricated({ history: "h", revision: 0.5 }), anchors, [], open], /revision/],
       [[snap, anchors, [], { since: Number.NaN, expiresAt: null }], /since/],
       [[snap, anchors, [], { since: 5, expiresAt: 5 }], /before/],
     ];
@@ -909,6 +970,26 @@ describe("history", () => {
     ).rejects.toMatchObject({ code: "invalid-request" });
   });
 
+  it("a mint that repeats a history this store issued is refused, and creates nothing", async () => {
+    const store = createMemoryStore({ mintHistory: () => "host:same" });
+    const first = await store.createPeer(PEER, { erasure: "unproven" });
+    expect(first.history).toBe("host:same");
+    const other = `ed25519:${"0e".repeat(32)}`;
+    await expect(store.createPeer(other, { erasure: "unproven" })).rejects.toMatchObject({
+      code: "invalid-request",
+      message: expect.stringMatching(/already issued/),
+    });
+    await expect(store.peer(other)).rejects.toMatchObject({ code: "peer-absent" });
+    // A taken name is refused peer-exists first; the mint does not run.
+    let ran = 0;
+    const counted = createMemoryStore({ mintHistory: (peer) => `host:${peer}:${++ran}` });
+    await counted.createPeer(PEER, { erasure: "unproven" });
+    await expect(counted.createPeer(PEER, { erasure: "unproven" })).rejects.toMatchObject({
+      code: "peer-exists",
+    });
+    expect(ran).toBe(1);
+  });
+
   it("a capture checked against another history answers resync-required, with no feed call", async () => {
     const w = await writer();
     await w.append([fact("plant:a", 1)]);
@@ -931,10 +1012,33 @@ describe("checkFresh", () => {
   it("refuses a now that is not finite, before any store call", async () => {
     const w = await writer();
     const capture = await w.capture(["plant:a"]);
-    for (const now of [Number.NaN, Number.POSITIVE_INFINITY])
+    for (const now of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
       await expect(checkFresh(w.peer, capture, now)).rejects.toMatchObject({
         code: "invalid-request",
       });
+      const snapshot = await w.peer.read();
+      await expect(captureScope(snapshot, ["plant:a"], now)).rejects.toMatchObject({
+        code: "invalid-request",
+      });
+      snapshot.release();
+    }
+  });
+
+  it("fails with an error, not a verdict, when a page of the feed makes no progress", async () => {
+    const w = await writer();
+    const capture = await w.capture(["plant:a"]);
+    await w.append([fact("plant:b", 2)]);
+    const stuck: PeerStore = {
+      ...w.peer,
+      changes: async (from) => ({ status: "ok", records: [], through: from }),
+    };
+    const failed = await checkFresh(stuck, capture, 0).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(failed).toBeInstanceOf(Error);
+    expect(failed).not.toBeInstanceOf(StoreError);
+    expect((failed as Error).message).toMatch(/made no progress/);
   });
 
   it("answers resync-required for a capture from a later revision, with no feed call", async () => {
@@ -942,7 +1046,7 @@ describe("checkFresh", () => {
     await w.append([fact("plant:a", 1)]);
     const right = await w.capture(["plant:a"]);
     const capture = makeCapture(
-      { history: right.history, revision: 9 },
+      fabricated({ history: right.history, revision: 9 }),
       right.anchors,
       right.members,
       right,
@@ -1165,9 +1269,9 @@ describe("a read's capture and expiry", () => {
     },
     {
       name: "a capture whose members are the read's members",
-      wrongRead: async (read) => ({
+      wrongRead: async (read, snapshot) => ({
         ...read,
-        capture: makeCapture(read.capture!, read.capture!.anchors, read.members, read.capture!),
+        capture: makeCapture(snapshot, read.capture!.anchors, read.members, read.capture!),
       }),
       fails: "signed-time-cuts-a-link-and-a-strike",
     },
@@ -1181,7 +1285,7 @@ describe("a read's capture and expiry", () => {
         return {
           ...read,
           capture: makeCapture(
-            read.capture!,
+            snapshot,
             read.capture!.anchors,
             await rawScope(snapshot, anchors),
             read.capture!,

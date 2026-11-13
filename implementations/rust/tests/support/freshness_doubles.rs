@@ -262,3 +262,58 @@ impl Store for DeclaresNoFeed {
         self.inner.close()
     }
 }
+
+/// A snapshot made up from two values, which only `make_capture` reads; every query refuses.
+/// The rails build wrong captures with it on purpose. A host that does this to reload a stored
+/// capture defeats `parse_capture`'s refusal of a process-local history (SPEC-18 §4.6).
+pub struct Fabricated {
+    pub history: String,
+    pub revision: Revision,
+}
+
+impl Fabricated {
+    pub fn new(history: &str, revision: Revision) -> Self {
+        Self {
+            history: history.to_string(),
+            revision,
+        }
+    }
+}
+
+fn fabricated() -> StoreError {
+    StoreError::new(
+        StoreErrorCode::InvalidRequest,
+        "a fabricated snapshot answers no query",
+    )
+}
+
+impl Snapshot for Fabricated {
+    fn revision(&self) -> Revision {
+        self.revision
+    }
+    fn history(&self) -> &str {
+        &self.history
+    }
+    fn head(&self) -> Option<&str> {
+        None
+    }
+    fn count(&self) -> u64 {
+        0
+    }
+    fn get(&self, _: &[String]) -> Result<Vec<Delta>, StoreError> {
+        Err(fabricated())
+    }
+    fn arrivals(&self, _: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+        Err(fabricated())
+    }
+    fn targets(&self, _: &[String]) -> Result<Vec<String>, StoreError> {
+        Err(fabricated())
+    }
+    fn negators(&self, _: &[String]) -> Result<Vec<String>, StoreError> {
+        Err(fabricated())
+    }
+    fn scope(&self, _: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+        Err(fabricated())
+    }
+    fn release(&mut self) {}
+}

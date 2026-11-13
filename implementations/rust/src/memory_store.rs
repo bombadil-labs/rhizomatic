@@ -191,15 +191,18 @@ struct State {
     stored: Index<Stored>,
     peers: Index<PeerState>,
     mint: Option<HistoryMint>,
+    /// Every history this store has issued, kept after its peer is gone: none is issued twice.
+    issued: BTreeSet<String>,
 }
 
-/// A host's mint of histories unique across processes (SPEC-18 §4.13 reading 38). It runs when a
-/// peer is created, with the store's lock held, so it must not call the store.
+/// A host's mint of histories unique across processes (SPEC-18 §4.13 reading 38). It takes the
+/// peer's id and runs when the peer is created, after every other check of `create_peer`, with
+/// the store's lock held, so it must not call the store.
 #[derive(Clone)]
-pub struct HistoryMint(Arc<dyn Fn() -> String + Send + Sync>);
+pub struct HistoryMint(Arc<dyn Fn(&str) -> String + Send + Sync>);
 
 impl HistoryMint {
-    pub fn new(mint: impl Fn() -> String + Send + Sync + 'static) -> Self {
+    pub fn new(mint: impl Fn(&str) -> String + Send + Sync + 'static) -> Self {
         Self(Arc::new(mint))
     }
 }
@@ -751,6 +754,7 @@ impl MemoryStore {
                 stored: Index::new(),
                 peers: Index::new(),
                 mint: None,
+                issued: BTreeSet::new(),
             })),
             profile: StoreProfile {
                 pushdown: options.pushdown,
@@ -761,8 +765,8 @@ impl MemoryStore {
     }
 
     /// This store with a host's mint of histories in place of the process-local default. A mint
-    /// that answers an empty string, or one that starts with `memory:local:`, makes `create_peer`
-    /// refuse `invalid-request`.
+    /// that answers an empty string, one that starts with `memory:local:`, or one this store has
+    /// already issued to any peer makes `create_peer` refuse `invalid-request`.
     pub fn with_history_mint(self, mint: HistoryMint) -> Self {
         with(&self.state, |state| state.mint = Some(mint));
         self
@@ -822,7 +826,7 @@ impl Store for MemoryStore {
             let history = match &state.mint {
                 None => local_history(),
                 Some(HistoryMint(mint)) => {
-                    let minted = mint();
+                    let minted = mint(id);
                     if minted.is_empty() || minted.starts_with(LOCAL_HISTORY_PREFIX) {
                         return refuse(
                             StoreErrorCode::InvalidRequest,
@@ -832,6 +836,12 @@ impl Store for MemoryStore {
                     minted
                 }
             };
+            if !state.issued.insert(history.clone()) {
+                return refuse(
+                    StoreErrorCode::InvalidRequest,
+                    format!("the mint answered {history}, a history this store already issued; a history is never reused"),
+                );
+            }
             state.peers.insert(
                 &mut state.meter,
                 id.to_string(),

@@ -89184,6 +89184,28 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::store::StoreError::new",
+      "resolvedTarget": "crate::store::StoreError::new",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "capture_scope",
+      "target": "crate::store::StoreError::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "resolvedTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "capture_scope",
+      "target": "crate::store::StoreErrorCode::InvalidRequest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::store::ScopeSource",
       "resolvedTarget": "crate::store::ScopeSource",
       "source": "implementations/rust/src/store_read.rs",
@@ -96177,6 +96199,14 @@
       "targetOwner": "storage"
     },
     {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State",
+      "target": "std::collections::BTreeSet"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "storage",
       "rawTarget": "crate::store::ChangeRecord",
@@ -96639,6 +96669,16 @@
       "symbol": "MemoryStore::create_peer",
       "target": "crate::store::LOCAL_HISTORY_PREFIX",
       "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "MemoryStore::create_peer"
     },
     {
       "form": "syn-resolved-path",
@@ -98115,6 +98155,14 @@
       "owner": "storage",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
+      "symbol": "MemoryStore::with_options",
+      "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
       "symbol": "HistoryMint",
       "target": "std::sync::Arc"
     },
@@ -98344,17 +98392,6 @@
       "sourceRegion": "semantic-owner",
       "symbol": "<import>",
       "target": "crate::store_fresh::TouchReason",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-import",
-      "owner": "storage",
-      "rawTarget": "crate::store_fresh::make_capture",
-      "resolvedTarget": "crate::store_fresh::make_capture",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "<import>",
-      "target": "crate::store_fresh::make_capture",
       "targetOwner": "storage"
     },
     {
@@ -98916,17 +98953,6 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Run::capture",
       "target": "crate::store_conformance::text",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store_fresh::make_capture",
-      "resolvedTarget": "crate::store_fresh::make_capture",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Run::capture",
-      "target": "crate::store_fresh::make_capture",
       "targetOwner": "storage"
     },
     {
@@ -101335,17 +101361,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store::Revision",
-      "resolvedTarget": "crate::store::Revision",
-      "source": "implementations/rust/src/store_fresh.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "make_capture",
-      "target": "crate::store::Revision",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
       "rawTarget": "crate::store::StoreError",
       "resolvedTarget": "crate::store::StoreError",
       "source": "implementations/rust/src/store_fresh.rs",
@@ -101374,6 +101389,28 @@
       "sourceRegion": "semantic-owner",
       "symbol": "make_capture",
       "target": "crate::store_fresh::checked",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Snapshot",
+      "resolvedTarget": "crate::store::Snapshot",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "make_capture",
+      "target": "crate::store::Snapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::ValidityWindow",
+      "resolvedTarget": "crate::store_fresh::ValidityWindow",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "make_capture",
+      "target": "crate::store_fresh::ValidityWindow",
       "targetOwner": "storage"
     },
     {
@@ -101543,6 +101580,28 @@
       "source": "implementations/rust/src/store_fresh.rs",
       "status": "parsed-known-macro-arguments",
       "symbol": "parse_capture"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::OTHER_ANCHOR_KINDS",
+      "resolvedTarget": "crate::store_fresh::OTHER_ANCHOR_KINDS",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_capture",
+      "target": "crate::store_fresh::OTHER_ANCHOR_KINDS",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::json_revision",
+      "resolvedTarget": "crate::store_fresh::json_revision",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_capture",
+      "target": "crate::store_fresh::json_revision",
+      "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
@@ -102334,6 +102393,16 @@
       "target": "std::collections::BTreeSet"
     },
     {
+      "form": "macro-region",
+      "macros": [
+        "assert"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "check_on_one_snapshot"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "storage",
       "rawTarget": "crate::store::Snapshot",
@@ -102370,6 +102439,25 @@
       "sourceRegion": "semantic-owner",
       "symbol": "raw_scope",
       "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::MAX_REVISION",
+      "resolvedTarget": "crate::store::MAX_REVISION",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "json_revision",
+      "target": "crate::store::MAX_REVISION",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "json_revision",
+      "target": "serde_json::Value"
     }
   ],
   "exports": [

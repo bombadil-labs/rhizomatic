@@ -151,26 +151,45 @@ fn checked(
     })
 }
 
-/// The maker (SPEC-18 §4.6). `history` and `revision` come from the snapshot the read ran on,
-/// `anchors` are the read's whole scope and `members` its raw scope, each strictly ascending by
-/// UTF-8 bytes; the window is the operand's. Refuses `invalid-request` with a reason that starts
-/// `capture: `. It does not sort. A history local to the process is allowed here.
+/// The maker (SPEC-18 §4.6): a capture of a live snapshot. `history` and `revision` are read
+/// from `snapshot`, the snapshot the read ran on; `anchors` are the read's whole scope and
+/// `members` its raw scope, each strictly ascending by UTF-8 bytes; the window is the operand's.
+/// Refuses `invalid-request` with a reason that starts `capture: `. It does not sort. A history
+/// local to the process is allowed here.
+///
+/// It is not a way to reload a stored capture: that comes back only through [`parse_capture`],
+/// which refuses a process-local history. A host that fabricates a snapshot to feed stored values
+/// to this maker defeats that refusal and can get a false `current`.
 pub fn make_capture(
-    history: &str,
-    revision: Revision,
+    snapshot: &dyn Snapshot,
     anchors: Vec<Anchor>,
     members: Vec<String>,
-    since: Option<f64>,
-    expires_at: Option<f64>,
+    window: ValidityWindow,
 ) -> Result<Capture, StoreError> {
     checked(
-        history.to_string(),
-        revision,
+        snapshot.history().to_string(),
+        snapshot.revision(),
         anchors,
         members,
-        since,
-        expires_at,
+        window.since,
+        window.expires_at,
     )
+}
+
+/// The anchor kinds of SPEC-18 §4.7.1 that a capture cannot hold yet. A stored capture that
+/// names one is well formed and refused `capability-absent`; another kind is malformed. Slice 6
+/// defines their fields, so only the kind is read.
+const OTHER_ANCHOR_KINDS: [&str; 2] = ["value", "derived-index"];
+
+/// A revision as JSON writes it: an integer from 0 to 2^53 − 1. JSON has one number type, so
+/// `1.0` is the integer 1; `1.5` is not an integer.
+fn json_revision(value: &Value) -> Option<u64> {
+    if let Some(n) = value.as_u64() {
+        return Some(n);
+    }
+    let n = value.as_f64()?;
+    let whole = n.is_finite() && n.fract() == 0.0 && n >= 0.0 && n <= MAX_REVISION as f64;
+    whole.then_some(n as u64)
 }
 
 /// The checking parser, for a capture that was stored and read back (SPEC-18 §4.6). It takes the
@@ -205,8 +224,7 @@ pub fn parse_capture(value: &Value) -> Result<Capture, StoreError> {
             "history {history} is local to the process that made it; a capture kept across processes needs a history from mintHistory (MemoryStore::with_history_mint)"
         )));
     }
-    let revision = object["revision"]
-        .as_u64()
+    let revision = json_revision(&object["revision"])
         .ok_or_else(|| malformed("revision is not an integer from 0 to 2^53 - 1"))?;
     let anchors = object["anchors"]
         .as_array()
@@ -218,10 +236,15 @@ pub fn parse_capture(value: &Value) -> Result<Capture, StoreError> {
                 .ok_or_else(|| malformed("an anchor is not an object"))?;
             match fields.get("kind").and_then(Value::as_str) {
                 Some("entity") => {}
-                Some(_) => {
+                Some(kind) if OTHER_ANCHOR_KINDS.contains(&kind) => {
                     return Err(StoreError::new(
                         StoreErrorCode::CapabilityAbsent,
-                        "capture: only entity anchors are read",
+                        format!("capture: a {kind} anchor; this witness reads entity anchors only"),
+                    ))
+                }
+                Some(_) => {
+                    return Err(malformed(
+                        "an anchor's kind is not entity, value or derived-index",
                     ))
                 }
                 None => return Err(malformed("an anchor has no kind")),
@@ -430,16 +453,23 @@ impl Drop for Held {
 /// the first touch. The answers in order: `resync-required`, `stale`, `not-yet`, `expired`,
 /// `current`. On `snapshot-moved` it starts again on a new snapshot, at most
 /// [`FRESHNESS_SNAPSHOTS`] in all; each is released. Its calls depend on the records and ids since
-/// the capture, never on the holdings or on records before the capture.
+/// the capture, never on the holdings or on records before the capture. Refuses
+/// `invalid-request` for a `now` that is not finite.
+///
+/// # Panics
+///
+/// Panics when a page of the feed makes no progress short of r′. That page cannot vouch for the
+/// rest of the range, so the store broke the change feed contract (§4.6, "Pages"); no code of
+/// the shared vocabulary names a store fault, and a verdict would hide it (§4.13 reading 46).
 pub fn check_fresh(
     peer: &dyn PeerStore,
     capture: &Capture,
     now: f64,
 ) -> Result<Freshness, StoreError> {
-    if now.is_nan() {
+    if !now.is_finite() {
         return Err(StoreError::new(
             StoreErrorCode::InvalidRequest,
-            "checkFresh needs a now that is a number",
+            "checkFresh needs a now that is a finite number",
         ));
     }
     let mut taken = 0;
@@ -489,10 +519,13 @@ fn check_on_one_snapshot(
         if let Some(touch) = touching(capture, &records, &added) {
             return Ok(Freshness::Stale(touch));
         }
-        if through <= at {
-            // A page with no progress short of r′ cannot vouch for the rest of the range.
-            return Ok(Freshness::ResyncRequired { current: at_read });
-        }
+        // A store fault, not a verdict: such a page cannot vouch for the rest of the range.
+        assert!(
+            through > at,
+            "checkFresh: the store's page from {} made no progress toward {}; the store breaks the change feed contract (SPEC-18 §4.6)",
+            at.0,
+            at_read.0
+        );
         at = through;
     }
     Ok(match (capture.since, capture.expires_at) {

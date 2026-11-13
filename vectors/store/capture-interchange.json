@@ -1,0 +1,8 @@
+{
+  "format": "rhizomatic-store-capture-interchange/1",
+  "note": "Hand-kept, not generated. A capture each witness wrote with its own JSON writer, from a memory store whose mint answered host:interchange: two facts at plant:a, valid from 5 and from 10, captured at now 100. Every witness parses both (SPEC-18 §4.13 reading 48; vectors/store/README.md §9.8). Key order and number spelling differ by witness on purpose.",
+  "captures": {
+    "rust": "{\"anchors\":[{\"entity\":\"plant:a\",\"kind\":\"entity\"}],\"expiresAt\":null,\"history\":\"host:interchange\",\"members\":[\"1e2097f837ec3b102c58572500a4956d89377a8af759e24b29e012c3fd5db9999e78\",\"1e20c2d3a55701c5bd35a6558100306ff18526aece32789554c40da8d15f3bd90547\"],\"revision\":1,\"since\":10.0}",
+    "ts": "{\"history\":\"host:interchange\",\"revision\":1,\"anchors\":[{\"kind\":\"entity\",\"entity\":\"plant:a\"}],\"members\":[\"1e20ab42320d9d9fb0f0bc63097f69ca324fe49c7c388223010080552de88a883c53\",\"1e20ce53a9c4a6d7ceff9d8c7576d3d04641716b0fe5e235b3ece8ecf62036c8cb08\"],\"since\":10,\"expiresAt\":null}"
+  }
+}

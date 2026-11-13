@@ -52,6 +52,9 @@ const negatives = [
   ['glob import', { delta: 'use std::fs::*;' }, /glob import/],
   ['unknown macro', { delta: 'fn bad() { mystery!(); }' }, /macro/],
   ['unmapped source', { mystery: 'pub fn mystery() {}' }, /unclassified|unknown|unsupported/],
+  ['shared cells outside the conformance runner', { delta: 'pub fn bad() { let _ = std::rc::Rc::new(std::cell::RefCell::new(0u8)); }' }, /ambient capability/],
+  ['a Cell in the conformance runner', { store_conformance: 'pub fn bad() { let _ = std::cell::Cell::new(0u8); }' }, /ambient capability/],
+  ['a Mutex in the conformance runner', { store_conformance: 'pub fn bad() { let _ = std::sync::Mutex::new(0u8); }' }, /ambient capability/],
 ];
 for (const [name, files, error] of negatives) test(`real Rust source rejects ${name}`, async () => {
   await assert.rejects(async () => check(await fixture(files)), error);
@@ -64,6 +67,7 @@ for (const [name, files] of [
   ['declared file function', { durable_state: 'pub fn write_durable_peer_state() { use std::fs; let _ = fs::read("explicit"); }' }],
   ['local downward alias', { command_data: 'fn pure() { use crate::delta::canonical_bytes as bytes; bytes(); }' }],
   ['root compatibility reexport', { lib: 'pub mod command; pub use command::Command;', command: 'pub struct Command;' }],
+  ["the conformance runner's call log", { store_conformance: 'pub fn log() { let _ = std::rc::Rc::new(std::cell::RefCell::new(0u8)); }' }],
 ]) test(`real Rust source permits ${name}`, async () => check(await fixture(files)));
 test('live structural inventory detects missing, stale, duplicate, invalid and removed classifications', async () => {
   const actual = await fixture({ delta: 'pub fn pure() {}' });

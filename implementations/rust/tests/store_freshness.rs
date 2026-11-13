@@ -39,7 +39,7 @@ use serde_json::Value;
 
 #[path = "support/freshness_doubles.rs"]
 mod doubles;
-use doubles::{DeclaresNoFeed, ReportsNothingApplied, Scaled};
+use doubles::{DeclaresNoFeed, Fabricated, ReportsNothingApplied, Scaled};
 
 fn document() -> Value {
     let path = format!(
@@ -217,6 +217,8 @@ enum Wrong {
     NoGet,
     NoRelease,
     NoTo,
+    /// A store refusal inside the check, passed up.
+    Refuses,
 }
 
 struct Mutant(Wrong);
@@ -496,7 +498,12 @@ impl Mutant {
             }
             _ => {}
         }
-        make_capture(&history, revision, anchors, members, since, expires_at)
+        make_capture(
+            &Fabricated::new(&history, revision),
+            anchors,
+            members,
+            ValidityWindow { since, expires_at },
+        )
     }
 }
 
@@ -526,6 +533,12 @@ impl FreshnessReader for Mutant {
         capture: &Capture,
         now: f64,
     ) -> Result<Freshness, StoreError> {
+        if self.0 == Wrong::Refuses {
+            return Err(StoreError::new(
+                StoreErrorCode::SnapshotReleased,
+                "checkFresh: the snapshot is released",
+            ));
+        }
         Ok(self.checked(peer, capture, now))
     }
 }
@@ -737,6 +750,12 @@ const TABLE: &[Row] = &[
         Wrong::DropsLastRecord,
         "an-added-delta-targets-an-anchor",
         "touching answered none, expected 2 ",
+    ),
+    // A store refusal inside a check: the runner names it in fixed words (README §9.3).
+    row(
+        Wrong::Refuses,
+        "no-change",
+        "checkFresh refused with snapshot-released",
     ),
     // Rust only: check 2 of §9.2. A capture whose anchors are out of order is refused by its
     // constructor (check 0), so a row with sorted anchors and one missing reaches the check.
@@ -1066,7 +1085,7 @@ fn one_name_created_in_two_stores_has_two_histories() {
 fn a_hosts_mint_is_used_and_the_local_prefix_is_refused() {
     let minted = std::sync::Arc::new(std::sync::Mutex::new(0));
     let counter = minted.clone();
-    let store = MemoryStore::new().with_history_mint(HistoryMint::new(move || {
+    let store = MemoryStore::new().with_history_mint(HistoryMint::new(move |_| {
         let mut n = counter.lock().unwrap();
         *n += 1;
         format!("host:7f3a:{n}")
@@ -1078,7 +1097,8 @@ fn a_hosts_mint_is_used_and_the_local_prefix_is_refused() {
     assert_eq!(*minted.lock().unwrap(), 1);
 
     for bad in ["", "memory:local:9"] {
-        let store = MemoryStore::new().with_history_mint(HistoryMint::new(move || bad.to_string()));
+        let store =
+            MemoryStore::new().with_history_mint(HistoryMint::new(move |_| bad.to_string()));
         let refused = store
             .create_peer("peer:m", ErasurePosture::Unproven)
             .err()
@@ -1106,6 +1126,85 @@ fn a_hosts_mint_is_used_and_the_local_prefix_is_refused() {
         check_fresh(peer.as_ref(), &back, 100.0).unwrap(),
         Freshness::Current
     );
+}
+
+#[test]
+fn a_mint_that_repeats_a_history_this_store_issued_is_refused() {
+    let store = MemoryStore::new().with_history_mint(HistoryMint::new(|_| "host:same".to_string()));
+    let first = store
+        .create_peer("peer:a", ErasurePosture::Unproven)
+        .unwrap();
+    assert_eq!(first.history(), "host:same");
+    let refused = store
+        .create_peer("peer:b", ErasurePosture::Unproven)
+        .err()
+        .expect("a repeated history is refused");
+    assert_eq!(refused.code, StoreErrorCode::InvalidRequest);
+    assert!(refused.message.contains("already issued"), "{refused}");
+    assert_eq!(
+        store.peer("peer:b").err().map(|e| e.code),
+        Some(StoreErrorCode::PeerAbsent)
+    );
+
+    // The mint takes the peer's id, and runs after `peer-exists`.
+    let ran = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+    let seen = ran.clone();
+    let store = MemoryStore::new().with_history_mint(HistoryMint::new(move |peer| {
+        seen.lock().unwrap().push(peer.to_string());
+        format!("host:{peer}")
+    }));
+    let peer = store
+        .create_peer("peer:m", ErasurePosture::Unproven)
+        .unwrap();
+    assert_eq!(peer.history(), "host:peer:m");
+    assert_eq!(
+        store
+            .create_peer("peer:m", ErasurePosture::Unproven)
+            .err()
+            .map(|e| e.code),
+        Some(StoreErrorCode::PeerExists)
+    );
+    assert_eq!(*ran.lock().unwrap(), vec!["peer:m".to_string()]);
+}
+
+/// A capture each witness wrote as JSON, with a minted history (`vectors/store/
+/// capture-interchange.json`): every witness parses both (SPEC-18 §4.13 reading 48).
+#[test]
+fn every_witness_reads_the_capture_json_of_the_others() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../vectors/store/capture-interchange.json"
+    );
+    let fixtures: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let captures = fixtures["captures"].as_object().unwrap();
+    assert_eq!(
+        captures.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["rust", "ts"]
+    );
+    for (witness, written) in captures {
+        let value: Value = serde_json::from_str(written.as_str().unwrap()).unwrap();
+        let capture = parse_capture(&value).unwrap_or_else(|e| panic!("{witness}: {e}"));
+        assert_eq!(capture.history(), "host:interchange", "{witness}");
+        assert_eq!(
+            capture.anchors(),
+            [Anchor::Entity {
+                entity: "plant:a".into()
+            }],
+            "{witness}"
+        );
+        assert_eq!(capture.members().len(), 2, "{witness}");
+        assert_eq!(
+            (capture.since(), capture.expires_at()),
+            (Some(10.0), None),
+            "{witness}"
+        );
+        // Written again by this witness, it reads back the same.
+        assert_eq!(
+            parse_capture(&capture.to_json()).unwrap(),
+            capture,
+            "{witness}"
+        );
+    }
 }
 
 #[test]
@@ -1213,8 +1312,7 @@ fn the_constructors_check_utf8_order_and_never_sort() {
             "{refused}"
         );
         let made = make_capture(
-            "host:1",
-            Revision(4),
+            &Fabricated::new("host:1", Revision(4)),
             anchors
                 .iter()
                 .map(|e| Anchor::Entity {
@@ -1222,8 +1320,7 @@ fn the_constructors_check_utf8_order_and_never_sort() {
                 })
                 .collect(),
             members.iter().map(|m| m.to_string()).collect(),
-            None,
-            None,
+            ValidityWindow::default(),
         )
         .unwrap_err();
         assert_eq!(
@@ -1242,12 +1339,13 @@ fn the_constructors_refuse_every_malformed_field() {
     };
     let made = |history: &str, revision: u64, since: Option<f64>, expires: Option<f64>| {
         make_capture(
-            history,
-            Revision(revision),
+            &Fabricated::new(history, Revision(revision)),
             anchors(),
             vec!["a".into()],
-            since,
-            expires,
+            ValidityWindow {
+                since,
+                expires_at: expires,
+            },
         )
         .err()
         .map(|e| e.message)
@@ -1310,12 +1408,38 @@ fn the_constructors_refuse_every_malformed_field() {
         let refused = parse_capture(&value).unwrap_err();
         assert_eq!(refused.code, StoreErrorCode::InvalidRequest, "{value}");
     }
-    let mut other_kind = good;
-    other_kind["anchors"][0]["kind"] = "value".into();
-    assert_eq!(
-        parse_capture(&other_kind).unwrap_err().code,
-        StoreErrorCode::CapabilityAbsent
-    );
+    // A revision written 1.0 is the integer 1: JSON has one number type.
+    let mut whole = good.clone();
+    whole["revision"] = serde_json::from_str("1.0").unwrap();
+    assert_eq!(parse_capture(&whole).map(|c| c.revision()), Ok(Revision(1)));
+    // An anchor of another kind of §4.7.1 is well formed and refused capability-absent; a
+    // malformed anchor, an unknown kind included, is refused invalid-request.
+    for kind in ["value", "derived-index"] {
+        let mut other_kind = good.clone();
+        other_kind["anchors"][0] = serde_json::json!({"kind": kind, "role": "r"});
+        assert_eq!(
+            parse_capture(&other_kind).unwrap_err().code,
+            StoreErrorCode::CapabilityAbsent,
+            "{kind}"
+        );
+    }
+    for anchor in [
+        serde_json::json!({"kind": "bogus", "entity": "plant:a"}),
+        serde_json::json!({"kind": 1, "entity": "plant:a"}),
+        serde_json::json!({"entity": "plant:a"}),
+        serde_json::json!({"kind": "entity", "entity": 7}),
+        serde_json::json!({"kind": "entity"}),
+        serde_json::json!(["entity", "plant:a"]),
+        Value::Null,
+    ] {
+        let mut bad = good.clone();
+        bad["anchors"][0] = anchor.clone();
+        assert_eq!(
+            parse_capture(&bad).unwrap_err().code,
+            StoreErrorCode::InvalidRequest,
+            "{anchor}"
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1471,18 +1595,85 @@ fn a_commit_during_a_check_starts_it_again_on_a_new_snapshot() {
 }
 
 #[test]
-fn check_fresh_refuses_a_now_that_is_not_a_number() {
+fn check_fresh_and_capture_scope_refuse_a_now_that_is_not_finite() {
     let store = MemoryStore::new();
     let peer = store
         .create_peer("peer:n", ErasurePosture::Unproven)
         .unwrap();
     let capture = capture_now(peer.as_ref(), &["plant:a"], 100.0);
-    assert_eq!(
-        check_fresh(peer.as_ref(), &capture, f64::NAN)
-            .unwrap_err()
-            .code,
-        StoreErrorCode::InvalidRequest
+    for now in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert_eq!(
+            check_fresh(peer.as_ref(), &capture, now).map_err(|e| e.code),
+            Err(StoreErrorCode::InvalidRequest),
+            "check_fresh at {now}"
+        );
+        let mut snapshot = peer.read().unwrap();
+        assert_eq!(
+            capture_scope(snapshot.as_ref(), &["plant:a".into()], now, select(None))
+                .map(|_| ())
+                .map_err(|e| e.code),
+            Err(StoreErrorCode::InvalidRequest),
+            "capture_scope at {now}"
+        );
+        snapshot.release();
+    }
+}
+
+/// A peer whose feed answers a page that makes no progress: `through` is `from`.
+struct Stuck<'a>(&'a dyn PeerStore);
+
+impl PeerStore for Stuck<'_> {
+    fn id(&self) -> &str {
+        self.0.id()
+    }
+    fn erasure(&self) -> rhizomatic::store::PeerErasure {
+        self.0.erasure()
+    }
+    fn history(&self) -> &str {
+        self.0.history()
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        self.0.read()
+    }
+    fn append(&self, admission: &Admission) -> Result<AppendResult, StoreError> {
+        self.0.append(admission)
+    }
+    fn purge(&self, ids: &[String]) -> Result<rhizomatic::store::PurgeReport, StoreError> {
+        self.0.purge(ids)
+    }
+    fn changes(&self, from: Revision, _: Option<Revision>) -> Result<ChangePage, StoreError> {
+        Ok(ChangePage::Ok {
+            records: Vec::new(),
+            through: from,
+        })
+    }
+}
+
+#[test]
+fn a_page_that_makes_no_progress_fails_the_check_and_is_no_verdict() {
+    let store = MemoryStore::new();
+    let peer = store
+        .create_peer("peer:s", ErasurePosture::Unproven)
+        .unwrap();
+    let capture = capture_now(peer.as_ref(), &["plant:a"], 100.0);
+    commit(
+        peer.as_ref(),
+        0,
+        0,
+        &[fact("plant:b", "c", 1.0, (1.0, None))],
     );
+    let stuck = Stuck(peer.as_ref());
+    let failed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        check_fresh(&stuck, &capture, 100.0)
+    }));
+    let message = match failed {
+        Ok(answer) => panic!("a store fault answered {answer:?}"),
+        Err(payload) => payload
+            .downcast_ref::<String>()
+            .cloned()
+            .unwrap_or_default(),
+    };
+    assert!(message.contains("made no progress"), "{message}");
 }
 
 // ---------------------------------------------------------------------------------------------

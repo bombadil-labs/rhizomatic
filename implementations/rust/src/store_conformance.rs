@@ -37,7 +37,7 @@ use crate::store::{
     PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError,
     StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta, MAX_REVISION, PURGE_BOUNDARY,
 };
-use crate::store_fresh::{make_capture, parse_capture, Capture, Freshness, Touch, TouchReason};
+use crate::store_fresh::{parse_capture, Capture, Freshness, Touch, TouchReason};
 use crate::types::Delta;
 
 const SCRIPTS_FORMAT: &str = "rhizomatic-store-scripts/1";
@@ -1142,16 +1142,9 @@ impl<'a> Run<'a> {
             }
             code => format!("capture refused `{}`: {}", code.as_str(), e.message),
         })?;
-        // 0. The checking constructor, with a history local to the process allowed.
-        make_capture(
-            capture.history(),
-            capture.revision(),
-            capture.anchors().to_vec(),
-            capture.members().to_vec(),
-            capture.since(),
-            capture.expires_at(),
-        )
-        .map_err(|e| format!("the capture is malformed: {}", e.message))?;
+        // 0. The checking constructor. A `Capture` exists only once a constructor checked it, so
+        // a malformed one shows as the maker's refusal inside the reader, reported above
+        // (README §9.2, check 0, typed witnesses). Then the history.
         if capture.history() != history {
             return Err("the capture's history is not its snapshot's".into());
         }
@@ -1288,7 +1281,7 @@ impl<'a> Run<'a> {
         };
         let answer = reader
             .check_fresh(&logged, &capture, now)
-            .map_err(|e| format!("checkFresh refused `{}`: {}", e.code.as_str(), e.message))?;
+            .map_err(|e| format!("checkFresh refused with {}: {}", e.code.as_str(), e.message))?;
         // 1. The status.
         if answer.status() != status {
             return Err(match below {

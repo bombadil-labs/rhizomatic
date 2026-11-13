@@ -93,6 +93,13 @@ function entitiesOf(anchors: readonly Anchor[]): Entity[] {
   return [...new Set(anchors.map((anchor) => anchor.entity))].sort(compareUtf8);
 }
 
+/**
+ * The anchor kinds of §4.7.1 that a capture cannot hold yet. A capture that names one is
+ * well formed and refused `capability-absent`; another kind is malformed (`invalid-request`).
+ * Slice 6 defines their fields, so only the kind is read.
+ */
+const OTHER_ANCHOR_KINDS: ReadonlySet<string> = new Set(["value", "derived-index"]);
+
 const frozenAnchors = (entities: readonly Entity[]): readonly Anchor[] =>
   Object.freeze(entities.map((entity) => Object.freeze({ kind: "entity" as const, entity })));
 
@@ -144,9 +151,16 @@ function checked(v: Record<string, unknown>, refuseLocal: boolean): Capture {
   const entities = ascending(
     (anchors as unknown[]).map((a) => {
       const anchor = a as { kind?: unknown; entity?: unknown } | null;
-      if (typeof anchor !== "object" || anchor === null || Object.keys(anchor).length !== 2)
-        return refuse("an anchor is not {kind, entity}");
-      if (anchor.kind !== "entity") return refuse("an anchor is not an entity anchor");
+      if (typeof anchor !== "object" || anchor === null || Array.isArray(anchor))
+        return refuse("an anchor is not an object");
+      if (typeof anchor.kind === "string" && OTHER_ANCHOR_KINDS.has(anchor.kind))
+        throw new StoreError(
+          "capability-absent",
+          `capture: a ${anchor.kind} anchor; this witness reads entity anchors only`,
+        );
+      if (anchor.kind !== "entity")
+        return refuse("an anchor's kind is not entity, value or derived-index");
+      if (Object.keys(anchor).length !== 2) return refuse("an entity anchor is not {kind, entity}");
       return anchor.entity;
     }),
     "anchors",
@@ -177,19 +191,20 @@ function checked(v: Record<string, unknown>, refuseLocal: boolean): Capture {
 }
 
 /**
- * A capture of a snapshot, frozen. The caller gives the lists already ascending by UTF-8 bytes
- * and without repeats. Refuses `capability-absent` for an anchor that is not an entity anchor,
- * and `invalid-request` for what `parseCapture` refuses, but a history local to this process.
+ * A capture of a live snapshot, frozen: `history` and `revision` are read from `snapshot`, the
+ * snapshot the read ran on. The caller gives the lists already ascending by UTF-8 bytes and
+ * without repeats. Refuses what `parseCapture` refuses, but a history local to this process.
+ *
+ * It is not a way to reload a stored capture: that comes back only through `parseCapture`, which
+ * refuses a process-local history. A host that fabricates a snapshot to feed stored values to
+ * this maker defeats that refusal and can get a false `current`.
  */
 export function makeCapture(
-  snapshot: { readonly history: History; readonly revision: Revision },
+  snapshot: Snapshot,
   anchors: readonly Anchor[],
   members: Iterable<Id>,
   validity: ValidityWindow,
 ): Capture {
-  for (const anchor of anchors)
-    if (anchor.kind !== "entity")
-      throw new StoreError("capability-absent", "capture: entity anchors only");
   return checked(
     {
       history: snapshot.history,
@@ -208,7 +223,8 @@ export function makeCapture(
  * has exactly the six fields of a capture, a non-empty `history` that is not local to a process
  * (`LOCAL_HISTORY_PREFIX`), an integer `revision` from 0 to 2^53 − 1, entity anchors and member
  * ids each strictly ascending by UTF-8 bytes (so with no repeat), and `since` and `expiresAt`
- * that are null or finite with `since < expiresAt`. It never sorts.
+ * that are null or finite with `since < expiresAt`. It never sorts. An anchor of another kind of
+ * §4.7.1 (`value`, `derived-index`) is refused `capability-absent`; an unknown kind is malformed.
  *
  * It checks shape, not truth: a stored capture is believed as its maker wrote it. A host that
  * stores captures where it does not trust what is at rest protects their integrity itself.
@@ -418,7 +434,11 @@ async function checkOn(
     if (ids.length > 0) for (const delta of await snapshot.get(ids)) added.set(delta.id, delta);
     const found = touch(capture, page.records, added);
     if (found !== null) return { status: "stale", touch: found };
-    if (page.through <= at) throw new Error("checkFresh: a page of the feed made no progress");
+    // A store fault, not a verdict: such a page cannot vouch for the rest of the range.
+    if (page.through <= at)
+      throw new Error(
+        `checkFresh: the store's page from ${at} made no progress toward ${current}; the store breaks the change feed contract (§4.6)`,
+      );
     at = page.through;
   }
   if (capture.since !== null && now < capture.since)

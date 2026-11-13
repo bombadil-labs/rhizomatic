@@ -68,8 +68,10 @@ export type MemoryStoreOptions = {
    * the process (`memory:local:<n>`). With a process-local history, a capture that outlives its
    * process could be judged against another history and answer `current` falsely, which is why
    * `parseCapture` refuses one. A host that keeps captures across a serialization boundary passes
-   * a mint unique across processes, such as 128 random bits. A minted history that is empty or
-   * starts with `memory:local:` is refused `invalid-request` when the peer is created.
+   * a mint unique across processes, such as 128 random bits. A minted history that is empty,
+   * starts with `memory:local:`, or repeats one this store has issued to any peer is refused
+   * `invalid-request` when the peer is created. The mint runs after every other check of
+   * `createPeer`, `peer-exists` included, and takes the peer's id.
    */
   readonly mintHistory?: (peer: PeerId) => History;
 };
@@ -281,6 +283,8 @@ class MemoryStore implements Store {
   readonly #keep: number;
   readonly #pageSize: number;
   readonly #mint: (peer: PeerId) => History;
+  /** Every history this store has issued, kept after its peer is gone: none is issued twice. */
+  readonly #issued = new Set<History>();
   #closed = false;
 
   constructor(options: MemoryStoreOptions) {
@@ -316,6 +320,12 @@ class MemoryStore implements Store {
           "invalid-request",
           `memory store: a minted history must not start with ${LOCAL_HISTORY_PREFIX}, which marks a history local to one process`,
         );
+      if (this.#issued.has(history))
+        throw new StoreError(
+          "invalid-request",
+          `memory store: the mint answered ${history}, a history this store already issued; a history is never reused`,
+        );
+      this.#issued.add(history);
       return history;
     };
     this.#own = {

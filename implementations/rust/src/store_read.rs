@@ -408,15 +408,13 @@ fn capture_of(
         false => cache.ids().into_iter().map(str::to_string).collect(),
     };
     make_capture(
-        snapshot.history(),
-        snapshot.revision(),
+        snapshot,
         entities
             .into_iter()
             .map(|entity| Anchor::Entity { entity })
             .collect(),
         members,
-        window.since,
-        window.expires_at,
+        window,
     )
 }
 
@@ -608,13 +606,20 @@ pub fn fetch_scope(
 
 /// `fetch_scope` and a capture beside it (SPEC-18 §4.13 reading 28), with the window at `now`.
 /// With nothing pushed down the capture's members are what the one `scope` call returned; with a
-/// pushdown they come from `targets` and `negators` on the same snapshot.
+/// pushdown they come from `targets` and `negators` on the same snapshot. Refuses
+/// `invalid-request` for a `now` that is not finite, before any store call.
 pub fn capture_scope(
     snapshot: &dyn Snapshot,
     entities: &[String],
     now: f64,
     selection: Selection<'_>,
 ) -> Result<(FetchedScope, Capture), StoreError> {
+    if !now.is_finite() {
+        return Err(StoreError::new(
+            StoreErrorCode::InvalidRequest,
+            "captureScope needs a now that is a finite number",
+        ));
+    }
     let (fetched, anchors, cache) = fetched(snapshot, entities, selection)?;
     let window = fetched.validity_at(now);
     let capture = capture_of(snapshot, &anchors, selection.pushdown, &cache, window)?;

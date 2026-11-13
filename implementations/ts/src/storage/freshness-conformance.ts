@@ -287,7 +287,13 @@ class FreshnessRun {
       : step.expect.verdict;
     const log: Call[] = [];
     const handle = logged(this.run.peer(step.peer), log);
-    const verdict = await this.witness.checkFresh(handle, capture, step.now);
+    let verdict: Freshness;
+    try {
+      verdict = await this.witness.checkFresh(handle, capture, step.now);
+    } catch (error) {
+      if (!(error instanceof StoreError)) throw error;
+      throw new Error(`checkFresh refused with ${error.code}: ${error.message}`);
+    }
     check(
       verdict.status === expected.status,
       belowFloor
