@@ -3127,7 +3127,7 @@
     },
     {
       "name": "a-purge-and-a-re-add-between-refreshes",
-      "note": "ps-name is purged and added again between two refreshes. The bytes are the same, but the member left and came back: the view is read again, and nothing changes.",
+      "note": "ps-name is purged and added again between two refreshes. The bytes are the same, but the member left and came back: the view is read again, and its baseline is released, so the refresh reports it with before null.",
       "spec": "SPEC-18 §4.6",
       "requires": [
         "changes"
@@ -4324,7 +4324,7 @@
     },
     {
       "name": "retention-too-short",
-      "note": "The store keeps one record. Two commits between refreshes drop a record the views need: the refresh resyncs and reads every held view again.",
+      "note": "The store keeps one record. Two commits between refreshes drop a record the views need: the refresh resyncs, reads every held view again and releases every baseline, so every view is in changed with before null.",
       "spec": "SPEC-18 §4.6",
       "requires": [
         "changes"

@@ -55,7 +55,7 @@ delivers or judges it. Both witnesses refuse a capture with two defects by the s
 from one shared table (`vectors/store/capture-defects.json`), and their runners agree on case
 stores, skips, messages and the call log.
 
-The store, slice 3, step 9 (SPEC-18 proposal §4.6 "Held views", §4.13 readings 75 to 88): held
+The store, slice 3, step 9 (SPEC-18 proposal §4.6 "Held views", §4.13 readings 75 to 90): held
 views. A `StoreViews` holds, for one peer, a bounded set of views: each an anchored read of a
 registered program at a root, with its capture. `hold(name, root, now)` answers a view and
 `refresh(now)` brings every held view to one snapshot and one time. Each makes one pass over the
@@ -64,9 +64,12 @@ reads only those again, on its own snapshot; then the views whose window no long
 and the views whose program's epoch changed (`setEpoch`). After a pass every held view equals a
 fresh read. `refresh` answers the views read again and the views whose bytes changed; there is
 no push. `nextBoundary` is the least `expiresAt` over the held views. `maxViews` bounds the set;
-`drop` forgets a view. A held view keeps a purged delta's bytes until its next pass, so a host
-that erases calls `refresh` or `drop` first. The memory `Reactor` does not change. The new shared
-vectors `vectors/store/views.json` pin held views; the Rust witness skips them until step 10.
+`drop` forgets a view. A store that breaks its contract fails a pass with `StoreFaultError`, and
+nothing is applied. A held view keeps a purged delta's bytes, and its `changed` baseline, until a
+pass reads the purge; that pass releases them, and the next `refresh` reports the view with
+`before: null`. A host that erases runs a pass first, and erases the copies it took itself. The
+memory `Reactor` does not change. The new shared vectors `vectors/store/views.json` pin held
+views; the Rust witness skips them until step 10.
 
 ### ⚠️ Breaking
 

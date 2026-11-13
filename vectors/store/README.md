@@ -2476,8 +2476,12 @@ None of the three makes a store call, else `<op> made the call <call>; it makes 
 - `reread`: the views **of programs without a selection** that the pass reads again, ascending.
   For a hold it does not list the view asked for when that view was not held. For a program with
   a selection the vectors do not pin whether a view is read again (SPEC-18 §4.13 reading 80).
-- `changed` (refresh only): every held view whose bytes differ from those it had at the previous
-  refresh, or at its first read since then, with both, ascending.
+- `changed` (refresh only), ascending: every held view whose bytes differ from its **baseline**
+  (its bytes at the previous refresh, or, for a view first held since then, its first answer),
+  with both; and every view whose baseline the holder released, with `before: null`. A holder
+  releases a baseline when a pass reads a record that removes a delta the baseline's raw scope
+  held, and releases every baseline when a pass resyncs (SPEC-18 §4.6, "A held view lies outside
+  erasure"). A view is not in `changed` merely because it is new.
 - `resynced` (refresh only): the pass could not take the views from the processed position.
 
 A hold of a program the case never registered is a defect:
@@ -2486,13 +2490,18 @@ A hold of a program the case never registered is a defect:
 **The expected resync.** When the runner's held set is not empty, the processed position has the
 peer's history, and its revision is below the retention floor F of the runner's model (§3.9.2),
 the pass must resync, whatever the document says: a document is written for a feed that keeps
-what its case's `store` keeps. Then `resynced` must be true, `reread` is every view of the held
-set before the step, of programs without a selection, and a hold of a held view answers
-`from: read`. Otherwise the document's values stand.
+what its case's `store` keeps. Then `resynced` must be true; `reread` is every view of the held
+set before the step, of programs without a selection, but the view a hold evicts (§11.3, hold
+check 6); a hold of a held view answers `from: read`; and a refresh's `changed` is every view of
+the held set, ascending, each with `before: null`, and with the document's `after` where the
+document lists the view (elsewhere `after` is not checked). Otherwise the document's values
+stand.
 
 **The call.** Start a new call log. Call `hold(program, root, now)` or `refresh(now)`. A store
 refusal that passes up fails with `hold refused with <code>` or `refresh refused with <code>`,
-followed by its message; any other error fails the case with its own message. Then check, in this
+followed by its message. A store fault (SPEC-18 §4.13 readings 73, 74 and 89) fails with
+`the store broke <rule>: `, followed by the fault's message, as in §9.3. Any other error fails the
+case with its own message. Then check, in this
 order.
 
 For `hold`:
@@ -2504,8 +2513,8 @@ For `hold`:
 4. `expiresAt` equals the document's, else `hold of <p> at <r> reports expiresAt <x>, expected <y>`.
 5. The calls (§11.4). The reads due are `reread`, and the view asked for when it was not held.
 6. The runner updates its held set: when the view was not held and the set has `maxViews` views,
-   it forgets the oldest; then the view becomes the most recent. The processed position is the
-   answer's.
+   it forgets the least recently held one (which the pass does not read); then the view becomes
+   the most recent. Only `hold` makes a view recent. The processed position is the answer's.
 7. The holder's `nextBoundary` equals `nextBoundary`, else `the next boundary is <x>, expected <y>`.
 
 For `refresh`:
@@ -2514,9 +2523,11 @@ For `refresh`:
 2. `resynced` equals the expected value, else `refresh resynced <b>, expected <B>`.
 3. The views of `reread` of programs without a selection, ascending, equal the expected ones, else
    `refresh re-read [<views>], expected [<views>]`. Views of programs with a selection are free.
-4. The views of `changed`, in order, equal the document's, else
-   `refresh changed [<views>], expected [<views>]`; then each `before` and `after` equal the
-   document's, else `refresh reports the change of <p> at <r> with other bytes`.
+   The whole `reread` list is strictly ascending, else `refresh's re-read list is not ascending`.
+4. The views of `changed`, in order, equal the expected ones, else
+   `refresh changed [<views>], expected [<views>]`; then each `before` (a string, or null) and
+   `after` equal the expected ones, else
+   `refresh reports the change of <p> at <r> with other bytes`.
 5. The calls (§11.4). The reads due are the expected `reread`.
 6. The processed position is the answer's. Then `nextBoundary`, as hold check 7.
 
@@ -2591,6 +2602,12 @@ The JSON cannot express these; each witness builds them.
   | keeps its views on resync (merges) | `retention-too-short` | `refresh re-read [], expected [leaf@garden:1 leaf@plant:2]` |
   | reads the feed once per view | `an-unrelated-append` | `refresh made the call changes(2, 3) where the contract asks for release` |
   | does not move `nextBoundary` when it reads a view again | `time-moves-past-the-window-and-back` | `the next boundary is 60, expected null` |
+  | keeps the baseline of a purged member | `a-purge-read-by-a-hold-releases-the-baseline` | `refresh reports the change of leaf at plant:s with other bytes` |
+  | keeps an evicted view, reads it when it is held again, and serves its old bytes | `an-evicted-view-is-read-again` | `hold of leaf at garden:1 answered other bytes` |
+
+  The holder that keeps an evicted view fails `an-evicted-view-is-read-again` and no other case;
+  each witness asserts that, and that it passes the document without that case. The holder that
+  keeps the baseline of a purged member also fails the other purge cases.
 
   Two wrong holders pass the document and fail a rail instead:
 
@@ -2600,8 +2617,10 @@ The JSON cannot express these; each witness builds them.
   - **Asks `touching` of every held view per page.** It is right, and slow: the cost rail of held
     views goes red (TypeScript measured a ratio of 44).
 
-- **Every check has a row.** Change one expected value of a case and its check fails with its
-  message: other bytes; another `from`; another hold position; another `expiresAt`; another next
+- **Every check has a row.** A holder whose `reread` is not ascending fails
+  `two-views-share-an-anchor` with `refresh's re-read list is not ascending`. A store whose feed
+  pages make no progress fails `an-unrelated-append` with `the store broke no-progress: `.
+  Change one expected value of a case and its check fails with its message: other bytes; another `from`; another hold position; another `expiresAt`; another next
   boundary; another refresh position; another `resynced`; another `reread`; another `changed`;
   another change's bytes; a refusal with another reason; a refusal expected of an anchored
   program; a refusal not expected; a hold before registering; an unknown program; a hold whose
@@ -2613,20 +2632,33 @@ The JSON cannot express these; each witness builds them.
   - `register` refuses an unanchored program with the read's reason, and a name given twice
     `invalid-request`. A `maxViews` that is not an integer of 1 or more is refused when the
     holder is made.
-  - `hold` of an unknown program, `setEpoch` of one, and a `now` that is not finite are refused
-    `invalid-request` with no store call.
+  - `hold`, `setEpoch` and `drop` of a program not registered, and a `now` that is not finite,
+    are refused `invalid-request` with no store call. `drop` of a view not held is no error.
+  - **Use.** Only `hold` makes a view recent: after a `refresh` reads a view, holding a new view
+    into a full set still evicts it. A view a `hold` evicts is not read in that pass (its
+    program's count of reads does not move).
   - **Forgetting.** After a `drop`, and after an eviction, every index returns to its size; with
     nothing held, every index is empty. `nextBoundary` follows.
   - **Serialized.** Calls started together run in call order; a refused call in the middle
     breaks nothing.
-  - **Faults.** A feed page past r′, and one with no progress, each also adding a touching id,
-    fail the call with an error that is not a store refusal.
-  - **Moved snapshots.** On `snapshot-moved` a pass starts again, at most four snapshots, each
-    released; four moves pass `snapshot-moved` up.
+  - **Faults.** A feed page past r′ (`past-the-bound`) and one with no progress (`no-progress`),
+    each also adding a touching id, and a `get` answer with an id it was not asked for
+    (`unasked-ids`), each fail the call with the store fault of that rule (TypeScript
+    `StoreFaultError`), never a refusal or another error. Nothing is applied: every index keeps
+    its size, and the next refresh over a sound store reports the touched view with the bytes
+    it had before.
+  - **Moved snapshots.** On `snapshot-moved`, from `read()` itself or from a later call, a pass
+    starts again, at most four snapshots, each released; four moves pass `snapshot-moved` up.
   - **Erasure, two-sided.** After a purge of a member and a `refresh`, the target view's bytes
     hold the remaining delta and not the purged one; a named bystander view of another program is
     not read again (its count of reads is unchanged), and a later `hold` of it answers `held`
-    with the same bytes. Until the pass, the held copy keeps the payload.
+    with the same bytes. **The review's scenario:** hold the target (with a unique payload) and a
+    bystander; append at the target and hold it again, so its baseline still carries the payload;
+    purge the payload's delta; hold the bystander. After that hold's pass, a walk of every string
+    the holder reaches (its maps, sets, arrays and objects, but not the store handle) finds
+    neither the payload nor the delta's id; the bystander answers `held` with its bytes and its
+    count of reads unchanged; the next `refresh` reports the target with `before: null` and the
+    bytes of a fresh read.
   - **The capture.** A held view's capture is at the answer's position, and `checkFresh` answers
     `current` for it. Moving a capture refuses another history, a lower revision, a revision that
     is not an integer, and an object that is not a built capture.
@@ -2639,8 +2671,11 @@ The JSON cannot express these; each witness builds them.
   selection) `from` is the contract's. After every `refresh`, `resynced` is the model's, `reread`
   (without a selection) is exactly the touched, out-of-window and re-epoched views (or every view
   on resync), and every held view, as a host that copies from `changed` holds it, equals a fresh
-  read at that time. After every step, `nextBoundary` is the least `expiresAt`. The TypeScript
-  fuzz asserts that each kind of event occurred.
+  read at that time. After every `hold` and `refresh`, no id that the peer purged and does not
+  hold appears in the holder as a delta's own entry (the CBOR key `id` and the id) or as a whole
+  string; a negation that names a purged id carries the negation's payload, not the purged
+  delta's. After every step, `nextBoundary` is the least `expiresAt`. The TypeScript fuzz asserts
+  that each kind of event occurred.
 - **The cost rails**, timed from outside as in §3.9.9 (N from 256, doubling until the run takes
   50 ms; the run at N the fastest of five; the run at 8N the fastest of three, stopping at the
   first under the bound; the ratio below 24). A run is N rounds of one commit and one refresh;
@@ -2661,10 +2696,18 @@ The JSON cannot express these; each witness builds them.
 - An append at an anchor of one view of two (`an-append-at-an-anchor-of-one-view`).
 - A negator of a member (`a-negator-of-a-member`); a negator of a negator that is a member
   (`a-negator-of-a-negator`).
-- A purge of a member, two-sided: the target view drops the purged delta, and the bystander is
-  not read again and keeps its bytes (`a-purge-of-a-member`). A purge, a refresh, then a re-add
-  (`a-purge-then-a-re-add`); a purge and a re-add between refreshes: read again, and no change
-  (`a-purge-and-a-re-add-between-refreshes`).
+- A purge of a member, two-sided: the target view drops the purged delta and is reported with
+  `before: null`, and the bystander is not read again and keeps its bytes
+  (`a-purge-of-a-member`). A purge, a refresh, then a re-add (`a-purge-then-a-re-add`); a purge
+  and a re-add between refreshes: the bytes are the same, but the baseline is released, so the
+  view is reported with `before: null` (`a-purge-and-a-re-add-between-refreshes`).
+- A purge read by a `hold` of a bystander, while the target's baseline still carries the purged
+  delta: the baseline is released in that pass, and the refresh reports `before: null`
+  (`a-purge-read-by-a-hold-releases-the-baseline`).
+- `maxViews` 1: a view evicted, changed, and held again is read again with its new bytes
+  (`an-evicted-view-is-read-again`).
+- A view first held after a refresh and changed before the next one is in `changed`, with its
+  first answer as `before` (`a-new-view-that-changes-before-the-refresh`).
 - A touch through a dynamic anchor two levels down (`a-touch-through-a-dynamic-anchor`); a view
   that gains a dynamic anchor when it is read again and is then touched through it alone
   (`a-view-gains-a-dynamic-anchor`), then loses it, and a purge at the lost anchor reads nothing
@@ -2676,7 +2719,8 @@ The JSON cannot express these; each witness builds them.
   (`a-program-with-a-selection`).
 - Epochs: a new epoch reads every view of its program and no other; an epoch set and set back
   reads nothing (`set-epoch`).
-- A store that keeps one record: two commits between refreshes resync (`retention-too-short`).
+- A store that keeps one record: two commits between refreshes resync, and every view is in
+  `changed` with `before: null` (`retention-too-short`).
 - Another peer's commits: no feed call, nothing read (`another-peers-commits`).
 - `maxViews` 2: eviction of the least recently held or asked view, and a re-hold that reads it
   (`max-views-evicts-the-least-recently-held`); `drop`, and a hold after every view was dropped,

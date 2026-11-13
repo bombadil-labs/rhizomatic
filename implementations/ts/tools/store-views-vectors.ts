@@ -662,7 +662,7 @@ function cases(world: World): StoreViewsCase[] {
   );
   add(
     "a-purge-and-a-re-add-between-refreshes",
-    "ps-name is purged and added again between two refreshes. The bytes are the same, but the member left and came back: the view is read again, and nothing changes.",
+    "ps-name is purged and added again between two refreshes. The bytes are the same, but the member left and came back: the view is read again, and its baseline is released, so the refresh reports it with before null.",
     (c) => leaves(c).hold("leaf", "plant:s").purge("A", "ps-name").append("A", "ps-name").refresh(),
   );
   add(
@@ -768,7 +768,7 @@ function cases(world: World): StoreViewsCase[] {
   );
   add(
     "retention-too-short",
-    "The store keeps one record. Two commits between refreshes drop a record the views need: the refresh resyncs and reads every held view again.",
+    "The store keeps one record. Two commits between refreshes drop a record the views need: the refresh resyncs, reads every held view again and releases every baseline, so every view is in changed with before null.",
     (c) =>
       leaves(c)
         .hold("leaf", "garden:1")

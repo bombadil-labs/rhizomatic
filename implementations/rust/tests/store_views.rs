@@ -66,7 +66,8 @@ fn the_views_vectors_are_skipped_until_the_witness_holds_views() {
                     assert!(expect["reread"].as_array().unwrap().iter().all(is_key));
                     for change in expect["changed"].as_array().expect("changed") {
                         assert!(is_key(change));
-                        assert!(change["before"].is_string() && change["after"].is_string());
+                        assert!(change["before"].is_string() || change["before"].is_null());
+                        assert!(change["after"].is_string());
                     }
                 }
                 _ => {}

@@ -620,7 +620,7 @@ type ViewRead = { name; root; bytes: string; position: Position; expiresAt: numb
                   from: "held" | "read"; capture: Capture };
 type Refresh = { position: Position; changed: readonly ViewChange[];
                  reread: readonly ViewKey[]; resynced: boolean };
-type ViewChange = { name; root; before: string; after: string };   // bytes as hex
+type ViewChange = { name; root; before: string | null; after: string };   // bytes as hex
 type ViewKey = { name; root };
 ```
 
@@ -634,8 +634,8 @@ type ViewKey = { name; root };
   read again by the next pass once its program's epoch is another. Epochs compare by value.
 - `hold`, `refresh`, `drop` and `setEpoch` run one at a time, in call order. A call that fails
   changes nothing: no view, no index entry and not the processed position. The queue goes on.
-- `hold` and `refresh` refuse a `now` that is not finite, and `hold` and `setEpoch` a name not
-  registered, `invalid-request`, before any store call. `maxViews` is an integer of 1 or more
+- `hold` and `refresh` refuse a `now` that is not finite, and `hold`, `setEpoch` and `drop` a
+  name not registered, `invalid-request`, before any store call. `maxViews` is an integer of 1 or more
   (default 1024); another value is refused when the holder is made.
 
 **The pass.** `StoreViews` keeps one processed position: every held view stands there. `hold` and
@@ -645,37 +645,53 @@ type ViewKey = { name; root };
 2. **The feed.** When views are held, and s has the processed position's history and a revision
    r′ above it, read `changes(processed, r′)` page by page, with that explicit `to`. For each page
    that names an added id, make one `get` of those ids on s, distinct and ascending; a page that
-   adds nothing gets no `get`. A view is **touched** by the rule of `touching`: a record's
+   adds nothing gets no `get`. The answer of `get` names only ids it was asked for, each once,
+   ascending; else the store broke `unasked-ids` (reading 74). A view is **touched** by the rule of `touching`: a record's
    `removed` names one of its members, or an added id still held at r′ points at one of its
    anchors or negates one of its members. The holder finds the touched views through an inverted
-   index (anchor entity → views, member id → views). It never asks each view per record.
+   index (anchor entity → views, member id → views). It never asks each view per record. A
+   record's `removed` also **releases** the baseline (below) of every view whose baseline was
+   read from a raw scope that holds the removed id.
 3. **Resync.** When s has another history, or a revision below the processed one, or the store
-   answers `resync-required`, every held view is read again and the pass has `resynced`. It reads
-   no more of the feed. With no view held, the pass reads no feed.
+   answers `resync-required`, every held view is read again, every baseline is released, and the
+   pass has `resynced`. It reads no more of the feed: the records it missed may remove anything. With no view held, the pass reads no feed.
 4. **Time.** Unless the pass resynced: every held view whose window `[since, expiresAt)` does not
    hold `now` is read again. The holder keeps its views ordered by `expiresAt` and by `since`, so
    this costs O(log + views found).
 5. **Epochs.** Unless the pass resynced: every view whose program's epoch changed since the view
    was read is read again.
 6. **Reads.** Every view to read again, and for `hold` the view asked for when it is not held, is
-   read with `readAnchored` (capture asked for) **on s**. A view not read keeps its bytes.
-7. Release s. Then apply the pass: new bytes and captures, index entries, the processed position
-   s. For `hold`, the view asked for becomes the most recent; when it is new and `maxViews` views
-   are held, the least recently held or asked view is forgotten first.
+   read with `readAnchored` (capture asked for) **on s**. A view not read keeps its bytes. The
+   order of the reads is not part of the contract. When a `hold` asks for a new view and
+   `maxViews` views are held, the least recently held view will be forgotten: the pass does not
+   read it.
+7. Release s. Then apply the pass: released baselines, new bytes and captures, index entries,
+   the processed position s. For `hold`, the least recently held view is forgotten first when
+   the view asked for is new and the set is full; then the view asked for becomes the most
+   recent. Only `hold` counts as a use: a `refresh` that reads a view does not make it recent.
 
-When s moves under the pass (`snapshot-moved`), the pass starts again on a new snapshot, at most
-four in all, as `checkFresh` does. A feed page with no progress, or one past r′, is a store fault
-(§4.13 reading 46): the call fails with an error that is not a `StoreError`, and nothing changes.
+When a snapshot moves under the pass (`snapshot-moved`, from `read()` itself or from a later
+call), the pass starts again on a new snapshot, at most four in all, as `checkFresh` does. A
+store that breaks its contract is a **store fault** (readings 46, 73 and 74): a feed page with no
+progress (`no-progress`), a page past r′ (`past-the-bound`), or a `get` answer with an id it was
+not asked for, a repeat or an id out of order (`unasked-ids`). The pass fails with the fault
+value (TypeScript `StoreFaultError`, with `rule` and `values`) before it judges that page, and
+nothing is applied.
 
 **What each call answers.**
 
 - `hold` answers the view: its bytes, the pass's position, its `expiresAt`, its capture at that
   position, and `from`: `held` when it was held and the pass did not read it, else `read`.
 - `refresh` answers the pass's position, `resynced`, `reread` (the views this pass read again,
-  ascending by name, then root, UTF-8 bytes) and `changed`: every held view whose bytes differ
-  from those it had at the previous refresh (or at its first read since then), with both. A view
-  that a `hold` read again since the previous refresh is in `changed` when its bytes differ. A
-  view first held since then, and a view forgotten, are not. `changed` is ordered as `reread`.
+  ascending by name, then root, UTF-8 bytes) and `changed`, ordered as `reread`. Each held view
+  has a **baseline**: its bytes at the previous refresh, or, for a view first held since then,
+  its first answer. `changed` lists every held view whose bytes differ from its baseline, with
+  `before` (the baseline) and `after` (its bytes now), and every view whose baseline was
+  released, with `before: null`, whatever its bytes now are. A view is not in `changed` merely
+  because it is new: one first held since the previous refresh is there when its bytes changed
+  after that first read. A view that a `hold` read again since the previous refresh is there
+  when its bytes differ from its baseline. A view forgotten is not there. The refresh then makes
+  every held view's bytes its baseline.
 - `drop` forgets one view; a view not held is no error. Forgetting, by `drop` or by eviction,
   leaves nothing in any index.
 
@@ -722,11 +738,27 @@ answer of `refresh`.
 reads other state (trust, grants outside the store, a clock other than the window) names that
 state with the program's epoch and calls `setEpoch` when it changes, as for `checkFresh`.
 
-**A held view lies outside erasure.** A held view's bytes can carry the payload of a delta. When a
-member is purged, the next pass (`refresh`, or a `hold`) reads the view again and the old bytes
-are released. Until then the memory copy remains. A `StoreViews` is a copy outside the store,
-like a follower's mirror (§4.7.2). A host that erases calls `refresh` (or `drop`) on its holders
-before it reports the erasure.
+**A held view lies outside erasure.** A `StoreViews` is a copy outside the store, like a
+follower's mirror (§4.7.2). A held view's bytes, and its baseline, can carry the payload of a
+delta. They leave the holder exactly here:
+
+- The first pass that reads the record removing a delta (`refresh`, or any `hold`) reads again
+  every view whose current raw scope holds that delta, and releases the baseline of every view
+  whose baseline was read from a raw scope that holds it. The holder keeps no byte of a released
+  baseline; the next `refresh` reports the view with `before: null`. After that pass the holder
+  keeps none of the delta's payload: not in bytes, baselines, captures, indexes or the order of
+  its views. A capture keeps ids of members only, and the purged id is no longer a member.
+- A pass that resyncs releases every baseline, because the records it missed may remove anything.
+- A baseline that the purge did not touch stays as it was. Its bytes come from the raw scope of
+  its read, and that raw scope does not hold the purged delta, so they cannot carry it.
+- `drop` and eviction forget a view at once.
+
+Until such a pass, the holder keeps the bytes. What the holder already answered is the host's
+copy: the bytes of a `hold`, and a `before` or `after` that a `refresh` returned before any pass
+read the purge. A host that erases runs a pass on every holder (`refresh`, or `drop` of the
+views) before it reports, and erases the copies it took itself. A held view may carry another
+delta's reference to the purged id (a negation names its target): that is the negation's
+payload, not the purged delta's.
 
 ### 4.7 Capabilities
 
@@ -833,9 +865,11 @@ pulling, it keeps the bytes. Erasing a follower's copy is the host's duty. After
 will not receive the removals it missed.
 
 **A held view lies outside "absent".** A `StoreViews` (§4.6, "Held views") keeps a view's bytes
-in memory. A purge removes nothing from them. The next pass reads the view again and releases
-the old bytes; until then they remain. A host that erases calls `refresh` or `drop` on its
-holders before it reports.
+and its baseline in memory. A purge removes nothing from them. The first pass that reads the
+purge's record reads the affected views again and releases their baselines; from then on the
+holder keeps none of the payload. Until then it remains. What a holder already answered is the
+host's copy. A host that erases runs a pass on its holders before it reports, and erases its own
+copies.
 
 **Later extensions, not in scope now:**
 
@@ -1433,7 +1467,7 @@ that a vector can pin.
 
 Slice 3 builds the change feed of §4.6 (`18-store.SLICE-3.PLAN.md`, steps 1 to 4), freshness
 (steps 5 and 6, readings 24 to 54), the feed cursor (steps 7 and 8, readings 55 to 74) and held
-views (step 9, readings 75 to 88). Where §4.6 and the plan were silent, the feed decided as
+views (step 9, readings 75 to 90). Where §4.6 and the plan were silent, the feed decided as
 follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`,
 `vectors/store/follow.json`, `vectors/store/views.json` and `vectors/store/README.md` §3.9, §9,
 §10 and §11 pin each point that a vector can pin.
@@ -1754,8 +1788,11 @@ follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`,
     read them again where the exact rule owes nothing. A hold of a held view that nothing touched
     costs one pass with no read (`views.json`, `a-hold-passes-for-the-whole-set`).
 76. **`changed` speaks for refreshes.** A hold's pass may read other views again. Their new bytes
-    are not lost: `refresh` answers every view whose bytes differ from those at the previous
-    refresh (or at its first read since). The answer of a `hold` goes to its caller; `changed` is
+    are not lost: `refresh` answers every view whose bytes differ from its baseline (the bytes at
+    the previous refresh, or its first answer since). A view is not in `changed` merely because it
+    is new; it is there when its bytes changed after its first read (`views.json`,
+    `a-new-view-that-changes-before-the-refresh`). The contract's first text said that views first
+    held since the previous refresh are never there; that was wrong. The answer of a `hold` goes to its caller; `changed` is
     for the host's subscribers. A host that copies both into one place sees a view change and then
     never hears that it changed back: the TypeScript fuzz found this in its own first model of the
     host (seed 62 of 2,000), and the fuzz's host now copies from `changed` alone.
@@ -1783,15 +1820,21 @@ follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`,
     View, so `bytes` is the canonical encoding of the read's result, HView or View, as
     `rounds.json` encodes it (`canonicalHex`).
 83. **Eviction is not a change.** Holding one view more than `maxViews` forgets the least recently
-    held or asked view. It is not in `changed`, and a later `hold` of it reads it again
-    (`from: read`). Forgetting leaves no index entry: a rail checks that every index returns to its
-    size, and the wrong holder that keeps entries reads a dropped view again (`drop`).
+    held view. Only `hold` counts as a use; a `refresh` that reads a view does not make it recent.
+    The pass of that `hold` does not read the view it will forget. The evicted view is not in
+    `changed`, and a later `hold` of it reads it again (`from: read`, the bytes now:
+    `an-evicted-view-is-read-again`; a holder that served the old bytes passed every other case).
+    Forgetting leaves no index entry: a rail checks that every index returns to its size, and the
+    wrong holder that keeps entries reads a dropped view again (`drop`). `drop` of a program not
+    registered is refused `invalid-request`, as `setEpoch` is; `drop` of a view not held is no
+    error.
 84. **A failed pass applies nothing.** A pass decides, reads, and only then applies. A store
-    fault (reading 46) or a refusal fails the call, and no view, index entry or position moves. A
+    fault (readings 46, 73, 74 and 89) or a refusal fails the call, and no view, index entry or position moves. A
     holder that moved its position on a failure would skip the records of the failed pass: the
     rail's next refresh then misses a touched view.
 85. **The key order.** `reread` and `changed` are ascending by program name, then root, each by
-    UTF-8 bytes. Both witnesses order them so.
+    UTF-8 bytes. Both witnesses order them so, and the runner checks it. The order of the reads
+    inside a pass is not part of the contract: the call walk allows any.
 86. **The proof.** The generator of `views.json` holds views as the contract says and proves, at
     every pass, that each view it keeps equals a fresh read over the model (rule 1), and that a
     view is touched exactly when its raw scope changed, an arrival record changed, or a member left
@@ -1800,9 +1843,28 @@ follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`,
 87. **The cost.** A pass looks up each record's ids in the inverted index. The TypeScript rails
     measured ratios of 12 to 14 (held views), 10 to 11 (holdings) and 8 to 9 (earlier records) for 8N against
     N; a holder that asks `touching` of every view per page measured 44.
-88. **A held view lies outside erasure.** Its bytes can carry a purged delta's payload until the
-    next pass. A host that erases calls `refresh` or `drop` before it reports (§4.6, §4.7.2;
-    plan §8, "Slice 5 owes").
+88. **A held view lies outside erasure, until a pass reads the purge.** The review of step 9
+    found the first build keeping a purged payload in the baseline of `changed` past the pass that
+    read the purge, and handing it back as `before` at the next refresh. The rule now: the first
+    pass that reads a record removing a delta reads again every view whose raw scope holds it and
+    releases every baseline read from a raw scope that holds it; the next refresh reports such a
+    view with `before: null`. A baseline the purge did not touch is unchanged: its raw scope does
+    not hold the delta, so its bytes cannot carry it. A resync releases every baseline. After the
+    pass the holder keeps none of the payload anywhere; the rail walks the holder's objects for the
+    payload and finds none, while a named bystander is not read again and keeps its bytes and
+    baseline (`views.json`, `a-purge-read-by-a-hold-releases-the-baseline`; the wrong holder that
+    keeps the baseline fails it). What a holder answered before that pass is the host's copy. A
+    host that erases runs a pass on every holder before it reports, and erases its own copies
+    (§4.6, §4.7.2; plan §8, "Slice 5 owes").
+89. **Faults in a pass.** A pass reports a store that breaks its contract as the fault value of
+    reading 73, with the rules of the cursor: `no-progress`, `past-the-bound`, and `unasked-ids`
+    for its `get` answer (reading 74). A pass makes no `arrivals` call, so `mismatched-answers`
+    does not arise there. `snapshot-moved` from `read()` itself is retried like the rest. The
+    runner reports a fault with `the store broke <rule>: `.
+90. **Why `before: null` and not a digest.** A released view could keep a digest of its old bytes
+    and report a change only when the digest differs. It keeps nothing instead, and reports the
+    view whatever its bytes are: a host learns less from `before: null` than from a digest, and the
+    cost is at most one extra notification per purge.
 
 
 ## 5. Architectures

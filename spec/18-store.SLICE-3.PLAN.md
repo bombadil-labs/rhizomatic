@@ -179,33 +179,35 @@ proposal (PR #76). Each is owed by the step or slice named.
   retried; another format is a failure report; each witness asserts exactly the cases of the
   file.
 
-### Steps 9 and 10 (`StoreViews`) owe
-
-- A view that reads through the store reports a store that breaks its contract as a store fault,
-  an error value that names one of the four rules (`no-progress`, `past-the-bound`,
-  `mismatched-answers`, `unasked-ids`): TypeScript `StoreFaultError`, Rust `FeedError::Fault`.
-  It never panics and never throws a plain `Error` for it.
-- A view that asks `get` or `arrivals` checks the answer as the cursor does (reading 74).
-
 ### Step 9 (held views, TypeScript) — done 2026-11-13
 
 - ✓ `StoreViews`: `register`, `setEpoch`, `hold`, `refresh`, `drop`, `nextBoundary`,
   `evalCountOf`; one pass for the whole set through an inverted index; the window by heaps; the
   epoch; `maxViews` and eviction; `advanceCapture`, internal (§4.6 "Held views"; §4.13 readings
-  73 to 86).
+  75 to 90).
 - ✓ `vectors/store/views.json`, its runner and its rails (`vectors/store/README.md` §11). The
   generator proves rules 1 and 4 by brute force; a fuzz of 2,000 sequences in the suite (20,000
   run once); three cost rails.
-- Changed from the contract: `drop` and `setEpoch` answer promises (reading 79); `ViewRead` adds
-  `capture` (reading 75); `bytes` is an HView or a View (reading 80); `changed` speaks for
-  refreshes (reading 74); the vectors pin `reread` and `from` only for programs without a
-  selection (reading 78).
+- ✓ The independent review of step 9 (merge with follow-ups), applied: a pass reports a broken
+  store as `StoreFaultError` with the four rules and checks its `get` answer (`unasked-ids`); a
+  pass that reads a purge releases every baseline that could carry the purged delta, and the next
+  refresh reports the view with `before: null` (reading 88); a resync releases every baseline;
+  the cases `a-purge-read-by-a-hold-releases-the-baseline`, `an-evicted-view-is-read-again` and
+  `a-new-view-that-changes-before-the-refresh`, with the wrong holders "keeps the baseline of a
+  purged member" and "keeps an evicted view and serves its old bytes"; `drop` of a program not
+  registered is refused; only `hold` is a use; a view a `hold` evicts is not read in that pass;
+  the order of reads inside a pass is free, and `reread` and `changed` are sorted (readings 83,
+  85, 89 and 90).
+- Changed from the contract: `drop` and `setEpoch` answer promises (reading 81); `ViewRead` adds
+  `capture` (reading 77); `bytes` is an HView or a View (reading 82); `changed` speaks for
+  refreshes, against a baseline (reading 76); `ViewChange.before` may be null (reading 88); the
+  vectors pin `reread` and `from` only for programs without a selection (reading 80).
 
 ### Step 10 (held views, Rust) owes
 
-From the documents alone: `spec/18-store.PROPOSAL.md` §4.6 ("Held views") and §4.13 readings
-73 to 86, §4.7.2 (its paragraph on held views), §6 items 3 to 5, and
-`vectors/store/README.md` §11.
+From the documents alone: `spec/18-store.PROPOSAL.md` §4.6 ("Held views", with "A held view lies
+outside erasure") and §4.13 readings 73, 74 and 75 to 90; §4.7.2 (its paragraph on held views);
+§6 items 3 to 5; and `vectors/store/README.md` §11.
 
 1. `advance_capture(capture, history, revision)` beside `make_capture` and `parse_capture`, not
    public outside the crate's store modules: it answers the same capture at a later revision of
@@ -216,36 +218,55 @@ From the documents alone: `spec/18-store.PROPOSAL.md` §4.6 ("Held views") and �
    anything else refused `invalid-request`) and a round policy. `register(name, program)` with
    term, registry, selection and epoch (default `""`): an unanchored term is refused with the
    read's SPEC-17 §5 reason; a name given twice is refused `invalid-request`; no store call.
+   `hold`, `set_epoch` and `drop` of a name not registered are refused `invalid-request`; `drop`
+   of a view not held is no error.
 3. The pass of §4.6, in its order: one snapshot; the feed only when views are held and the
    snapshot has the position's history and a higher revision, page by page with an explicit
    `to`, one `get` per page that adds ids (distinct, ascending) and none for a page that adds
    nothing; touches through an inverted index (anchor entity → views, member id → views), never
-   a walk over the views; resync on another history, a lower revision or the store's
-   `resync-required` (every held view read again, `resynced`); time through structures ordered
-   by `expires_at` and by `since`; epochs compared by value; every read on the pass's snapshot;
-   then release, then apply. A pass with no view held reads no feed.
-4. Faults and moves: a page with no progress or past r′ panics, as reading 46 says for Rust; on
-   `snapshot-moved` the pass starts again, at most four snapshots, each released. A failed pass
-   applies nothing (reading 82). Calls take the holder mutably, so they cannot overlap (reading
-   79, as reading 64).
+   a walk over the views; baselines released through the same lookups plus a baseline index
+   (member id → views whose baseline capture holds it and is not their current capture); resync
+   on another history, a lower revision or the store's `resync-required` (every held view read
+   again, every baseline released, `resynced`); time through structures ordered by `expires_at`
+   and by `since`; epochs compared by value; a `hold` of a new view into a full set does not
+   read the view it will evict; every read on the pass's snapshot, in any order; then release,
+   then apply. A pass with no view held reads no feed.
+4. Faults as values (readings 73, 74 and 89): a page with no progress (`no-progress`), a page
+   past r′ (`past-the-bound`) and a `get` answer with an unasked, repeated or unordered id
+   (`unasked-ids`) are `FeedError::Fault` with that rule, found before the page is judged; never
+   a panic. `snapshot-moved`, from `read()` itself or a later call, starts the pass again, at
+   most four snapshots, each released. A failed pass applies nothing (reading 84). Calls take the
+   holder mutably, so they cannot overlap (reading 81, as reading 64).
 5. The answers: `ViewRead` (bytes as lowercase hex of the canonical result, HView or View;
    position; `expires_at`; `from`; the capture at the position, from `advance_capture`);
-   `Refresh` (position; `changed` against the previous refresh; `reread`; `resynced`), both
-   lists ascending by program name, then root, by UTF-8 bytes (reading 83). `drop` forgets a view
-   and every index entry it had; eviction forgets the least recently held or asked view and is
-   not a change; `next_boundary` is the least `expires_at`; `eval_count_of(name)` counts reads.
-6. The runner of README §11 with its fixed messages: the `ViewHolder` trait, the setup, the
-   holder made after it over a logged handle, the expected resync below the floor, the hold and
-   refresh checks, the call walk of §11.4, and the runs of §11.5. Replace the skip in
-   `tests/store_views.rs` with the run. The bytes of every answer equal the document's: that is
-   the byte parity of the two witnesses.
-7. The rails of README §11.6: the wrong-holder table (the holder with one rule broken at a time,
-   which passes every run with none broken), the two holders that only a rail catches, a row for
-   every runner check, the holder's own rules (refusals, forgetting with index sizes, faults,
-   moved snapshots, two-sided erasure with a bystander whose count of reads does not move, the
-   capture and `check_fresh`), the fuzz (at least 2,000 sequences, rule 1 after every hold and
-   refresh, rule 4 without a selection), and the three cost rails, with the per-view scan shown
-   red once.
+   `Refresh` (position; `changed` against each view's baseline, with `before: Option<String>`,
+   `None` for a released baseline and reported whatever the bytes; `reread`; `resynced`), both
+   lists ascending by program name, then root, by UTF-8 bytes (reading 85). A view is not in
+   `changed` merely because it is new; its baseline is its first answer. `drop` forgets a view
+   and every index entry it had; eviction forgets the least recently held view (only `hold` is a
+   use) and is not a change; `next_boundary` is the least `expires_at`; `eval_count_of(name)`
+   counts reads.
+6. Erasure (reading 88): after the first pass that reads a purge, the holder keeps none of the
+   purged delta's payload anywhere (bytes, baselines, captures, indexes, ordering); a baseline the
+   purge did not touch is unchanged.
+7. The runner of README §11 with its fixed messages: the `ViewHolder` trait, the setup, the
+   holder made after it over a logged handle, the expected resync below the floor (every held
+   view re-read but the evicted one, every view in `changed` with `before: null`), the hold and
+   refresh checks (the `reread` order check included), `the store broke <rule>: ` for a fault,
+   the call walk of §11.4, and the runs of §11.5. Replace the skip in `tests/store_views.rs` with
+   the run. The bytes of every answer equal the document's: that is the byte parity of the two
+   witnesses.
+8. The rails of README §11.6: the wrong-holder table (the holder with one rule broken at a time,
+   which passes every run with none broken), including "keeps the baseline of a purged member"
+   and "keeps an evicted view and serves its old bytes" (which fails only
+   `an-evicted-view-is-read-again` and passes without it); the two holders that only a rail
+   catches; a row for every runner check (the unordered `reread` and the fault words included);
+   the holder's own rules (refusals, use and eviction, forgetting with index sizes, the three
+   fault rules with nothing applied, moved snapshots from `read()` and later, two-sided erasure
+   with the review's scenario and a walk of the holder for the payload, the capture and
+   `check_fresh`); the fuzz (at least 2,000 sequences, rule 1 after every hold and refresh, rule
+   4 without a selection, no purged entry in the holder after every pass); and the three cost
+   rails, with the per-view scan shown red once.
 
 ### Slice 5 owes (Loam)
 
@@ -256,13 +277,15 @@ From the documents alone: `spec/18-store.PROPOSAL.md` §4.6 ("Held views") and �
   itself or keeps its followers pulling.
 - Loam's scoped reads keep fresh with `checkFresh`, not by applying pages; only a full mirror
   applies them (§4.6, "A scope is not a mirror").
-- Loam's maintained views move onto `StoreViews` by the table of §5. Loam's erasure calls
-  `refresh` (or `drop`) on every `StoreViews` it holds before it reports: a held view keeps a
-  purged delta's bytes until its next pass (§4.6, "Held views"; §4.7.2).
+- Loam's maintained views move onto `StoreViews` by the table of §5. Loam's erasure runs a pass
+  (`refresh`, or `drop` of the views) on every `StoreViews` it holds before it reports: a held
+  view keeps a purged delta's bytes, and its baseline, until a pass reads the purge (§4.6, "A
+  held view lies outside erasure"; §4.7.2; §4.13 reading 88). Loam treats every `before`, `after`
+  and `hold` answer it copied before that pass as its own copy, and erases it itself.
 - Loam names the state its selections and authority read outside the store (grants, trust, a
   lowering's dependencies) with an epoch per program, and calls `setEpoch` when it changes.
 - Loam's view subscribers copy from `refresh(now).changed`, not from the answers of `hold`
-  (§4.13 reading 74).
+  (§4.13 reading 76).
 
 ### Slice 4 owes
 
