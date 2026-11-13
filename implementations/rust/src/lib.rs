@@ -1,6 +1,11 @@
 //! Rhizomatic reference implementation (Rust) — one of two parallel witnesses to the spec.
 //! Module names mirror `../ts/src` to aid cross-reading. See the root CLAUDE.md.
 
+// Nothing in the crate may call a deprecated item: the whole-set `Reactor` methods stay for
+// consumers until slice 5, and the crate reads through the store or `pub(crate)` accessors.
+// `tests/reactor_deprecations.rs` measures that this holds for every way a call can be written.
+#![forbid(deprecated)]
+
 pub mod alias;
 pub mod anchored;
 pub mod arrival;
@@ -59,6 +64,7 @@ pub mod single_peer;
 pub mod store;
 pub mod store_conformance;
 pub mod store_open;
+pub mod store_read;
 pub mod strict;
 pub mod term_io;
 pub mod term_json;
@@ -73,7 +79,7 @@ pub use derivation::{verify_pure_derivation, BindingSpec, DerivationHost};
 pub use entry::{bundle_entry_status, loose_entry_status, LooseEntryStatus};
 pub use eval::{
     alias_closure, eval_term, expand_aliased, governed_deltas, latest_by_key, result_canonical_hex,
-    EvalResult, GroupKey, MaskPolicy, PruneKeep, Term,
+    ChildKey, ChildMemo, ChildValue, EvalResult, GroupKey, MaskPolicy, PruneKeep, Term,
 };
 #[cfg(not(target_arch = "wasm32"))]
 pub use http::{offer_for, pull_from_url, serve_peer};
@@ -96,9 +102,7 @@ pub use principal::{
     PrincipalReadOptions, PrincipalResolver, PrincipalResult, PrincipalSuppression, ScopePolicy,
     ValidityInterval,
 };
-pub use reactor::{
-    make_manifest_claims, manifest_member_ids, IngestResult, NegationReader, Reactor,
-};
+pub use reactor::{make_manifest_claims, manifest_member_ids, IngestResult, Reactor};
 pub use resolution::{
     apply_policy, decode_view, first_by_order, resolve_view, view_canonical_hex, MergeFn, Order,
     Policy, Schema, View,
@@ -108,16 +112,18 @@ pub use schema_deltas::{
     hyper_schema_schema, load_governed_hyper_schema, load_governed_schema, load_hyper_schema,
     load_schema, publish_hyper_schema_claims, publish_schema_claims, schema_schema, VOCAB_PREFIX,
 };
-pub use set::DeltaSource;
 pub use set::{federate, fork, make_delta, make_negation_claims, merge, DeltaSet};
+pub use set::{
+    negation_predicate, negation_reader, negation_witnesses, DeltaSource, NegationReader,
+};
 pub use sign::{sign_claims, verify_delta, Verification};
 pub use store::{
-    missing_requirements, scope_source, signature_form, Admission, Anchor, AppendResult, AtRest,
-    ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure,
-    PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PurgeSurface, PurgeTarget, Pushdown,
-    PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource, Snapshot, Store,
-    StoreCapabilities, StoreError, StoreErrorCode, StoreProfile, StoreRequirement, StoreWriters,
-    SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER, PURGE_BOUNDARY,
+    collect_delta_set, missing_requirements, scope_source, signature_form, Admission, Anchor,
+    AppendResult, AtRest, ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, Exporter,
+    Listing, PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PurgeSurface,
+    PurgeTarget, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource,
+    Snapshot, Store, StoreCapabilities, StoreError, StoreErrorCode, StoreProfile, StoreRequirement,
+    StoreWriters, SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER, PURGE_BOUNDARY,
 };
 pub use store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceFailure,
@@ -125,6 +131,12 @@ pub use store_conformance::{
 };
 pub use store_open::{
     open_store, OpenOptions, StoreFactory, StoreSchemes, MEMORY_SCHEME, UNKNOWN_SCHEME_MESSAGE,
+};
+pub use store_read::{
+    fetch_scope, read_anchored, read_anchored_with_memo, read_full_surface, EvalMemo, FetchCache,
+    FetchedScope, FinalChildMemo, FullSurfaceRead, FullSurfaceRequest, FullSurfaceRoute,
+    ReadRequest, RoundMemo, RoundReport, Selection, StoreReactor, StoreRead, StoreReadError,
+    SNAPSHOT_RETRIES,
 };
 pub use term_io::{
     cbor_to_json, json_to_cbor, schema_canonical_hex, schema_hash, term_canonical_hex, term_hash,

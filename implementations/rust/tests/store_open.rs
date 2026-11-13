@@ -2,7 +2,7 @@
 //! cover: opening by URL scheme, scheme registration, requirements, close, and a synchronous
 //! delta source over a fetched scope.
 //!
-//! Ownership (`vectors/store/README.md` §6). The eight tests a store runs for itself, and how
+//! Ownership (`vectors/store/README.md` §7). The eight tests a store runs for itself, and how
 //! this witness holds each. Where a test cannot fail by construction, this file says so instead
 //! of running it:
 //!

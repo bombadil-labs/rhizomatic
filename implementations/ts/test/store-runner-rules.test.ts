@@ -13,8 +13,8 @@
 //   scope of a subset). No store answer leads there. "a wrong document" below covers them with
 //   wrong documents.
 // - "the vector's purge claim has no entry for erasure class none" is reached with a document of
-//   this file. The shared scripts that purge are skipped for such a store (README §3.4, §5); its
-//   refusal is a test of each witness (README §6, test 8), not a rule of the runner.
+//   this file. The shared scripts that purge are skipped for such a store (README §3.4, §6); its
+//   refusal is a test of each witness (README §7, test 8), not a rule of the runner.
 // - In a scope case, "the case lacks a scope for the applied fields" cannot fail for a correct
 //   document: applied ⊆ requested is checked first, and the document holds every subset.
 // - The trim comparison (§4 step 7) follows from the two bounds and the member checks, so a

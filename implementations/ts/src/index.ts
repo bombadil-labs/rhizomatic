@@ -38,6 +38,7 @@ export {
   expandAliased,
   resultCanonicalHex,
   type AliasedSpec,
+  type ChildMemo,
   type EvalResult,
   type AuthorSelection,
   type GroupKey,
@@ -52,9 +53,11 @@ export {
   type Admits,
   type AnchorAnalysis,
   type AnchoredRead,
-  type DeltaSource,
+  type ScopeReads,
   type UnanchoredReason,
 } from "./resolve/anchored.js";
+export { type DeltaSource } from "./delta/source.js";
+export { negationPredicate, negationWitnesses } from "./delta/negation.js";
 export { relationSignature, relationSignatureCanonicalHex } from "./alias.js";
 export { hviewCanonicalHex, type HVEntry, type HView } from "./hview.js";
 export { SchemaRegistry, collectRefs, collectReadingRefs, type HyperSchema } from "./schema.js";
@@ -105,6 +108,7 @@ export { packId, packSet, unpackSet } from "./pack.js";
 export {
   PURGE_BOUNDARY,
   StoreError,
+  collectDeltaSet,
   missingRequirements,
   type Admission,
   type Anchor,
@@ -144,6 +148,25 @@ export {
   type StoreFactory,
 } from "./storage/open-store.js";
 export { scopeSource, type ScopeSource } from "./storage/scope-source.js";
+export { createFetchCache, type FetchCache } from "./storage/fetch-cache.js";
+export {
+  SNAPSHOT_RETRIES,
+  StoreReactor,
+  UnanchoredTermError,
+  fetchScope,
+  readAnchored,
+  readFullSurface,
+  type FetchedScope,
+  type FullSurfaceRead,
+  type FullSurfaceRequest,
+  type FullSurfaceRoute,
+  type StoreAdmits,
+  type StoreReactorRead,
+  type StoreRead,
+  type StoreReadRequest,
+  type StoreRoundReport,
+  type StoreSelection,
+} from "./reactor/store-read.js";
 export {
   StoreConformanceError,
   runStoreConformance,

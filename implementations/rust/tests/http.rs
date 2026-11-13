@@ -28,6 +28,7 @@ fn ptrs(entity: &str, context: &str, value: &str) -> Vec<Pointer> {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn two_rust_peers_converge_over_localhost_http() {
     let mut alice = Peer::new(SEED_A);
     alice.author_claims(1.0, ptrs("doc:x", "title", "from Alice"));

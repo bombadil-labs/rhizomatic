@@ -1,4 +1,8 @@
 //! Principal evidence reads (SPEC-14). The caller pins the root outside the delta set.
+//!
+//! Every read here asks the source for `targets(root)`, then `get` and `negators` on those
+//! members and on their negation chains. That is the scope S({root}) (SPEC-17 §4), so a source
+//! fetched for the one entity `root` answers the same as the whole set.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -7,7 +11,7 @@ use crate::pred::{Bindings, Cmp, Field, MatchConst, Pred, PrincipalPolicy, Princ
 use crate::reactor::Reactor;
 use crate::resolution::{Order, Policy, Schema};
 use crate::schema::SchemaRegistry;
-use crate::set::DeltaSet;
+use crate::set::{negation_reader, DeltaSet, DeltaSource};
 use crate::sign::{verify_delta, Verification};
 use crate::types::{Delta, Primitive, Target};
 
@@ -191,15 +195,14 @@ fn parse_evidence<'a>(delta: &'a Delta, root: &str) -> Option<Evidence<'a>> {
     Some(Evidence { delta, kind })
 }
 
-fn evidence<'a>(reactor: &'a Reactor, root: &str) -> Vec<Evidence<'a>> {
-    reactor
-        .by_target(root)
+fn evidence<'a, S>(source: &'a S, root: &str) -> Vec<Evidence<'a>>
+where
+    S: DeltaSource + ?Sized,
+{
+    source
+        .targets(root)
         .iter()
-        .filter_map(|id| {
-            reactor
-                .get(id)
-                .and_then(|delta| parse_evidence(delta, root))
-        })
+        .filter_map(|id| source.get(id).and_then(|delta| parse_evidence(delta, root)))
         .collect()
 }
 
@@ -333,12 +336,15 @@ fn authority_paths(
 }
 
 /// Resolve signed association separately from effective delegation authority.
-pub fn resolve_principal(
-    reactor: &Reactor,
+pub fn resolve_principal<S>(
+    source: &S,
     root: &str,
     key: &str,
     options: &PrincipalReadOptions,
-) -> Result<PrincipalResult, String> {
+) -> Result<PrincipalResult, String>
+where
+    S: DeltaSource + ?Sized,
+{
     check_root_time(root, options.at)?;
     if !is_author(key) {
         return Err("key must be a lowercase Ed25519 author id".to_string());
@@ -349,8 +355,8 @@ pub fn resolve_principal(
     if options.scope.is_empty() {
         return Err("scope must be nonempty".to_string());
     }
-    let all = evidence(reactor, root);
-    let mut negations = reactor.negation_reader(options.at, |negation, target| {
+    let all = evidence(source, root);
+    let mut negations = negation_reader(source, options.at, |negation, target| {
         suppresses(options.suppression, root, negation, target)
     })?;
     let active: Vec<Evidence<'_>> = all
@@ -424,25 +430,31 @@ pub fn resolve_principal(
 }
 
 /// The author set a governed read can use, under the same explicit authority inputs.
-pub fn authors_for_principal(
-    reactor: &Reactor,
+pub fn authors_for_principal<S>(
+    source: &S,
     root: &str,
     options: &PrincipalReadOptions,
-) -> Result<Vec<String>, String> {
-    Ok(resolve_principal(reactor, root, root, options)?.authors)
+) -> Result<Vec<String>, String>
+where
+    S: DeltaSource + ?Sized,
+{
+    Ok(resolve_principal(source, root, root, options)?.authors)
 }
 
 /// Historical associations remain visible after validity or negation ends their present effect.
-pub fn associated_keys(
-    reactor: &Reactor,
+pub fn associated_keys<S>(
+    source: &S,
     root: &str,
     now: f64,
     suppression: PrincipalSuppression,
-) -> Result<Vec<AssociatedKey>, String> {
+) -> Result<Vec<AssociatedKey>, String>
+where
+    S: DeltaSource + ?Sized,
+{
     check_root_time(root, now)?;
-    let records = evidence(reactor, root);
+    let records = evidence(source, root);
     let paths = association_paths(&records, root);
-    let mut negations = reactor.negation_reader(now, |negation, target| {
+    let mut negations = negation_reader(source, now, |negation, target| {
         suppresses(suppression, root, negation, target)
     })?;
     let mut rows: Vec<AssociatedKey> = paths
@@ -454,7 +466,7 @@ pub fn associated_keys(
                 .ids
                 .iter()
                 .map(|id| {
-                    let claims = &reactor
+                    let claims = &source
                         .get(id)
                         .expect("path only holds retained evidence")
                         .claims;

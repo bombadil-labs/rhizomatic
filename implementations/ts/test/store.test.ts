@@ -1,6 +1,6 @@
 // The store interface and the memory reference store (SPEC-18 proposal, slice 1): what the
 // shared vectors cannot say. The profile, opening by URL, ownership (vectors/store/README.md
-// §6: what a caller holds reaches nothing in the store, and a value of the wrong type is refused,
+// §7: what a caller holds reaches nothing in the store, and a value of the wrong type is refused,
 // never converted), agreement with the SPEC-17 scope, the synchronous source over a fetched
 // scope, and the cost rails.
 //
@@ -1165,7 +1165,7 @@ describe("a store refuses what is not of its type, and converts nothing", () => 
     });
   }
 
-  // README §6 test 5 beyond the claims: the signature, the id and every arrival field. Each is
+  // README §7 test 5 beyond the claims: the signature, the id and every arrival field. Each is
   // honest on its first read and wrong on every later one. The store reads each once, so it
   // admits the entry and keeps the honest value; it never keeps a value it did not check.
   const later: Readonly<
@@ -1207,7 +1207,7 @@ describe("a store refuses what is not of its type, and converts nothing", () => 
     });
   }
 
-  // README §6 test 5 inside the claims: every claims field, the list of pointers, each pointer,
+  // README §7 test 5 inside the claims: every claims field, the list of pointers, each pointer,
   // and each part of each kind of target. Honest on the first read, of the right type and
   // another value on every later one; the kept claims recompute to the id.
   type Place = (claims: Loose) => Loose;

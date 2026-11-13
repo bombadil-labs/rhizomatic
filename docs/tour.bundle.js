@@ -3991,10 +3991,10 @@
     }
     return [...out].sort(comparePrimitives);
   }
-  function resolveReflective(pred, input, root, registry, bindings, budget) {
+  function resolveReflective(pred, input, root, registry, bindings, budget, memo) {
     switch (pred.kind) {
       case "inView": {
-        const sub = evalTermWithin(pred.term, input, root, registry, bindings, budget);
+        const sub = evalTermWithin(pred.term, input, root, registry, bindings, budget, memo);
         if (sub.sort !== "dset") throw new Error("inView.term must evaluate to a DSet (E9)");
         return {
           kind: "match",
@@ -4006,19 +4006,19 @@
       case "and":
         return {
           kind: "and",
-          left: resolveReflective(pred.left, input, root, registry, bindings, budget),
-          right: resolveReflective(pred.right, input, root, registry, bindings, budget)
+          left: resolveReflective(pred.left, input, root, registry, bindings, budget, memo),
+          right: resolveReflective(pred.right, input, root, registry, bindings, budget, memo)
         };
       case "or":
         return {
           kind: "or",
-          left: resolveReflective(pred.left, input, root, registry, bindings, budget),
-          right: resolveReflective(pred.right, input, root, registry, bindings, budget)
+          left: resolveReflective(pred.left, input, root, registry, bindings, budget, memo),
+          right: resolveReflective(pred.right, input, root, registry, bindings, budget, memo)
         };
       case "not":
         return {
           kind: "not",
-          pred: resolveReflective(pred.pred, input, root, registry, bindings, budget)
+          pred: resolveReflective(pred.pred, input, root, registry, bindings, budget, memo)
         };
       case "actsFor":
         throw new Error("actsFor requires an explicit principal resolver (SPEC-14)");
@@ -4070,13 +4070,13 @@
   function evalTermRaw(term, input, root, registry, bindings) {
     return evalTermWithin(term, input, root, registry, bindings);
   }
-  function evalTermWithin(term, input, root, registry, bindings, budget) {
+  function evalTermWithin(term, input, root, registry, bindings, budget, memo) {
     switch (term.kind) {
       case "input":
         return dsetResult(input);
       case "select": {
         const of = expectDSet(
-          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
           "select"
         );
         const pred = resolveReflective(
@@ -4085,46 +4085,47 @@
           root,
           registry,
           bindings,
-          budget
+          budget,
+          memo
         );
         return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
       }
       case "union": {
         const left = expectDSet(
-          evalTermWithin(term.left, input, root, registry, bindings, budget),
+          evalTermWithin(term.left, input, root, registry, bindings, budget, memo),
           "union"
         );
         const right = expectDSet(
-          evalTermWithin(term.right, input, root, registry, bindings, budget),
+          evalTermWithin(term.right, input, root, registry, bindings, budget, memo),
           "union"
         );
         return dsetResult(merge(left.set, right.set));
       }
       case "intersect": {
         const left = expectDSet(
-          evalTermWithin(term.left, input, root, registry, bindings, budget),
+          evalTermWithin(term.left, input, root, registry, bindings, budget, memo),
           "intersect"
         );
         const right = expectDSet(
-          evalTermWithin(term.right, input, root, registry, bindings, budget),
+          evalTermWithin(term.right, input, root, registry, bindings, budget, memo),
           "intersect"
         );
         return dsetResult(fork(left.set, (d) => right.set.has(d.id)));
       }
       case "difference": {
         const of = expectDSet(
-          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
           "difference"
         );
         const without = expectDSet(
-          evalTermWithin(term.without, input, root, registry, bindings, budget),
+          evalTermWithin(term.without, input, root, registry, bindings, budget, memo),
           "difference"
         );
         return dsetResult(fork(of.set, (d) => !without.set.has(d.id)));
       }
       case "mask": {
         const of = expectDSet(
-          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
           "mask"
         );
         switch (term.policy.kind) {
@@ -4143,7 +4144,8 @@
               root,
               registry,
               bindings,
-              budget
+              budget,
+              memo
             );
             const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
             return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
@@ -4154,14 +4156,14 @@
       case "group": {
         if (root === void 0) throw new Error("group requires an ambient root entity (E9)");
         const of = expectDSet(
-          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
           "group"
         );
         return { sort: "hview", hview: evalGroup(term.key, of, root, budget) };
       }
       case "prune": {
         const of = expectHView(
-          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
           "prune"
         );
         if (term.keep === "all") return of;
@@ -4176,7 +4178,7 @@
       }
       case "expand": {
         const of = expectHView(
-          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
           "expand"
         );
         const role = expandStrMatch(term.role, input, root);
@@ -4207,7 +4209,8 @@
                   ptr.target.entity.id,
                   registry,
                   bindings,
-                  childBudget
+                  childBudget,
+                  memo
                 );
                 if (budget && childBudget) {
                   const key = JSON.stringify([prop, entryIndex, i]);
@@ -4241,12 +4244,13 @@
             term.entity,
             registry,
             term.bindings ?? bindings,
-            budget
+            budget,
+            memo
           )
         };
       case "resolve": {
         const of = expectHView(
-          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
           "resolve"
         );
         return {
@@ -4256,24 +4260,39 @@
       }
     }
   }
-  function evalTerm(term, input, now, root, registry, bindings) {
+  function evalTerm(term, input, now, root, registry, bindings, memo) {
+    return evalTermWithHooks(
+      term,
+      input,
+      now,
+      { ...memo === void 0 ? {} : { memo } },
+      root,
+      registry,
+      bindings
+    );
+  }
+  function evalTermWithHooks(term, input, now, hooks, root, registry, bindings) {
     if (!Number.isFinite(now)) throw new Error("now must be a finite number");
     const valid = fork(
       input,
       (d) => d.claims.validFrom <= now && (d.claims.validUntil === void 0 || now < d.claims.validUntil)
     );
-    return evalTermRaw(term, valid, root, registry, bindings);
+    return evalTermWithin(term, valid, root, registry, bindings, hooks.budget, hooks.memo);
   }
-  function evalSchema(ref, input, root, registry, bindings, budget) {
+  function evalSchema(ref, input, root, registry, bindings, budget, memo) {
     const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}\u2026`;
     if (registry === void 0)
       throw new Error(`schema ${label} referenced but no registry supplied (E10)`);
     const schema = registry.resolve(ref);
     if (schema === void 0) throw new Error(`unknown schema: ${label} (E10/E13)`);
-    const result = evalTermWithin(schema.body, input, root, registry, bindings, budget);
+    const memoized2 = budget === void 0 ? memo : void 0;
+    const kept = memoized2?.get(ref, bindings, root);
+    if (kept !== void 0) return kept;
+    const result = evalTermWithin(schema.body, input, root, registry, bindings, budget, memoized2);
     if (result.sort !== "hview") {
       throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
     }
+    memoized2?.put(ref, bindings, root, result.hview);
     return result.hview;
   }
   function lookupReading(ref, registry, bindings) {
@@ -5149,6 +5168,60 @@
     }
   }
 
+  // src/delta/negation.ts
+  function negationWitnesses(source, now, suppression, epoch) {
+    if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+    const memo = /* @__PURE__ */ new Map();
+    const visiting = /* @__PURE__ */ new Set();
+    let seen = epoch?.();
+    let inSuppression = false;
+    const valid = (delta) => delta.claims.validFrom <= now && (delta.claims.validUntil === void 0 || now < delta.claims.validUntil);
+    const witnesses = (id) => {
+      if (epoch !== void 0) {
+        const current = epoch();
+        if (current !== seen) {
+          memo.clear();
+          visiting.clear();
+          seen = current;
+        }
+      }
+      const cached = memo.get(id);
+      if (cached !== void 0) return cached;
+      const target = source.get(id);
+      if (target === void 0) return [];
+      if (visiting.has(id)) {
+        if (inSuppression) throw new Error("negation reader re-entered during suppression");
+        throw new Error(
+          "negation cycle: the delta source holds deltas that are not content-addressed"
+        );
+      }
+      visiting.add(id);
+      const effective = [];
+      try {
+        for (const negationId of source.negators(id)) {
+          const negation = source.get(negationId);
+          if (negation === void 0 || !valid(negation)) continue;
+          const outer = inSuppression;
+          inSuppression = true;
+          let grants;
+          try {
+            grants = suppression(negation, target);
+          } finally {
+            inSuppression = outer;
+          }
+          if (!grants || witnesses(negationId).length > 0) continue;
+          effective.push(negation);
+        }
+      } finally {
+        visiting.delete(id);
+      }
+      const result = Object.freeze(effective);
+      memo.set(id, result);
+      return result;
+    };
+    return witnesses;
+  }
+
   // src/reactor/reactor.ts
   var BROAD = /* @__PURE__ */ Symbol("broad dispatch");
   var height = (node) => node?.height ?? 0;
@@ -5290,39 +5363,7 @@
      * callback must not invoke this reader recursively; compute a trust set in a prior pass.
      */
     negationWitnesses(now, suppression) {
-      if (!Number.isFinite(now)) throw new Error("now must be a finite number");
-      let revision = this.membershipRevision;
-      const memo = /* @__PURE__ */ new Map();
-      const visiting = /* @__PURE__ */ new Set();
-      const valid = (delta) => delta.claims.validFrom <= now && (delta.claims.validUntil === void 0 || now < delta.claims.validUntil);
-      const witnesses = (id) => {
-        if (revision !== this.membershipRevision) {
-          memo.clear();
-          visiting.clear();
-          revision = this.membershipRevision;
-        }
-        const cached = memo.get(id);
-        if (cached !== void 0) return cached;
-        const target = this.set.get(id);
-        if (target === void 0) return [];
-        if (visiting.has(id)) throw new Error("negation reader re-entered during suppression");
-        visiting.add(id);
-        const effective = [];
-        try {
-          for (const negationId of this.negationsOf(id)) {
-            const negation = this.set.get(negationId);
-            if (negation === void 0 || !valid(negation)) continue;
-            if (!suppression(negation, target) || witnesses(negationId).length > 0) continue;
-            effective.push(negation);
-          }
-        } finally {
-          visiting.delete(id);
-        }
-        const result = Object.freeze(effective);
-        memo.set(id, result);
-        return result;
-      };
-      return witnesses;
+      return negationWitnesses(this, now, suppression, () => this.membershipRevision);
     }
     /** A memoized yes/no form of negationWitnesses for repeated checks in one read. */
     negationPredicate(now, suppression) {
@@ -5349,6 +5390,21 @@
     get size() {
       return this.set.size;
     }
+    /**
+     * The membership counter. Equal values from one reactor mean the same membership. It starts
+     * at 0 and rises by exactly one for each `ingest`, `ingestBatch` or `ingestBundle` call that
+     * adds at least one member, whatever the number of deltas the call added. Nothing else moves
+     * it: not a call that adds no member (`duplicate`, `rejected`), not time, not a refresh, not a
+     * registration. Inside a call it rises after every new member is indexed and before any
+     * subscriber runs. A subscriber that throws makes the call throw and not answer `accepted`;
+     * the members are held by then and the counter has risen.
+     *
+     * The value is comparable only within one reactor object: two reactors that hold the same
+     * deltas can report different values. It is not a store `Revision` (SPEC-18).
+     */
+    get revision() {
+      return this.membershipRevision;
+    }
     has(id) {
       return this.set.has(id);
     }
@@ -5356,33 +5412,76 @@
       return this.set.get(id);
     }
     // --- the delta source (SPEC-17 §3): index reads, never a scan of the set ---
+    // Each id once, ascending by UTF-8 bytes: the source's order contract. The indexes keep
+    // arrival order, so each call sorts its own answer.
     targets(entityId) {
-      return this.targetIndex.get(entityId) ?? [];
+      return [...this.targetIndex.get(entityId) ?? []].sort(compareUtf8);
     }
     negators(deltaId) {
-      return this.negationIndex.get(deltaId) ?? [];
+      return [...this.negationIndex.get(deltaId) ?? []].sort(compareUtf8);
     }
     subset(ids) {
       return this.set.subset(ids);
     }
+    // Scope computation sorts its own answer, so the reactor's anchored reads take the index
+    // buckets as they are and skip the sort above. Nothing else may read this.
+    unsorted = {
+      get: (id) => this.set.get(id),
+      targets: (entityId) => this.targetIndex.get(entityId) ?? [],
+      negators: (deltaId) => this.negationIndex.get(deltaId) ?? [],
+      subset: (ids) => this.set.subset(ids)
+    };
     // An anchored read (SPEC-17 §6): the same answer as `eval`, at the cost of the read's scope.
     evalAnchored(term, now, root, registry, bindings, admits) {
-      return evalAnchored(term, this, now, root, registry, bindings, admits);
+      return evalAnchored(term, this.unsorted, now, root, registry, bindings, admits);
     }
     // Arrival order — a transport artifact, never consulted by evaluation (SPEC-4 §2).
+    /**
+     * @deprecated A whole-set listing. A store keeps one arrival record per held delta: read them
+     * with `Snapshot.arrivals`, or list the peer with `PeerExporter.ids` (SPEC-18 §4.7.6). Stays on
+     * the memory reactor until Loam moves to a store (slice 5).
+     */
     arrivalLog() {
       return this.log;
     }
+    /**
+     * @deprecated A digest of the whole set. A store has no digest yet (SPEC-18 §4.7.6, a later
+     * slice); until then use `collectDeltaSet(peerExporter).digest()`, which says it is O(surface).
+     */
     digest() {
       return this.set.digest();
     }
+    /**
+     * @deprecated A copy of the whole set. Read a scope with `readAnchored` or `fetchScope` over a
+     * store snapshot; list everything with `collectDeltaSet(peerExporter)` (SPEC-18 §4.7.6).
+     */
     snapshot() {
       return DeltaSet.from(this.set);
     }
     // Batch evaluation over the current set — the oracle hookup (SPEC-4 §1). Read-your-writes
     // holds trivially: ingest is synchronous, so an accepted delta is visible immediately (§6).
+    /**
+     * @deprecated A whole-set evaluation with no flag to say so. Use `evalAnchored` for an anchored
+     * term, or `readAnchored` over a store; use `readFullSurface`, the explicit full-surface read
+     * of SPEC-18 §6.6, when a term has no anchor.
+     */
     eval(term, now, root, registry) {
       return evalTerm(term, this.set, now, root, registry);
+    }
+    /**
+     * The whole held set. Each call reads the reactor as it is then.
+     *
+     * @deprecated Whole-set access, kept only for the legacy in-memory `Peer` of
+     * `federation/peer.ts` and its HTTP binding, which sync by listing everything. It goes when they
+     * move to a store (slice 5). New callers use the store path: list with `PeerExporter.ids` or
+     * `collectDeltaSet(peerExporter)`, and read a scope with `readAnchored` (SPEC-18 §4.7.6).
+     */
+    legacyHoldings() {
+      return {
+        set: () => DeltaSet.from(this.set),
+        arrivals: () => this.log,
+        digest: () => this.set.digest()
+      };
     }
     // --- materializations (SPEC-4 §4, ERRATA-4 V5) ---
     lastChanges = [];
@@ -5493,7 +5592,7 @@
       let result;
       let support;
       if (anchorAnalysis(program.term, program.registry).anchored) {
-        const read = evalAnchored(program.term, this, mat.now, root, program.registry);
+        const read = evalAnchored(program.term, this.unsorted, mat.now, root, program.registry);
         result = read.result;
         support = lowered === void 0 ? new Set(read.scope) : lowered.deps === void 0 ? BROAD : /* @__PURE__ */ new Set([...read.scope, ...lowered.deps]);
       } else {
@@ -5698,14 +5797,14 @@
     }
     // The offered set: eval(lens, log) — lens fidelity is a tested invariant (F4).
     offeredSet() {
-      const result = evalTermRaw(this.offeredLens, this.reactor.snapshot());
+      const result = evalTermRaw(this.offeredLens, this.reactor.legacyHoldings().set());
       if (result.sort !== "dset") throw new Error("a lens must be a DSet-sort term (F4)");
       return [...result.set];
     }
     // Pull from another peer: WANT(my ids) -> OFFER/BUNDLE -> verify -> admission -> ingest (§5).
     pullFrom(other) {
       const have = /* @__PURE__ */ new Set();
-      for (const d of this.reactor.arrivalLog()) have.add(d.id);
+      for (const d of this.reactor.legacyHoldings().arrivals()) have.add(d.id);
       const offered = other.offeredSet().filter((d) => !have.has(d.id));
       const offeredIds = new Set(offered.map((d) => d.id));
       const isSignedManifest = (d) => d.sig !== void 0 && verifyDelta(d) === "verified" && manifestMemberIds(d).length > 0;
@@ -5753,11 +5852,12 @@
     }
   };
   function syncBoth(a, b) {
+    const digests = () => a.reactor.legacyHoldings().digest() + b.reactor.legacyHoldings().digest();
     for (let i = 0; i < 4; i++) {
-      const before = a.reactor.digest() + b.reactor.digest();
+      const before = digests();
       a.pullFrom(b);
       b.pullFrom(a);
-      if (a.reactor.digest() + b.reactor.digest() === before) return;
+      if (digests() === before) return;
     }
   }
 

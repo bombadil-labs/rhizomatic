@@ -4,17 +4,17 @@
 
 import { compareUtf8 } from "../delta/cbor.js";
 import { computeId } from "../delta/delta.js";
+import type { DeltaSource } from "../delta/source.js";
 import type { Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
 import { copyArrival, copyDelta, copyMember } from "./copy.js";
 import { StoreError, type Entity, type Id, type VerifiedDelta } from "./store.js";
 
 /**
- * The SPEC-17 §3 delta source, answered from a fetched set, plus each member's arrival. It is
- * assignable to the evaluator's `DeltaSource`. It knows only the members it was given: an
- * answer is the store's answer restricted to the fetched set.
+ * The SPEC-17 §3 delta source, answered from a fetched set, plus each member's arrival. It knows
+ * only the members it was given: an answer is the store's answer restricted to the fetched set.
  */
-export interface ScopeSource {
+export interface ScopeSource extends DeltaSource {
   get(id: Id): Delta | undefined;
   arrival(id: Id): ArrivalRecord | undefined;
   targets(entity: Entity): readonly Id[];

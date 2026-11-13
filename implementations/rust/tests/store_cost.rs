@@ -393,7 +393,7 @@ fn calibrated(members: fn(usize) -> Vec<VerifiedDelta>, cap: usize) -> (usize, D
     }
 }
 
-/// Building a scope source costs the size of its members (README §1.2 item 5 and §5 "Cost",
+/// Building a scope source costs the size of its members (README §1.2 item 5 and §6 "Cost",
 /// SPEC-18 §4.11 reading 36). Four shapes cost N steps and not N²: N members at one entity, N
 /// negations of one delta, one member with N entity pointers, and N appearances of four ids.
 /// This times each build from outside with a monotonic clock, at N and at 8N. Linear work gives

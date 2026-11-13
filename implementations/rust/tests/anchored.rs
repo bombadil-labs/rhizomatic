@@ -53,6 +53,7 @@ fn strings(v: &Value) -> Vec<String> {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn anchored_vectors() {
     let doc = load();
     let mut fixture = Reactor::new();
@@ -274,6 +275,7 @@ proptest! {
     #![proptest_config(ProptestConfig { cases: 200, ..ProptestConfig::default() })]
 
     #[test]
+    #[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
     fn anchored_equals_whole(
         raws in prop::collection::vec(raw(), 1..60),
         root_index in 0..ENTITIES.len() - 1,
@@ -307,6 +309,7 @@ proptest! {
     #![proptest_config(ProptestConfig { cases: 120, ..ProptestConfig::default() })]
 
     #[test]
+    #[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
     fn warm_views_stay_equal_to_batch(raws in prop::collection::vec(raw(), 1..40)) {
         let registry = property_registry();
         let roots: Vec<String> = ["e0", "e1", "e2"].iter().map(|s| s.to_string()).collect();
@@ -337,6 +340,7 @@ proptest! {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn a_grant_after_a_strike_refreshes_the_trust_view() {
     let registry = property_registry();
     let (_, json) = property_terms()
@@ -399,6 +403,7 @@ fn a_grant_after_a_strike_refreshes_the_trust_view() {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn an_entity_named_root_is_an_ordinary_anchor() {
     let term = parse_term(&serde_json::json!({
         "op": "group",

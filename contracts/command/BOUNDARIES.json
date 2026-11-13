@@ -352,13 +352,15 @@
         "algebra",
         "schema",
         "syntax",
+        "storage",
         "delta"
       ],
       "source_mapping": {
         "ts": "implementations/ts/src/reactor",
         "rust_candidate_modules": [
           "reactor.rs",
-          "materialize.rs"
+          "materialize.rs",
+          "store_read.rs"
         ]
       },
       "lower_binding": "Bind registration term, roots, registry, evaluation time and declared lowering profile to maintained results.",

@@ -6,7 +6,7 @@
 //! Every step asks the store first and judges the answer afterwards (§3.7). The runner answers
 //! for the store only where this witness's types cannot hold the vector's value (`1.5`, `-1`, a
 //! missing posture); a value a `u64` holds, 2^53 included, goes to the store. Each check has its
-//! own message, and `tests/store_runner_rules.rs` holds the runner to every one (§7).
+//! own message, and `tests/store_runner_rules.rs` holds the runner to every one (§8).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;

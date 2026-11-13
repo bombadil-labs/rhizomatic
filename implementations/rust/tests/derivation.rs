@@ -216,6 +216,7 @@ fn pure_replay_reproduces_the_emitted_id() {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn budget_suspends_observably_and_guard_prevents_self_trigger() {
     let mut reactor = Reactor::new();
     reactor
@@ -248,6 +249,7 @@ fn budget_suspends_observably_and_guard_prevents_self_trigger() {
 // --- keyed emission (G4): supersede per-subject ---------------------------------------------------
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn keyed_negates_only_same_key_priors() {
     const A: &str = "movie:matrix";
     const B: &str = "movie:speed";

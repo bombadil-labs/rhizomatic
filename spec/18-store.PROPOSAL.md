@@ -671,7 +671,7 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     a monotonic clock, at N and at 8N, and holds the ratio below 24 (linear is about 8,
     quadratic about 64). N is the smallest power of two whose build takes 50 ms or more; the
     build at N is the fastest of five, the build at 8N the fastest of three
-    (`vectors/store/README.md` §5). It is a coarse scaling check, not a count, and a stall during
+    (`vectors/store/README.md` §6). It is a coarse scaling check, not a count, and a stall during
     the builds at N can let a quadratic build pass. Round 3 had each witness count the work
     with a meter the code under test incremented; a build that copied its bucket on every
     insert was quadratic and passed, because the meter counted calls, not work.
@@ -679,11 +679,11 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     on a released snapshot (reading 27). A typed runner answers `1.5` and `-1` at its own
     boundary; an unsigned 64-bit field holds 2^53, so that bound pins the store.
 38. **Ownership is not a vector.** A conformance run never changes a value after it hands it
-    over, so a store that aliases passes. `vectors/store/README.md` §6 lists what each store
+    over, so a store that aliases passes. `vectors/store/README.md` §7 lists what each store
     tests for itself.
 39. **The runner has rules, and a table holds it to them.** Each witness keeps one wrong store
     per runner rule and asserts that the run fails with that rule's message
-    (`vectors/store/README.md` §7). A runner asks the store first and judges the answer
+    (`vectors/store/README.md` §8). A runner asks the store first and judges the answer
     afterwards. A purge that refuses fails its step.
 40. **An optional object field is a plain object or absent.** Absent (in TypeScript,
     `undefined`) means none. Anything else that is not a plain object (`null`, a list, a number,
@@ -710,7 +710,7 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
 43. **Class `none` is not a runner rule.** A store of class `none` refuses every purge with
     `capability-absent`. The scripts that purge require `purge` and are skipped for it, so no
     shared step reaches the refusal: each witness that has such a store tests it
-    (`vectors/store/README.md` §6, test 8). A purge `claim` in a document has exactly the keys
+    (`vectors/store/README.md` §7, test 8). A purge `claim` in a document has exactly the keys
     `unprovable` and `proven`; any other shape is a defect of the document, and a store of
     class `none` that reaches a purge step fails it for want of an expectation.
 44. **Script requirements are an allow-list too.** An absent `requires` means none. A name
@@ -720,6 +720,248 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     signature, the id, the five arrival fields and every field of a request, not the claims
     alone. `scopeSource` reads a member's delta and its id once each, and decides a repeat on
     that one read.
+
+### 4.12 Slice 2 readings
+
+Slice 2 builds the read of §4.4 and §6.2 beside the memory reactor
+(`18-store.SLICE-2.PLAN.md`). Where §4.3, §4.4 and the plan were silent, the store-backed read
+decided as follows. `vectors/store/rounds.json` and `vectors/store/README.md` §5 pin each point
+that a vector can pin.
+
+1. **The selection of a read** has two parts: a `pushdown` (§4.3), which the store may apply, and
+   a host predicate `admits(delta, arrival)`, which it never sees. The predicate receives the
+   delta's arrival record at this peer, so a host can select on arrival without a pushdown. Both
+   are pointwise (SPEC-17 §3).
+2. **The residual selection** is `admits` plus every pushdown field that the answer of **some**
+   round of this read did not report applied. A field stays residual for the rest of the read.
+   The host applies the residual to everything it holds. A member the store did trim passes the
+   field anyway, so applying it again changes nothing.
+3. **A round evaluates over the exact members**, `S(anchors so far over cache ∩ residual)`, and
+   never over the whole fetch cache. The cache also holds members that fail the residual and
+   members a store returned beyond the scope; they must not reach the evaluator.
+4. **Why a round asks only for its new anchors.** Let A be the anchors of earlier rounds, B the
+   new ones, p the selection and C the cache. Each earlier answer contains
+   `S(A_k over H_p) \ C_k`, so `C ⊇ S(A over H_p)`. The new answer contains
+   `S(B over H_p) \ C`. So the cache afterwards contains `S(A over H_p) ∪ S(B over H_p)`, which is
+   `S(A ∪ B over H_p)` because S is a union over anchors of closures. Every member of the cache
+   that passes the residual is in `H_p`, so by monotonicity `S(A ∪ B over cache ∩ residual)` is
+   inside `S(A ∪ B over H_p)`; and it contains it, because all of `S(A ∪ B over H_p)` is in the
+   cache and passes the residual. The two are equal. All of it needs one snapshot (§4.3).
+5. **Where `exclude` must not cut a chain.** A store that returns exactly closed scopes never
+   shows the difference between `exclude` and `excludeIds` to a read in rounds: what the read
+   holds is then closed under the negations its selection admits. The difference shows when a
+   store returns a member beyond the scope without that member's negators, which §4.3 allows.
+   Example: x fails the selection, d negates x and passes, n negates d, and d also points at an
+   anchor of a later round. A store that leaves the field to the host may return d early. The
+   later round owes n, and the read already holds d. The round vectors hold this shape
+   (`b1-late-note-neg-at-c2`), and each witness tests it with a store that returns d alone.
+6. **The rounds are normative** (plan O3). The first round asks for the request root and the
+   term's static anchors. Each later round asks for the anchors the last evaluation shows that
+   no round has asked for. SPEC-17 §6 allows lazy growth inside one evaluation; a store-backed
+   read does not use it, so two witnesses make the same store calls.
+7. **A read makes no store call but `scope`,** one per round. `exclude` names every id held,
+   also the ones that fail the residual. Its order is free.
+8. **An unanchored term** is refused before any store call, with the SPEC-17 §5 reason
+   (TypeScript: `UnanchoredTermError`, with `reason`, and the message
+   `term is not anchored: <reason>`). Taking a snapshot is a store call, so `StoreReactor`
+   refuses before it opens one. A gather that does not evaluate to an HView is refused
+   `result-sort`.
+9. **The answer** carries the result, the scope (every anchor asked for), the exact members of
+   the last round, the snapshot's revision, and one report per round: its number (from 1 on
+   each snapshot), the attempt (1 for the first snapshot; `StoreReactor` counts up when it
+   starts again), the revision of the snapshot it ran on, its anchors, how many deltas came
+   back, how many the read holds, how many are members, and what the store reported applied.
+10. **The round hook** runs after each round's evaluation and before the next `scope` call,
+    also after the last round. The read waits for it. The interleaved vectors need it. No vector
+    can see a hook that skips the last round, so each witness asserts, for every case, that the
+    hook's reports equal the read's own round reports.
+11. **A moved snapshot.** `readAnchored` passes `snapshot-moved` up and keeps nothing.
+    `StoreReactor.read` and `StoreReactor.fetch` then start again on a new snapshot, with a new
+    cache: at most three more times, so at most four snapshots. Any other refusal passes up at
+    once, after one attempt. Every snapshot is released, also on a refusal. The answer says how
+    many snapshots it took. A cache never outlives its snapshot. A wrapper that starts again but
+    keeps its old cache still answers `after` under appends alone, because what it kept is
+    still held; after a purge it shows a delta the peer no longer holds. The interleaved purge
+    vector catches it.
+12. **`fetchScope`** makes one `scope` call and returns a source that knows **exactly**
+    `S(entities)` under the selection. A delta the store returned beyond that is not in the
+    source. Entities are asked once each, ascending.
+13. **The fetch cache owns what it holds** (§4.1, §4.11 readings 33–34). It checks and copies
+    each member with the same rule as `scopeSource` (each field read once and type-checked, bytes
+    only as the byte array type and never converted) and computes the id over its own copy,
+    once. It refuses `invalid-request` for a member that is malformed, whose id does not
+    recompute, or whose arrival record is missing or names another id; a refused call adds
+    nothing. Everything it hands out is a copy or cannot be changed. A delta with two pointers
+    at one entity is listed there once; a pointer at a delta is a negation only with the role
+    `negates`. This joins the closed list of §4.11 reading 21.
+14. **The read with no fetch cache** (mode 2 of the round vectors) asks for every anchor so far
+    in every round and sends no `exclude`, so each answer alone carries the whole scope so far.
+    It exists so the vectors can show that the cache changes no answer. Whether such a reader
+    also drops what earlier rounds returned cannot be observed and is free.
+15. **`StoreReactor`** holds a peer handle and nothing else. `open` makes no store call. It has
+    `read` and `fetch`, and no `snapshot`, `arrivalLog`, `digest` or `eval`.
+16. **Package edge.** The TypeScript `reactor` boundary may import `storage`. The round-vector
+    model needs the evaluator, so it lives with the generator and not in `storage`.
+17. **What slice 2 builds.** The read in rounds (readings 1 to 20), the evaluation memo (readings
+    21 to 27), the full-surface read (reading 28), and the second run of the existing read
+    families (reading 29).
+18. **The read trusts `applied`.** It does not check again a field that the store reported
+    applied. A check costs work on every honest read, and §4.3 makes a false `applied` a store
+    defect that the store vectors catch. Over a store that reports a field applied and does not
+    apply it, the read is wrong; each witness has a rail that shows this, so the trust is a
+    stated assumption.
+19. **The whole-surface mode of the round vectors** (mode 1) derives its scope from the request
+    root, the term's static anchors and the anchors that the gather's HView shows. For a
+    `resolve` term the gather is the operand: the View shows no anchors. This scope equals the
+    scope of the rounds, because SPEC-17 discovery finds only true anchors.
+20. **A sticky residual has no vector.** A memory profile is the same in every round, so each
+    witness tests reading 2 with a store double that leaves a field to the host in alternate
+    rounds, in both parities.
+21. **The evaluation memo** (§4.4, plan §3). A **child evaluation** is one schema body evaluated
+    at one root: each child of an `expand`, and the body of a `fix`. The memo maps a key to the
+    HView of a child evaluation. The key is (schema reference, bindings, root):
+    - the schema reference as the term writes it: the name, or the pinned hash;
+    - the bindings in effect: the request's bindings, or the `bindings` of the nearest enclosing
+      `fix` that has them. Each is one object for the whole read, because the term and the
+      registry do not change during it. A witness keys them by **identity** within the read
+      (TypeScript) or by **content**, entry by entry (Rust; a number by its bits). Two binding
+      objects with the same entries may share a key or not. Both are safe, because the evaluator
+      reads bindings only as values: a hit on equal content returns what the same evaluation
+      returns, and a miss only evaluates again. A key must **never** let two bindings that differ
+      in any entry share an entry. Identity is enough only because a bindings object does not
+      change during a read. A caller must not change a bindings object while a read uses it; the
+      type is read-only. Such a change breaks the read with or without the memo: the anchor
+      analysis runs once, at the start of the read, over the bindings as they were then;
+    - the root entity.
+
+    The term, the registry, `now` and the selection are the same in every round of one read, so
+    they are not in the key. A lookup that finds the key returns the stored HView and evaluates
+    nothing under it. A child is **final** when every anchor its HView shows has been fetched:
+    the id of the HView, and the id of every child expanded inside it, at any depth. The memo
+    stores a child evaluation only when it is final. A child that is not final is evaluated again
+    in the next round that reaches it. The static anchors need no check: round 1 fetches all of
+    them (reading 6).
+
+    One memo serves **one attempt of one read**: one snapshot, one selection, one request. A new
+    snapshot starts a new memo, and so does a new read. The memo is **off** when an evaluation
+    budget is present: a hit returns a child without the work the budget counts. The final
+    `resolve` evaluation (reading 9) uses the memo of the read.
+22. **Why a final child is right.** Let D be what the peer holds at the snapshot that the selection
+    admits. By reading 4, the members of round k are exactly `M_k = S(E_k over D)`, where E_k is
+    every anchor asked for in rounds 1 to k. This holds whichever fields were residual in which
+    round. Take a child evaluation (schema R, bindings B, root c) in round k, with HView V, and let
+    `A(V)` be the anchors V shows.
+
+    *Where a schema body reads.* An anchored body (SPEC-17 §5) reads deltas only in these places:
+    a `group` at the evaluation root; an `inView` or a `group const` pinned at the root, at a
+    constant or at a bound hole; a `select`, which decides each delta by its predicate; a `mask`,
+    which decides a delta by its negation chains; a set operator (`union`, `intersect`,
+    `difference`), which decides a delta by its membership in both operands; an `expand`, which
+    evaluates children; and a `fix`, whose body runs at its own entity. Constants and bound holes are static anchors. The HView-sort spine of
+    a body (`prune` and `expand` over their operand) ends in a `group` or a `fix`. When it ends in
+    a `group`, the HView id is the root. When it ends in a `fix`, the body reads nothing at its
+    own root, and the HView id is the `fix` entity, a static anchor. So every root at which V's
+    evaluation reads is a static anchor or is in `A(V)`, apart from children that a `prune`
+    drops: those are evaluated and not shown, and nothing they return reaches V.
+
+    *The operands.* Take a level whose root a is in E_k. Write `X(M)` for a DSet-sorted subterm X
+    of that level evaluated over the deltas M. Then **`X(M_k) = X(D) ∩ M_k`** for every such X, by
+    structural induction on X:
+    - `input`: `M_k = D ∩ M_k`, because `M_k ⊆ D`.
+    - `select`: its predicate reads the delta itself, and a pinned `inView` at a static anchor
+      or at a. Every delta of D that points at such an anchor is in `M_k`, and the inView's own
+      term obeys this rule, so the inView selects the same deltas over `M_k` as over D. So the
+      predicate decides each delta the same way, and the hypothesis on the operand gives the rule.
+    - `mask`: by the SPEC-17 closure lemma, a member of `M_k` has the same negation status in the
+      operand over `M_k` as over D. So the mask decides each delta of `X(D) ∩ M_k` the same way,
+      and the hypothesis on the operand gives the rule.
+    - `union`, `intersect`, `difference`: these are not pointwise, because whether a delta stays
+      depends on its membership in the other operand. The rule holds by the hypothesis on both
+      operands: intersection with the one set `M_k` distributes over union, intersection and
+      difference, so `(X(D) ∩ M_k) op (Y(D) ∩ M_k) = (X(D) op Y(D)) ∩ M_k`.
+
+    *The induction.* Go down V from the top. Take a level whose root a is in E_k. Every delta of D
+    that points at a is in `S0(a)`, so it is in `M_k`. A `group` at a files only deltas that point
+    at a, and its operand over `M_k` is its operand over D intersected with `M_k` (*The
+    operands*). So each `group` at a files the same deltas over `M_k` as over D, and each pinned
+    `inView` selects the same deltas. The level has the same entries over `M_k` as over D. So it
+    expands the same children, under the same schema and bindings. Finality puts each of those children in E_k, so the argument goes
+    down one level. The schema DAG is finite (SPEC-3 §3), so the induction ends. Therefore **V
+    equals the same child evaluated over D**. This is the SPEC-17 §6 theorem for the term
+    `fix(R, c, B)`: its scope is `E* = static ∪ A(V)`, and `M_k` contains `S(E*)` and is closed
+    under negation.
+
+    *Later rounds.* In a round j > k, `M_j = S(E_j over D)` with `E_j ⊇ E_k ⊇ A(V)`. The same
+    induction runs over `M_j`, so the child over `M_j` equals the child over D, which is V. **No
+    later round can change a final child.** A delta that a later round adds is in `S(E_j)` and not
+    in `S(E_k)`. It does not point at any anchor in `A(V)`, because `S0(a) ⊆ M_k` for each of them,
+    so no `group` of V files it and no pinned `inView` selects it. It negates no member of V's
+    levels either: a negator of such a member x is in `N*(x)`, and `N*(x)` is in the scope of x's
+    anchor, which `M_k` holds. A store that returns deltas beyond the scope changes nothing: the
+    read evaluates only over the exact members (reading 3).
+23. **A child does not depend on members under other anchors.** The members of a round come from
+    every anchor fetched so far, and a child's operands see all of them. They do not change its
+    answer. A `group` files only deltas that point at its own root. A pinned `inView` selects only
+    deltas at its own anchor. A `select` decides each delta alone, and a set operator decides it
+    by its membership in operands that obey the same rule (reading 22, *The operands*). A
+    negation that decides one of the child's members is in that member's scope, whatever entity
+    the negation points at. So a final child depends only on `S(static ∪ A(V))` over D, which no later round
+    changes. A delta that points at the child's root and also at an anchor of a later round is in
+    `S0` of the child's root, so it arrives with that root (in the round vectors,
+    `g-features-c1` at `garden:1` and `cutting:1`). The residual selection does not change this:
+    reading 4 makes the members of every round exact over the same D.
+24. **Shapes the key keeps apart.** One entity reached under two schemas, or under two bindings, has
+    two keys and two evaluations. The bindings can change what a `mask trust` or a `select`
+    decides, so one HView cannot serve both. The case `one-child-under-two-bindings` reaches
+    `cutting:1` under one schema with two bindings in one round, and the two HViews differ; a key
+    without the bindings fails it. Two pinned references are two schemas too: the case
+    `one-child-under-two-pinned-schemas` reaches `cutting:1` and `cutting:2` under two pinned
+    hashes in one round, and a key that does not tell the hashes apart fails it. A diamond under
+    one schema and one bindings object has one key (`plant:s` under `Tree1`, from both beds).
+    Within one round, every evaluation of that key sees the same members and gives the same
+    HView; once it is final, every later round gives that HView too (reading 22).
+25. **The memo never outlives its attempt.** A child stored on one snapshot can be wrong on
+    another, because an append or a purge can change what it reads. The interleaved case
+    `an-append-after-the-third-round` strikes `c1-height` at `cutting:1` after the round that
+    stores `Leaf` at `cutting:1`. A wrapper that starts again but
+    keeps its memo shows the old `cutting:1` beside the new members: neither answer. A change after
+    round 1 cannot show it, because round 1 finishes no child. A memo kept across two reads fails a case for the same
+    reason: the selection, the bindings or the snapshot change the members, and a stored child
+    does not follow.
+26. **What the memo saves.** A key is stored at most once and is not evaluated again after that.
+    So a read with the memo evaluates each key once as final, plus once for each time a round
+    reaches it while it is not final. A read without the memo evaluates every child it reaches in
+    every round. A witness counts both through its memo hook, not by timing.
+27. **The answer reports what the memo stored.** The memo changes no answer, so no case can see a
+    read that ignores the memo switch, or that uses a memo when the switch is off. The answer
+    therefore carries the number of child evaluations its memo held when the read ended
+    (TypeScript `StoreRead.memoStored`): 0 with the memo off, and the number of keys stored with
+    it on. Over the round vectors, `the-whole-garden` stores 18 with the memo and 0 without. The
+    count is of the last attempt; a read that starts again starts a new memo (reading 25).
+28. **The full-surface read** (§6.6). `readFullSurface(peerExporter, request)` lists the peer
+    through its `PeerExporter`, keeps the deltas the selection admits, and evaluates the term
+    over them with the ordinary evaluator. It takes any term, anchored or not, and its route
+    report says `optimized: false`, with how many deltas it listed and how many it admitted. It
+    keeps nothing. Calling it is the explicit flag of §6.6: it needs an exporter, and a serving
+    path that holds only a peer handle (`StoreReactor`, a snapshot) has none. A listing carries
+    no arrival record (§4.7.6), so the read applies `timestampAtMost` and `excludeIds` itself and
+    refuses `invalid-request`, before it lists anything, a selection with `arrivalAtMost` or a
+    host predicate. A listing whose id does not recompute is refused, not repaired.
+    `collectDeltaSet(peerExporter)` is the listing as a set. A store that keeps arrival records
+    in its listing in a later slice can lift the refusal.
+29. **The existing read families run a second time through a store** (plan §5, O2). Each witness
+    loads each family's deltas into a memory store peer with its fixture loader and expects the
+    family's own bytes: every evaluation case of `vectors/l1-eval` (an anchored term through
+    `readAnchored`, from the case's root or else its first static anchor; an unanchored one
+    through `readFullSurface`), the SPEC-17 read cases through `readAnchored` with their scope
+    and members, its scope cases through `fetchScope` with the exclusions as a pushdown, the
+    negation-witness cases of `vectors/l2-reactor/governed.json` over the scope of the entities
+    the target points at, and the principal cases (slice 2 step 3). Of the 112 evaluation cases,
+    56 are anchored and 56 are not. The rejects, the parse and strict-key files, the schema
+    loads and the whole-set `governed` and `latestByKey` cases are not run again: a store adds
+    nothing to a refusal, and a whole-set load is a full-surface read. Ingest, dispatch and the
+    journal (transaction, atomic-transfer, materialization, command and peer families) move in
+    slices 3 and 4.
 
 
 ## 5. Architectures

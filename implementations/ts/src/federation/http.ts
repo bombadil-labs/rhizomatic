@@ -83,7 +83,10 @@ export async function pullFromUrl(
   peer: Peer,
   baseUrl: string,
 ): Promise<{ accepted: number; rejected: number }> {
-  const have = peer.reactor.arrivalLog().map((d) => d.id);
+  const have = peer.reactor
+    .legacyHoldings()
+    .arrivals()
+    .map((d) => d.id);
   const res = await fetch(`${baseUrl}/rhz/v0/sync`, {
     method: "POST",
     headers: { "content-type": "application/json" },

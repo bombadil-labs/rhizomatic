@@ -48,7 +48,7 @@ export class Peer {
 
   // The offered set: eval(lens, log) — lens fidelity is a tested invariant (F4).
   offeredSet(): Delta[] {
-    const result = evalTermRaw(this.offeredLens, this.reactor.snapshot());
+    const result = evalTermRaw(this.offeredLens, this.reactor.legacyHoldings().set());
     if (result.sort !== "dset") throw new Error("a lens must be a DSet-sort term (F4)");
     return [...result.set];
   }
@@ -56,7 +56,7 @@ export class Peer {
   // Pull from another peer: WANT(my ids) -> OFFER/BUNDLE -> verify -> admission -> ingest (§5).
   pullFrom(other: Peer): SyncReport {
     const have = new Set<string>();
-    for (const d of this.reactor.arrivalLog()) have.add(d.id);
+    for (const d of this.reactor.legacyHoldings().arrivals()) have.add(d.id);
 
     const offered = other.offeredSet().filter((d) => !have.has(d.id));
     const offeredIds = new Set(offered.map((d) => d.id));
@@ -118,10 +118,11 @@ export class Peer {
 
 // Anti-entropy both ways; repeat until quiescent (bounded — union is monotone).
 export function syncBoth(a: Peer, b: Peer): void {
+  const digests = () => a.reactor.legacyHoldings().digest() + b.reactor.legacyHoldings().digest();
   for (let i = 0; i < 4; i++) {
-    const before = a.reactor.digest() + b.reactor.digest();
+    const before = digests();
     a.pullFrom(b);
     b.pullFrom(a);
-    if (a.reactor.digest() + b.reactor.digest() === before) return;
+    if (digests() === before) return;
   }
 }

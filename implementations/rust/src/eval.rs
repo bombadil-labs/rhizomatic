@@ -345,6 +345,7 @@ fn resolve_reflective(
     registry: Option<&SchemaRegistry>,
     bindings: Option<&Bindings>,
     scope: &EvalScope,
+    memo: &mut Memo<'_>,
 ) -> Result<Pred, String> {
     Ok(match pred {
         Pred::InView {
@@ -352,10 +353,11 @@ fn resolve_reflective(
             field,
             extract,
         } => {
-            let set = match eval_term_inner(term, input, root, registry, bindings, scope)?.value {
-                EvalResult::DSet { set, .. } => set,
-                _ => return Err("inView.term must evaluate to a DSet (E9)".to_string()),
-            };
+            let set =
+                match eval_term_inner(term, input, root, registry, bindings, scope, memo)?.value {
+                    EvalResult::DSet { set, .. } => set,
+                    _ => return Err("inView.term must evaluate to a DSet (E9)".to_string()),
+                };
             Pred::Match {
                 field: *field,
                 cmp: Cmp::InSet,
@@ -364,22 +366,22 @@ fn resolve_reflective(
         }
         Pred::And(l, r) => Pred::And(
             Box::new(resolve_reflective(
-                l, input, root, registry, bindings, scope,
+                l, input, root, registry, bindings, scope, memo,
             )?),
             Box::new(resolve_reflective(
-                r, input, root, registry, bindings, scope,
+                r, input, root, registry, bindings, scope, memo,
             )?),
         ),
         Pred::Or(l, r) => Pred::Or(
             Box::new(resolve_reflective(
-                l, input, root, registry, bindings, scope,
+                l, input, root, registry, bindings, scope, memo,
             )?),
             Box::new(resolve_reflective(
-                r, input, root, registry, bindings, scope,
+                r, input, root, registry, bindings, scope, memo,
             )?),
         ),
         Pred::Not(p) => Pred::Not(Box::new(resolve_reflective(
-            p, input, root, registry, bindings, scope,
+            p, input, root, registry, bindings, scope, memo,
         )?)),
         Pred::ActsFor { .. } => {
             return Err("actsFor requires an explicit principal resolver (SPEC-14)".to_string())
@@ -527,6 +529,7 @@ fn eval_schema(
     registry: Option<&SchemaRegistry>,
     bindings: Option<&Bindings>,
     scope: &EvalScope,
+    memo: &mut Memo<'_>,
 ) -> Result<(HView, LogicalTree), String> {
     let label = match schema_ref {
         SchemaRef::Name(n) => n.clone(),
@@ -538,6 +541,14 @@ fn eval_schema(
     let schema = registry
         .resolve(schema_ref)
         .ok_or(format!("unknown schema: {label} (E10/E13)"))?;
+    let key = ChildKey {
+        schema: schema_ref,
+        bindings,
+        root,
+    };
+    if let Some(found) = memo.active(scope).and_then(|m| m.get(&key)) {
+        return Ok((found.view, found.tree));
+    }
     let step = eval_term_inner(
         &schema.body,
         input,
@@ -545,12 +556,73 @@ fn eval_schema(
         Some(registry),
         bindings,
         scope,
+        memo,
     )?;
     match step.value {
-        EvalResult::HView(h) => Ok((h, step.tree.unwrap())),
+        EvalResult::HView(view) => {
+            let value = ChildValue {
+                view,
+                tree: step.tree.unwrap(),
+            };
+            if let Some(m) = memo.active(scope) {
+                m.put(&key, &value);
+            }
+            Ok((value.view, value.tree))
+        }
         _ => Err(format!(
             "schema {label} body must be an HView-sort term (E10)"
         )),
+    }
+}
+
+/// One child evaluation as a memo sees it (SPEC-18 §4.12 reading 21): one schema body at one root,
+/// under the bindings in effect. The term, the registry, `now` and the input are not in the key;
+/// a memo is right only where its owner keeps them fixed.
+#[derive(Debug, Clone, Copy)]
+pub struct ChildKey<'a> {
+    /// The schema reference as the term writes it: the name, or the pinned hash.
+    pub schema: &'a SchemaRef,
+    /// The request's bindings, or those of the nearest enclosing `fix` that has them.
+    pub bindings: Option<&'a Bindings>,
+    /// The root entity.
+    pub root: &'a str,
+}
+
+/// What a child evaluation gave: its HView, and the logical shape an enclosing evaluation records
+/// for it. Only the evaluator makes one, so a memo can store and return it but not forge it.
+#[derive(Debug, Clone)]
+pub struct ChildValue {
+    view: HView,
+    tree: LogicalTree,
+}
+
+impl ChildValue {
+    pub fn view(&self) -> &HView {
+        &self.view
+    }
+}
+
+/// A hook around each child evaluation: `get` before it (a hit skips the evaluation and everything
+/// under it), `put` after it. The evaluator decides nothing about which answers stay right; the
+/// memo's owner does. Under an evaluation budget the evaluator never calls either.
+pub trait ChildMemo {
+    fn get(&mut self, key: &ChildKey<'_>) -> Option<ChildValue>;
+    fn put(&mut self, key: &ChildKey<'_>, value: &ChildValue);
+}
+
+/// The memo an evaluation carries, if any.
+pub(crate) struct Memo<'m>(pub(crate) Option<&'m mut dyn ChildMemo>);
+
+impl Memo<'_> {
+    /// The memo, or none under a budget: a hit returns a child without the work a budget counts.
+    fn active(&mut self, scope: &EvalScope) -> Option<&mut dyn ChildMemo> {
+        if scope.limits.is_some() {
+            return None;
+        }
+        match &mut self.0 {
+            Some(m) => Some(&mut **m),
+            None => None,
+        }
     }
 }
 
@@ -632,6 +704,7 @@ pub fn eval_term(
         registry,
         bindings,
         &EvalScope::native(false),
+        &mut Memo(None),
     )
     .map(|s| s.value)
 }
@@ -643,6 +716,7 @@ fn eval_term_inner(
     registry: Option<&SchemaRegistry>,
     bindings: Option<&Bindings>,
     scope: &EvalScope,
+    memo: &mut Memo<'_>,
 ) -> Result<EvalStep, String> {
     fn expect_dset(r: EvalStep, op: &str) -> Result<(DeltaSet, BTreeSet<String>), String> {
         match r.value {
@@ -660,7 +734,7 @@ fn eval_term_inner(
         Term::Input => Ok(EvalStep::plain(dset_result(input.clone()))),
         Term::Select { pred, of } => {
             let (set, _) = expect_dset(
-                eval_term_inner(of, input, root, registry, bindings, scope)?,
+                eval_term_inner(of, input, root, registry, bindings, scope, memo)?,
                 "select",
             )?;
             let pred = resolve_reflective(
@@ -670,6 +744,7 @@ fn eval_term_inner(
                 registry,
                 bindings,
                 scope,
+                memo,
             )?;
             Ok(EvalStep::plain(dset_result(fork(&set, |d: &Delta| {
                 eval_pred(&pred, d, root)
@@ -677,11 +752,11 @@ fn eval_term_inner(
         }
         Term::Union { left, right } => {
             let (l, _) = expect_dset(
-                eval_term_inner(left, input, root, registry, bindings, scope)?,
+                eval_term_inner(left, input, root, registry, bindings, scope, memo)?,
                 "union",
             )?;
             let (r, _) = expect_dset(
-                eval_term_inner(right, input, root, registry, bindings, scope)?,
+                eval_term_inner(right, input, root, registry, bindings, scope, memo)?,
                 "union",
             )?;
             Ok(EvalStep::plain(dset_result(merge(&l, &r))))
@@ -690,11 +765,11 @@ fn eval_term_inner(
             // left ∩ right, keyed by content-addressed id (SPEC-2 §4.9). Plain DSet result: any
             // mask(annotate) tag channel on an operand is dropped, like select/union (E14).
             let (l, _) = expect_dset(
-                eval_term_inner(left, input, root, registry, bindings, scope)?,
+                eval_term_inner(left, input, root, registry, bindings, scope, memo)?,
                 "intersect",
             )?;
             let (r, _) = expect_dset(
-                eval_term_inner(right, input, root, registry, bindings, scope)?,
+                eval_term_inner(right, input, root, registry, bindings, scope, memo)?,
                 "intersect",
             )?;
             Ok(EvalStep::plain(dset_result(fork(&l, |d: &Delta| {
@@ -704,11 +779,11 @@ fn eval_term_inner(
         Term::Difference { of, without } => {
             // of ∖ without, keyed by id (SPEC-2 §4.9). Asymmetric operands `of`/`without`.
             let (o, _) = expect_dset(
-                eval_term_inner(of, input, root, registry, bindings, scope)?,
+                eval_term_inner(of, input, root, registry, bindings, scope, memo)?,
                 "difference",
             )?;
             let (w, _) = expect_dset(
-                eval_term_inner(without, input, root, registry, bindings, scope)?,
+                eval_term_inner(without, input, root, registry, bindings, scope, memo)?,
                 "difference",
             )?;
             Ok(EvalStep::plain(dset_result(fork(&o, |d: &Delta| {
@@ -717,7 +792,7 @@ fn eval_term_inner(
         }
         Term::Mask { policy, of } => {
             let (set, _) = expect_dset(
-                eval_term_inner(of, input, root, registry, bindings, scope)?,
+                eval_term_inner(of, input, root, registry, bindings, scope, memo)?,
                 "mask",
             )?;
             Ok(EvalStep::plain(match policy {
@@ -741,6 +816,7 @@ fn eval_term_inner(
                         registry,
                         bindings,
                         scope,
+                        memo,
                     )?;
                     let negated = compute_negated(&set, Some(&pred), root);
                     dset_result(fork(&set, |d: &Delta| !negated.contains(&d.id)))
@@ -750,7 +826,7 @@ fn eval_term_inner(
         Term::Group { key, of } => {
             let root = root.ok_or("group requires an ambient root entity (E9)")?;
             let (set, negated) = expect_dset(
-                eval_term_inner(of, input, Some(root), registry, bindings, scope)?,
+                eval_term_inner(of, input, Some(root), registry, bindings, scope, memo)?,
                 "group",
             )?;
             let (h, tree) = eval_group(key, &set, &negated, root, scope)?;
@@ -758,7 +834,7 @@ fn eval_term_inner(
         }
         Term::Prune { keep, of } => {
             let (h, mut tree) = expect_hview(
-                eval_term_inner(of, input, root, registry, bindings, scope)?,
+                eval_term_inner(of, input, root, registry, bindings, scope, memo)?,
                 "prune",
             )?;
             let h = match keep {
@@ -793,7 +869,7 @@ fn eval_term_inner(
             of,
         } => {
             let (h, mut tree) = expect_hview(
-                eval_term_inner(of, input, root, registry, bindings, scope)?,
+                eval_term_inner(of, input, root, registry, bindings, scope, memo)?,
                 "expand",
             )?;
             let role = expand_str_match(role, input, root);
@@ -824,8 +900,15 @@ fn eval_term_inner(
                             continue;
                         }
                         let child_scope = scope.descend()?;
-                        let (nested, child_tree) =
-                            eval_schema(schema, input, &er.id, registry, bindings, &child_scope)?;
+                        let (nested, child_tree) = eval_schema(
+                            schema,
+                            input,
+                            &er.id,
+                            registry,
+                            bindings,
+                            &child_scope,
+                            memo,
+                        )?;
                         scope.visit("child-ready");
                         tree.children
                             .insert((prop.clone(), entry_index, i), child_tree.summary());
@@ -856,12 +939,13 @@ fn eval_term_inner(
                 registry,
                 fix_bindings.as_ref().or(bindings),
                 scope,
+                memo,
             )?;
             Ok(EvalStep::hview(h, tree))
         }
         Term::Resolve { schema, of } => {
             let (h, _tree) = expect_hview(
-                eval_term_inner(of, input, root, registry, bindings, scope)?,
+                eval_term_inner(of, input, root, registry, bindings, scope, memo)?,
                 "resolve",
             )?;
             let bound = if scope.bind_readings {
@@ -884,13 +968,36 @@ pub fn eval_term_at(
     registry: Option<&SchemaRegistry>,
     bindings: Option<&Bindings>,
 ) -> Result<EvalResult, String> {
+    eval_term_at_with_memo(term, input, now, root, registry, bindings, None)
+}
+
+/// `eval_term_at` with a hook around each child evaluation (`ChildMemo`). The evaluation has no
+/// budget, so the hook is always called.
+pub fn eval_term_at_with_memo(
+    term: &Term,
+    input: &DeltaSet,
+    now: f64,
+    root: Option<&str>,
+    registry: Option<&SchemaRegistry>,
+    bindings: Option<&Bindings>,
+    memo: Option<&mut dyn ChildMemo>,
+) -> Result<EvalResult, String> {
     if !now.is_finite() {
         return Err("now must be a finite number".to_string());
     }
     let valid = fork(input, |d: &Delta| {
         d.claims.valid_from <= now && d.claims.valid_until.is_none_or(|end| now < end)
     });
-    eval_term(term, &valid, root, registry, bindings)
+    eval_term_inner(
+        term,
+        &valid,
+        root,
+        registry,
+        bindings,
+        &EvalScope::native(false),
+        &mut Memo(memo),
+    )
+    .map(|s| s.value)
 }
 
 /// Explicit program invocation additionally binds variables in every executed reading. The
@@ -916,6 +1023,7 @@ pub fn eval_bound_program_at(
         registry,
         Some(bindings),
         &EvalScope::native(true),
+        &mut Memo(None),
     )
     .map(|s| s.value)
 }
@@ -1150,6 +1258,7 @@ pub fn eval_materialization_term_at(
         registry,
         Some(bindings),
         &EvalScope::bounded(limits)?,
+        &mut Memo(None),
     )
     .map(|s| s.value)
 }
@@ -1281,6 +1390,7 @@ fn deterministic_logical_visitation() {
             Some(&registry),
             Some(&bindings),
             &scope,
+            &mut Memo(None),
         );
         if v["positives"]
             .as_array()
@@ -1336,4 +1446,88 @@ fn deterministic_logical_visitation() {
         }
         println!("materialization-visitation:{id}:{groups}:{descents}:max-pending-per-frame=1");
     }
+}
+
+/// The memo and a budget (SPEC-18 §4.12 reading 21; README §5.8): an evaluation with a budget and
+/// a memo never calls the memo, and the same evaluation without the budget does.
+#[cfg(test)]
+#[test]
+fn a_budget_turns_the_child_memo_off() {
+    #[derive(Default)]
+    struct Calls {
+        gets: usize,
+        puts: usize,
+        held: Vec<(String, ChildValue)>,
+    }
+    impl ChildMemo for Calls {
+        fn get(&mut self, key: &ChildKey<'_>) -> Option<ChildValue> {
+            self.gets += 1;
+            let k = format!("{:?}|{:?}|{}", key.schema, key.bindings, key.root);
+            self.held
+                .iter()
+                .find(|(h, _)| *h == k)
+                .map(|(_, v)| v.clone())
+        }
+        fn put(&mut self, key: &ChildKey<'_>, value: &ChildValue) {
+            self.puts += 1;
+            let k = format!("{:?}|{:?}|{}", key.schema, key.bindings, key.root);
+            self.held.push((k, value.clone()));
+        }
+    }
+    let v: serde_json::Value =
+        serde_json::from_str(include_str!("../../../vectors/store/rounds.json")).unwrap();
+    let deltas = DeltaSet::from_deltas(v["deltas"].as_array().unwrap().iter().map(|d| {
+        crate::set::make_delta(
+            crate::json_profile::parse_claims(&d["claims"]).unwrap(),
+            None,
+        )
+        .unwrap()
+    }))
+    .unwrap();
+    let registry = SchemaRegistry::build(
+        v["schemas"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| crate::schema::HyperSchema {
+                name: s["name"].as_str().unwrap().to_string(),
+                alg: 1,
+                body: crate::term_json::parse_term(&s["body"]).unwrap(),
+            })
+            .collect(),
+        vec![],
+    )
+    .unwrap();
+    let term = Term::Fix {
+        schema: SchemaRef::Name("Tree3".into()),
+        entity: "garden:1".into(),
+        bindings: None,
+    };
+    let run = |scope: &EvalScope| {
+        let mut calls = Calls::default();
+        let result = eval_term_inner(
+            &term,
+            &deltas,
+            Some("garden:1"),
+            Some(&registry),
+            None,
+            scope,
+            &mut Memo(Some(&mut calls)),
+        )
+        .unwrap()
+        .value;
+        (result_canonical_hex(&result), calls.gets, calls.puts)
+    };
+    let budget = EvalScope::bounded(MaterializationEvaluationLimits {
+        nodes: 4096,
+        entries: 16384,
+        buckets: 256,
+        depth: 32,
+    })
+    .unwrap();
+    let (bounded, gets, puts) = run(&budget);
+    assert_eq!((gets, puts), (0, 0), "a budget calls no memo");
+    let (free, gets, puts) = run(&EvalScope::native(false));
+    assert!(gets > 0 && puts > 0, "without a budget the memo is called");
+    assert_eq!(bounded, free);
 }

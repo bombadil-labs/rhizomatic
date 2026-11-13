@@ -487,6 +487,24 @@ pub trait PeerExporter {
     fn deltas(&self) -> Listing<'_, Delta>;
 }
 
+/// One peer's listing as a set (SPEC-18 §4.12 reading 28). It reads the whole listing, so it
+/// costs the peer's surface. Each id is recomputed from its claims; a listed delta whose id does
+/// not recompute is refused `invalid-request`, never repaired. A listing refusal passes up.
+pub fn collect_delta_set(exporter: &dyn PeerExporter) -> Result<DeltaSet, StoreError> {
+    let mut set = DeltaSet::new();
+    for listed in exporter.deltas() {
+        let delta = listed?;
+        let id = delta.id.clone();
+        set.add(delta).map_err(|_| {
+            StoreError::new(
+                StoreErrorCode::InvalidRequest,
+                format!("listed delta {id} does not recompute from its claims"),
+            )
+        })?;
+    }
+    Ok(set)
+}
+
 /// The entities these claims point at, each once.
 pub fn target_entities(claims: &Claims) -> BTreeSet<&str> {
     claims
@@ -535,7 +553,7 @@ fn index_member(index: &mut BTreeMap<String, BTreeSet<String>>, key: &str, membe
 impl ScopeSource {
     /// Adds members from another round. A member already present keeps its first appearance,
     /// and a repeated id is not examined. Refuses a member whose id does not recompute from its
-    /// claims; a refused call adds nothing.
+    /// claims, or whose arrival record names another id; a refused call adds nothing.
     pub fn extend(&mut self, members: &[VerifiedDelta]) -> Result<(), StoreError> {
         // Check every first appearance before anything is added.
         let mut fresh: BTreeMap<&str, &VerifiedDelta> = BTreeMap::new();
@@ -550,22 +568,64 @@ impl ScopeSource {
                     format!("scope member {id} does not recompute from its claims"),
                 ));
             }
+            if member.arrival.id != id {
+                return Err(StoreError::new(
+                    StoreErrorCode::InvalidRequest,
+                    format!(
+                        "scope member {id} carries the arrival record of {}",
+                        member.arrival.id
+                    ),
+                ));
+            }
             fresh.insert(id, member);
         }
-        for (id, member) in fresh {
+        for member in fresh.into_values() {
             // The check pass recomputed this id, so the set's own check cannot refuse it.
             self.set
                 .add(member.delta.clone())
                 .expect("the member was checked before the commit pass");
-            self.arrivals.insert(id.to_string(), member.arrival.clone());
-            for entity in target_entities(&member.delta.claims) {
-                index_member(&mut self.targets, entity, id);
-            }
-            for negated in negated_ids(&member.delta.claims) {
-                index_member(&mut self.negators, negated, id);
-            }
+            self.index(&member.delta, member.arrival.clone());
         }
         Ok(())
+    }
+
+    /// Records one member's arrival and writes its index entries. Every member enters a
+    /// source through this, after its id has been checked.
+    fn index(&mut self, delta: &Delta, arrival: ArrivalRecord) {
+        let id = delta.id.as_str();
+        self.arrivals.insert(id.to_string(), arrival);
+        for entity in target_entities(&delta.claims) {
+            index_member(&mut self.targets, entity, id);
+        }
+        for negated in negated_ids(&delta.claims) {
+            index_member(&mut self.negators, negated, id);
+        }
+    }
+
+    /// A source over the members of this one with these ids, each with its arrival record. The
+    /// members were checked when they entered this source, so they are not hashed again; ids
+    /// this source does not hold are skipped.
+    pub fn restrict(&self, ids: &[String]) -> ScopeSource {
+        let mut next = ScopeSource {
+            set: self.set.subset(ids),
+            ..ScopeSource::default()
+        };
+        let members: Vec<(Delta, ArrivalRecord)> = next
+            .set
+            .iter()
+            .map(|delta| {
+                let arrival = self
+                    .arrivals
+                    .get(&delta.id)
+                    .expect("every member of a source has its arrival record")
+                    .clone();
+                (delta.clone(), arrival)
+            })
+            .collect();
+        for (delta, arrival) in &members {
+            next.index(delta, arrival.clone());
+        }
+        next
     }
 
     pub fn arrival(&self, id: &str) -> Option<&ArrivalRecord> {

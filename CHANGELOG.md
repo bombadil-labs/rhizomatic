@@ -10,8 +10,45 @@ The store, slice 1 (SPEC-18 proposal): one store interface with declared capabil
 memory reference store, in both witnesses against the same vectors. Nothing existing changes
 behavior, and the reactor does not use the store yet.
 
+The store, slice 2 (SPEC-18 proposal): the reactor reads through a store. An anchored read runs in
+rounds on one snapshot, with a fetch cache and an evaluation memo; a term with no anchor runs only
+as an explicit full-surface read through the exporter. The delta source is the one read type for
+consumers. Every existing read vector family runs a second time through a memory store with the
+same expected bytes. The memory `Reactor` keeps its whole-set methods, deprecated, until Loam moves
+in slice 5. The store is read-only in slice 2: only test fixtures fill one. The TypeScript witness
+is complete; the Rust witness follows the same documents.
+
+### ⚠️ Breaking
+
+- `DeltaSource.targets` and `DeltaSource.negators` return `readonly string[]`: each id once,
+  ascending by the UTF-8 bytes of the id (SPEC-17 §3). They returned `Iterable<string>` in any
+  order. An implementer that returns a `Set`, or a list in arrival order, no longer conforms; sort
+  with `compareUtf8`. `Reactor.targets` and `Reactor.negators` now return sorted arrays, where
+  they returned the index sets in arrival order.
+
 ### Added
 
+- `negationWitnesses(source, now, suppression)` and `negationPredicate(source, now, suppression)`:
+  the reactor's negation readers as free functions over any `DeltaSource`, such as a
+  `scopeSource` of a fetched scope. A free reader keeps its memo for its whole life; build a new
+  one when the source changes. The `Reactor` methods delegate to them and still follow ingests.
+  An optional fourth argument `epoch: () => number` makes a free reader follow a source that
+  changes: the reader looks at the value at every step of a walk and drops its memo when it
+  moved. The `Reactor` methods pass the membership revision, so a suppression callback that
+  ingests in the middle of a walk gets a fresh answer in the same call.
+- A `DeltaSource` holds content-addressed deltas, and `targets` and `negators` list only ids it
+  holds. A negation reader does not count a listed negator that `get` cannot return. A negation
+  cycle, which only a source with forged ids can hold, fails loudly: TypeScript throws
+  `negation cycle: the delta source holds deltas that are not content-addressed`, and Rust
+  `NegationReader::witnesses` panics with the same message, where it returned an empty list
+  that depended on the walk order. The TypeScript error `negation reader re-entered during
+  suppression` now names only a suppression callback that calls its own reader.
+- `Reactor.revision`: the membership counter. Equal values on one reactor mean equal membership.
+  It rises by one for each `ingest`, `ingestBatch` or `ingestBundle` call that adds at least one
+  member, including a call whose subscriber then throws, and at no other time. It is comparable
+  only within one reactor object and is not a store `Revision`.
+- `ScopeReads`: the input type of `scopeIds` and `evalAnchored`. It is a `DeltaSource` without the
+  order rule, because scope computation sorts its own answer. Every `DeltaSource` is one.
 - The store interface types: `Store`, `PeerStore`, `Snapshot`, `ScopeRequest`, `ScopeResult`,
   `Pushdown`, `Admission`, `AppendResult`, `PurgeReport`, `Revision`, `StoreProfile`, `Exporter`,
   and `StoreError` with its codes.
@@ -42,8 +79,131 @@ behavior, and the reactor does not use the store yet.
   build of a `ScopeSource` to linear scaling, and a table of wrong stores holds the Rust runner to
   each of its rules.
 
+- Rust witness, slice 2: `NegationReader` is generic over any `DeltaSource` and lives in `set`,
+  with the free functions `negation_reader`, `negation_witnesses` and `negation_predicate`.
+  `Reactor::negation_reader` builds the same reader over the reactor; `reactor` still exports the
+  type. No answer changes.
+- Rust witness, slice 2: `Reactor::revision()`, the membership counter. It rises by one for each
+  `ingest`, `ingest_batch` or `ingest_bundle` call that adds at least one member, and at no other
+  time. It compares only within one reactor object; it is not a store revision.
+- Slice 2, TypeScript: the store-backed read. `readAnchored(snapshot, request)` is an anchored
+  read in rounds on one snapshot (SPEC-18 §4.4): one `scope` call per round for the anchors not
+  yet fetched, a fetch cache, and the residual selection applied in memory. It answers the same
+  bytes as `evalTerm` over everything the peer holds that the selection admits, and returns the
+  scope, the members, the snapshot's revision and a report per round. It throws
+  `UnanchoredTermError` for an unanchored term before any store call, and never scans.
+  `fetchScope(snapshot, entities, selection?)` makes one fetch and returns a synchronous source
+  over the exact scope. `StoreReactor.open(peerStore)` reads nothing; its `read` and `fetch` take
+  a snapshot each, release it, and start again on `snapshot-moved` up to `SNAPSHOT_RETRIES`
+  (three) times. `createFetchCache()` is the growing, verified set behind them. It owns what it
+  holds: it checks and copies each member as `scopeSource` does, refuses a member whose arrival
+  record is missing or names another id, adds nothing on a refused call, and hands out copies or
+  frozen lists only. It has no `subset`; use `source(ids)`. Each `StoreRoundReport` carries the
+  `attempt` and the snapshot `revision`. The memory `Reactor` is unchanged.
+- Slice 2, TypeScript: the evaluation memo of the store-backed read (SPEC-18 §4.4, §4.12
+  readings 21 to 26). `readAnchored` keeps one memo per snapshot. It stores a child evaluation
+  under (schema reference, bindings object, root) only when every anchor the child's HView shows
+  has been fetched, and a later round of the same read uses it without evaluating that child
+  again. `evalTerm` takes an optional `ChildMemo` (`get`, `put`) as its last argument; the
+  evaluator asks it before each `expand` child and `fix` body and decides nothing about what
+  stays right. `evalTermWithHooks` carries a budget and a memo together; a budget turns the memo
+  off. No answer changes. The round vectors gain `one-child-under-two-bindings` and
+  `one-child-under-two-pinned-schemas`.
+- Shared vectors `vectors/store/rounds.json`: reads in rounds, with the anchors of each round,
+  interleaved appends, a purge between two rounds, and refusals. Format in `vectors/store/README.md` §5. Both witnesses run
+  them.
+- Slice 2, Rust: the store-backed read, in the new module `store_read` (reactor boundary).
+  `read_anchored(&dyn Snapshot, ReadRequest)` reads in rounds on one snapshot, with a fetch cache
+  (`FetchCache::On`) or without one (`FetchCache::Off`), and returns a `StoreRead`: the result, the
+  scope, the members, the revision, a `RoundReport` per round and the snapshot count. The
+  selection is a `Pushdown` and an optional host predicate over a delta and its arrival record.
+  An unanchored term is refused `StoreReadError::Unanchored(reason)` before any store call.
+  `fetch_scope(snapshot, entities, selection)` returns a `FetchedScope`: a `ScopeSource` over
+  exactly S(entities), and the revision. `StoreReactor::open(peer)` reads nothing; `read` and
+  `fetch` take a snapshot, release it on every path, and start again on `snapshot-moved` up to
+  `SNAPSHOT_RETRIES` (three) times, each time with a new fetch cache. Any other refusal passes up
+  after one attempt. Each `RoundReport` carries the `attempt` (from 1) and the snapshot
+  `revision`, and its `round` counts from 1 on each snapshot. `ScopeSource::extend` refuses
+  `InvalidRequest` for a member whose arrival record names another id, and a refused call adds
+  nothing. `ScopeSource::restrict(ids)` is a source over some of its members, without a second
+  hash.
+- Slice 2, Rust: the evaluation memo of the store-backed read (SPEC-18 §4.4, §4.12 readings 21
+  to 26). `ReadRequest.memo` is `EvalMemo::On` (the default) or `EvalMemo::Off`. With it on,
+  `read_anchored` and each attempt of `StoreReactor::read` keep a new `FinalChildMemo`. It stores
+  a child evaluation under (schema reference, bindings by their entries, root) only when every
+  anchor the child's HView shows has been asked for, and a later round and the final `resolve`
+  evaluation use it. `read_anchored_with_memo(snapshot, request, &mut dyn RoundMemo)` reads with
+  a memo the caller owns. The evaluator hook is `eval::ChildMemo` (`get`, `put`) over a
+  `ChildKey` and a `ChildValue`; `eval_term_at_with_memo` takes one. An evaluation budget turns
+  the hook off. No answer, scope, member or round report changes.
+- `resolvePrincipal`, `authorsForPrincipal` and `associatedKeys` take a `DeltaSource` as their
+  first parameter, where they took a `Reactor`. A `Reactor` is a `DeltaSource`, so no call
+  changes. Each read asks only for the scope of one entity, the principal root: over a
+  `scopeSource` of `scope({ anchors: [root] })` it answers the same as over the whole set. A
+  source fetched for another entity holds no evidence, and the read then answers as for an empty
+  set. Rust witness: `resolve_principal`, `authors_for_principal` and `associated_keys` are
+  generic over `S: DeltaSource + ?Sized`, so they take `&Reactor`, `&ScopeSource` or
+  `&dyn DeltaSource`. No answer changes in either witness.
+- The shared principal cases and history cases (`vectors/principal/evidence.json`) run a second
+  time in each witness, over a scope fetched from a memory store peer.
+- Slice 2, TypeScript: `readFullSurface(peerExporter, request)`, the explicit full-surface read of
+  SPEC-18 §6.6. It lists the peer through its exporter, keeps what the selection admits, and
+  evaluates any term, anchored or not, over that. Its `route` says `optimized: false` and how many
+  deltas it listed and admitted. It takes `timestampAtMost` and `excludeIds` and refuses
+  `invalid-request`, before it lists anything, for `arrivalAtMost` or `admits`: a listing carries
+  no arrival record. A `StoreReactor` holds no exporter, so a serving path cannot reach it.
+  `collectDeltaSet(peerExporter)` lists one peer into a `DeltaSet`, recomputing each id.
+- Slice 2, TypeScript: `StoreRead.memoStored`, the number of child evaluations the read's memo
+  held when it ended, and 0 with the memo off (SPEC-18 §4.12 reading 27). The memo changes no
+  answer, so this is how a test sees whether a read used it.
+- Slice 2, TypeScript: the existing read families run a second time through a memory store: every
+  evaluation case of `vectors/l1-eval` (56 anchored ones through `readAnchored`, 56 unanchored
+  ones through `readFullSurface`), the SPEC-17 read and scope cases through `readAnchored` and
+  `fetchScope`, and the negation-witness cases of `vectors/l2-reactor/governed.json` over a
+  fetched scope. Ingest, dispatch and journal families wait for slices 3 and 4.
+- Slice 2, Rust: `read_full_surface(&dyn PeerExporter, FullSurfaceRequest)`, the explicit
+  full-surface read (SPEC-18 §6.6, §4.12 reading 28). It lists the peer, keeps what the selection
+  admits, and evaluates any term, anchored or not, with an optional root. Its
+  `FullSurfaceRoute` says `optimized: false` and how many deltas it listed and admitted. It takes
+  `timestamp_at_most` and `exclude_ids`, and refuses `InvalidRequest` for `arrival_at_most` or a
+  host predicate before it lists anything. `StoreReactor` holds no exporter.
+  `store::collect_delta_set(&dyn PeerExporter)` lists one peer into a `DeltaSet` and refuses
+  `InvalidRequest` for a listed delta whose id does not recompute.
+- Slice 2, Rust: `StoreRead.memo_stored`, the number of child evaluations the read's memo held
+  when it ended, and 0 with the memo off (§4.12 reading 27). `RoundMemo` gains `stored()`, which
+  a caller-owned memo now implements; `FinalChildMemo::stored` is that trait method.
+- Slice 2, Rust: the existing read families run a second time through a memory store
+  (`tests/store_read_families.rs`): every evaluation case of `vectors/l1-eval`, 56 anchored ones
+  through `read_anchored` and 56 others through `read_full_surface`, with the count per family
+  pinned; the SPEC-17 read and scope cases through `read_anchored` and `fetch_scope`; and the
+  negation-witness cases of `governed.json` over a fetched scope. Every round case of
+  `rounds.json` that has no `arrivalAtMost` also answers its bytes through `read_full_surface`.
+- `Reactor.legacyHoldings()`: the whole held set, its arrival order and its digest, for the memory
+  `Peer` of `federation` only. Not a read path. It is deprecated from the start (below).
+
+### Deprecated
+
+- `Reactor.snapshot()`, `Reactor.arrivalLog()`, `Reactor.digest()` and `Reactor.eval()`: each
+  reads the whole set. Use `readAnchored` or `fetchScope` over a store snapshot,
+  `Reactor.evalAnchored`, `readFullSurface` for a term with no anchor, `Snapshot.arrivals`, and
+  `collectDeltaSet` for a whole listing. They stay until Loam moves to a store (slice 5). Nothing
+  in the package calls them any more; a rail holds that.
+- `Reactor.legacyHoldings()`: the same whole-set access, for the legacy in-memory `Peer` and its
+  HTTP binding only. Use the store path: `PeerExporter.ids`, `collectDeltaSet` or `readAnchored`.
+  The rail allows it in `federation/peer.ts` and `federation/http.ts` and nowhere else in the
+  package. The rail judges an access by the type of its receiver, so a call through an interface
+  that `Reactor` satisfies, a destructured method or a template-literal key also counts.
+- Rust witness: `Reactor::snapshot`, `arrival_log`, `digest` and `eval` carry `#[deprecated]`,
+  each note naming its replacement. A consumer that calls one gets a deprecation warning. The
+  crate root carries `#![forbid(deprecated)]`, so no call in the crate compiles, however it is
+  written. The legacy memory `Peer` and its HTTP pull read through `pub(crate)` accessors that
+  nothing outside the crate can reach.
+
 ### Changed
 
+- `DeltaSource` and `Suppression` are defined in the TypeScript `delta` package boundary.
+  `resolve/anchored`, `reactor` and the package root still export them; no import needs to
+  change. `ScopeSource` extends `DeltaSource`.
 - `ArrivalRecord` is defined in the `storage` package boundary. `federation` and the package root
   still export it; no import needs to change. The Rust witness does the same, and its
   `DeltaSource` trait now lives in `set` (`anchored` still exports it).

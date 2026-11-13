@@ -42,7 +42,7 @@ algebra      → syntax, delta
 resolve-kernel → algebra, syntax, delta
 resolve      → resolve-kernel, algebra, schema, syntax, delta
 schema-load  → resolve, schema, syntax, delta
-reactor      → resolve, resolve-kernel, algebra, schema, syntax, delta
+reactor      → resolve, resolve-kernel, algebra, schema, syntax, storage, delta
 principal    → reactor, syntax, delta
 storage      → delta
 federation   → reactor, resolve, syntax, storage, delta
@@ -52,6 +52,17 @@ derivation   → reactor, algebra, delta
 `storage` also owns the store interface (SPEC-18 proposal), the memory reference store and the
 store conformance runner. It defines `ArrivalRecord`, which the store keeps per peer;
 `federation` re-exports it. `storage` still depends only on `delta`.
+
+`reactor → storage` is the store-backed read (SPEC-18 slice 2): rounds over a `Snapshot`, with a
+fetch cache. In TypeScript the read is `reactor/store-read.ts` and the cache
+`storage/fetch-cache.ts`; in Rust the read is `src/store_read.rs` (owner `reactor`) and the cache
+is the `ScopeSource` of `src/store.rs` (owner `storage`). The memory `Reactor` itself
+imports nothing from `storage`. `storage` sits below `reactor` and never imports it, so the round
+vector model, which needs the evaluator, lives in `implementations/ts/tools/`.
+
+`delta` owns the read type every consumer shares: the SPEC-17 `DeltaSource` (`delta/source.ts`)
+and the negation readers over it (`delta/negation.ts`). They name only `Delta` and `DeltaSet`, so
+`storage`, `resolve` and `reactor` each reach them over an edge they already have.
 
 `schema-load` is the registry adapter for self-hosted schema deltas. The `resolve` package owns
 the terminal `resolve` term composition and public `evalTerm` entry point. `resolve-kernel` owns

@@ -1,4 +1,4 @@
-//! The runner-rules table (`vectors/store/README.md` §7, SPEC-18 §4.11 reading 39). A runner that
+//! The runner-rules table (`vectors/store/README.md` §8, SPEC-18 §4.11 reading 39). A runner that
 //! stops checking a rule still passes the memory store, so each rule of README §3 and §4 has one
 //! wrong store here: the memory store behind a thin wrapper (`Rig`) that breaks that rule and
 //! nothing a script meets before it. Each row asserts that the conformance run fails, in the
@@ -1919,7 +1919,7 @@ fn skipped(names: &[&str], missing: &str) -> Vec<SkippedScript> {
 /// that does not require `purge`, fails: the claim has no expectation for class `none`.
 ///
 /// The rig here is a stand-in, not a store of this crate: Rust has no store of class `none`, so
-/// README §6 test 8 (such a store refuses every purge) has nothing to test. The stand-in's own
+/// README §7 test 8 (such a store refuses every purge) has nothing to test. The stand-in's own
 /// refusal is asserted only so the skip below is measured against a store that would refuse.
 #[test]
 fn a_class_none_store_skips_the_purge_scripts() {

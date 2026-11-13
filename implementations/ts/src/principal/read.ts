@@ -1,8 +1,13 @@
 // Principal evidence reads (SPEC-14). A pinned root is an input, never discovered from the set.
+//
+// Every read here asks the source for `targets(root)`, then `get` and `negators` on those members
+// and on their negation chains. That is the scope S({root}) (SPEC-17 §4), so a source fetched for
+// the one entity `root` answers the same as the whole set.
 import { verifyDelta } from "../delta/sign.js";
 import { computeId } from "../delta/delta.js";
 import type { Delta, Pointer, Primitive } from "../delta/types.js";
-import { Reactor, type Suppression } from "../reactor/reactor.js";
+import { negationPredicate, type Suppression } from "../delta/negation.js";
+import type { DeltaSource } from "../delta/source.js";
 
 export type ScopePolicy = "exact" | "prefix" | ((edgeScope: string, request: string) => boolean);
 export type PrincipalSuppression = "sameAuthor" | "rootOrSameAuthor" | Suppression;
@@ -136,10 +141,10 @@ function parseEvidence(delta: Delta, root: string): Evidence | undefined {
   }
 }
 
-function evidence(reactor: Reactor, root: string): Evidence[] {
+function evidence(source: DeltaSource, root: string): Evidence[] {
   const out: Evidence[] = [];
-  for (const id of reactor.byTarget(root)) {
-    const delta = reactor.get(id);
+  for (const id of source.targets(root)) {
+    const delta = source.get(id);
     const parsed = delta === undefined ? undefined : parseEvidence(delta, root);
     if (parsed !== undefined) out.push(parsed);
   }
@@ -236,7 +241,7 @@ function authorityPaths(
 
 /** Resolve signed association and effective authority without choosing a governing root. */
 export function resolvePrincipal(
-  reactor: Reactor,
+  source: DeltaSource,
   root: string,
   key: string,
   options: PrincipalReadOptions,
@@ -253,11 +258,12 @@ export function resolvePrincipal(
   ) {
     throw new Error("unknown principal scope policy");
   }
-  const isNegated = reactor.negationPredicate(
+  const isNegated = negationPredicate(
+    source,
     options.at,
     suppressionFor(root, options.suppression),
   );
-  const all = evidence(reactor, root);
+  const all = evidence(source, root);
   const active = all.filter(
     (record) => validAt(record.delta, options.at) && !isNegated(record.delta.id),
   );
@@ -308,30 +314,30 @@ export function resolvePrincipal(
 
 /** The author set a governed read can use, under the same explicit authority inputs. */
 export function authorsForPrincipal(
-  reactor: Reactor,
+  source: DeltaSource,
   root: string,
   options: PrincipalReadOptions,
 ): readonly string[] {
-  return resolvePrincipal(reactor, root, root, options).authors;
+  return resolvePrincipal(source, root, root, options).authors;
 }
 
 /** Historical associations remain visible after validity or negation ends their current effect. */
 export function associatedKeys(
-  reactor: Reactor,
+  source: DeltaSource,
   root: string,
   now: number,
   suppression: PrincipalSuppression,
 ): readonly AssociatedKey[] {
   checkRootAndTime(root, now);
-  const records = evidence(reactor, root);
+  const records = evidence(source, root);
   const paths = associationPaths(records, root);
-  const isNegated = reactor.negationPredicate(now, suppressionFor(root, suppression));
+  const isNegated = negationPredicate(source, now, suppressionFor(root, suppression));
   return paths
     .map((path) => ({
       key: path.key,
       via: path.ids,
       intervals: path.ids.map((id) => {
-        const claims = reactor.get(id)!.claims;
+        const claims = source.get(id)!.claims;
         return {
           validFrom: claims.validFrom,
           ...(claims.validUntil === undefined ? {} : { validUntil: claims.validUntil }),

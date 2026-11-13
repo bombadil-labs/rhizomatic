@@ -90,7 +90,7 @@ fn owner(module: &str, symbol: &str) -> &'static str {
         "hview" | "hview_envelope" => "algebra",
         "alias" => "delta",
         "reactor" if matches!(symbol, "manifest_member_ids" | "make_manifest_claims") => "delta",
-        "reactor" | "materialize" => "reactor",
+        "reactor" | "materialize" | "store_read" => "reactor",
         "principal" => "principal",
         "pack" | "store" | "memory_store" | "store_open" | "store_conformance" => "storage",
         "derivation" => "derivation",
@@ -235,7 +235,9 @@ fn attribute_meta(meta: &syn::Meta) -> Result<(), String> {
             _ => Err("unsupported nonliteral doc attribute".into()),
         };
     }
-    if meta.path().is_ident("allow") {
+    // `allow` and `forbid` take lint names, and an optional literal `reason`. `forbid` is the
+    // crate root's `#![forbid(deprecated)]`; neither runs code.
+    if meta.path().is_ident("allow") || meta.path().is_ident("forbid") {
         let syn::Meta::List(l) = meta else {
             return Err("unsupported allow shape".into());
         };
@@ -247,6 +249,22 @@ fn attribute_meta(meta: &syn::Meta) -> Result<(), String> {
             }
         }
         return Ok(());
+    }
+    // `deprecated` alone, `= "note"`, or `(since = "…", note = "…")` with literal strings only.
+    if meta.path().is_ident("deprecated") {
+        return match meta {
+            syn::Meta::Path(_) => Ok(()),
+            syn::Meta::NameValue(v) if literal(&v.value) => Ok(()),
+            syn::Meta::List(l)
+                if members(l)?.iter().all(|m| {
+                    matches!(m, syn::Meta::NameValue(v)
+                        if (v.path.is_ident("note") || v.path.is_ident("since")) && literal(&v.value))
+                }) =>
+            {
+                Ok(())
+            }
+            _ => Err("unsupported nonliteral deprecated attribute".into()),
+        };
     }
     if matches!(meta, syn::Meta::Path(p) if p.is_ident("no_mangle")) {
         return Ok(());

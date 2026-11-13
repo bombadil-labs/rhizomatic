@@ -178,6 +178,7 @@ fn batch_hex(term_json: &Value, set: &DeltaSet, root: &str) -> String {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn a_grant_landing_away_from_the_support_still_refreshes() {
     let doc = load();
     let deltas = fixture_deltas(&doc);
@@ -223,6 +224,7 @@ proptest! {
 
     // Incremental equals batch after EVERY ingest, in any order (the reflective oracle).
     #[test]
+    #[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
     fn incremental_equals_batch_any_order(seed in proptest::sample::Index::arbitrary()) {
         let doc = load();
         let mut deltas = fixture_deltas(&doc);

@@ -2,6 +2,7 @@
 // own layout. Every id list a store returns is ascending by the UTF-8 bytes of the id and holds
 // no duplicate, so two conforming stores answer with the same bytes.
 
+import { DeltaSet } from "../delta/set.js";
 import type { Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
 
@@ -283,4 +284,16 @@ export interface PeerExporter {
   ids(): AsyncIterable<Id>;
   /** The same members as `ids`, in the same order, each as this peer admitted it. */
   deltas(): AsyncIterable<Delta>;
+}
+
+/**
+ * Every delta one peer holds, as a set. O(surface): it reads the whole listing, and `DeltaSet`
+ * recomputes each id on the way in, so a listing whose id does not recompute is refused, not
+ * repaired. For admin, backup and declared full-surface reads (§4.7.6, §6.6) only; a serving path
+ * that holds no `PeerExporter` cannot call it.
+ */
+export async function collectDeltaSet(peer: PeerExporter): Promise<DeltaSet> {
+  const set = new DeltaSet();
+  for await (const delta of peer.deltas()) set.add(delta);
+  return set;
 }
