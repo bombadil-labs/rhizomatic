@@ -140,6 +140,24 @@ carry NaN or an infinity, so a non-finite `timestampAtMost` or `at` is a unit te
 
 ### 1.3 Peer
 
+**`history`** is an opaque, non-empty string: the identity of this peer's revision history in
+this store (SPEC-18 §4.6). Compare two values for equality only. It stays the same while the
+peer's revisions only advance. A peer created anew, also under a name that existed before, and a
+store restored to an earlier state, carry another value. The runner checks, by equality only
+(a value cannot be pinned):
+
+- After `createPeer`, the handle's `history` is a non-empty string, else
+  `the peer's history is not a non-empty string`; and no other peer of the store has it, else
+  `two peers of one store share the history <h>`.
+- After `openPeer`, the handle reports the peer's value, else
+  `a handle of <peer> reports another history than the peer's`.
+- Every snapshot the runner reads (each `read` step, and each `read()` it makes to learn a
+  revision) reports the peer's value, else
+  `a snapshot of <peer> reports another history than the peer's`.
+
+No script deletes a peer or restores a store. Each witness tests itself that one name created in
+two stores has two values. The Rust witness adds `history` and these checks in slice 3 step 6.
+
 **`read()`** returns a snapshot at the peer's current revision.
 
 **`append({expectedHead, nextHead, frame, added})`**, where `added` is a list of held deltas.
@@ -223,8 +241,8 @@ learn that they remain. It learns nothing about an id it never held.
 
 ### 1.4 Snapshot
 
-A snapshot has a `revision`, a `head`, and a `count` (how many deltas the peer holds). All three
-are fixed when it is read.
+A snapshot has a `revision`, the peer's `history`, a `head`, and a `count` (how many deltas the
+peer holds). All four are fixed when it is read.
 
 | Operation | Answer |
 |---|---|
@@ -1049,14 +1067,21 @@ negation chains through `exclude` (§1.4.1). Why step 3.3 is exact: the trim lem
   term), lowercase hex, as the `l1-eval` vectors encode a result.
 - `expect.scope`: every anchor of the read, ascending.
 - `expect.members`: the exact members when the read ends, S(scope) over the admitted holdings.
-- `expect.expiresAt`: the least `validFrom` or `validUntil` strictly after `now` among the deltas
-  of `expect.members`, or null (SPEC-18 §4.6). Every case reads at `now` 100, after every boundary
-  of the fixture, so each value is null. `freshness.json` pins values that are not null (§9).
-  Modes 2 to 5 MUST give it. Mode 1 computes it over the members it found by scanning. A witness
-  that does not yet carry `expiresAt` on a read skips this field and says so (the Rust witness
-  until slice 3 step 6).
-- `expect.rounds`: one entry per round, in order. `anchors` is the entity list of that round's
-  one `scope` call, ascending.
+- `expect.since` and `expect.expiresAt`: the validity window of the read's operand at `now`
+  (SPEC-18 §4.6). Over the deltas of `expect.members`, `since` is the greatest `validFrom` or
+  `validUntil` at or before `now`, and `expiresAt` the least strictly after it; each is null when
+  there is none.
+- `expect.rawMembers`: the raw scope of `expect.scope`, S(scope) over everything the peer holds
+  with no selection: the members of the read's capture. It differs from `members` exactly where
+  the selection trims.
+- Four cases (`the-whole-garden-at-55`, `signed-time-cuts-a-link-and-a-strike-at-55`,
+  `arrival-cuts-a-strike-so-a-child-appears-at-55`, `a-resolved-tree-at-55`) repeat a read at
+  `now` 55, inside the fixture's boundaries. Their window is closed at both ends.
+
+Modes 2 to 5 read with a capture asked for, and MUST give `since`, `expiresAt` and `rawMembers`
+(the capture's members). Mode 1 computes the window over the members it found by scanning, and
+`rawMembers` by scanning everything held. A witness that does not yet carry the window or a
+capture on a read skips these three fields and says so (the Rust witness until slice 3 step 6).
 
 **The same read, five ways.** A witness evaluates each case in each mode below, on a peer loaded
 by §5.2. Every mode MUST give `canonicalHex`, `scope` and `members`.
@@ -1542,8 +1567,8 @@ depended on, the pure function **`touching`**, and **`checkFresh`** over a peer'
 run tests a store and a witness's three freshness functions together.
 
 Every expectation comes from the list-scanning model of `scripts.json` (§3.3, §3.4, §3.9.2).
-A capture's members are S(anchors) over the model's holdings. Its `expiresAt` is a scan of the
-selected scope. A check's touch is a plain scan of the model's records. The generator then proves
+A capture's members are S(anchors) over the model's holdings. Its window (`since`, `expiresAt`)
+is a scan of the selected scope. A check's touch is a plain scan of the model's records. The generator then proves
 each check without a selection **exact** by brute force: it recomputes S(anchors) over the
 holdings at the check, with arrival records, and requires that there is no touch exactly when
 that set equals the members, every member keeps its arrival record, and no member left and came
@@ -1588,8 +1613,8 @@ a touch. A case that breaks either fails generation.
   "selection": { "timestampAtMost": 50 }, "now": 100,
   "expect": { "revision": "A.2",
               "anchors": [ { "kind": "entity", "entity": "plant:a" } ],
-              "members": ["a-height", "a-name", "a-height-neg", "a-late"],
-              "expiresAt": 120 } }
+              "members": ["a-height", "a-name", "a-height-neg", "a-future", "a-late"],
+              "since": 20, "expiresAt": 120 } }
 ```
 
 `peer` is a handle name (§3.2). `anchors` are as a read names them: in any order, perhaps
@@ -1600,17 +1625,25 @@ Take a new snapshot of the peer. Build a capture on it with the witness's own ca
 for these anchors, this selection and this `now` (TypeScript: `captureScope(snapshot, entities,
 now, {pushdown})`). Release the snapshot. Then check, in this order:
 
+0. The capture is well formed by the witness's checking constructor (TypeScript:
+   `parseCapture`, SPEC-18 §4.6): exactly the six fields, a non-empty history, an integer
+   revision, both lists strictly ascending by UTF-8 bytes, `since < expiresAt` when both are
+   numbers. Else `the capture is malformed: <the constructor's reason>`; the TypeScript reasons
+   start `capture: ` (for example `capture: anchors is not strictly ascending by UTF-8 bytes`).
+   Then its history is the snapshot's, else `the capture's history is not its snapshot's`.
 1. The capture's revision is the snapshot's revision, and it is the revision `expect.revision`
    names. Else `the capture is of revision <r>, expected <R>`.
-2. Its anchors equal `expect.anchors`, in order: ascending by entity, unique. Else
+2. Its anchors equal `expect.anchors`, in order: ascending by the UTF-8 bytes of the entity,
+   unique. Else
    `the capture's anchors are [<kind>:<entity> …], expected [<kind>:<entity> …]`.
 3. Its members equal the ids of `expect.members`, in order. The members are the **raw** scope,
    S(anchors over H) with no selection: a capture never takes them from a pushed-down fetch.
    Else `the capture's members are [<ids>], expected [<ids>]` (each id cut to 12 characters).
-4. Its `expiresAt` equals `expect.expiresAt` (a number or null). It is the least `validFrom` or
-   `validUntil` strictly after `now` among the deltas of the read's exact scope under its
-   selection: not of the raw scope, and not of what the store returned. Else
-   `the capture expires at <x>, expected <y>`.
+4. Its `since` equals `expect.since`, else `the capture's since is <x>, expected <y>`; then its
+   `expiresAt` equals `expect.expiresAt`, else `the capture expires at <x>, expected <y>` (each
+   a number, or `null`). Over the deltas of the read's exact scope under its selection, negators
+   included (not the raw scope, and not what the store returned), `since` is the greatest
+   `validFrom` or `validUntil` at or before `now`, and `expiresAt` the least strictly after it.
 
 Keep the capture under the name `as`, with the peer its handle belongs to. A name given twice is
 a defect: `the vector names capture <as> twice`.
@@ -1625,7 +1658,13 @@ a defect: `the vector names capture <as> twice`.
               "touching": { "revision": "A.3", "delta": "a-name-neg", "reason": "negates-member" } } }
 ```
 
-- `now` (optional): passed to `checkFresh`. Absent: call `checkFresh` without it.
+- `now`: passed to `checkFresh`. It is required; a check without it is a document defect,
+  `the vector's check has no now`.
+- `anotherPeer` (optional, `true`): the handle belongs to another peer than the capture's, on
+  purpose. That peer has another history, so the expected verdict is `resync-required`, the
+  retention floor is not consulted, and check 6 (`touching` alone) is not run. Without this key,
+  a check on another peer is a document defect; with it, a check on the same peer is one:
+  `the vector says capture <name> is checked on another peer, and it is not`.
 - `exact`: true when the generator proved the verdict exact; false when the capture has a
   selection and the verdict is only sound. A false `stale` is then possible and expected (the
   case `a-selection-rejects-the-toucher`). The runner does not read this field.
@@ -1633,7 +1672,9 @@ a defect: `the vector names capture <as> twice`.
   revision of that peer; else the document is wrong:
   `the vector checks at <name>, and the peer is at <r>`.
 - `expect.verdict`: `{"status": "current"}`, `{"status": "stale", "touch": <touch>}`,
-  `{"status": "expired", "expiresAt": <number>}` or `{"status": "resync-required"}`. A touch is
+  `{"status": "not-yet", "since": <number>}`, `{"status": "expired", "expiresAt": <number>}` or
+  `{"status": "resync-required"}`. The order is `resync-required`, `stale`, then the window
+  (`not-yet` when `now < since`, `expired` when `now ≥ expiresAt`), else `current`. A touch is
   `{revision, delta, reason}`: a revision name, a corpus name, and `removed-member`,
   `targets-anchor` or `negates-member`.
 - `expect.touching`: what `touching` answers over every record since the capture, kept or not
@@ -1644,12 +1685,13 @@ Document defects: `the vector uses capture <name> before taking it`, and
 on a store with no feed: `a check step on a store that serves no feed`.
 
 **The expected verdict.** Let F be the peer's retention floor in the runner's model (§3.9.2). When
-the capture's revision is below F, the expected verdict is `{"status": "resync-required"}`,
+the check is not on another peer and the capture's revision is below F, the expected verdict is `{"status": "resync-required"}`,
 whatever the document says: a document is written for a feed that keeps every record.
 Otherwise it is `expect.verdict`.
 
 **The call.** Wrap the peer handle so that every call through it, and through every snapshot it
-returns, is logged with its arguments and its answer. Call `checkFresh(wrapped, capture, now?)`.
+returns, is logged with its arguments and its answer (for `read`, the snapshot's revision and
+history). Call `checkFresh(wrapped, capture, now)`.
 It must answer. Then check, in this order:
 
 1. The status equals the expected status. Else, below the floor,
@@ -1658,8 +1700,9 @@ It must answer. Then check, in this order:
 2. `stale`: the touch equals the expected touch: revision (the named revision's integer), id and
    reason. Else `checkFresh reports the touch <r> <id> <reason>, expected <r> <id> <reason>`
    (each id cut to 12 characters).
-3. `expired`: `expiresAt` equals the expected value. Else
-   `checkFresh reports expiry at <x>, expected <y>`.
+3. `not-yet`: `since` equals the expected value, else
+   `checkFresh reports not-yet since <x>, expected <y>`. `expired`: `expiresAt` equals the
+   expected value, else `checkFresh reports expiry at <x>, expected <y>`.
 4. `resync-required`: `current` is the peer's current revision. Else
    `checkFresh reports resync-required with current <c>, not the peer's revision <r>`.
 5. **The calls.** Write each call as text: `read`; `changes(<from>, <to>)`, with `none` for an
@@ -1668,10 +1711,12 @@ It must answer. Then check, in this order:
    `purge`). Walk the log against the contract:
    - The first call is `read`. Let r′ be the revision of the snapshot it returned and c the
      capture's revision.
+   - When the snapshot's history is not the capture's, go to the last item: no feed call.
    - When r′ > c: set `at = c`. The next call is `changes(at, r′)`. When it refused or answered
      `resync-required`, stop. Otherwise, when its records name an added id, the next call is
      `get` of every id in some record's `added`, distinct, ascending. When the expected verdict
-     is `stale`, stop when a record of the page has the expected touch's revision. Stop when `through ≥ r′` or `through ≤ at`.
+     is `stale`, stop when a record of the page has the expected touch's revision. Stop when
+     `through ≥ r′` or `through ≤ at`.
      Otherwise set `at = through` and repeat.
    - The next call is `release`, and it is the last.
 
@@ -1686,7 +1731,7 @@ It must answer. Then check, in this order:
    `touching answered <touch or none>, expected <touch or none>`, a touch written as in check 2.
 
 The runner never commits while a check runs, so a `checkFresh` that starts again on a new
-snapshot after `snapshot-moved` (SPEC-18 §4.13 reading 32) is never seen here.
+snapshot after `snapshot-moved` (SPEC-18 §4.13 reading 35) is never seen here.
 
 ### 9.4 The runs each witness makes
 
@@ -1717,7 +1762,9 @@ skips nothing.
 ```
 
 No store wrote these records. Revisions are integers. Every name list is in ascending id order.
-Build a capture with this revision, these anchors, the ids of `members` and `expiresAt` null.
+Build a capture through the checking constructor with history `"touching"`, this revision, these
+anchors, the ids of `members`, and `since` and `expiresAt` null. The lists are in UTF-8 order, so
+it accepts them.
 Map `records` to change records with ids. Map `held` to the corpus deltas by id: the added ids the
 peer still holds at the end. Call `touching`. The answer equals `expect.touch` (`revision` an
 integer), else `touching answered <touch or none>, expected <touch or none>`.
@@ -1740,12 +1787,25 @@ negates a member (`targets-anchor`), and an added id no longer held.
 - Two anchors. A touch only through a dynamic anchor (an expanded child), beside a capture of the
   root alone that stays current.
 - A store that keeps one record: `resync-required`.
-- Expiry: a capture whose next boundary is 120, with a boundary at exactly `now` that does not
-  count and a boundary outside the scope that does not count; checks at 119 (current), 120
-  (expired), with no `now` (current), at 200 (expired), and at 200 after a toucher (stale wins).
-- Selections (`timestampAtMost` 50): a raw member the selection rejects, whose boundary at 105
-  does not count; a toucher the selection rejects (stale, sound, not exact); a purge of that raw
-  member; a negator of it; and a toucher the selection admits.
+- The window (`the-window`): a capture at `now` 100 whose window is [100, 120), with a boundary
+  outside the scope that does not count; checks at 99 (`not-yet`), 100 (current, at `since`),
+  119 (current, just below `expiresAt`), 120 (`expired`), at 200 (`expired`), and at 200 and at
+  50 after a toucher (stale before the window).
+- One fact valid from `now` (`a-fact-that-starts-at-now`): window [100, open); a check at 99 is
+  `not-yet`.
+- A negator of a member valid from 25 until 130 sets the window alone
+  (`a-negator-sets-the-window`): checks at 24, 25, 129 and 130.
+- A chain of four (`a-chain-of-four`): a member two negations deep, and an added third negation
+  of it. A raw scope that stops after one negation layer misses the member. The case captures
+  twice: with no selection, and with `timestampAtMost` 50, which keeps every member but makes a
+  witness compute the raw scope from ids alone.
+- A capture checked on another peer with a higher revision (`a-capture-checked-on-another-peer`):
+  `resync-required`, with no feed call.
+- Selections: `timestampAtMost` 50 with a raw member it rejects, whose boundary at 105 does not
+  count; a toucher it rejects (stale, sound, not exact); a purge of that raw member; a negator
+  of it; a toucher it admits. `excludeIds` dropping two members, one with a window inside the
+  operand's (`a-selection-excludes-members`). `arrivalAtMost` 4 dropping a member that arrived
+  fifth, with a window inside the operand's (`a-selection-by-arrival`).
 
 ### 9.7 Rails each witness adds
 
@@ -1762,33 +1822,63 @@ The JSON cannot express these; each witness builds them.
   | ignores a re-add | `a-member-purged-and-added-again` | `checkFresh reports the touch 3 ` |
   | examines every added id before any removed one | `the-first-of-several-touches` | `checkFresh reports the touch 4 ` |
   | uses the fetched, pushed-down set as members | `a-selection-rejects-the-toucher` | `the capture's members are` |
-  | ignores `expiresAt` | `expiry` | `checkFresh answered current, expected expired` |
-  | takes `expiresAt` over the raw scope | `a-selection-rejects-the-toucher` | `the capture expires at 105, expected 120` |
+  | ignores the window (checks at the capture's own `since`) | `the-window` | `checkFresh answered current, expected not-yet` |
+  | ignores `since` (answers `current` for `not-yet`) | `a-fact-that-starts-at-now` | `checkFresh answered current, expected not-yet` |
+  | `not-yet` at `since` itself | `the-window` | `checkFresh answered not-yet, expected current` |
+  | `not-yet` with the check's `now` | `the-window` | `checkFresh reports not-yet since 99, expected 100` |
+  | a capture with no `since` | `the-window` | `the capture's since is null, expected 100` |
+  | takes the window over the raw scope | `a-selection-rejects-the-toucher` | `the capture's since is 70, expected 20` |
+  | a window that ignores `excludeIds` | `a-selection-excludes-members` | `the capture's since is 22, expected 20` |
+  | a window that ignores `arrivalAtMost` | `a-selection-by-arrival` | `the capture's since is 23, expected 20` |
+  | an `expiresAt` that leaves out negators | `a-negator-sets-the-window` | `the capture expires at null, expected 130` |
+  | drops the members `excludeIds` rejects | `a-selection-excludes-members` | `the capture's members are` |
+  | drops the members `arrivalAtMost` rejects | `a-selection-by-arrival` | `the capture's members are` |
+  | a raw scope that stops after one negation layer | `a-chain-of-four` | `the capture's members are` |
+  | ignores the history | `a-capture-checked-on-another-peer` | `checkFresh answered current, expected resync-required` |
+  | a capture of another history | `no-change` | `the capture's history is not its snapshot's` |
   | reads the feed at equal revisions | `no-change` | `checkFresh made the call changes(1, 1) where the contract asks for release` |
   | makes a call after its answer | `an-added-delta-targets-an-anchor` | `checkFresh made the call read after its last call` |
   | a capture of another revision | `no-change` | `the capture is of revision 2, expected 1` |
-  | a capture that keeps the anchors in the order given | `two-anchors` | `the capture's anchors are [entity:plant:b entity:plant:a entity:plant:b]` |
+  | a capture that keeps the anchors in the order given | `two-anchors` | `the capture is malformed: capture: anchors is not strictly ascending by UTF-8 bytes` |
   | turns `resync-required` into `current` | `retention-too-short` | `checkFresh answered current for a capture below the retention floor 2` |
   | `resync-required` with the capture's revision | `retention-too-short` | `checkFresh reports resync-required with current 1, not the peer's revision 3` |
-  | `expired` at the check's `now` | `expiry` | `checkFresh reports expiry at 200, expected 120` |
+  | `expired` at the check's `now` | `the-window` | `checkFresh reports expiry at 200, expected 120` |
   | gets the added ids out of order | `two-touchers-in-one-record` | `checkFresh made the call get [` |
   | makes no `get` | `unrelated-appends` | `checkFresh made the call release where the contract asks for get [` |
   | does not release its snapshot | `no-change` | `checkFresh made no call where the contract asks for release` |
   | `touching` drops the last record | `an-added-delta-targets-an-anchor` | `touching answered none, expected 2 ` |
 
+  The rows for the cases added with the window, the history, the selections and the chain each
+  name those cases. Each such reader passes the document without them and fails with them; each
+  witness asserts both. The other new rows check fields the runner did not read before (`since`,
+  `history`): removing that runner check passes them.
   Every check of §9.2 and §9.3 has a row. Remove a check from the runner, and its row goes red.
   The revisions in the messages are the memory store's. A re-added member points at its anchor,
-  so it touches again when it comes back (SPEC-18 §4.13 reading 29): the reader that ignores a
+  so it touches again when it comes back (SPEC-18 §4.13 reading 32): the reader that ignores a
   re-add reports that later touch, not `current`.
 - **A fuzz against brute force**, with a fixed seed: random stores, random captures (with and
-  without a selection), random commits (appends with negations at any depth, purges, re-adds,
+  without a selection), random commits (appends with negations at any depth, a quarter of the
+  corpus in chains of three or four negations, some with their own windows, purges, re-adds,
   head-only commits, pages of one to three records), then `checkFresh` against S(anchors) over
   the holdings with arrival records. `current` must mean the raw scope is unchanged and the
   selected scope too; `stale` must mean the raw scope changed, and the touch must be the first by
   a plain scan of the records. At least 2,000 sequences in the committed test.
-- **Captures from reads.** For every round case at `now` 55 and 100, a read's capture equals the
-  raw scope of its anchors and `captureScope` beside it, and its `expiresAt` equals a scan of its
-  members. A read that pushed nothing down makes no store call for its capture.
+- **The window of a read.** For every round case at `now` 55 and 100: the window equals a scan of
+  the members; a read at `since`, in the middle of the window and just below `expiresAt` answers
+  the same bytes; just below `since` and at `expiresAt` some operand delta has another validity.
+  The fuzz asserts the same of each capture's operand at a random time inside its window.
+- **Wrong readers of `rounds.json`.** A window that is always open fails
+  `the-whole-garden-at-55`; a capture whose members are the read's members fails
+  `signed-time-cuts-a-link-and-a-strike`; a capture over the first round's anchors only fails
+  `the-whole-garden`.
+- **Captures from reads.** A read's capture equals the raw scope of its anchors and
+  `captureScope` beside it. A read that pushed nothing down makes no store call for its capture.
+- **Histories.** One name created in two stores has two histories; a host's `mintHistory` is
+  used; a capture checked on a peer of another history answers `resync-required` with no feed
+  call.
+- **The checking constructor.** Ids that sort differently by UTF-16 and by UTF-8 (U+FF61 and
+  U+1F600): the UTF-8 order is accepted and `touching` finds both; the UTF-16 order, a shuffled
+  list and a repeat are refused; a capture survives a JSON round trip.
 - **Moved snapshots.** A commit during a check: `checkFresh` starts again and answers for the
   later revision; four moves pass `snapshot-moved` up.
 - **The cost rails**, timed from outside as in §3.9.9 (N from 256, doubling until the run takes

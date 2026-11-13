@@ -109,8 +109,9 @@ proposal (PR #76). Each is owed by the step or slice named.
 
 ### Step 5 (freshness) owes — done 2026-11-13
 
-- ✓ Freshness covers `expiresAt` as well as the feed. `checkFresh` answers `expired` after the
-  feed (§4.6 "Freshness check"; §4.13 reading 31; SPEC-16 MR-10b).
+- ✓ Freshness covers time as well as the feed: a capture is valid over its window
+  `[since, expiresAt)`, and `checkFresh` answers `not-yet` or `expired` after the feed (§4.6
+  "The window"; §4.13 readings 24, 25 and 34; SPEC-16 MR-10b).
 - ✓ Freshness covers the inputs of the selection and of authority, not the scope alone. The host
   keeps its own epoch for them (§4.6 "What the check does not cover"; SPEC-16 MR-10b, ERRATA E14).
 - ✓ A removed raw id that is not an operand can still change a capture. A capture's members are
@@ -120,10 +121,16 @@ proposal (PR #76). Each is owed by the step or slice named.
   raw scope, so it touches (`freshness.json` case `a-selection-and-a-negator-of-a-raw-id`).
 - ✓ How a capture gets its raw ids: a read that pushed nothing down holds them in its fetch cache;
   otherwise it reads them with id-only calls on the same snapshot, never from a pushed-down fetch
-  (§4.6; §4.13 readings 25 and 26; SPEC-16 MR-10b).
+  (§4.6; §4.13 readings 28 and 29; SPEC-16 MR-10b).
+- ✓ A capture is compared only within one history of its peer: `PeerStore.history`,
+  `Snapshot.history` and `Capture.history` (§4.6 "History"; §4.13 readings 37 to 39). Decision
+  O3's history epoch is this field.
 
 ### Slice 4 owes
 
+- **A durable store persists each peer's history** (§4.6 "History") and gives the peer a new
+  history when the store is restored from a backup or a peer is deleted and created again. A
+  capture or a cursor from before then answers `resync-required`.
 - **Records appear in revision order** (§4.6, §4.13 reading 5). A record at revision r is visible
   only when every record at or below r is. A store open to several writing processes enforces
   this at commit. Slice 4 adds the rail; a sequential runner cannot test it.

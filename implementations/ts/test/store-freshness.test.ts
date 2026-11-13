@@ -1162,7 +1162,7 @@ async function fuzzOne(seed: number): Promise<{ verdict: Freshness["status"]; ex
   // A corpus: facts at random entities, and negations at random depth.
   const corpus: Delta[] = [];
   for (let i = 0; i < 14; i++) {
-    if (corpus.length > 0 && next() < 0.25) {
+    if (corpus.length > 0 && next() < 0.35) {
       // A chain of three or four negations: a raw scope that stops after one layer misses it.
       let link = pick(corpus);
       for (let depth = 3 + Math.floor(next() * 2); depth > 0; depth--) {
@@ -1198,6 +1198,18 @@ async function fuzzOne(seed: number): Promise<{ verdict: Freshness["status"]; ex
   for (let i = Math.floor(next() * 4); i > 0; i--) await commit();
   const anchors = entities.filter(() => next() < 0.35);
   if (anchors.length === 0) anchors.push(pick(entities));
+  // Half the time, a whole chain of three or four negations of a fact at an anchor is held when
+  // the capture is taken: the deep members a one-layer raw scope would miss.
+  if (next() < 0.5) {
+    let link = fact(pick(anchors), 200 + Math.floor(next() * 50));
+    const chain = [link];
+    for (let depth = 3 + Math.floor(next() * 2); depth > 0; depth--) {
+      link = strike(link, 300 + depth);
+      chain.push(link);
+    }
+    await w.append(chain);
+    corpus.push(...chain);
+  }
   const selection: Pushdown = {
     ...(next() < 0.2 ? { timestampAtMost: Math.floor(next() * 14) } : {}),
     ...(next() < 0.1 ? { arrivalAtMost: Math.floor(next() * 20) } : {}),
@@ -1210,6 +1222,16 @@ async function fuzzOne(seed: number): Promise<{ verdict: Freshness["status"]; ex
   // The capture: raw members by scanning, expiry over the selected scope.
   const raw = scopeOver([...before.values()], anchors);
   expect(capture.members, `seed ${seed}`).toEqual(raw);
+  // The id-only raw scope too, every time: a capture with no selection does not need it.
+  const snapshot = await w.peer.read();
+  expect(
+    await rawScope(
+      snapshot,
+      anchors.map((entity) => ({ kind: "entity" as const, entity })),
+    ),
+    `seed ${seed}: rawScope`,
+  ).toEqual(raw);
+  snapshot.release();
   const selected = (held: Map<string, VerifiedDelta>) =>
     scopeOver(
       [...held.values()].filter((e) => passesSelection(e, selection, PUSHDOWN_FIELDS)),

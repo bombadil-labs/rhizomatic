@@ -4203,7 +4203,7 @@
     },
     {
       "name": "a-chain-of-four",
-      "note": "a-height, a-height-neg, a-height-neg-neg are members, the last only two negations deep. a-height-neg-neg-neg negates it.",
+      "note": "a-height, a-height-neg, a-height-neg-neg are members, the last two negations deep. a-height-neg-neg-neg negates it. The second capture selects timestampAtMost 50, which keeps every member, so a witness computes its raw scope from ids alone.",
       "spec": "SPEC-18 §4.6",
       "requires": [
         "changes"
@@ -4334,6 +4334,38 @@
           }
         },
         {
+          "op": "capture",
+          "peer": "A",
+          "as": "selected",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "selection": {
+            "timestampAtMost": 50
+          },
+          "now": 100,
+          "expect": {
+            "revision": "A.2",
+            "anchors": [
+              {
+                "kind": "entity",
+                "entity": "plant:a"
+              }
+            ],
+            "members": [
+              "a-height",
+              "a-height-neg-neg",
+              "a-name",
+              "a-height-neg"
+            ],
+            "since": 30,
+            "expiresAt": null
+          }
+        },
+        {
           "op": "append",
           "peer": "A",
           "expectedHead": "A-head-2",
@@ -4365,6 +4397,29 @@
           "capture": "c",
           "now": 100,
           "exact": true,
+          "expect": {
+            "revision": "A.3",
+            "verdict": {
+              "status": "stale",
+              "touch": {
+                "revision": "A.3",
+                "delta": "a-height-neg-neg-neg",
+                "reason": "negates-member"
+              }
+            },
+            "touching": {
+              "revision": "A.3",
+              "delta": "a-height-neg-neg-neg",
+              "reason": "negates-member"
+            }
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "selected",
+          "now": 100,
+          "exact": false,
           "expect": {
             "revision": "A.3",
             "verdict": {

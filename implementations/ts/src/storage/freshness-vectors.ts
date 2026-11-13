@@ -543,13 +543,15 @@ function cases(named: readonly Named[]): StoreFreshnessCase[] {
   );
   add(
     "a-chain-of-four",
-    "a-height, a-height-neg, a-height-neg-neg are members, the last only two negations deep. a-height-neg-neg-neg negates it.",
+    "a-height, a-height-neg, a-height-neg-neg are members, the last two negations deep. a-height-neg-neg-neg negates it. The second capture selects timestampAtMost 50, which keeps every member, so a witness computes its raw scope from ids alone.",
     (c) =>
       base(c)
         .append("A", "a-height-neg-neg")
         .capture("A", "c", A)
+        .capture("A", "selected", A, { timestampAtMost: 50 })
         .append("A", "a-height-neg-neg-neg")
-        .check("A", "c"),
+        .check("A", "c")
+        .check("A", "selected"),
   );
   add(
     "a-capture-checked-on-another-peer",

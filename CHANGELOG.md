@@ -24,14 +24,17 @@ and the ids added and removed. The memory store serves it. The shared store vect
 after every step of every script. The TypeScript witness has it; the Rust runner skips the feed
 scripts until its store serves a feed.
 
-The store, slice 3, step 5 (SPEC-18 proposal §4.6, §4.13 readings 22 to 34): freshness. A capture
-records what one anchored read depended on: its revision, its anchors, its raw scope as ids and
-its next validity boundary. `touching` and `checkFresh` decide from the change feed whether a
+The store, slice 3, step 5 (SPEC-18 proposal §4.6, §4.13 readings 24 to 41): freshness. A capture
+records what one anchored read depended on: its peer's history and revision, its anchors, its raw
+scope as ids and the validity window of its operand. `touching` and `checkFresh` decide from the change feed whether a
 capture is current, in calls that depend only on the changes since it. The TypeScript witness has
 it; the Rust witness skips `freshness.json` until slice 3 step 6.
 
 ### ⚠️ Breaking
 
+- `PeerStore` and `Snapshot` have a new required member, `history`: an opaque identity of the
+  peer's revision history (SPEC-18 §4.6). A consumer that implements either adds it. A store
+  gives a peer created anew, and a store restored to an earlier state, another value.
 - `PeerStore` has a new required method, `changes(from, to?)`. A consumer that implements
   `PeerStore` adds it. A store with no feed declares `changeRetention: "none"` and refuses
   `changes` with `capability-absent`.
@@ -45,22 +48,28 @@ it; the Rust witness skips `freshness.json` until slice 3 step 6.
 
 ### Added
 
-- Freshness (SPEC-18 §4.6): `Capture` (`revision`, `anchors`, `members`, `expiresAt`), `Touch`
-  and `Freshness`. `touching(capture, records, added)` answers the first change that can have
+- Freshness (SPEC-18 §4.6): `Capture` (`history`, `revision`, `anchors`, `members`, `since`,
+  `expiresAt`), `Touch`, `Freshness` and `ValidityWindow`. A capture is built only by
+  `makeCapture`, or by `parseCapture`, which checks a stored capture and refuses lists out of
+  UTF-8 order. `touching(capture, records, added)` answers the first change that can have
   altered a capture's raw scope, or null; it is exact without a selection and sound with one.
-  `checkFresh(peer, capture, now?)` answers `current`, `stale`, `expired` or `resync-required`.
-  `rawScope(snapshot, anchors)` computes a raw scope from ids alone; `makeCapture` and
-  `nextBoundary` are its parts.
-- A read's next validity boundary: `StoreRead.expiresAt`, the least `validFrom` or `validUntil`
-  after `now` among the read's members. `capture: true` on a `StoreReadRequest` adds
-  `StoreRead.capture`. `FetchedScope.expiresAfter(now)` answers the same for a fetched scope at
-  any `now`. `captureScope(snapshot, entities, now, selection?)` takes a capture beside a fetched
-  scope.
-- Store vectors: `freshness.json` (23 cases and 6 `touching` cases), with its runner
-  `runFreshnessConformance` and `freshnessVectors()`. `rounds.json` gains `expiresAt` on every
-  expected answer (`vectors/store/README.md` §5.4, §9).
+  `checkFresh(peer, capture, now)` answers `current`, `stale`, `not-yet`, `expired` or
+  `resync-required`. `rawScope(snapshot, anchors)` computes a raw scope from ids alone, and
+  `validityWindow(deltas, now)` a window.
+- A read's validity window: `StoreRead.since` and `StoreRead.expiresAt`. The read answers the
+  same at every time t with `since <= t < expiresAt` while nothing touches it. `capture: true`
+  on a `StoreReadRequest` adds `StoreRead.capture`. `FetchedScope.window(now)` answers the window
+  of a fetched scope at any `now`. `captureScope(snapshot, entities, now, selection?)` takes a
+  capture beside a fetched scope.
+- `createMemoryStore({ mintHistory })`: a host's own mint for peer histories. The default is
+  unique within the process.
+- Store vectors: `freshness.json` (29 cases and 6 `touching` cases), with its runner
+  `runFreshnessConformance` and `freshnessVectors()`. `rounds.json` gains `since`, `expiresAt`
+  and `rawMembers` on every expected answer, and four reads at `now` 55. The script runner checks
+  that every handle and snapshot of a peer reports its history and that peers differ
+  (`vectors/store/README.md` §1.3, §5.4, §9).
 - SPEC-16 MR-10b allows a host to judge a scoped capture current by the feed check over its raw
-  ids, its own epoch and `expiresAt`, without recomputing the scoped revision (ERRATA E14).
+  ids, its own epoch and the window, without recomputing the scoped revision (ERRATA E14).
 - The change feed (SPEC-18 §4.6): `ChangeRecord` (`revision`, `head`, `added`, `removed`),
   `ChangePage` (`ok` with `records` and `through`, or `resync-required` with `current`) and
   `ChangeRetention`. A head-only commit writes a record with no ids. A purge records only the ids
