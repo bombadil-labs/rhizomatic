@@ -108,8 +108,12 @@ function logged(peer: PeerStore, sink: Sink): PeerStore {
     history: peer.history,
     erasure: peer.erasure,
     read: async () => {
+      // Written when the call is made, so a call no one awaits is seen too.
+      const call = { op: "read", revision: -1, history: "" };
+      sink.log.push(call);
       const snapshot = await peer.read();
-      sink.log.push({ op: "read", revision: snapshot.revision, history: snapshot.history });
+      call.revision = snapshot.revision;
+      call.history = snapshot.history;
       return snapshotOf(snapshot);
     },
     append: (batch) => (note("append"), peer.append(batch)),

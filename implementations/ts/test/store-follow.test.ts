@@ -1067,3 +1067,112 @@ describe("cost rail: a pull costs its page", () => {
     });
   }, 600_000);
 });
+
+// ---- the follow step and the document ----------------------------------------------------------
+
+describe("follow vectors: wrong positions and wrong documents fail", () => {
+  const FOLLOW_ROWS: readonly { name: string; witness: FeedFollower; message: string }[] = [
+    {
+      name: "a position of another history",
+      witness: { ...WITNESS, positionOf: (s) => ({ history: "elsewhere", revision: s.revision }) },
+      message: "the position's history is not its snapshot's",
+    },
+    {
+      name: "a position of another revision",
+      witness: {
+        ...WITNESS,
+        positionOf: (s) => ({ history: s.history, revision: s.revision + 1 }),
+      },
+      message: "the position is of revision 2, expected 1",
+    },
+    {
+      name: "a cursor that starts at the snapshot's revision whatever it is given",
+      witness: {
+        ...WITNESS,
+        follow: (peer, from) => followFeed(peer, { ...from, revision: 1 }),
+      },
+      message: "a new cursor stands at 1, not at the position it was given",
+    },
+    {
+      name: "following that reads the store",
+      witness: {
+        ...WITNESS,
+        follow: (peer, from) => (void peer.read().then((s) => s.release()), followFeed(peer, from)),
+      },
+      message: "following made the call read; it makes no store call",
+    },
+  ];
+  for (const row of FOLLOW_ROWS)
+    it(row.name, async () => {
+      const found = await failures(row.witness);
+      expect(found.length, JSON.stringify(found, null, 1)).toBeGreaterThan(0);
+      expect(found.map((f) => f.message).join("\n")).toContain(row.message);
+    });
+
+  /** The document with one step of one case changed. */
+  const edited = (
+    name: string,
+    op: string,
+    nth: number,
+    change: (step: Record<string, unknown>) => void,
+  ): StoreFollowDocument => {
+    const copy = JSON.parse(committed) as StoreFollowDocument;
+    const steps = copy.cases.find((c) => c.name === name)!.steps as unknown as Record<string, unknown>[];
+    change(steps.filter((s) => s["op"] === op)[nth]!);
+    return copy;
+  };
+  const expectOf = (step: Record<string, unknown>) => step["expect"] as Record<string, unknown>;
+  const DOCUMENT_ROWS: readonly { name: string; doc: StoreFollowDocument; message: string }[] = [
+    {
+      name: "records the pulls do not read",
+      doc: edited("one-append", "pull", 0, (s) => (expectOf(s)["records"] = [])),
+      message: "the pulls read the records at [2], expected []",
+    },
+    {
+      name: "deltas the pulls do not deliver",
+      doc: edited("one-append", "pull", 0, (s) => (expectOf(s)["delivered"] = [])),
+      message: "the pulls delivered [",
+    },
+    {
+      name: "another count of pulls",
+      doc: edited("pages-of-one", "pull", 0, (s) => (expectOf(s)["pulls"] = 2)),
+      message: "the follower took 3 pulls, expected 2",
+    },
+    {
+      name: "a position the peer is not at",
+      doc: edited("one-append", "pull", 0, (s) => (expectOf(s)["position"] = "A.1")),
+      message: "the vector pulls to A.1, and the peer is at 2",
+    },
+    {
+      name: "a resync current the peer is not at",
+      doc: edited("another-peers-history", "pull", 0, (s) => (expectOf(s)["current"] = "A.1")),
+      message: "the vector expects current A.1, and the peer is at 2",
+    },
+    {
+      name: "a follower named twice",
+      doc: edited("two-peers", "follow", 1, (s) => (s["as"] = "fa")),
+      message: "the vector names follower fa twice",
+    },
+    {
+      name: "a follower used before it follows",
+      doc: edited("one-append", "pull", 0, (s) => (s["follower"] = "g")),
+      message: "the vector uses follower g before following",
+    },
+    {
+      name: "an ahead that is not a whole number",
+      doc: edited("a-position-from-the-future", "follow", 0, (s) => (s["ahead"] = -1)),
+      message: "the vector's ahead is not a whole number",
+    },
+  ];
+  for (const row of DOCUMENT_ROWS)
+    it(`a document with ${row.name}`, async () => {
+      const found = await failures(WITNESS, {}, row.doc);
+      expect(found.map((f) => f.message).join("\n")).toContain(row.message);
+    });
+
+  it("a document of another format", async () => {
+    await expect(
+      runFollowConformance(factoryOf(), WITNESS, { ...document, format: "x" as never }),
+    ).rejects.toThrow("unknown store follow format");
+  });
+});
