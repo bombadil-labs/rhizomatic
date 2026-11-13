@@ -2870,7 +2870,7 @@ fn the_full_surface_read_answers_every_round_case_it_can_take() {
         assert_eq!(exporter.listings.get(), 1, "{}", case.name);
         answered += 1;
     }
-    assert_eq!((answered, refused), (18, 4));
+    assert_eq!((answered, refused), (21, 5));
 }
 
 /// A host predicate is refused before anything is listed, as `arrivalAtMost` is.
