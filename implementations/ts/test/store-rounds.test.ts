@@ -1421,7 +1421,7 @@ describe("readFullSurface: the explicit full-surface read (SPEC-18 §6.6)", () =
 
   it("is not reachable from a StoreReactor, which holds no exporter", () => {
     const methods = Object.getOwnPropertyNames(StoreReactor.prototype).sort();
-    expect(methods).toEqual(["constructor", "fetch", "onSnapshot", "read"]);
+    expect(methods).toEqual(["constructor", "fetch", "follow", "onSnapshot", "read"]);
   });
 });
 
@@ -1511,7 +1511,7 @@ describe("the store-backed read: cost", () => {
 
   it("offers no whole-set method", () => {
     const names = Object.getOwnPropertyNames(StoreReactor.prototype).sort();
-    expect(names).toEqual(["constructor", "fetch", "onSnapshot", "read"]);
+    expect(names).toEqual(["constructor", "fetch", "follow", "onSnapshot", "read"]);
   });
 });
 

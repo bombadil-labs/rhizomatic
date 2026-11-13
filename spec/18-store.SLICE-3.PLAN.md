@@ -135,6 +135,54 @@ proposal (PR #76). Each is owed by the step or slice named.
   is a store fault; `now` is finite; anchor kinds; a revision written `1.0`; the runner's message
   for a refusal; one capture JSON, pinned by `vectors/store/capture-interchange.json`.
 
+### Step 7 (the feed cursor, TypeScript) — done 2026-11-13
+
+- ✓ `positionOf`, `followFeed`, `parsePosition`, `FeedCursor.pull` and `StoreReactor.follow`;
+  `StoreRead.position` and `FetchedScope.position` (§4.6 "Following the feed"; §4.13 readings
+  55 to 66). SPEC-4 ERRATA V6 states decision O6.
+- ✓ `vectors/store/follow.json`, its runner and its rails (`vectors/store/README.md` §10). The
+  generator and a fuzz prove the follower's guarantee by brute force.
+- ✓ The final check of PR #80: the order of a capture's defects (reading 54); the TypeScript
+  entry of `capture-interchange.json` pinned byte for byte (README §9.8); a feed page past r′ is a
+  store fault in `checkFresh` (reading 46).
+
+### Step 8 (the feed cursor, Rust) owes
+
+From the documents alone: `spec/18-store.PROPOSAL.md` §4.6 and §4.13 readings 46 and 54 to 66,
+`vectors/store/README.md` §9.7, §9.8 and §10, and SPEC-4 ERRATA V6.
+
+1. `Position` (history and revision), `position_of(&Snapshot)`, and a cursor made by
+   `follow_feed(peer, from)` that makes no store call and refuses a malformed position
+   `invalid-request` (empty history; a revision outside 0 to 2^53 − 1).
+2. `pull`: one snapshot; another history or a position past the snapshot answers
+   `resync-required` with the snapshot's position and no feed call; equal revisions answer ok with
+   no records and no feed call; otherwise one `changes(position, r′)` with that explicit `to`, one
+   page; a store `resync-required` passed on with the snapshot's position; on an ok page that adds
+   ids, `get` then `arrivals` of those ids, distinct and ascending, and none for a page that adds
+   nothing; then the release.
+3. Ok answers: the page's records; the delivered deltas ascending by id, each once, each with the
+   arrival record at the snapshot, only for ids held there; the cursor moves to `through`.
+4. `resync-required` is final: every later pull answers the same, with no store call, and the
+   cursor does not move.
+5. Faults and moves: on `snapshot-moved`, start again, at most four snapshots, each released; a
+   page with no progress, a page past the snapshot, and `get` and `arrivals` that disagree are
+   store faults (a panic, as reading 46); a failed pull does not move the cursor. Pulls take the
+   cursor mutably, so they cannot overlap (reading 64).
+6. `parse_position`: exactly the keys `history` and `revision`; a non-empty history that is not
+   local to a process; `3.0` read as 3; `1.5` refused.
+7. The reactor: `StoreReactor::follow(from)`, and the position on a read and on a fetched scope.
+8. The runner of README §10 with its fixed messages and the call walk, and the runs of §10.4.
+   Replace the skip in `tests/store_follow.rs` with the run.
+9. The rails of README §10.6: the wrong-follower table (a second cursor with one rule broken at a
+   time, which passes every run with none broken, and the "only these cases" evidence); the rows
+   for the follow step and for documents; each runner check removed goes red; the cursor's own
+   rules; the fuzz (at least 2,000 sequences); the two cost rails.
+10. From the final check of PR #80: move the empty-history check of the capture parser before the
+    anchors, so the order of reading 54 holds (an empty history beside a `value` anchor is
+    `invalid-request`); pin the Rust entry of `capture-interchange.json` byte for byte from the
+    scenario of README §9.8; make `check_fresh` fail on a page whose `through` is past r′, as on a
+    page with no progress (reading 46), with the rail of README §9.7 ("Store faults and time").
+
 ### Slice 4 owes
 
 - **A durable store persists each peer's history** (§4.6 "History") and gives the peer a new

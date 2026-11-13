@@ -1117,7 +1117,10 @@ describe("follow vectors: wrong positions and wrong documents fail", () => {
     change: (step: Record<string, unknown>) => void,
   ): StoreFollowDocument => {
     const copy = JSON.parse(committed) as StoreFollowDocument;
-    const steps = copy.cases.find((c) => c.name === name)!.steps as unknown as Record<string, unknown>[];
+    const steps = copy.cases.find((c) => c.name === name)!.steps as unknown as Record<
+      string,
+      unknown
+    >[];
     change(steps.filter((s) => s["op"] === op)[nth]!);
     return copy;
   };

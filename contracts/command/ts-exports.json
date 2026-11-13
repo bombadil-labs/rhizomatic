@@ -36601,6 +36601,1096 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API belowProbes implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:StoreReactor#follow",
+      "owner": "reactor",
+      "symbol": "StoreReactor.follow",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreReactor.follow implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FetchedScope#position",
+      "owner": "reactor",
+      "symbol": "FetchedScope.position",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FetchedScope.position implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreReactorRead#position",
+      "owner": "reactor",
+      "symbol": "StoreReactorRead.position",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreReactorRead.position implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreRead#position",
+      "owner": "reactor",
+      "symbol": "StoreRead.position",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreRead.position implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:followFeed",
+      "owner": "storage",
+      "symbol": "followFeed",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API followFeed implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:parsePosition",
+      "owner": "storage",
+      "symbol": "parsePosition",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API parsePosition implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:positionOf",
+      "owner": "storage",
+      "symbol": "positionOf",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API positionOf implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FeedCursor",
+      "owner": "storage",
+      "symbol": "FeedCursor",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FeedCursor implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FeedCursor#position",
+      "owner": "storage",
+      "symbol": "FeedCursor.position",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FeedCursor.position implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FeedCursor#pull",
+      "owner": "storage",
+      "symbol": "FeedCursor.pull",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FeedCursor.pull implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Position",
+      "owner": "storage",
+      "symbol": "Position",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API Position implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Position#history",
+      "owner": "storage",
+      "symbol": "Position.history",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API Position.history implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Position#revision",
+      "owner": "storage",
+      "symbol": "Position.revision",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API Position.revision implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Pull",
+      "owner": "storage",
+      "symbol": "Pull",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API Pull implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Pull#status",
+      "owner": "storage",
+      "symbol": "Pull.status",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API Pull.status implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Pull#position",
+      "owner": "storage",
+      "symbol": "Pull.position",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API Pull.position implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Pull#records",
+      "owner": "storage",
+      "symbol": "Pull.records",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API Pull.records implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Pull#deltas",
+      "owner": "storage",
+      "symbol": "Pull.deltas",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API Pull.deltas implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Pull#current",
+      "owner": "storage",
+      "symbol": "Pull.current",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API Pull.current implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:runFollowConformance",
+      "owner": "storage",
+      "symbol": "runFollowConformance",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API runFollowConformance implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FeedFollower",
+      "owner": "storage",
+      "symbol": "FeedFollower",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FeedFollower implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FeedFollower#positionOf",
+      "owner": "storage",
+      "symbol": "FeedFollower.positionOf",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FeedFollower.positionOf implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FeedFollower#follow",
+      "owner": "storage",
+      "symbol": "FeedFollower.follow",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FeedFollower.follow implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FollowConformanceReport",
+      "owner": "storage",
+      "symbol": "FollowConformanceReport",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FollowConformanceReport implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FollowConformanceReport#passed",
+      "owner": "storage",
+      "symbol": "FollowConformanceReport.passed",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FollowConformanceReport.passed implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FollowConformanceReport#skipped",
+      "owner": "storage",
+      "symbol": "FollowConformanceReport.skipped",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FollowConformanceReport.skipped implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FollowStoreRequest",
+      "owner": "storage",
+      "symbol": "FollowStoreRequest",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FollowStoreRequest implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FollowStoreRequest#changeRetention",
+      "owner": "storage",
+      "symbol": "FollowStoreRequest.changeRetention",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FollowStoreRequest.changeRetention implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FollowStoreRequest#changePageSize",
+      "owner": "storage",
+      "symbol": "FollowStoreRequest.changePageSize",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FollowStoreRequest.changePageSize implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:followVectors",
+      "owner": "storage",
+      "symbol": "followVectors",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/follow-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API followVectors implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:StoreRead#position",
+      "owner": "reactor",
+      "symbol": "StoreRead.position",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreRead.position implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FetchedScope#position",
+      "owner": "reactor",
+      "symbol": "FetchedScope.position",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FetchedScope.position implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:StoreReactorRead#position",
+      "owner": "reactor",
+      "symbol": "StoreReactorRead.position",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreReactorRead.position implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:StoreReactor#follow",
+      "owner": "reactor",
+      "symbol": "StoreReactor.follow",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreReactor.follow implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow-conformance.ts:runFollowConformance",
+      "owner": "storage",
+      "symbol": "runFollowConformance",
+      "source": "implementations/ts/src/storage/follow-conformance.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API runFollowConformance implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow-conformance.ts:FeedFollower",
+      "owner": "storage",
+      "symbol": "FeedFollower",
+      "source": "implementations/ts/src/storage/follow-conformance.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FeedFollower implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow-conformance.ts:FeedFollower#positionOf",
+      "owner": "storage",
+      "symbol": "FeedFollower.positionOf",
+      "source": "implementations/ts/src/storage/follow-conformance.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FeedFollower.positionOf implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow-conformance.ts:FeedFollower#follow",
+      "owner": "storage",
+      "symbol": "FeedFollower.follow",
+      "source": "implementations/ts/src/storage/follow-conformance.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FeedFollower.follow implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow-conformance.ts:FollowStoreRequest",
+      "owner": "storage",
+      "symbol": "FollowStoreRequest",
+      "source": "implementations/ts/src/storage/follow-conformance.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowStoreRequest implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow-conformance.ts:FollowStoreRequest#changeRetention",
+      "owner": "storage",
+      "symbol": "FollowStoreRequest.changeRetention",
+      "source": "implementations/ts/src/storage/follow-conformance.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowStoreRequest.changeRetention implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow-conformance.ts:FollowStoreRequest#changePageSize",
+      "owner": "storage",
+      "symbol": "FollowStoreRequest.changePageSize",
+      "source": "implementations/ts/src/storage/follow-conformance.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowStoreRequest.changePageSize implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow-conformance.ts:FollowConformanceReport",
+      "owner": "storage",
+      "symbol": "FollowConformanceReport",
+      "source": "implementations/ts/src/storage/follow-conformance.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowConformanceReport implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow-conformance.ts:FollowConformanceReport#passed",
+      "owner": "storage",
+      "symbol": "FollowConformanceReport.passed",
+      "source": "implementations/ts/src/storage/follow-conformance.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowConformanceReport.passed implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow-conformance.ts:FollowConformanceReport#skipped",
+      "owner": "storage",
+      "symbol": "FollowConformanceReport.skipped",
+      "source": "implementations/ts/src/storage/follow-conformance.ts",
+      "definition": "implementations/ts/src/storage/follow-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowConformanceReport.skipped implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow-vectors.ts:followVectors",
+      "owner": "storage",
+      "symbol": "followVectors",
+      "source": "implementations/ts/src/storage/follow-vectors.ts",
+      "definition": "implementations/ts/src/storage/follow-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API followVectors implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:positionOf",
+      "owner": "storage",
+      "symbol": "positionOf",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API positionOf implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:parsePosition",
+      "owner": "storage",
+      "symbol": "parsePosition",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API parsePosition implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:followFeed",
+      "owner": "storage",
+      "symbol": "followFeed",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API followFeed implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:Position",
+      "owner": "storage",
+      "symbol": "Position",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API Position implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:Position#history",
+      "owner": "storage",
+      "symbol": "Position.history",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API Position.history implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:Position#revision",
+      "owner": "storage",
+      "symbol": "Position.revision",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API Position.revision implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:Pull",
+      "owner": "storage",
+      "symbol": "Pull",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API Pull implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:Pull#status",
+      "owner": "storage",
+      "symbol": "Pull.status",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API Pull.status implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:Pull#position",
+      "owner": "storage",
+      "symbol": "Pull.position",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API Pull.position implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:Pull#records",
+      "owner": "storage",
+      "symbol": "Pull.records",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API Pull.records implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:Pull#deltas",
+      "owner": "storage",
+      "symbol": "Pull.deltas",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API Pull.deltas implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:Pull#current",
+      "owner": "storage",
+      "symbol": "Pull.current",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API Pull.current implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:FeedCursor",
+      "owner": "storage",
+      "symbol": "FeedCursor",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FeedCursor implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:FeedCursor#position",
+      "owner": "storage",
+      "symbol": "FeedCursor.position",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FeedCursor.position implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/follow.ts:FeedCursor#pull",
+      "owner": "storage",
+      "symbol": "FeedCursor.pull",
+      "source": "implementations/ts/src/storage/follow.ts",
+      "definition": "implementations/ts/src/storage/follow.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FeedCursor.pull implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/follow.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:STORE_FOLLOW_FORMAT",
+      "owner": "storage",
+      "symbol": "STORE_FOLLOW_FORMAT",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API STORE_FOLLOW_FORMAT implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowStep",
+      "owner": "storage",
+      "symbol": "FollowStep",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowStep implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowStep#op",
+      "owner": "storage",
+      "symbol": "FollowStep.op",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowStep.op implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowStep#peer",
+      "owner": "storage",
+      "symbol": "FollowStep.peer",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowStep.peer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowStep#as",
+      "owner": "storage",
+      "symbol": "FollowStep.as",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowStep.as implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowStep#ahead",
+      "owner": "storage",
+      "symbol": "FollowStep.ahead",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowStep.ahead implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowStep#historyOf",
+      "owner": "storage",
+      "symbol": "FollowStep.historyOf",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowStep.historyOf implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowStep#expect",
+      "owner": "storage",
+      "symbol": "FollowStep.expect",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowStep.expect implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:PullStep",
+      "owner": "storage",
+      "symbol": "PullStep",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API PullStep implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:PullStep#op",
+      "owner": "storage",
+      "symbol": "PullStep.op",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API PullStep.op implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:PullStep#follower",
+      "owner": "storage",
+      "symbol": "PullStep.follower",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API PullStep.follower implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:PullStep#expect",
+      "owner": "storage",
+      "symbol": "PullStep.expect",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API PullStep.expect implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep",
+      "owner": "storage",
+      "symbol": "FollowCaseStep",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#op",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.op",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.op implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#peer",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.peer",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.peer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#erasure",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.erasure",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.erasure implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#expect",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.expect",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.expect implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#handle",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.handle",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.handle implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#revisionAs",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.revisionAs",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.revisionAs implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#expectedHead",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.expectedHead",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.expectedHead implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#nextHead",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.nextHead",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.nextHead implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#frame",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.frame",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.frame implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#added",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.added",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.added implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#ids",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.ids",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.ids implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#snapshot",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.snapshot",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.snapshot implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#entities",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.entities",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.entities implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#anchors",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.anchors",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.anchors implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#pushdown",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.pushdown",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.pushdown implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#exclude",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.exclude",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.exclude implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#as",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.as",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.as implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#from",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.from",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.from implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#to",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.to",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.to implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#ahead",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.ahead",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.ahead implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#historyOf",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.historyOf",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.historyOf implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#follower",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.follower",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.follower implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreFollowCase",
+      "owner": "storage",
+      "symbol": "StoreFollowCase",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreFollowCase implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreFollowCase#name",
+      "owner": "storage",
+      "symbol": "StoreFollowCase.name",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreFollowCase.name implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreFollowCase#note",
+      "owner": "storage",
+      "symbol": "StoreFollowCase.note",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreFollowCase.note implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreFollowCase#spec",
+      "owner": "storage",
+      "symbol": "StoreFollowCase.spec",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreFollowCase.spec implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreFollowCase#requires",
+      "owner": "storage",
+      "symbol": "StoreFollowCase.requires",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreFollowCase.requires implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreFollowCase#store",
+      "owner": "storage",
+      "symbol": "StoreFollowCase.store",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreFollowCase.store implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreFollowCase#steps",
+      "owner": "storage",
+      "symbol": "StoreFollowCase.steps",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreFollowCase.steps implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreFollowDocument",
+      "owner": "storage",
+      "symbol": "StoreFollowDocument",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreFollowDocument implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreFollowDocument#note",
+      "owner": "storage",
+      "symbol": "StoreFollowDocument.note",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreFollowDocument.note implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreFollowDocument#reference",
+      "owner": "storage",
+      "symbol": "StoreFollowDocument.reference",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreFollowDocument.reference implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreFollowDocument#peers",
+      "owner": "storage",
+      "symbol": "StoreFollowDocument.peers",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreFollowDocument.peers implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreFollowDocument#deltas",
+      "owner": "storage",
+      "symbol": "StoreFollowDocument.deltas",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreFollowDocument.deltas implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreFollowDocument#format",
+      "owner": "storage",
+      "symbol": "StoreFollowDocument.format",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreFollowDocument.format implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreFollowDocument#cases",
+      "owner": "storage",
+      "symbol": "StoreFollowDocument.cases",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreFollowDocument.cases implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }

@@ -34,8 +34,20 @@ reviews found them apart: the maker takes a live snapshot; a repeated mint is re
 with no progress fails a check; `now` must be finite; anchor kinds in a stored capture; a revision
 written `1.0`; one capture JSON for every witness.
 
+The store, slice 3, step 7 (SPEC-18 proposal §4.6 "Following the feed", §4.13 readings 54 to
+66): a pull cursor over the change feed. A follower reads a peer's state on one snapshot, takes
+`positionOf(snapshot)`, and calls `followFeed(peer, position)`; each `pull()` reads one page of
+records with the bytes of every added id the peer still holds. It never hands out the bytes of a
+purged delta (SPEC-4 ERRATA V6). `StoreReactor.follow(from)` makes a cursor, and a read and a
+fetched scope carry their `position`. `parsePosition` checks a stored position. The new shared
+vectors `vectors/store/follow.json` pin the cursor; the Rust witness skips them until step 8.
+`checkFresh` now also fails with an error, not a verdict, on a feed page whose `through` is past
+the revision it asked for.
+
 ### ⚠️ Breaking
 
+- `StoreRead` and `FetchedScope` have a new required member, `position`. A consumer that builds
+  either itself adds it.
 - `makeCapture(snapshot, anchors, members, window)` takes a `Snapshot`, where the unreleased
   step-5 shape took any `{history, revision}`. It reads both from the live snapshot. A stored
   capture comes back only through `parseCapture`. This breaks only the unreleased step-5 API.
