@@ -1853,7 +1853,9 @@ follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`,
     pass the holder keeps none of the payload anywhere; the rail walks the holder's objects for the
     payload and finds none, while a named bystander is not read again and keeps its bytes and
     baseline (`views.json`, `a-purge-read-by-a-hold-releases-the-baseline`; the wrong holder that
-    keeps the baseline fails it). What a holder answered before that pass is the host's copy. A
+    keeps the baseline fails it). A baseline can carry a member the view has since lost, so the
+    holder looks a removed id up in a baseline index as well as among current members
+    (`a-baseline-keeps-a-member-the-view-lost`). What a holder answered before that pass is the host's copy. A
     host that erases runs a pass on every holder before it reports, and erases its own copies
     (§4.6, §4.7.2; plan §8, "Slice 5 owes").
 89. **Faults in a pass.** A pass reports a store that breaks its contract as the fault value of

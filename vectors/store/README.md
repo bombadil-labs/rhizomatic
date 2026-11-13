@@ -2400,7 +2400,7 @@ A case that breaks either fails generation.
 ```
 
 - `format`: refuse any other value, with `unknown store views format`. `reference`, `peers` and
-  `deltas` are the common header of §2. The corpus is the corpus of `rounds.json` and seven more
+  `deltas` are the common header of §2. The corpus is the corpus of `rounds.json` and eight more
   deltas whose names start `x-`.
 - `schemas`: the hyperschemas of `rounds.json`. Build one registry from all of them.
 - `programs`: each has a `name`, a `term` (term JSON) and an optional `selection` in pushdown form
@@ -2704,6 +2704,9 @@ The JSON cannot express these; each witness builds them.
 - A purge read by a `hold` of a bystander, while the target's baseline still carries the purged
   delta: the baseline is released in that pass, and the refresh reports `before: null`
   (`a-purge-read-by-a-hold-releases-the-baseline`).
+- A baseline that carries a member the view has since lost (a strike of its child link): a purge
+  of that member touches no current member, and still releases the baseline
+  (`a-baseline-keeps-a-member-the-view-lost`).
 - `maxViews` 1: a view evicted, changed, and held again is read again with its new bytes
   (`an-evicted-view-is-read-again`).
 - A view first held after a refresh and changed before the next one is in `changed`, with its

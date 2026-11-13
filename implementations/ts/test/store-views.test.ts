@@ -602,6 +602,10 @@ describe("StoreViews", () => {
     await views.hold("leaf", "a", 10);
     const one = views.indexSizes();
     await views.hold("leaf", "c", 10);
+    // Read c again, so its first answer stays as a baseline beside its new bytes.
+    await w.append([fact("c", 4, { until: 50 })]);
+    await views.hold("leaf", "c", 10);
+    expect(views.indexSizes().baselines).toBeGreaterThan(0);
     expect(views.nextBoundary).toBe(50);
     await views.drop("leaf", "c");
     expect(views.indexSizes()).toEqual(one);

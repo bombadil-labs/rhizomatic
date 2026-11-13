@@ -86,6 +86,8 @@ function corpus(rounds: ReturnType<typeof roundVectors>): Named[] {
     fact(ALICE, 84, [at("plant:2", "cuttings"), at("cutting:9", "parent", "child")]),
   );
   add("x-c9-height", fact(ALICE, 85, [at("cutting:9", "height"), value(5)]));
+  // A strike of that child link: the view loses the anchor cutting:9 without a purge.
+  add("x-p2-has-c9-neg", makeNegationClaims(BOB, 88, id("x-p2-has-c9")));
   // A fact at plant:s: an anchor that several views share.
   add("x-ps-height", fact(ALICE, 86, [at("plant:s", "height"), value(12)]));
   // Carol may strike now: a static anchor (`grants`) of the lawful program.
@@ -863,6 +865,24 @@ function cases(world: World): StoreViewsCase[] {
         .purge("A", "ps-name")
         .hold("leaf", "plant:2");
       if (c.retains(c.idHex("ps-name")))
+        throw new Error("views vectors: a pass read the purge and the model keeps its payload");
+      c.refresh();
+    },
+  );
+  add(
+    "a-baseline-keeps-a-member-the-view-lost",
+    "After a refresh, the baseline of tree1 at plant:2 carries x-c9-height. A strike of the child link makes the view lose the anchor cutting:9 and the member x-c9-height, but the baseline still carries it. A purge of x-c9-height touches no current member, yet the pass that reads it releases the baseline; the refresh reports before null.",
+    (c) => {
+      leaves(c)
+        .hold("tree1", "plant:2")
+        .hold("leaf", "plant:1")
+        .append("A", "x-p2-has-c9", "x-c9-height")
+        .refresh()
+        .append("A", "x-p2-has-c9-neg")
+        .hold("leaf", "plant:1")
+        .purge("A", "x-c9-height")
+        .hold("leaf", "plant:1");
+      if (c.retains(c.idHex("x-c9-height")))
         throw new Error("views vectors: a pass read the purge and the model keeps its payload");
       c.refresh();
     },
