@@ -372,11 +372,19 @@ type Capture = {
 ```
 
 - Both lists are strictly ascending by the UTF-8 bytes of the entity or the id. A capture is
-  built only by the store side (`makeCapture`) or by a checking constructor (`parseCapture`)
-  for one that was stored and read back. The checking constructor refuses `invalid-request`
-  for a list out of order or with a repeat, for another shape, an empty history, a revision that
-  is not an integer from 0 to 2^53 − 1, or a window with `since ≥ expiresAt`. It never sorts.
-  `touching` searches the lists by binary search and trusts their order.
+  built only by `makeCapture`, from a snapshot, or by `parseCapture`, for one that was stored and
+  read back. Both refuse `invalid-request` for a list out of order or with a repeat, an empty
+  history, a revision that is not an integer from 0 to 2^53 − 1, a bound that is not null or
+  finite, or a window with `since ≥ expiresAt`; `parseCapture` also refuses another shape and a
+  history local to a process (below). Neither sorts. Each capture is frozen, lists included.
+- `touching` and `checkFresh` answer only for a capture one of the two constructors built in this
+  module, and refuse any other object `invalid-request`, in O(1): a copy, a cast object or a
+  parsed value has not been checked, and `touching` searches the lists by binary search.
+  (TypeScript keeps the built captures in a module-level `WeakSet`. A typed witness whose capture
+  type has private fields and two constructors meets this by construction.)
+- `parseCapture` checks shape, not truth: a stored capture is believed as its maker wrote it. A
+  host that stores captures on a medium it does not trust (§4.9) protects their integrity
+  itself.
 - `history` and `revision` come from one snapshot (`Snapshot.history`, `Snapshot.revision`).
 - `members` is the **raw** scope: every held delta an anchor yields, closed under held negators,
   with no selection and no pushdown. It is computed from ids alone, with `targets` and `negators`
@@ -427,9 +435,12 @@ unchanged too, and so is the window.
 and `Snapshot.history` are an opaque identity of that history, compared for equality only. It
 stays the same while the peer's revisions only advance from that history. A peer created anew,
 also under a name that existed before, and a store restored to an earlier state, MUST carry
-another value. The memory store mints a new value for each peer it creates, unique within the
-process; a host that keeps captures across processes passes a mint unique across them
-(`mintHistory`). A caller that keeps a revision across calls (a capture, a feed cursor) keeps the
+another value. The memory store's default history is `memory:local:<n>`, from one counter for
+the module: unique within the process and marked as local to it. With a process-local history, a
+capture that outlives its process could be judged against another history and answer `current`
+falsely, which is why `parseCapture` refuses it. A host that keeps captures across a
+serialization boundary passes `mintHistory`, a mint unique across processes; a minted history may
+not start with `memory:local:`, and is refused `invalid-request` when the peer is created. A caller that keeps a revision across calls (a capture, a feed cursor) keeps the
 history with it and compares it. `changes` takes no history. This history is the "history epoch"
 of plan decision O3.
 
@@ -1143,7 +1154,7 @@ that a vector can pin.
 ### 4.13 Slice 3 readings
 
 Slice 3 builds the change feed of §4.6 (`18-store.SLICE-3.PLAN.md`, steps 1 and 3) and freshness
-(step 5, readings 24 to 41). Where §4.6 and the plan were silent, the feed decided as follows.
+(step 5, readings 24 to 45). Where §4.6 and the plan were silent, the feed decided as follows.
 `vectors/store/scripts.json`, `vectors/store/freshness.json` and `vectors/store/README.md` §3.9
 and §9 pin each point that a vector can pin.
 
@@ -1288,23 +1299,44 @@ and §9 pin each point that a vector can pin.
 37. **The history is read with the revision.** `Snapshot.history` is there so that a capture's
     history and revision come from one read, and a check's comparison too. `PeerStore.history`
     is the same value, for a caller that holds no snapshot. Every handle of a peer reports it.
-38. **The memory store's history.** Each `createPeer` mints a value: `memory:<n>` from one counter
-    for the whole process, so two peers, two stores, or one name created twice in a process never
-    share one. The package boundary forbids ambient randomness in the store, so the store does not
-    mint 128 random bits itself; a host that keeps captures across processes passes
-    `mintHistory`, and a mint that answers no non-empty string is refused `invalid-request`.
+38. **The memory store's history.** Each `createPeer` mints a value: `memory:local:<n>` from one
+    counter for the module, so two peers, two stores, or one name created twice never share one
+    in a process. The prefix marks it as local to the process, and `parseCapture` refuses it: a
+    capture serialized in one process and parsed in another could otherwise meet another peer
+    with the same `memory:local:1` and answer `current` falsely. The package boundary forbids
+    ambient randomness and `globalThis` in the store, so the counter is per copy of the module; a
+    capture from another copy fails the built-capture check (§4.6). A host passes `mintHistory`;
+    a mint that answers no non-empty string, or a string with the local prefix, is refused
+    `invalid-request` when the peer is created, since the mint is a function and runs then.
 39. **The runner checks histories by equality only.** A random value cannot be pinned. A created
     handle's history is a non-empty string, other peers of the store have other values, a
     reopened handle and every snapshot report the peer's value (README §1.3). One name created in
     two stores has two values; no script can delete a peer, so each witness tests that itself.
-40. **A capture is checked, never repaired.** `parseCapture` refuses a list that is not strictly
-    ascending by UTF-8 bytes; it does not sort. A capture stored by code that sorted by UTF-16
-    code units (JavaScript's default `sort`) is refused, not searched in the wrong order and
-    answered `current`. The runner checks every capture a witness returns this way.
+40. **A capture is checked, never repaired.** `makeCapture` and `parseCapture` refuse a list that
+    is not strictly ascending by UTF-8 bytes; they do not sort. A capture stored by code that
+    sorted by UTF-16 code units (JavaScript's default `sort`) is refused, not searched in the
+    wrong order and answered `current`. The runner checks every capture a witness returns this
+    way. `parseCapture` checks shape, not truth: a host that keeps captures where it does not
+    trust what is at rest (§4.9) protects their integrity itself.
 41. **`rounds.json` pins the window and the raw scope.** Each expected answer carries `since`,
     `expiresAt` and `rawMembers`, the raw scope of `scope` (a capture's members). Four cases read
     at `now` 55, inside the fixture's boundaries, so the window is closed at both ends and the
     dynamic anchors differ from those at 100.
+42. **Only built captures are answered for.** A capture copied with a spread, cast from a plain
+    object, or parsed from JSON without `parseCapture` is refused by `touching` and `checkFresh`.
+    The type brand alone is a compile-time check; a reversed member list in a copy otherwise
+    searched wrong and answered `current` after a member was purged.
+43. **The generators prove each window.** For every capture and every round read, the generator
+    checks over the model that the operand's valid set is the same at `now`, at `since`, at a
+    midpoint and just below `expiresAt`, and differs just below `since` and at `expiresAt`; a
+    null bound means no boundary on that side. A window scan that is wrong fails generation.
+44. **Run 6.** A store may trim by the whole selection and report nothing applied (§4.3). The
+    reference store with no field applied returns the whole raw scope, so a capture that takes
+    the fetch as its members whenever nothing is reported applied passes runs 1 to 5. Run 6
+    trims and reports nothing, and that capture fails (README §9.4).
+45. **The probe below the floor is bounded.** It asks at most 24 values below the floor, at fixed
+    points (README §3.9.4, item 2), so a store whose revisions are far apart keeps the runner
+    cheap. Both witnesses ask at the same points.
 
 
 ## 5. Architectures

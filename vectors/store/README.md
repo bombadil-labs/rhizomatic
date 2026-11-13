@@ -143,7 +143,9 @@ carry NaN or an infinity, so a non-finite `timestampAtMost` or `at` is a unit te
 **`history`** is an opaque, non-empty string: the identity of this peer's revision history in
 this store (SPEC-18 §4.6). Compare two values for equality only. It stays the same while the
 peer's revisions only advance. A peer created anew, also under a name that existed before, and a
-store restored to an earlier state, carry another value. The runner checks, by equality only
+store restored to an earlier state, carry another value. A value that starts with
+`memory:local:` is unique only within one process (the TypeScript memory store's default); a
+capture that carries one does not cross a process (SPEC-18 §4.6). The runner checks, by equality only
 (a value cannot be pinned):
 
 - After `createPeer`, the handle's `history` is a non-empty string, else
@@ -749,12 +751,14 @@ the peer dropped records (i > 0):
    `changes answered ok from <r>, below the retention floor <F>`. Its `current` must be the
    model's current revision, else
    `a resync answer carries current <c>, not the peer's revision <r>`.
-2. **Between the floor and the revision before it.** For every integer `from` with
-   `revisions[i − 1] < from < F`, in ascending order, make the same one call, with the same
-   checks and messages. Only a store whose revisions skip values reaches it: there each such
-   `from` is not a revision the peer had, and it is still below the floor. A store whose
-   revisions are k apart gets k − 1 calls. Probing F − 1 alone is not enough: a store can be
-   right there and wrong at F − 2 (§8, the row "ok two below the floor and right one below it").
+2. **Between the floor and the revision before it.** Let p be `revisions[i − 1]` and n = F − p − 1,
+   the number of integers strictly between them. Ask at these `from` values, ascending: every
+   integer in (p, F) when n ≤ 24; otherwise p + 1 to p + 8, then p + 9 + floor(k × (F − p − 19)
+   / 7) for k = 0 to 7, then F − 8 to F − 1 (24 values, all distinct). At each, make the same one
+   call, with the same checks and messages. Only a store whose revisions skip values reaches it:
+   there each such `from` is not a revision the peer had, and it is still below the floor.
+   Probing F − 1 alone is not enough: a store can be right there and wrong at F − 2 (§8, the
+   rows "ok two below the floor"). The bound keeps a store whose revisions are 1000 apart cheap.
 3. **The floor probe.** Let K be `revisions[i + 1]`, the revision of the oldest kept record.
    When F + 1 < K, read the pages from F + 1 with no `to` (§3.9.5). An answer of
    `resync-required` fails with `changes answered resync-required from <F + 1>, above the
@@ -1542,7 +1546,9 @@ The table covers at least:
   revisions are three times the reference's, keeping two records, that reads on past the newest
   dropped record and answers `ok` only where `from % 3` is 1 (the row "ok two below the floor and
   right one below it": wrong at F − 2, right at F − 1, so item 2 of §3.9.4 must probe every
-  integer between the revision before the newest dropped record and F). Most break the feed
+  integer between the revision before the newest dropped record and F); the same with revisions
+  1000 apart, wrong only at F − 2 (among the last eight points of the bounded probe). A store whose
+  revisions are 1000 apart, keeping two records, must pass. Most break the feed
   only when two or more records are pending, so the check of each commit, a range of one, still passes and the rule's
   own message is the one that fails. Two messages are shared by the check after every step and
   the `changes` step ("every record after … is retained", "below the retention floor"). Each
@@ -1621,14 +1627,20 @@ a touch. A case that breaks either fails generation.
 twice; the capture sorts them and drops repeats. `selection` (optional) is the read's whole selection in pushdown
 form, with corpus names in `excludeIds`; absent means none. `now` is the read's evaluation time.
 
+The runner builds captures only through the witness's capture function or its checking
+constructor (`parseCapture`), and hands `checkFresh` and `touching` only those. A witness's
+`touching` and `checkFresh` refuse `invalid-request` any other object (SPEC-18 §4.6); a typed
+witness whose capture type has private fields and only these two constructors meets this by
+construction, as the Rust witness will.
+
 Take a new snapshot of the peer. Build a capture on it with the witness's own capture function,
 for these anchors, this selection and this `now` (TypeScript: `captureScope(snapshot, entities,
 now, {pushdown})`). Release the snapshot. Then check, in this order:
 
 0. The capture is well formed by the witness's checking constructor (TypeScript:
-   `parseCapture`, SPEC-18 §4.6): exactly the six fields, a non-empty history, an integer
-   revision, both lists strictly ascending by UTF-8 bytes, `since < expiresAt` when both are
-   numbers. Else `the capture is malformed: <the constructor's reason>`; the TypeScript reasons
+   `parseCapture`, SPEC-18 §4.6, except that a history local to the process is allowed here):
+   exactly the six fields, a non-empty history, an integer revision, both lists strictly
+   ascending by UTF-8 bytes, `since < expiresAt` when both are numbers. Else `the capture is malformed: <the constructor's reason>`; the TypeScript reasons
    start `capture: ` (for example `capture: anchors is not strictly ascending by UTF-8 bytes`).
    Then its history is the snapshot's, else `the capture's history is not its snapshot's`.
 1. The capture's revision is the snapshot's revision, and it is the revision `expect.revision`
@@ -1742,10 +1754,14 @@ Run every case against the reference store, each case's `store` replacing the ru
 3. Keeping two records.
 4. Keeping two records, with pages of one record.
 5. With no pushdown field applied (§1.6). The store then returns raw members the selection
-   rejects, and a capture must still take its `expiresAt` over the selected scope only. In
+   rejects, and a capture must still take its window over the selected scope only. In
    `a-selection-and-a-purged-raw-id` the store returns `a-late`, whose boundary 105 must not count.
+6. A store that applies the whole selection in `scope` and reports no field applied, which §4.3
+   allows: a wrapper over the reference store that sets every field of `applied` to false. A
+   capture that takes the fetch as its members whenever nothing is reported applied passes runs
+   1 to 5 and fails this one (`a-selection-rejects-the-toucher`: the capture's members).
 
-A witness whose store has no page limit runs 1, 3 and 5. A witness that scales revisions (§8,
+A witness whose store has no page limit runs 1, 3, 5 and 6. A witness that scales revisions (§8,
 "Stores that must pass") runs the cases on those stores too; the TypeScript witness runs
 revisions times 3 with pages of one record, and times 2 keeping two records. Every run passes and
 skips nothing.
@@ -1846,6 +1862,7 @@ The JSON cannot express these; each witness builds them.
   | gets the added ids out of order | `two-touchers-in-one-record` | `checkFresh made the call get [` |
   | makes no `get` | `unrelated-appends` | `checkFresh made the call release where the contract asks for get [` |
   | does not release its snapshot | `no-change` | `checkFresh made no call where the contract asks for release` |
+  | takes the fetch as members when nothing is reported applied (run 6 only) | `a-selection-rejects-the-toucher` | `the capture's members are` |
   | `touching` drops the last record | `an-added-delta-targets-an-anchor` | `touching answered none, expected 2 ` |
 
   The rows for the cases added with the window, the history, the selections and the chain each
@@ -1878,7 +1895,14 @@ The JSON cannot express these; each witness builds them.
   call.
 - **The checking constructor.** Ids that sort differently by UTF-16 and by UTF-8 (U+FF61 and
   U+1F600): the UTF-8 order is accepted and `touching` finds both; the UTF-16 order, a shuffled
-  list and a repeat are refused; a capture survives a JSON round trip.
+  list and a repeat are refused; a capture with a minted history survives a JSON round trip.
+- **Built captures only.** A spread copy, a copy with its members reversed, a `JSON.parse`
+  result and a cast plain object are refused by `touching` and `checkFresh`; a built capture and
+  its lists cannot be changed. `makeCapture` refuses what `parseCapture` refuses.
+- **Captures across processes.** A capture whose history is the memory store's default
+  (`memory:local:<n>`), serialized and parsed again, is refused by `parseCapture` with a reason
+  that names `mintHistory`; a mint that answers the local prefix is refused when the peer is
+  created.
 - **Moved snapshots.** A commit during a check: `checkFresh` starts again and answers for the
   later revision; four moves pass `snapshot-moved` up.
 - **The cost rails**, timed from outside as in §3.9.9 (N from 256, doubling until the run takes

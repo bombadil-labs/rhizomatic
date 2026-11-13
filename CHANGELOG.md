@@ -61,12 +61,17 @@ it; the Rust witness skips `freshness.json` until slice 3 step 6.
   on a `StoreReadRequest` adds `StoreRead.capture`. `FetchedScope.validityAt(now)` answers the window
   of a fetched scope at any `now`. `captureScope(snapshot, entities, now, selection?)` takes a
   capture beside a fetched scope.
-- `createMemoryStore({ mintHistory })`: a host's own mint for peer histories. The default is
-  unique within the process.
+- `createMemoryStore({ mintHistory })`: a host's own mint for peer histories. The default,
+  `memory:local:<n>` (`LOCAL_HISTORY_PREFIX`), is unique only within the process, and
+  `parseCapture` refuses a capture that carries it. A minted history may not use that prefix.
+- `touching` and `checkFresh` answer only for a capture that `makeCapture` or `parseCapture`
+  built, and refuse a copy, a cast object or a parsed value with `invalid-request`. Captures and
+  their lists are frozen. `makeCapture` checks what `parseCapture` checks and does not sort.
 - Store vectors: `freshness.json` (29 cases and 6 `touching` cases), with its runner
   `runFreshnessConformance` and `freshnessVectors()`. `rounds.json` gains `since`, `expiresAt`
   and `rawMembers` on every expected answer, and four reads at `now` 55. The script runner checks
-  that every handle and snapshot of a peer reports its history and that peers differ
+  that every handle and snapshot of a peer reports its history and that peers differ, and asks
+  below the floor at no more than 24 fixed points
   (`vectors/store/README.md` §1.3, §5.4, §9).
 - SPEC-16 MR-10b allows a host to judge a scoped capture current by the feed check over its raw
   ids, its own epoch and the window, without recomputing the scoped revision (ERRATA E14).
