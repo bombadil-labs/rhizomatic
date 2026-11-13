@@ -107,6 +107,65 @@ type Feed = {
   readonly seen: Map<number, string>;
 };
 
+/** The exact keys of each answer of `changes` (README §3.9.1), sorted. */
+const PAGE_KEYS = {
+  record: ["added", "head", "removed", "revision"],
+  ok: ["records", "status", "through"],
+  resync: ["current", "status"],
+} as const;
+
+function exactKeys(value: unknown, keys: readonly string[], what: string): void {
+  check(
+    typeof value === "object" && value !== null && !Array.isArray(value),
+    `a ${what} is not an object`,
+  );
+  const own = Object.keys(value).sort();
+  check(same(own, keys), `a ${what} has the keys ${own.join(", ")}, not ${keys.join(", ")}`);
+}
+
+/**
+ * An answer of `changes` has exactly the keys of its status, and each record exactly its four.
+ * A store that adds a field (bytes, say) to a record or a page fails. An answer of another
+ * status is left to the caller's own check.
+ */
+function shaped(page: unknown): void {
+  const status =
+    typeof page === "object" && page !== null ? (page as { status?: unknown }).status : undefined;
+  if (status === "resync-required") exactKeys(page, PAGE_KEYS.resync, "resync answer");
+  if (status !== "ok") return;
+  exactKeys(page, PAGE_KEYS.ok, "change page");
+  const records: unknown = (page as { records: unknown }).records;
+  check(Array.isArray(records), "a change page's records is not a list");
+  for (const record of records) exactKeys(record, PAGE_KEYS.record, "change record");
+}
+
+/**
+ * Changes, as a careless caller might, everything an answer of `changes` returned: the record
+ * list, each record and its id lists. A frozen value refuses quietly. A store that owns what it
+ * answers is not moved by any of it.
+ */
+function tamper(records: ChangeRecord[]): void {
+  const quietly = (change: () => void): void => {
+    try {
+      change();
+    } catch {
+      // A frozen value: nothing changed, which is the point.
+    }
+  };
+  const first = records[0];
+  if (first !== undefined) quietly(() => records.push({ ...first, head: "tampered" }));
+  for (const record of records) {
+    const writable = record as unknown as {
+      head: string | null;
+      added: string[];
+      removed: string[];
+    };
+    quietly(() => (writable.head = "tampered"));
+    quietly(() => writable.added.push("tampered"));
+    quietly(() => writable.removed.push("tampered"));
+  }
+}
+
 const recordText = (r: ChangeRecord): string =>
   JSON.stringify([r.revision, r.head, r.added, r.removed]);
 const ascending = (ids: readonly string[]): boolean =>
@@ -212,6 +271,7 @@ class Run {
       const outcome = await attempt(() => handle.changes(at));
       check("value" in outcome, `changes refused with ${"error" in outcome ? outcome.error : ""}`);
       const page = outcome.value;
+      shaped(page);
       check(page.status === "ok", "changes from the revision before a commit is not ok");
       records.push(...page.records);
       if (page.through <= at || page.through >= current) break;
@@ -270,6 +330,7 @@ class Run {
       const outcome = await attempt(() => handle.changes(at, to));
       check("value" in outcome, `changes refused with ${"error" in outcome ? outcome.error : ""}`);
       const page = outcome.value;
+      shaped(page);
       if (page.status === "resync-required") {
         check(out.length === 0, "changes answered resync-required in the middle of a range");
         check(
@@ -329,7 +390,19 @@ class Run {
           `the record at revision ${record.revision} differs from its commit`,
         );
       }
-      out.push(...records);
+      // Ownership (README §7, test 9): change what this answer returned, ask again, and every
+      // record the store answers must be the one it answered before, at its revision.
+      const before = new Map(records.map((r) => [r.revision, recordText(r)]));
+      out.push(...records.map((r) => ({ ...r, added: [...r.added], removed: [...r.removed] })));
+      tamper(records as unknown as ChangeRecord[]);
+      const again = await attempt(() => handle.changes(at, to));
+      check(
+        "value" in again &&
+          again.value.status === "ok" &&
+          again.value.records.every((r) => before.get(r.revision) === recordText(r)) &&
+          new Set(again.value.records.map((r) => r.revision)).size === again.value.records.length,
+        "changes answered differently after the caller changed what it returned",
+      );
       if (page.through === end) return out;
       at = page.through;
     }
@@ -353,10 +426,20 @@ class Run {
           "value" in outcome,
           `changes refused with ${"error" in outcome ? outcome.error : ""}`,
         );
+        shaped(outcome.value);
         check(
           outcome.value.status === "resync-required",
           `changes answered ok from ${below}, below the retention floor ${floor}`,
         );
+        // The floor is the newest dropped revision, not the one just before the oldest kept
+        // record. Where revisions skip values the two differ, and a `from` between them is
+        // above the floor.
+        const oldestKept = feed.revisions[index + 1];
+        if (oldestKept !== undefined && floor + 1 < oldestKept)
+          check(
+            (await this.pages(peer, handle, floor + 1, undefined)) !== "resync",
+            `changes answered resync-required from ${floor + 1}, above the retention floor ${floor}`,
+          );
       }
     }
   }

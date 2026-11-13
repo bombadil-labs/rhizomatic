@@ -22,10 +22,6 @@
 //   deltas with other claims, which this runner reads the held deltas from; and in
 //   store-vectors.test.ts through a document whose exact scope is wrong.
 //
-// - The change feed (README §3.9.5), "the page's through T is past its last record and short of
-//   <end>": a wrapper over the memory store cannot reach it. Its revisions advance by one, so a
-//   `through` past the last record and below `to` always passes over a record the page left out,
-//   and the overstated-page check fails first.
 // - A `changes` step (README §3.9.6), "changes answered ok from <from>, and the step expects
 //   resync-required": the step expects it only for a cursor from the future, and there an `ok`
 //   page always fails "the page's through T lies outside [last, end]" first, because `last` is
@@ -575,6 +571,115 @@ const FEED_RULES: Readonly<Record<string, Rule>> = {
   },
 };
 
+/**
+ * A store whose revisions are the memory store's times `k`: they skip values, as a store with
+ * one counter for many peers would. It answers by the rules of §4.6, scaled. With
+ * `partialThroughPlusOne` a partial page says `through = last + 1`, past its last record and
+ * short of `to`. With `oldestKeptFloor` a `from` strictly between the newest dropped revision
+ * and the oldest kept one answers `resync-required`: the floor read as the revision just before
+ * the oldest kept record.
+ */
+function sparse(
+  k: number,
+  quirk: { partialThroughPlusOne?: boolean; oldestKeptFloor?: boolean } = {},
+): Break {
+  const now = async (peer: PeerStore): Promise<number> => {
+    const snapshot = await peer.read();
+    snapshot.release();
+    return snapshot.revision;
+  };
+  return {
+    peer: (peer) => ({
+      read: async () => {
+        const snapshot = await peer.read();
+        return { ...snapshot, revision: snapshot.revision * k };
+      },
+      append: async (batch) => {
+        const result = await peer.append(batch);
+        return result.status === "committed"
+          ? { ...result, revision: result.revision * k }
+          : result;
+      },
+      purge: async (ids) => {
+        const report = await peer.purge(ids);
+        return { ...report, revision: report.revision * k };
+      },
+      changes: async (from, to) => {
+        const current = await now(peer);
+        if (to !== undefined && to < from)
+          throw new StoreError("invalid-request", "to must not be less than from");
+        if (from > k * current) return { status: "resync-required", current: k * current };
+        const inner = Math.floor(from / k);
+        const innerTo = to === undefined ? undefined : Math.floor(to / k);
+        const page = await peer.changes(inner, innerTo);
+        if (page.status === "resync-required") return { ...page, current: page.current * k };
+        if (
+          quirk.oldestKeptFloor === true &&
+          from % k !== 0 &&
+          inner > 0 &&
+          (await peer.changes(inner - 1)).status === "resync-required"
+        )
+          return { status: "resync-required", current: k * current };
+        const innerEnd = Math.min(innerTo ?? current, current);
+        const end = Math.min(to ?? k * current, k * current);
+        const records = page.records.map((r) => ({ ...r, revision: r.revision * k }));
+        const through =
+          page.through === innerEnd
+            ? end
+            : quirk.partialThroughPlusOne === true
+              ? records[records.length - 1]!.revision + 1
+              : page.through * k;
+        return { status: "ok", records, through };
+      },
+    }),
+  };
+}
+
+/** A store that hands out the same record objects on every answer, `copy` deciding what else. */
+function liveRecords(copy: (r: ChangeRecord) => ChangeRecord): Break {
+  const kept = new WeakMap<Store, Map<string, ChangeRecord>>();
+  return {
+    peer: (peer, inner) => {
+      if (!kept.has(inner)) kept.set(inner, new Map());
+      const live = kept.get(inner)!;
+      return {
+        changes: async (from, to) => {
+          const page = await peer.changes(from, to);
+          if (page.status !== "ok") return page;
+          const records = page.records.map((r) => {
+            const key = `${peer.id} ${r.revision}`;
+            if (!live.has(key)) live.set(key, copy(r));
+            return live.get(key)!;
+          });
+          return ok(records, page.through);
+        },
+      };
+    },
+  };
+}
+/** One pair of id lists per record, shared by every answer; the record objects are new. */
+function liveIdLists(): Break {
+  const kept = new WeakMap<Store, Map<string, { added: string[]; removed: string[] }>>();
+  return {
+    peer: (peer, inner) => {
+      if (!kept.has(inner)) kept.set(inner, new Map());
+      const live = kept.get(inner)!;
+      return {
+        changes: async (from, to) => {
+          const page = await peer.changes(from, to);
+          if (page.status !== "ok") return page;
+          const records = page.records.map((r) => {
+            const key = `${peer.id} ${r.revision}`;
+            if (!live.has(key)) live.set(key, { added: [...r.added], removed: [...r.removed] });
+            return { ...r, ...live.get(key)! };
+          });
+          return ok(records, page.through);
+        },
+      };
+    },
+  };
+}
+
 /** The shared vectors with one script only, and no scope case. */
 const onlyScript = (name: string): StoreVectors => ({
   scripts: { ...vectors.scripts, scripts: vectors.scripts.scripts.filter((s) => s.name === name) },
@@ -621,8 +726,57 @@ const SHARED_MESSAGES: Readonly<Record<string, Rule>> = {
   },
 };
 
+const SHAPES_AND_SPARSE: Readonly<Record<string, Rule>> = {
+  "the feed: a record with an extra field that carries bytes": {
+    doc: "scripts",
+    says: "a change record has the keys added, deltas, head, removed, revision, not added, head, removed, revision",
+    store: records((page) =>
+      ok(
+        page.records.map((r) => ({ ...r, deltas: [{ bytes: new Uint8Array([1]) }] })),
+        page.through,
+      ),
+    ),
+  },
+  "the feed: an ok page with an extra field": {
+    doc: "scripts",
+    says: "a change page has the keys more, records, status, through, not records, status, through",
+    store: records((page) => ({ ...page, more: true }) as ChangePage),
+  },
+  "the feed: a resync answer with an extra field": {
+    doc: "scripts",
+    says: "a resync answer has the keys current, floor, status, not current, status",
+    store: feed((page) =>
+      page.status === "resync-required" ? ({ ...page, floor: 0 } as ChangePage) : page,
+    ),
+  },
+  "the feed: a store that hands out its live records": {
+    doc: "scripts",
+    says: "changes answered differently after the caller changed what it returned",
+    store: liveRecords((r) => ({ ...r, added: [...r.added], removed: [...r.removed] })),
+  },
+  "the feed: a store that hands out its live id lists": {
+    doc: "scripts",
+    says: "changes answered differently after the caller changed what it returned",
+    store: liveIdLists(),
+  },
+  "the feed: sparse revisions, and a partial page whose through is past its last record": {
+    doc: "scripts",
+    says: /the page's through \d+ is past its last record and short of \d+/,
+    store: { options: { changePageSize: 1 }, ...sparse(2, { partialThroughPlusOne: true }) },
+  },
+  "the feed: sparse revisions, and the floor read as just before the oldest kept record": {
+    doc: "scripts",
+    says: /changes answered resync-required from \d+, above the retention floor \d+/,
+    store: {
+      options: { changeRetention: { revisions: 2 } },
+      ...sparse(3, { oldestKeptFloor: true }),
+    },
+  },
+};
+
 const RULES: Readonly<Record<string, Rule>> = {
   ...SHARED_MESSAGES,
+  ...SHAPES_AND_SPARSE,
   ...FEED_RULES,
   // -- refusals (README §3, "Refusals") --
   "createPeer refuses with a code the step does not list": {
@@ -1656,6 +1810,31 @@ describe("runner rules: each wrong store fails with the message of its rule", ()
       );
     }
   });
+});
+
+describe("runner rules: revisions that skip values conform", () => {
+  // §4.13 reading 1 asks only for integers in order. These stores are right, with revisions
+  // two or three apart; the runner must pass them on every vector, kept whole or bounded.
+  const right: Readonly<Record<string, Break>> = {
+    "revisions times 2": sparse(2),
+    "revisions times 3, pages of one record": { options: { changePageSize: 1 }, ...sparse(3) },
+    "revisions times 2, two records kept": {
+      options: { changeRetention: { revisions: 2 } },
+      ...sparse(2),
+    },
+    "revisions times 3, two records kept, pages of one record": {
+      options: { changeRetention: { revisions: 2 }, changePageSize: 1 },
+      ...sparse(3),
+    },
+  };
+  for (const [name, fault] of Object.entries(right))
+    it(name, async () => {
+      const report = await runStoreConformance(broken(fault), vectors);
+      expect(report.skipped).toEqual([]);
+      expect(report.passed).toHaveLength(
+        vectors.scripts.scripts.length + vectors.scope.cases.length,
+      );
+    });
 });
 
 describe("runner rules: what binds the reference store only", () => {
