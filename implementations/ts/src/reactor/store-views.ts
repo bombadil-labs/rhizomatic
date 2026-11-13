@@ -14,9 +14,10 @@
 // What it does not see: state the host's selection or authority reads outside the store. The
 // host names that state with an epoch per program and calls `setEpoch` when it changes.
 //
-// A held view is a copy outside the store. It can hold a purged delta's payload until the next
-// pass reads the purge's record. A host that erases calls `refresh` (or `drop`) before it
-// reports.
+// A held view is a copy outside the store. It can hold a purged delta's payload, in its bytes or
+// in its baseline, until a pass reads the record that removes the delta. That pass reads the view
+// again and releases its baseline, so the holder then keeps none of the payload. A host that
+// erases runs a pass (`refresh`, or `drop`) before it reports.
 
 import { compareUtf8 } from "../delta/cbor.js";
 import type { Delta } from "../delta/types.js";
@@ -24,7 +25,14 @@ import { resultCanonicalHex } from "../resolve/eval.js";
 import { anchorAnalysis } from "../resolve/anchored.js";
 import type { SchemaRegistry } from "../schema/schema.js";
 import type { Term } from "../syntax/model.js";
-import { advanceCapture, touching, type Capture } from "../storage/freshness.js";
+import {
+  advanceCapture,
+  answeredOnly,
+  checkedThrough,
+  onSnapshots,
+  touching,
+  type Capture,
+} from "../storage/freshness.js";
 import { positionOf, type Position } from "../storage/follow.js";
 import {
   StoreError,
@@ -74,16 +82,26 @@ export interface ViewRead extends ViewKey {
   readonly capture: Capture;
 }
 
-/** A view whose bytes differ from those it had at the previous refresh. Bytes as hex. */
+/**
+ * A view whose bytes differ from its baseline: the bytes it had at the previous refresh, or, for a
+ * view first held since then, its first answer. Bytes as hex. `before` is null when the holder
+ * released the baseline: a pass read the purge of a delta it could carry, or the holder resynced.
+ * A released view is reported whatever its bytes now are.
+ */
 export interface ViewChange extends ViewKey {
-  readonly before: string;
+  readonly before: string | null;
   readonly after: string;
 }
 
 /** What `refresh` answers. */
 export interface Refresh {
   readonly position: Position;
-  /** Ascending by name, then root (UTF-8 bytes). Views first held since then are not here. */
+  /**
+   * The held views whose bytes differ from their baseline, or whose baseline was released,
+   * ascending by name, then root (UTF-8 bytes). A view is not here merely because it is new: one
+   * first held since the previous refresh is here when its bytes changed after that first read,
+   * and `before` is its first answer.
+   */
   readonly changed: readonly ViewChange[];
   /** The views this refresh read again, ascending by name, then root. */
   readonly reread: readonly ViewKey[];
@@ -119,11 +137,13 @@ export interface ViewQuirks {
   readonly staleBoundary?: boolean;
   /** Decides touches by asking `touching` of every held view: O(held views) per pass. */
   readonly scanEveryView?: boolean;
+  /** Keeps a view's baseline after a pass reads the purge of a delta it can carry. */
+  readonly keepPurgedBaseline?: boolean;
+  /** Keeps an evicted view and, when it is held again, reads it but serves its old bytes. */
+  readonly keepEvicted?: boolean;
 }
 
 const DEFAULT_MAX_VIEWS = 1024;
-/** How many times a pass starts again on a new snapshot after `snapshot-moved`. */
-const SNAPSHOT_RETRIES = 3;
 
 /** A heap over keys with O(log n) insert, update and delete, and a pruned walk of its top. */
 class KeyHeap {
@@ -214,8 +234,16 @@ type Held = {
   capture: Capture;
   /** The program's epoch when the view was read. */
   epoch: string;
-  /** The bytes at the previous refresh, or at the view's first read since. */
-  base: string;
+  /**
+   * The bytes at the previous refresh, or at the view's first read since: what the next refresh
+   * compares with. Null once released: a pass read the purge of a delta those bytes could carry.
+   */
+  base: string | null;
+  /**
+   * The capture of the read that gave `base`, or null once released. When it is not `capture`,
+   * its members are in the baseline index, so a purge of one of them finds this view.
+   */
+  baseCapture: Capture | null;
 };
 
 type Fresh = { readonly bytes: string; readonly capture: Capture; readonly epoch: string };
@@ -224,7 +252,11 @@ type Fresh = { readonly bytes: string; readonly capture: Capture; readonly epoch
 type Plan = {
   readonly position: Position;
   readonly reads: Map<string, Fresh>;
+  /** Views whose baseline the pass releases: a record it read removes a delta the baseline can carry. */
+  readonly released: ReadonlySet<string>;
   readonly resynced: boolean;
+  /** The view a `hold` of a new view forgets to make room, or undefined. */
+  readonly evicts: string | undefined;
 };
 
 const keyOf = (name: string, root: Entity): string => JSON.stringify([name, root]);
@@ -246,27 +278,51 @@ function removeFrom(index: Map<string, Set<string>>, at: string, key: string): v
   if (keys.size === 0) index.delete(at);
 }
 
+/** Binary search in a list ascending by UTF-8 bytes. */
+function holds(sorted: readonly string[], wanted: string): boolean {
+  let low = 0;
+  let high = sorted.length;
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    const order = compareUtf8(sorted[mid]!, wanted);
+    if (order === 0) return true;
+    if (order < 0) low = mid + 1;
+    else high = mid;
+  }
+  return false;
+}
+
 /**
  * Memory-held views over one peer of a store, kept current through its change feed (SPEC-18
  * §4.6, "Held views"). The store-backed counterpart of the memory `Reactor`'s materializations.
  *
  * `hold`, `refresh`, `drop` and `setEpoch` run one at a time, in call order. A call that fails
  * changes nothing. There is no push: `refresh` answers what changed, and the host dispatches it.
+ *
+ * Erasure: a held view is a copy outside the store. When a pass reads a record that removes a
+ * delta, every view whose bytes or baseline could carry that delta lets them go in that pass: the
+ * view is read again, and its baseline is released (the next refresh reports it with `before:
+ * null`). A resync releases every baseline. Until such a pass, the holder keeps the bytes. What
+ * it already answered (a `hold`, a `before`) is the host's copy.
  */
 export class StoreViews {
   private readonly programs = new Map<string, Program>();
-  /** Held views, least recently held or asked first. */
+  /** Held views, least recently held first. Only `hold` counts as a use. */
   private readonly views = new Map<string, Held>();
   private readonly anchorIndex = new Map<Entity, Set<string>>();
   private readonly memberIndex = new Map<Id, Set<string>>();
+  /** Member id → views whose baseline capture holds it and is not their current capture. */
+  private readonly baseIndex = new Map<Id, Set<string>>();
   private readonly byProgram = new Map<string, Set<string>>();
   private readonly expiries = new KeyHeap((a, b) => a < b);
   private readonly starts = new KeyHeap((a, b) => a > b);
   /** Programs whose epoch changed since a view of theirs was read. */
   private readonly newEpochs = new Set<string>();
-  /** Views read since the previous refresh. */
+  /** Views read again, or released, since the previous refresh. */
   private readonly dirty = new Set<string>();
   private readonly evalCounts = new Map<string, number>();
+  /** Only for the wrong holder `keepEvicted`. */
+  private readonly evicted = new Map<string, Held>();
   private processed: Position | undefined;
   private queue: Promise<unknown> = Promise.resolve();
   private readonly maxViews: number;
@@ -323,8 +379,9 @@ export class StoreViews {
   /**
    * The view of `name` at `root`, current at `now`: one pass for the whole set (as `refresh`),
    * then, when the view is not held, one read on the pass's snapshot. Holding one view more than
-   * `maxViews` forgets the least recently held or asked one. Refuses `invalid-request` for a name
-   * not registered and a `now` that is not finite, before any store call.
+   * `maxViews` forgets the least recently held one first; that view is not read in this pass.
+   * Refuses `invalid-request` for a name not registered and a `now` that is not finite, before
+   * any store call. Throws `StoreFaultError` when the store breaks its contract.
    */
   hold(name: string, root: Entity, now: number): Promise<ViewRead> {
     return this.serial(async () => {
@@ -349,8 +406,9 @@ export class StoreViews {
 
   /**
    * Brings every held view to one snapshot and to `now`. Answers the views read again, and the
-   * views whose bytes differ from those of the previous refresh. Refuses `invalid-request` for a
-   * `now` that is not finite, before any store call.
+   * views whose bytes differ from their baseline (see `Refresh.changed`). Refuses
+   * `invalid-request` for a `now` that is not finite, before any store call. Throws
+   * `StoreFaultError` when the store breaks its contract.
    */
   refresh(now: number): Promise<Refresh> {
     return this.serial(async () => {
@@ -361,9 +419,9 @@ export class StoreViews {
       for (const key of this.dirty) {
         const view = this.views.get(key);
         if (view === undefined) continue;
-        if (view.bytes !== view.base)
+        if (view.base === null || view.bytes !== view.base)
           changed.push({ name: view.name, root: view.root, before: view.base, after: view.bytes });
-        view.base = view.bytes;
+        this.rebase(view);
       }
       this.dirty.clear();
       const reread = [...plan.reads.keys()].map((key) => {
@@ -379,9 +437,15 @@ export class StoreViews {
     });
   }
 
-  /** Forgets the view of `name` at `root`, if held. Makes no store call. */
+  /**
+   * Forgets the view of `name` at `root`; a view not held is no error. Refuses
+   * `invalid-request` for a name not registered. Makes no store call.
+   */
   drop(name: string, root: Entity): Promise<void> {
-    return this.serial(async () => this.forget(keyOf(name, root)));
+    return this.serial(async () => {
+      this.program(name);
+      this.forget(keyOf(name, root));
+    });
   }
 
   /** The least `expiresAt` over the held views, or null: when a validity timer should fire. */
@@ -399,6 +463,7 @@ export class StoreViews {
     views: number;
     anchors: number;
     members: number;
+    baselines: number;
     expiries: number;
     starts: number;
     programs: number;
@@ -409,6 +474,7 @@ export class StoreViews {
       views: this.views.size,
       anchors: this.anchorIndex.size,
       members: this.memberIndex.size,
+      baselines: this.baseIndex.size,
       expiries: this.expiries.size,
       starts: this.starts.size,
       programs,
@@ -429,17 +495,16 @@ export class StoreViews {
   }
 
   private async pass(now: number, want: ViewKey | undefined): Promise<Plan> {
-    for (let attempts = 1; ; attempts += 1) {
-      const snapshot = await this.peer.read();
-      try {
-        return await this.passOn(snapshot, now, want);
-      } catch (error) {
-        if (this.quirks.advanceOnFailure === true) this.processed = positionOf(snapshot);
-        const moved = error instanceof StoreError && error.code === "snapshot-moved";
-        if (!moved || attempts > SNAPSHOT_RETRIES) throw error;
-      } finally {
-        snapshot.release();
-      }
+    let last: Snapshot | undefined;
+    try {
+      return await onSnapshots(this.peer, (snapshot) => {
+        last = snapshot;
+        return this.passOn(snapshot, now, want);
+      });
+    } catch (error) {
+      if (this.quirks.advanceOnFailure === true && last !== undefined)
+        this.processed = positionOf(last);
+      throw error;
     }
   }
 
@@ -447,17 +512,23 @@ export class StoreViews {
     const position = positionOf(snapshot);
     const at = this.processed;
     const reread = new Set<string>();
+    const released = new Set<string>();
     let resynced = false;
     if (this.views.size > 0 && at !== undefined) {
       if (snapshot.history !== at.history || snapshot.revision < at.revision) resynced = true;
       else if (snapshot.revision > at.revision)
         resynced =
           this.quirks.feedPerView === true
-            ? await this.feedPerView(snapshot, at.revision, reread)
-            : !(await this.feed(snapshot, at.revision, undefined, reread));
+            ? await this.feedPerView(snapshot, at.revision, reread, released)
+            : !(await this.feed(snapshot, at.revision, undefined, reread, released));
     }
     if (resynced) {
-      if (this.quirks.mergeOnResync !== true) for (const key of this.views.keys()) reread.add(key);
+      // The records the holder missed may remove anything: every baseline goes.
+      if (this.quirks.mergeOnResync !== true)
+        for (const key of this.views.keys()) {
+          reread.add(key);
+          released.add(key);
+        }
     } else {
       // Time: a view whose window does not hold `now`.
       if (this.quirks.ignoreExpiresAt !== true) this.expiries.walk((t) => t <= now, reread);
@@ -470,52 +541,69 @@ export class StoreViews {
       if (this.quirks.rereadAll === true) for (const key of this.views.keys()) reread.add(key);
     }
     if (this.quirks.neverReread === true) reread.clear();
+    if (this.quirks.keepPurgedBaseline === true) released.clear();
+    // A hold of a new view into a full set forgets the least recently held view: it is not read.
+    const wanted = want === undefined ? undefined : keyOf(want.name, want.root);
+    const evicts =
+      wanted !== undefined && !this.views.has(wanted) && this.views.size >= this.maxViews
+        ? this.views.keys().next().value!
+        : undefined;
+    if (evicts !== undefined) {
+      reread.delete(evicts);
+      released.delete(evicts);
+    }
     const reads = new Map<string, Fresh>();
-    // Every read runs on the pass's snapshot.
+    // Every read runs on the pass's snapshot. Their order is not part of the contract.
     let on = snapshot;
     if (this.quirks.newerSnapshot === true && reread.size > 0) on = await this.peer.read();
     try {
-      for (const key of [...reread].sort()) {
+      for (const key of reread) {
         const [name, root] = unkey(key);
         reads.set(key, await this.read(on, name, root, now));
       }
-      if (want !== undefined) {
-        const key = keyOf(want.name, want.root);
-        if (!this.views.has(key) && !reads.has(key))
-          reads.set(key, await this.read(on, want.name, want.root, now));
-      }
+      if (wanted !== undefined && !this.views.has(wanted) && !reads.has(wanted))
+        reads.set(wanted, await this.read(on, want!.name, want!.root, now));
     } finally {
       if (on !== snapshot) on.release();
     }
-    return { position, reads, resynced };
+    return { position, reads, released, resynced, evicts };
   }
 
   /**
    * Reads `changes(from, r′)` page by page and adds to `touched` every held view (or every one
    * among `only`) that a record touches: a record removes a member, or an added id still held at
-   * r′ points at an anchor or negates a member (the rule of `touching`). Answers false on
-   * `resync-required`.
+   * r′ points at an anchor or negates a member (the rule of `touching`). Adds to `released` every
+   * view whose baseline capture holds a removed id. Answers false on `resync-required`. Throws
+   * `StoreFaultError` for a page with no progress or past r′, and for a `get` answer with an id
+   * it did not ask for, a repeat or an id out of order: such a page is not judged.
    */
   private async feed(
     snapshot: Snapshot,
     from: number,
     only: readonly string[] | undefined,
     touched: Set<string>,
+    released: Set<string>,
   ): Promise<boolean> {
     const end = snapshot.revision;
     for (let at = from; at < end; ) {
       const page = await this.peer.changes(at, end);
       if (page.status === "resync-required") return false;
-      // A store fault, not a verdict (§4.13 reading 46): the page is not judged.
-      if (page.through <= at || page.through > end)
-        throw new Error(
-          `views: the store's page from ${at} to ${end} ends at ${page.through}; the store breaks the change feed contract (§4.6)`,
-        );
+      checkedThrough("views", at, end, page.through);
       const ids = [...new Set(page.records.flatMap((record) => record.added))].sort(compareUtf8);
       const added = new Map<Id, Delta>();
-      if (ids.length > 0) for (const delta of await snapshot.get(ids)) added.set(delta.id, delta);
+      if (ids.length > 0) {
+        const got = await snapshot.get(ids);
+        answeredOnly(
+          "views",
+          "get",
+          ids,
+          got.map((delta) => delta.id),
+        );
+        for (const delta of got) added.set(delta.id, delta);
+      }
       if (this.quirks.scanEveryView === true) this.scan(page.records, added, touched);
       else this.touch(page.records, added, only, touched);
+      this.release(page.records, only, released);
       at = page.through;
     }
     return true;
@@ -550,6 +638,23 @@ export class StoreViews {
     }
   }
 
+  // A removed id releases the baseline of every view whose baseline capture holds it: those are
+  // the only baselines whose bytes can carry it (a read's bytes come from its raw scope).
+  private release(
+    records: readonly ChangeRecord[],
+    only: readonly string[] | undefined,
+    released: Set<string>,
+  ): void {
+    for (const record of records)
+      for (const id of record.removed)
+        for (const index of [this.memberIndex, this.baseIndex])
+          for (const key of index.get(id) ?? []) {
+            if (only !== undefined && !only.includes(key)) continue;
+            const base = this.views.get(key)?.baseCapture;
+            if (base != null && holds(base.members, id)) released.add(key);
+          }
+  }
+
   private scan(
     records: readonly ChangeRecord[],
     added: ReadonlyMap<Id, Delta>,
@@ -559,9 +664,14 @@ export class StoreViews {
       if (touching(view.capture, records, added) !== null) touched.add(key);
   }
 
-  private async feedPerView(snapshot: Snapshot, from: number, touched: Set<string>) {
+  private async feedPerView(
+    snapshot: Snapshot,
+    from: number,
+    touched: Set<string>,
+    released: Set<string>,
+  ) {
     for (const key of this.views.keys())
-      if (!(await this.feed(snapshot, from, [key], touched))) return true;
+      if (!(await this.feed(snapshot, from, [key], touched, released))) return true;
     return false;
   }
 
@@ -585,20 +695,48 @@ export class StoreViews {
 
   /** Applies a pass that succeeded: no part of a failed pass is ever applied. */
   private commit(plan: Plan, want: string | undefined): void {
-    if (want !== undefined && !this.views.has(want) && this.views.size >= this.maxViews) {
-      const oldest = this.views.keys().next().value!;
-      this.forget(oldest);
+    if (plan.evicts !== undefined) this.forget(plan.evicts, true);
+    let restored = false;
+    if (want !== undefined && this.quirks.keepEvicted === true && !this.views.has(want)) {
+      const kept = this.evicted.get(want);
+      if (kept !== undefined) {
+        restored = true;
+        this.evicted.delete(want);
+        this.views.set(want, kept);
+        this.index(want, kept.capture);
+        this.time(want, kept.capture);
+        addTo(this.byProgram, kept.name, want);
+      }
+    }
+    for (const key of plan.released) {
+      const view = this.views.get(key);
+      if (view === undefined) continue;
+      this.unbase(view);
+      view.base = null;
+      view.baseCapture = null;
+      this.dirty.add(key);
     }
     for (const [key, fresh] of plan.reads) {
       const view = this.views.get(key);
       if (view === undefined && key !== want) continue;
+      if (key === want && restored) continue;
       if (view === undefined) {
         const [name, root] = unkey(key);
-        this.views.set(key, { key, name, root, ...fresh, base: fresh.bytes });
+        this.views.set(key, {
+          key,
+          name,
+          root,
+          ...fresh,
+          base: fresh.bytes,
+          baseCapture: fresh.capture,
+        });
         this.index(key, fresh.capture);
         this.time(key, fresh.capture);
         addTo(this.byProgram, name, key);
       } else {
+        // The baseline outlives this capture: its members go into the baseline index.
+        if (view.baseCapture === view.capture)
+          for (const id of view.capture.members) addTo(this.baseIndex, id, key);
         if (this.quirks.keepOldIndex !== true) {
           this.unindex(key, view.capture);
           this.index(key, fresh.capture);
@@ -611,13 +749,25 @@ export class StoreViews {
       this.dirty.add(key);
     }
     if (want !== undefined) {
-      // The most recently held or asked view goes last.
+      // The most recently held view goes last.
       const view = this.views.get(want)!;
       this.views.delete(want);
       this.views.set(want, view);
     }
     this.processed = plan.position;
     this.newEpochs.clear();
+  }
+
+  /** The view's bytes become its baseline (at a refresh). */
+  private rebase(view: Held): void {
+    this.unbase(view);
+    view.base = view.bytes;
+    view.baseCapture = view.capture;
+  }
+
+  private unbase(view: Held): void {
+    if (view.baseCapture !== null && view.baseCapture !== view.capture)
+      for (const id of view.baseCapture.members) removeFrom(this.baseIndex, id, view.key);
   }
 
   private time(key: string, capture: Capture): void {
@@ -635,12 +785,14 @@ export class StoreViews {
     for (const id of capture.members) removeFrom(this.memberIndex, id, key);
   }
 
-  private forget(key: string): void {
+  private forget(key: string, evicted = false): void {
     const view = this.views.get(key);
     if (view === undefined) return;
     this.views.delete(key);
     this.dirty.delete(key);
+    if (evicted && this.quirks.keepEvicted === true) this.evicted.set(key, view);
     if (this.quirks.keepIndexOnDrop === true) return;
+    this.unbase(view);
     this.unindex(key, view.capture);
     this.expiries.delete(key);
     this.starts.delete(key);

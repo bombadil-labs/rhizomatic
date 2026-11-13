@@ -32,7 +32,12 @@ import {
   type StoreConformanceFailure,
 } from "../src/storage/store-conformance.js";
 import { PUSHDOWN_FIELDS, passesSelection, scopeOver } from "../src/storage/store-vector-format.js";
-import { StoreError, type PeerStore, type Pushdown } from "../src/storage/store.js";
+import {
+  StoreError,
+  StoreFaultError,
+  type PeerStore,
+  type Pushdown,
+} from "../src/storage/store.js";
 import type { Term } from "../src/syntax/model.js";
 import { parseTerm } from "../src/syntax/term-json.js";
 import { viewsVectors } from "../tools/store-views-vectors.js";
@@ -187,6 +192,35 @@ describe("views vectors: wrong holders fail", () => {
       message: "the next boundary is 60, expected null",
     },
   ];
+
+  const NEW_ROWS: readonly { quirk: keyof ViewQuirks; fails: string; message: string }[] = [
+    {
+      quirk: "keepPurgedBaseline",
+      fails: "a-purge-read-by-a-hold-releases-the-baseline",
+      message: "refresh reports the change of leaf at plant:s with other bytes",
+    },
+    {
+      quirk: "keepEvicted",
+      fails: "an-evicted-view-is-read-again",
+      message: "hold of leaf at garden:1 answered other bytes",
+    },
+  ];
+  for (const row of NEW_ROWS)
+    it(`${row.quirk} fails ${row.fails}`, async () => {
+      const found = await failures(quirky({ [row.quirk]: true }));
+      expect(found.find((f) => f.name === `views/${row.fails}`)?.message).toContain(row.message);
+    });
+
+  it("keepEvicted fails only an-evicted-view-is-read-again, and passes without it", async () => {
+    const row = NEW_ROWS[1]!;
+    const found = await failures(quirky({ [row.quirk]: true }));
+    expect(found.map((f) => f.name)).toEqual([`views/${row.fails}`]);
+    const without = copy() as { cases: StoreViewsDocument["cases"] };
+    without.cases = without.cases.filter((c) => c.name !== row.fails);
+    expect(
+      await failures(quirky({ [row.quirk]: true }), {}, without as StoreViewsDocument),
+    ).toEqual([]);
+  });
 
   it("the holder with no quirk passes every run", async () => {
     for (const fault of Object.values(RUNS)) expect(await failures(quirky({}), fault)).toEqual([]);
@@ -363,6 +397,48 @@ describe("views vectors: every runner check has a row", () => {
     );
   });
 
+  it("a holder whose re-read list is not in order", async () => {
+    const reversed: ViewWitness = {
+      create: (peer, options) => {
+        const views = new StoreViews(peer, options);
+        return {
+          register: (name, program) => views.register(name, program),
+          setEpoch: (name, epoch) => views.setEpoch(name, epoch),
+          hold: (name, root, now) => views.hold(name, root, now),
+          refresh: async (now) => {
+            const r = await views.refresh(now);
+            return { ...r, reread: [...r.reread].reverse() };
+          },
+          drop: (name, root) => views.drop(name, root),
+          get nextBoundary() {
+            return views.nextBoundary;
+          },
+        };
+      },
+    };
+    const found = await failures(reversed);
+    expect(found.find((f) => f.name === "views/two-views-share-an-anchor")?.message).toContain(
+      "refresh's re-read list is not ascending",
+    );
+  });
+
+  it("a store that breaks its contract fails with the runner's fixed words", async () => {
+    const noProgress: Break = {
+      peer: (peer) => ({
+        changes: async (from, to) => {
+          const page = await peer.changes(from, to);
+          return to !== undefined && page.status === "ok" && page.records.length > 0
+            ? { ...page, through: from }
+            : page;
+        },
+      }),
+    };
+    const found = await failures(WITNESS, noProgress);
+    expect(found.find((f) => f.name === "views/an-unrelated-append")?.message).toContain(
+      "the store broke no-progress: ",
+    );
+  });
+
   it("a holder that answers its own history", async () => {
     const elsewhere: ViewWitness = {
       create: (peer, options) => {
@@ -414,6 +490,43 @@ const LEAF = parseTerm({
   },
 });
 const hexOf = (id: string): string => Buffer.from(id, "utf8").toString("hex");
+const MARKER = "erase-me-7f3a";
+/**
+ * A delta's own entry in canonical bytes: the key `id` and the id as a text string. A negator
+ * that names a purged delta carries its id under `delta`, which is the negator's, not a copy.
+ */
+const entryHex = (id: string): string => `626964${"78"}${id.length.toString(16)}${hexOf(id)}`;
+/** What a payload looks like inside a holder: the id, its hex, and the marker's hex. */
+const needles = (id: string): string[] => [id, hexOf(id), hexOf(MARKER), MARKER];
+
+/**
+ * Whether any string reachable from the holder (its maps, sets, arrays and objects) contains a
+ * needle. The peer handle is the store, not the holder's copy, and is not walked.
+ */
+function retained(
+  holder: object,
+  wanted: readonly string[],
+  exactly: readonly string[] = [],
+): boolean {
+  const seen = new Set<unknown>();
+  const stack: unknown[] = [holder];
+  while (stack.length > 0) {
+    const value = stack.pop();
+    if (typeof value === "string") {
+      if (exactly.includes(value) || wanted.some((n) => value.includes(n))) return true;
+      continue;
+    }
+    if (typeof value !== "object" || value === null || seen.has(value)) continue;
+    seen.add(value);
+    if (value instanceof Promise) continue;
+    if (value instanceof Map) for (const [k, v] of value) stack.push(k, v);
+    else if (value instanceof Set) for (const v of value) stack.push(v);
+    else
+      for (const [k, v] of Object.entries(value))
+        if (!(value === holder && k === "peer")) stack.push(k, v);
+  }
+  return false;
+}
 
 /** One writer of one peer of a store. */
 async function writer(options: MemoryStoreOptions = {}) {
@@ -501,6 +614,7 @@ describe("StoreViews", () => {
       views: 0,
       anchors: 0,
       members: 0,
+      baselines: 0,
       expiries: 0,
       starts: 0,
       programs: 0,
@@ -524,6 +638,41 @@ describe("StoreViews", () => {
     expect(order).toEqual(["hold", "refused", "refresh 0", "drop", "refresh 1"]);
   });
 
+  it("refuses drop of a program not registered; a view not held is no error", async () => {
+    const calls: string[] = [];
+    const views = new StoreViews(counting(calls));
+    views.register("leaf", { term: LEAF });
+    await expect(views.drop("missing", "a")).rejects.toMatchObject({ code: "invalid-request" });
+    await views.drop("leaf", "a");
+    expect(calls).toEqual([]);
+  });
+
+  it("only hold counts as a use: a refresh that reads a view does not save it from eviction", async () => {
+    const w = await writer();
+    await w.append([fact("a", 1), fact("b", 1), fact("c", 1)]);
+    const views = new StoreViews(w.peer, { maxViews: 2 });
+    views.register("leaf", { term: LEAF });
+    await views.hold("leaf", "a", 10);
+    await views.hold("leaf", "b", 10);
+    await w.append([fact("a", 2)]);
+    expect((await views.refresh(10)).reread).toEqual([{ name: "leaf", root: "a" }]);
+    await views.hold("leaf", "c", 10); // evicts a, the least recently held
+    expect((await views.hold("leaf", "b", 10)).from).toBe("held");
+    expect((await views.hold("leaf", "a", 10)).from).toBe("read");
+  });
+
+  it("a view a hold evicts is not read in that pass", async () => {
+    const w = await writer();
+    await w.append([fact("a", 1), fact("b", 1)]);
+    const views = new StoreViews(w.peer, { maxViews: 1 });
+    views.register("va", { term: LEAF });
+    views.register("vb", { term: LEAF });
+    await views.hold("va", "a", 10);
+    await w.append([fact("a", 2)]);
+    await views.hold("vb", "b", 10);
+    expect([views.evalCountOf("va"), views.evalCountOf("vb")]).toEqual([1, 1]);
+  });
+
   it("a refresh that fails changes nothing: the next refresh reads what the failed one owed", async () => {
     for (const quirk of [{}, { advanceOnFailure: true }]) {
       const w = await writer();
@@ -539,7 +688,7 @@ describe("StoreViews", () => {
       const before = (await views.hold("leaf", "a", 10)).bytes;
       await w.append([fact("a", 2)]);
       fault = true;
-      await expect(views.refresh(10)).rejects.toThrow("breaks the change feed contract");
+      await expect(views.refresh(10)).rejects.toBeInstanceOf(StoreFaultError);
       fault = false;
       const after = await views.refresh(10);
       const want = await fresh(w.peer, "a", 10);
@@ -549,30 +698,79 @@ describe("StoreViews", () => {
     }
   });
 
-  it("fails on a page past the snapshot, and on one with no progress that adds a touching id", async () => {
-    const w = await writer();
-    await w.append([fact("a", 1)]);
-    const id = fact("a", 2).id;
-    for (const page of [
-      (from: number, to: number) => ({ through: to + 5 }),
-      (from: number) => ({ through: from }),
-    ]) {
+  it("reports a store that breaks its contract as a fault value with its rule, and applies nothing", async () => {
+    const cases: readonly {
+      rule: string;
+      changes?: (from: number, to: number) => { through: number };
+      get?: true;
+    }[] = [
+      { rule: "past-the-bound", changes: (_from, to) => ({ through: to + 5 }) },
+      { rule: "no-progress", changes: (from) => ({ through: from }) },
+      { rule: "unasked-ids", get: true },
+    ];
+    for (const fault of cases) {
+      const w = await writer();
+      await w.append([fact("a", 1), fact("b", 1)]);
+      const touching = fact("a", 2);
+      let broken = false;
       const peer: PeerStore = {
         ...w.peer,
-        changes: async (from, to) => ({
-          status: "ok",
-          records: [{ revision: from + 1, head: null, added: [id], removed: [] }],
-          ...page(from, to!),
-        }),
+        changes: async (from, to) => {
+          if (!broken || fault.changes === undefined) return w.peer.changes(from, to);
+          return {
+            status: "ok",
+            records: [{ revision: from + 1, head: null, added: [touching.id], removed: [] }],
+            ...fault.changes(from, to!),
+          };
+        },
+        read: async () => {
+          const snapshot = await w.peer.read();
+          if (!broken || fault.get !== true) return snapshot;
+          // The answer names an id the call did not ask for.
+          return {
+            ...snapshot,
+            get: async (ids) => [...(await snapshot.get(ids)), fact("zz-unasked", 9)],
+          };
+        },
       };
       const views = new StoreViews(peer);
       views.register("leaf", { term: LEAF });
-      await views.hold("leaf", "a", 10);
-      await w.append([fact("a", 2)]);
+      const before = await views.hold("leaf", "a", 10);
+      const sizes = views.indexSizes();
+      await w.append([touching]);
+      broken = true;
       const error = await views.refresh(10).catch((e: unknown) => e);
-      expect(error).toBeInstanceOf(Error);
-      expect(error).not.toBeInstanceOf(StoreError);
+      expect(error, fault.rule).toBeInstanceOf(StoreFaultError);
+      expect((error as StoreFaultError).rule).toBe(fault.rule);
+      // Nothing applied: the view is where it was, and a sound store then moves it on.
+      expect(views.indexSizes()).toEqual(sizes);
+      broken = false;
+      const after = await views.refresh(10);
+      expect(after.changed.map((c) => [c.before, c.after])).toEqual([
+        [before.bytes, await fresh(w.peer, "a", 10)],
+      ]);
     }
+  });
+
+  it("starts a pass again when read() itself answers snapshot-moved", async () => {
+    const w = await writer();
+    await w.append([fact("a", 1)]);
+    let moves = 3;
+    const peer: PeerStore = {
+      ...w.peer,
+      read: async () => {
+        if (moves > 0) {
+          moves -= 1;
+          throw new StoreError("snapshot-moved", "moved");
+        }
+        return w.peer.read();
+      },
+    };
+    const views = new StoreViews(peer);
+    views.register("leaf", { term: LEAF });
+    expect((await views.hold("leaf", "a", 10)).from).toBe("read");
+    moves = 4;
+    await expect(views.refresh(10)).rejects.toMatchObject({ code: "snapshot-moved" });
   });
 
   it("starts a pass again when the peer moves under it, at most four snapshots", async () => {
@@ -636,6 +834,41 @@ describe("StoreViews", () => {
       const refreshed = await views.refresh(10);
       expect([refreshed.resynced, refreshed.reread.length, calls]).toEqual([true, 2, []]);
     }
+  });
+
+  it("a pass that reads a purge leaves no payload in the holder; the bystander is untouched", async () => {
+    const w = await writer();
+    const secret = makeDelta({
+      timestamp: 1,
+      validFrom: 1,
+      author: "did:key:zA",
+      pointers: [at("t"), { role: "value", target: { kind: "primitive", value: MARKER } }],
+    });
+    await w.append([secret, fact("other", 2)]);
+    const views = new StoreViews(w.peer);
+    views.register("leaf", { term: LEAF });
+    views.register("by", { term: LEAF });
+    await views.hold("leaf", "t", 10);
+    const bystander = await views.hold("by", "other", 10);
+    await w.append([fact("t", 3)]);
+    // Read again: the baseline (the first answer) still carries the payload.
+    expect((await views.hold("leaf", "t", 10)).from).toBe("read");
+    expect(retained(views, needles(secret.id))).toBe(true);
+    await w.peer.purge([secret.id]);
+    const reads = views.evalCountOf("by");
+    // This pass reads the purge.
+    const again = await views.hold("by", "other", 10);
+    expect(retained(views, needles(secret.id))).toBe(false);
+    expect([again.from, again.bytes, views.evalCountOf("by")]).toEqual([
+      "held",
+      bystander.bytes,
+      reads,
+    ]);
+    const refreshed = await views.refresh(10);
+    expect(refreshed.changed).toEqual([
+      { name: "leaf", root: "t", before: null, after: await fresh(w.peer, "t", 10) },
+    ]);
+    expect(JSON.stringify(refreshed)).not.toContain(hexOf(secret.id));
   });
 
   it("a purge reaches a held view at the next refresh; a named bystander is not read again", async () => {
@@ -863,6 +1096,8 @@ async function fuzzOne(seed: number, stats: FuzzStats): Promise<void> {
     [b, null],
   ]);
   const held = new Map<string, Entry>();
+  /** Ids purged from A in this sequence: once a pass has read their purge, the holder keeps none. */
+  const purged = new Set<string>();
   /** A's records: revision, removed ids, added ids. */
   const records: { revision: number; added: string[]; removed: string[] }[] = [];
   let sequence = 0;
@@ -1007,6 +1242,10 @@ async function fuzzOne(seed: number, stats: FuzzStats): Promise<void> {
       }
       if (answer.expiresAt !== model.get(key)!.expiresAt) fail(`hold of ${key}: expiresAt`);
       processed = answer.position.revision;
+      // Erasure: this pass read every purge so far; the holder keeps no purged id or payload.
+      for (const id of purged)
+        if (!held.has(id) && retained(views, [entryHex(id)], [id]))
+          fail(`after a pass, the holder still keeps ${id.slice(0, 12)}`);
     } else if (r < 0.55) {
       stats.refreshes += 1;
       const { reads, resynced } = pass(now);
@@ -1028,6 +1267,10 @@ async function fuzzOne(seed: number, stats: FuzzStats): Promise<void> {
         if (v.tracked !== v.bytes) fail(`the model of ${key} disagrees with itself`);
       }
       processed = answer.position.revision;
+      // Erasure: this pass read every purge so far; the holder keeps no purged id or payload.
+      for (const id of purged)
+        if (!held.has(id) && retained(views, [entryHex(id)], [id]))
+          fail(`after a pass, the holder still keeps ${id.slice(0, 12)}`);
     } else if (r < 0.8) {
       // A commit: an append (perhaps of nothing), a purge, or another peer's append.
       const c = rnd();
@@ -1039,6 +1282,7 @@ async function fuzzOne(seed: number, stats: FuzzStats): Promise<void> {
         held.delete(id);
         records.push({ revision: report.revision, added: [], removed: [id] });
         stats.purges += 1;
+        purged.add(id);
       } else {
         const absent = corpus.filter((d) => !held.has(d.id));
         if (absent.length > 0) await append(a, [pick(absent)]);

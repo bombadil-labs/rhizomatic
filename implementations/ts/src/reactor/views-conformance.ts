@@ -20,6 +20,7 @@ import type {
 } from "../storage/store-vector-format.js";
 import {
   StoreError,
+  StoreFaultError,
   type ChangePage,
   type ChangeRetention,
   type Entity,
@@ -71,7 +72,11 @@ export type RefreshStep = {
     readonly position: string;
     /** The views of programs without a selection that the refresh reads again. */
     readonly reread: readonly ViewsKey[];
-    readonly changed: readonly (ViewsKey & { readonly before: string; readonly after: string })[];
+    /** `before` is null when the holder released the view's baseline. */
+    readonly changed: readonly (ViewsKey & {
+      readonly before: string | null;
+      readonly after: string;
+    })[];
     readonly resynced: boolean;
     readonly nextBoundary: number | null;
   };
@@ -364,11 +369,17 @@ class ViewsRun {
     const key = keyOf(step.program, step.root);
     const fresh = !this.held.has(key);
     const heldBefore = [...this.held.values()];
+    // A hold of a new view into a full set forgets the least recently held view, which it does not read.
+    const evicts =
+      fresh && this.held.size >= this.maxViews ? this.held.keys().next().value! : undefined;
+    const kept = heldBefore.filter((k) => keyOf(k.program, k.root) !== evicts);
     this.sink.log = [];
     let answer: ViewRead;
     try {
       answer = await this.holder.hold(step.program, step.root, step.now);
     } catch (error) {
+      if (error instanceof StoreFaultError)
+        throw new Error(`the store broke ${error.rule}: ${error.message}`);
       if (!(error instanceof StoreError)) throw error;
       throw new Error(`hold refused with ${error.code}: ${error.message}`);
     }
@@ -382,13 +393,13 @@ class ViewsRun {
       answer.expiresAt === step.expect.expiresAt,
       `${what} reports expiresAt ${answer.expiresAt}, expected ${step.expect.expiresAt}`,
     );
-    const reread = resync ? heldBefore : step.expect.reread;
+    const reread = resync ? kept : step.expect.reread;
     this.walk(
       "hold",
       heldBefore,
       fresh ? [...reread, { program: step.program, root: step.root }] : reread,
     );
-    if (fresh && this.held.size >= this.maxViews) this.held.delete(this.held.keys().next().value!);
+    if (evicts !== undefined) this.held.delete(evicts);
     this.held.delete(key);
     this.held.set(key, { program: step.program, root: step.root });
     this.processed = answer.position;
@@ -403,6 +414,8 @@ class ViewsRun {
     try {
       answer = await this.holder.refresh(step.now);
     } catch (error) {
+      if (error instanceof StoreFaultError)
+        throw new Error(`the store broke ${error.rule}: ${error.message}`);
       if (!(error instanceof StoreError)) throw error;
       throw new Error(`refresh refused with ${error.code}: ${error.message}`);
     }
@@ -421,14 +434,30 @@ class ViewsRun {
       keysText(got) === keysText(want),
       `refresh re-read ${keysText(got)}, expected ${keysText(want)}`,
     );
+    const listed = answer.reread.map((k) => ({ program: k.name, root: k.root }));
+    check(
+      listed.every((k, i) => i === 0 || byKey(listed[i - 1]!, k) < 0),
+      "refresh's re-read list is not ascending",
+    );
+    // On a resync the holder releases every baseline: each held view is in `changed` with
+    // `before: null`, and its `after` is pinned where the document lists it.
+    const expected = resync
+      ? [...heldBefore].sort(byKey).map((k) => {
+          const listedChange = expect.changed.find(
+            (c) => c.program === k.program && c.root === k.root,
+          );
+          return { ...k, before: null, after: listedChange?.after };
+        })
+      : expect.changed;
     const changed = answer.changed.map((c) => ({ program: c.name, root: c.root }));
     check(
-      keysText(changed) === keysText(expect.changed),
-      `refresh changed ${keysText(changed)}, expected ${keysText(expect.changed)}`,
+      keysText(changed) === keysText(expected),
+      `refresh changed ${keysText(changed)}, expected ${keysText(expected)}`,
     );
     answer.changed.forEach((c, i) =>
       check(
-        c.before === expect.changed[i]!.before && c.after === expect.changed[i]!.after,
+        c.before === expected[i]!.before &&
+          (expected[i]!.after === undefined || c.after === expected[i]!.after),
         `refresh reports the change of ${c.name} at ${c.root} with other bytes`,
       ),
     );

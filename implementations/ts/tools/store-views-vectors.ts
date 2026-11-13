@@ -121,8 +121,10 @@ type HeldModel = ModelRead & {
   readonly root: string;
   /** The program's epoch when the view was read. */
   readonly epoch: string;
-  /** The bytes at the previous refresh, or at the view's first read since. */
-  base: string;
+  /** The bytes at the previous refresh, or at the view's first read since; null once released. */
+  base: string | null;
+  /** The raw scope of the read that gave `base`: the ids its bytes can carry. Null once released. */
+  baseRaw: ReadonlySet<string> | null;
 };
 
 const keyOf = (program: string, root: string): string => JSON.stringify([program, root]);
@@ -140,7 +142,7 @@ class Case {
   private readonly dirty = new Set<string>();
   private processed: number | undefined;
   /** Facts the generator checked, so the document cannot drift from what the cases claim. */
-  readonly seen = { touched: 0, untouched: 0, windows: 0, epochs: 0, resyncs: 0 };
+  readonly seen = { touched: 0, untouched: 0, windows: 0, epochs: 0, resyncs: 0, released: 0 };
 
   constructor(
     named: readonly Named[],
@@ -237,9 +239,10 @@ class Case {
    * One pass at `now`, as the contract says a holder makes it: the records since the processed
    * position decide the touched views; then time; then epochs. Proves rules 1 and 4 as it goes.
    */
-  private pass(now: number): { reads: Set<string>; resynced: boolean } {
+  private pass(now: number, evicts?: string): { reads: Set<string>; resynced: boolean } {
     const state = this.state();
     const reads = new Set<string>();
+    const released = new Set<string>();
     let resynced = false;
     const fail = (why: string): never => {
       throw new Error(`views vectors: ${why}`);
@@ -252,6 +255,9 @@ class Case {
         const removed = new Set(records.flatMap((r) => r.removed).map((n) => this.idOf.get(n)!));
         const added = new Set(records.flatMap((r) => r.added).map((n) => this.idOf.get(n)!));
         for (const [key, view] of this.views) {
+          // Erasure: a removed id that the baseline's read could carry releases the baseline.
+          if (view.baseRaw !== null && [...removed].some((id) => view.baseRaw!.has(id)))
+            released.add(key);
           // The rule of `touching`, by a plain scan of the records.
           const scope = new Set(view.scope);
           let touched = [...removed].some((id) => view.raw.has(id));
@@ -286,7 +292,10 @@ class Case {
     }
     if (resynced) {
       this.seen.resyncs += 1;
-      for (const key of this.views.keys()) reads.add(key);
+      for (const key of this.views.keys()) {
+        reads.add(key);
+        released.add(key);
+      }
     } else
       for (const [key, view] of this.views) {
         if (
@@ -301,6 +310,20 @@ class Case {
           this.seen.epochs += 1;
         }
       }
+    // A hold of a new view into a full set forgets the least recent view first: it is not read.
+    if (evicts !== undefined) {
+      reads.delete(evicts);
+      released.delete(evicts);
+      this.views.delete(evicts);
+      this.dirty.delete(evicts);
+    }
+    for (const key of released) {
+      const view = this.views.get(key)!;
+      view.base = null;
+      view.baseRaw = null;
+      this.dirty.add(key);
+      this.seen.released += 1;
+    }
     // Rule 1, by brute force: a view the pass keeps answers what a fresh read answers now.
     for (const [key, view] of this.views) {
       const fresh = this.read(view.program, view.root, now);
@@ -313,6 +336,7 @@ class Case {
           root: view.root,
           epoch: this.epochs.get(view.program)!,
           base: view.base,
+          baseRaw: view.baseRaw,
         });
         this.dirty.add(key);
       }
@@ -334,13 +358,12 @@ class Case {
   hold(program: string, root: string, now = NOW): this {
     const key = keyOf(program, root);
     const was = this.views.has(key);
-    const { reads } = this.pass(now);
+    const evicts =
+      !was && this.maxViews !== undefined && this.views.size >= this.maxViews
+        ? this.views.keys().next().value!
+        : undefined;
+    const { reads } = this.pass(now, evicts);
     if (!was) {
-      if (this.maxViews !== undefined && this.views.size >= this.maxViews) {
-        const oldest = this.views.keys().next().value!;
-        this.views.delete(oldest);
-        this.dirty.delete(oldest);
-      }
       const fresh = this.read(program, root, now);
       this.views.set(key, {
         ...fresh,
@@ -348,6 +371,7 @@ class Case {
         root,
         epoch: this.epochs.get(program)!,
         base: fresh.bytes,
+        baseRaw: new Set(fresh.raw.keys()),
       });
       this.dirty.add(key);
     }
@@ -376,10 +400,10 @@ class Case {
 
   refresh(now = NOW): this {
     const { reads, resynced } = this.pass(now);
-    const changed: (ViewsKey & { before: string; after: string })[] = [];
+    const changed: (ViewsKey & { before: string | null; after: string })[] = [];
     for (const key of this.dirty) {
       const view = this.views.get(key)!;
-      if (view.bytes !== view.base)
+      if (view.base === null || view.bytes !== view.base)
         changed.push({
           program: view.program,
           root: view.root,
@@ -387,6 +411,7 @@ class Case {
           after: view.bytes,
         });
       view.base = view.bytes;
+      view.baseRaw = new Set(view.raw.keys());
     }
     this.dirty.clear();
     this.steps.push({
@@ -401,6 +426,13 @@ class Case {
       },
     });
     return this;
+  }
+
+  /** Whether any held view's bytes or baseline still carry this hex. */
+  retains(hex: string): boolean {
+    for (const view of this.views.values())
+      if (view.bytes.includes(hex) || (view.base?.includes(hex) ?? false)) return true;
+    return false;
   }
 
   /** The bytes of every held view, by key: for the cases' own checks. */
@@ -817,6 +849,45 @@ function cases(world: World): StoreViewsCase[] {
         .hold("leaf", "plant:2")
         .append("A", "late-g-note")
         .hold("leaf", "plant:2")
+        .refresh(),
+  );
+  add(
+    "a-purge-read-by-a-hold-releases-the-baseline",
+    "The leaf at plant:s is held, then read again by a hold after x-ps-height: its baseline still carries ps-name. ps-name is purged, and a hold of the bystander leaf at plant:2 reads the purge. That pass reads the leaf at plant:s again and releases its baseline; the bystander is not read. The refresh then reports the leaf at plant:s with before null.",
+    (c) => {
+      leaves(c)
+        .hold("leaf", "plant:s")
+        .hold("leaf", "plant:2")
+        .append("A", "x-ps-height")
+        .hold("leaf", "plant:s")
+        .purge("A", "ps-name")
+        .hold("leaf", "plant:2");
+      if (c.retains(c.idHex("ps-name")))
+        throw new Error("views vectors: a pass read the purge and the model keeps its payload");
+      c.refresh();
+    },
+  );
+  add(
+    "an-evicted-view-is-read-again",
+    "The holder keeps one view. Holding the leaf at bed:1 evicts the leaf at garden:1. late-g-note then lands at garden:1. Holding garden:1 again reads it: the new bytes, from read. A holder that kept the evicted view and served its old bytes fails here.",
+    (c) =>
+      leaves(c)
+        .hold("leaf", "garden:1")
+        .hold("leaf", "bed:1")
+        .append("A", "late-g-note")
+        .hold("leaf", "garden:1"),
+    { maxViews: 1 },
+  );
+  add(
+    "a-new-view-that-changes-before-the-refresh",
+    "The leaf at garden:1 is first held after a refresh. late-g-note changes it before the next refresh, which reports it with before equal to its first answer. A view is not in changed merely because it is new.",
+    (c) =>
+      leaves(c)
+        .hold("leaf", "bed:1")
+        .refresh()
+        .hold("leaf", "garden:1")
+        .hold("leaf", "plant:2")
+        .append("A", "late-g-note")
         .refresh(),
   );
   add(
