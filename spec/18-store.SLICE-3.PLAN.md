@@ -142,6 +142,10 @@ proposal (PR #76). Each is owed by the step or slice named.
   55 to 66). SPEC-4 ERRATA V6 states decision O6.
 - ✓ `vectors/store/follow.json`, its runner and its rails (`vectors/store/README.md` §10). The
   generator and a fuzz prove the follower's guarantee by brute force.
+- ✓ The review of step 7: single pulls in `follow.json` (`once`) and four cases with commits
+  between them; a fault is found before a page is judged, with rails; a follower's copies lie
+  outside erasure; a full mirror starts from a position and then an export (§4.6, readings 67 to
+  72).
 - ✓ The final check of PR #80: the order of a capture's defects (reading 54); the TypeScript
   entry of `capture-interchange.json` pinned byte for byte (README §9.8); a feed page past r′ is a
   store fault in `checkFresh` (reading 46).
@@ -149,7 +153,8 @@ proposal (PR #76). Each is owed by the step or slice named.
 ### Step 8 (the feed cursor, Rust) owes
 
 From the documents alone: `spec/18-store.PROPOSAL.md` §4.6 and §4.13 readings 46 and 54 to 66,
-`vectors/store/README.md` §9.7, §9.8 and §10, and SPEC-4 ERRATA V6.
+`vectors/store/README.md` §9.7, §9.8 and §10, and SPEC-4 ERRATA V6 (readings 67 to 72 and
+README §10 as of the step 7 review).
 
 1. `Position` (history and revision), `position_of(&Snapshot)`, and a cursor made by
    `follow_feed(peer, from)` that makes no store call and refuses a malformed position
@@ -171,17 +176,36 @@ From the documents alone: `spec/18-store.PROPOSAL.md` §4.6 and §4.13 readings 
 6. `parse_position`: exactly the keys `history` and `revision`; a non-empty history that is not
    local to a process; `3.0` read as 3; `1.5` refused.
 7. The reactor: `StoreReactor::follow(from)`, and the position on a read and on a fetched scope.
-8. The runner of README §10 with its fixed messages and the call walk, and the runs of §10.4.
-   Replace the skip in `tests/store_follow.rs` with the run.
+8. The runner of README §10 with its fixed messages and the call walk, and the runs of §10.4,
+   including `once` pull steps: one pull; `the pull stands at <p>, expected <P>`; and, short of
+   the peer's revision, the check between quiet points (`after the pull to <p> the follower's
+   mirror differs from the holdings at <id>`). The runner's rule deletes an added id that came
+   with no delta. Replace the skip in `tests/store_follow.rs` with the run.
 9. The rails of README §10.6: the wrong-follower table (a second cursor with one rule broken at a
    time, which passes every run with none broken, and the "only these cases" evidence); the rows
    for the follow step and for documents; each runner check removed goes red; the cursor's own
-   rules; the fuzz (at least 2,000 sequences); the two cost rails.
+   rules; the fuzz (at least 2,000 sequences, with mirrors started from a snapshot and from a
+   non-atomic export, README §10.6); the two cost rails. The table includes W6 ("caches what it
+   delivered"), which passes the document without the four single-pull cases and fails
+   `a-purge-between-single-pulls`.
+11. Fault before judging: rails whose faulty page also adds a touching id (`check_fresh`) or an
+    added id (the cursor); with the fault check moved after the verdict or after `get`, they go
+    red (reading 68).
 10. From the final check of PR #80: move the empty-history check of the capture parser before the
     anchors, so the order of reading 54 holds (an empty history beside a `value` anchor is
     `invalid-request`); pin the Rust entry of `capture-interchange.json` byte for byte from the
     scenario of README §9.8; make `check_fresh` fail on a page whose `through` is past r′, as on a
     page with no progress (reading 46), with the rail of README §9.7 ("Store faults and time").
+
+### Slice 5 owes (Loam)
+
+- Loam's followers of the feed drop their mirror on `resync-required` and start again from a
+  position and a read; they never merge (§4.6, "A follower's copies lie outside erasure").
+- Loam's erasure accounts for its followers: a purge does not reach a follower's mirror until it
+  pulls the removal, and a follower that stops pulling keeps the bytes. Loam erases those copies
+  itself or keeps its followers pulling.
+- Loam's scoped reads keep fresh with `checkFresh`, not by applying pages; only a full mirror
+  applies them (§4.6, "A scope is not a mirror").
 
 ### Slice 4 owes
 
