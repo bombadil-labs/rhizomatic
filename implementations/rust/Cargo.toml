@@ -14,6 +14,9 @@ homepage = "https://mbilokonsky.github.io/rhizomatic/"
 readme = "README.md"
 keywords = ["crdt", "content-addressed", "provenance", "cbor", "federation"]
 categories = ["data-structures", "encoding", "cryptography"]
+# Every integration test is a module of one of the two programs below, because each test target
+# links its own copy of the crate and every dependency (AGENTS.md, "Build size").
+autotests = false
 
 [lib]
 # cdylib is for the WASM build of the witness (src/wasm.rs, used by the docs/ tour);
@@ -43,6 +46,16 @@ tempfile = "3"
 proptest = "1"
 syn = { version = "2", features = ["full", "visit", "extra-traits"] }
 
+[profile.dev]
+# Backtraces keep file and line; variable debug info is dropped. The test profile inherits this.
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+# Dependencies carry no debug info and are lightly optimized: the build is smaller and the suite
+# runs in less than half the time (the crypto and hashing crates dominate it).
+debug = false
+opt-level = 1
+
 [profile.release]
 # Keep the WASM witness small; the host build doesn't care.
 opt-level = "s"
@@ -51,3 +64,11 @@ lto = true
 [[example]]
 name = "command_fixture"
 test = true
+
+[[test]]
+name = "witness"
+path = "tests/witness.rs"
+
+[[test]]
+name = "private_source"
+path = "tests/private_source.rs"

@@ -188,6 +188,23 @@ GitHub issues when useful; coordinate design changes with Myk and Loam's owner.
   cancels its older run. Any TS source change also requires `npm run docs:build` (the tour and
   playground bundles under `docs/` are committed bytes and CI diffs them).
 
+## Build size
+
+- The Rust witness has one test program, `witness` (`tests/witness.rs`). Each file in
+  `implementations/rust/tests/` is a module of it.
+- A second program, `private_source` (`tests/private_source.rs`), holds the two tests that compile
+  private source files. Those files need a crate root of their own.
+- Cargo links each test target with its own copy of the crate and every dependency. 74 targets
+  wrote about 10 GB per build.
+- To add a test file, put it in `tests/` and add a `mod <file>;` line to `tests/witness.rs`.
+  Do not add a `[[test]]` target. `tools/check-rust-test-programs.test.mjs` refuses one.
+- To run a subset, filter by module: `cargo test store_vectors::`. The old form
+  `cargo test --test store_vectors` no longer exists.
+- Remove a worktree when its PR merges.
+- A reviewer deletes its `target` directory when it finishes.
+- To share one build directory between worktrees, set `CARGO_TARGET_DIR` to one path. Run those
+  builds one at a time.
+
 ## Releasing (`@bombadil/rhizomatic` to npm)
 
 Publishing is cutting a tag; CI does the rest. When asked to cut a release:

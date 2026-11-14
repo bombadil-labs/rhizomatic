@@ -1,14 +1,3 @@
-#[path = "support/evidence_assertions.rs"]
-mod assertion_evidence;
-// Compile the exact private semantic walkers in this test crate; no production I/O.
-use rhizomatic::{cbor, eval, pred, resolution, term_io, term_json, types};
-#[allow(dead_code)]
-#[path = "../src/evidence_codec.rs"]
-mod evidence_codec;
-#[path = "../src/reading_budget.rs"]
-mod reading_budget;
-#[path = "../src/reading_wire_budget.rs"]
-mod reading_wire_budget;
 mod tests {
     use crate::evidence_codec::ReadingAppearanceLimits;
     use crate::reading_wire_budget::check;
