@@ -14,7 +14,7 @@ const run=(cmd,args,name)=>{const r=spawnSync(cmd,args,{cwd:root,encoding:'utf8'
 const tsLog=run(join(root,'implementations/ts/node_modules/.bin/vitest'),['run','--root','implementations/ts','test/evidence-envelope.test.ts','test/evidence-verification.test.ts','--reporter=default','--reporter=json','--outputFile',join(out,'TS-TESTS.json')],'ts');
 const ts=JSON.parse(readFileSync(join(out,'TS-TESTS.json')));assert.equal(ts.success,true);assert.equal(ts.numFailedTests,0);
 const discovered=ts.testResults.flatMap(r=>r.assertionResults).filter(a=>a.status==='passed').flatMap(a=>a.fullName.match(/env_[a-z_]+/g)??[]);
-const rust=run(process.env.CARGO??'cargo',['test','--locked','--manifest-path','implementations/rust/Cargo.toml','--test','evidence_envelope','--test','evidence_budget','--test','evidence_verification','--','--nocapture'],'rust');
+const rust=run(process.env.CARGO??'cargo',['test','--locked','--manifest-path','implementations/rust/Cargo.toml','--test','witness','--test','private_source','--','evidence_envelope::','evidence_budget::','evidence_verification::','--nocapture'],'rust');
 const rustCases=[...rust.matchAll(/materialization-case:\"?(env_[a-z_]+)\"?/g)].map(m=>m[1]);
 const codecOnly=required.filter(id=>id!=='env_fixed_mixed_routes');
 assert.deepEqual([...new Set(discovered)].filter(id=>id!=='env_fixed_mixed_routes').sort(),codecOnly);

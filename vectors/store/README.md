@@ -905,7 +905,9 @@ Every run passes and skips nothing. A witness whose store has no page limit runs
 The vectors cannot measure cost. Each witness times two rails from outside, with a monotonic
 clock, in the manner of §6 "Building `scopeSource`": N from 256, doubling until the run takes
 50 ms; the run at N the fastest of five; the run at 8N the fastest of three, stopping at the
-first under the bound; the ratio of the two below 24.
+first under the bound; the ratio of the two below 24. A witness may measure a slow rail again,
+up to three measurements in all, and fail it only when every one reaches 24; a quadratic store
+reaches it every time. The Rust witness does so, and runs its timed rails one at a time.
 
 1. **A window read after each record.** Build a peer with N + W head-only commits (W = 64 in the
    TypeScript witness). Time N calls: call r reads `changes(r, r + W)` and gets W records. A store
@@ -1391,7 +1393,7 @@ The JSON cannot express these; each witness builds them over this fixture.
     rail may stop at the first build under the bound, because the fastest is under the bound
     exactly when one build is. The ratio of the two must stay below 24: linear work gives about
     8, and quadratic work about 64. A quadratic build reaches 50 ms at a small N, so it fails
-    rather than hangs.
+    rather than hangs. A witness may measure a slow shape again, as in §3.9.9.
 
     This is a coarse scaling check, not a count. It catches a copy or a search of a list per
     insert: of a bucket (shapes 1 and 2), of one member's keys (shape 3), of what earlier

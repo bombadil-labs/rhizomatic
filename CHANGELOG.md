@@ -339,6 +339,9 @@ views; the Rust witness skips them until step 10.
 - `ArrivalRecord` is defined in the `storage` package boundary. `federation` and the package root
   still export it; no import needs to change. The Rust witness does the same, and its
   `DeltaSource` trait now lives in `set` (`anchored` still exports it).
+- The Rust witness builds two integration test programs instead of 74. Each former test file is
+  a module of `tests/witness.rs`; run one with `cargo test store_vectors::`, not `--test`.
+  `tools/check-rust-test-programs.test.mjs` refuses a new test target (AGENTS.md, "Build size").
 
 ## 0.11.0-next.10 — 2026-10-14
 

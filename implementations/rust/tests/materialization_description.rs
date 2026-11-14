@@ -1,5 +1,4 @@
-#[path = "support/materialization_assertions.rs"]
-mod assertion_evidence;
+use crate::materialization_assertions as assertion_evidence;
 use rhizomatic::materialization_data::{
     materialization_description_claims, read_materialization_description, MaterializationVerb,
 };

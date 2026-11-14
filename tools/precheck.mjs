@@ -33,6 +33,7 @@ const steps = [
   ["command contracts and TS export inventory", root, "node tools/check-command-contracts.mjs --self-test"],
   ["package graph", root, "node tools/check-package-graph.mjs"],
   ["Rust boundaries and dependency inventory", root, "node tools/check-rust-command-boundaries.mjs"],
+  ["Rust test programs stay few", root, "node --test tools/check-rust-test-programs.test.mjs"],
   ["TS format, lint and types", ts, "npm run -s format:check && npm run -s lint && npm run -s typecheck"],
   ["Rust format and clippy", rust, "cargo fmt --check && cargo clippy -q --all-targets -- -D warnings"],
   [

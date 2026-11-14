@@ -1,36 +1,6 @@
-// F1 instrumentation compiles the exact core source with a counting wrapper that
-// delegates to the real verifier. No production test hooks or alternate verifier.
-use rhizomatic::{
-    cbor, delta, eval, hash, hview, json_profile, pred, resolution, term_io, term_json, types,
-};
-#[path = "../src/hview_envelope.rs"]
-mod envelope;
-#[allow(dead_code)]
-#[path = "../src/evidence_codec.rs"]
-mod evidence_codec;
-#[path = "../src/reading_appearance.rs"]
-mod reading_appearance;
-#[path = "../src/reading_budget.rs"]
-mod reading_budget;
-#[path = "../src/reading_wire_budget.rs"]
-mod reading_wire_budget;
 #[path = "support/evidence_fixture.rs"]
 mod support;
-mod sign {
-    pub use rhizomatic::sign::Verification;
-    use std::cell::Cell;
-    thread_local! { static CALLS: Cell<usize> = const { Cell::new(0) }; }
-    pub fn verify_canonical_delta(d: &crate::types::Delta) -> Verification {
-        CALLS.with(|c| c.set(c.get() + 1));
-        rhizomatic::sign::verify_canonical_delta(d)
-    }
-    pub fn reset() {
-        CALLS.with(|c| c.set(0));
-    }
-    pub fn count() -> usize {
-        CALLS.with(Cell::get)
-    }
-}
+use crate::{envelope, evidence_codec, hview, json_profile, sign, types};
 #[test]
 fn verification_scales_with_full_appearances_not_entries() {
     use hview::{HVEntry, HView};

@@ -429,19 +429,24 @@ fn a_scope_source_builds_in_the_size_of_its_members() {
         ("entity pointers of one member", wide, 1 << 20),
         ("appearances of four ids", four_ids, 1 << 17),
     ];
+    let _timed = crate::timed::exclusive();
     let slow: Vec<String> = shapes
         .into_iter()
         .filter_map(|(shape, members, cap)| {
-            let (n, at_n) = calibrated(members, cap);
-            let at_8n = fastest_build(&members(8 * n), 3, at_n.mul_f64(BOUND));
-            let ratio = at_8n.as_secs_f64() / at_n.as_secs_f64();
-            println!("scope source, {shape}: N = {n}, {at_n:?} and {at_8n:?}, ratio {ratio:.2}");
-            (ratio >= BOUND).then(|| {
-                format!(
-                    "{shape}: building at 8N = {} took {ratio:.1} times as long as at N = {n} \
+            crate::timed::remeasured(|| {
+                let (n, at_n) = calibrated(members, cap);
+                let at_8n = fastest_build(&members(8 * n), 3, at_n.mul_f64(BOUND));
+                let ratio = at_8n.as_secs_f64() / at_n.as_secs_f64();
+                println!(
+                    "scope source, {shape}: N = {n}, {at_n:?} and {at_8n:?}, ratio {ratio:.2}"
+                );
+                (ratio >= BOUND).then(|| {
+                    format!(
+                        "{shape}: building at 8N = {} took {ratio:.1} times as long as at N = {n} \
                      ({at_8n:?} against {at_n:?}); linear work gives about 8",
-                    8 * n
-                )
+                        8 * n
+                    )
+                })
             })
         })
         .collect();
@@ -556,7 +561,8 @@ fn a_window_read_costs_its_window_not_the_feed_before_it() {
         let mut built = built.borrow_mut();
         built.entry(n).or_insert_with(|| reads(n))()
     };
-    let slow = scales_linearly("a window read after each record", run);
+    let _timed = crate::timed::exclusive();
+    let slow = crate::timed::remeasured(|| scales_linearly("a window read after each record", run));
     assert!(slow.is_none(), "{}", slow.unwrap());
 }
 
@@ -590,6 +596,8 @@ fn an_append_under_bounded_retention_costs_the_same_with_any_number_kept() {
         black_box(&store);
         took
     };
-    let slow = scales_linearly("an append under bounded retention", run);
+    let _timed = crate::timed::exclusive();
+    let slow =
+        crate::timed::remeasured(|| scales_linearly("an append under bounded retention", run));
     assert!(slow.is_none(), "{}", slow.unwrap());
 }

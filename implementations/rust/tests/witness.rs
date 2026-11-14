@@ -1,0 +1,82 @@
+//! The one integration test program of the Rust witness. Each module is one former test file.
+//! A new test file is a `mod` line here, not a new target: each target links its own copy of the
+//! crate and its dependencies (AGENTS.md, "Build size").
+#[path = "support/freshness_doubles.rs"]
+mod freshness_doubles;
+#[path = "support/materialization_assertions.rs"]
+mod materialization_assertions;
+#[path = "support/timed.rs"]
+mod timed;
+
+mod aliased;
+mod anchored;
+mod bytes_easter_egg;
+mod bytes_resolve;
+mod cbor;
+mod command_descriptions;
+mod command_durable;
+mod command_runtime;
+mod command_signature_profile;
+mod delta_debug_size;
+mod derivation;
+mod distinct;
+mod eval;
+mod evidence_envelope;
+mod expand;
+mod governed_bindings_vectors;
+mod governed_vectors;
+mod holes;
+mod http;
+mod hview;
+mod materialization_command;
+mod materialization_control;
+mod materialization_description;
+mod materialization_lifecycle;
+mod materialization_scoped_commands;
+mod materialization_scoped_source;
+mod materialization_source;
+mod materialize;
+mod negation_source;
+mod pack;
+mod parse_errors;
+mod peer;
+mod peer_arrival_vectors;
+mod peer_atomic_transfer_vectors;
+mod peer_bundle_entry_vectors;
+mod peer_durable_state_vectors;
+mod peer_erasure_filter_vectors;
+mod peer_guarded_transfer_vectors;
+mod peer_identity_vectors;
+mod peer_loose_entry_vectors;
+mod peer_ordinary_journal_api_vectors;
+mod peer_ordinary_journal_vectors;
+mod peer_ordinary_quota_vectors;
+mod peer_permanent_journal_vectors;
+mod peer_signed_loose_admission_vectors;
+mod peer_single_peer_api_vectors;
+mod peer_state_vectors;
+mod principal_store;
+mod principal_vectors;
+mod reactor;
+mod reactor_deprecations;
+mod reflective;
+mod resolve;
+mod schema_deltas;
+mod set;
+mod sign;
+mod store_broken;
+mod store_cost;
+mod store_feed;
+mod store_feed_rules;
+mod store_follow;
+mod store_freshness;
+mod store_open;
+mod store_read_families;
+mod store_rounds;
+mod store_runner;
+mod store_runner_rules;
+mod store_vectors;
+mod strict_keys;
+mod time;
+mod txn;
+mod vectors;
