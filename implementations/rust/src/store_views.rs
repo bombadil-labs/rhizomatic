@@ -606,15 +606,21 @@ impl<'a> StoreViews<'a> {
             }
         }
         let mut reads = BTreeMap::new();
-        match self.quirk(ViewQuirk::ReadsOnNewerSnapshot) && !due.is_empty() {
-            true => {
+        if self.quirk(ViewQuirk::ReadsOnNewerSnapshot) {
+            let touched: BTreeSet<ViewKey> = due
+                .iter()
+                .filter(|key| self.views.contains_key(*key))
+                .cloned()
+                .collect();
+            if !touched.is_empty() {
                 let mut newer = self.peer.read()?;
-                let read = self.read_all(newer.as_ref(), &due, now);
+                let read = self.read_all(newer.as_ref(), &touched, now);
                 newer.release();
                 reads = read?;
+                due.retain(|key| !touched.contains(key));
             }
-            false => reads.extend(self.read_all(snapshot, &due, now)?),
         }
+        reads.extend(self.read_all(snapshot, &due, now)?);
         Ok(Plan {
             position,
             resynced,
