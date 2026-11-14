@@ -57,13 +57,17 @@ fn the_views_vectors_are_skipped_until_the_witness_holds_views() {
                     assert!(expect["position"].is_string());
                     assert!(expect["reread"].as_array().unwrap().iter().all(is_key));
                     if let Some(from) = expect.get("from") {
-                        assert!(from == "held" || from == "read", "{name}: {from}");
+                        assert!(
+                            from == "held" || from == "read" || from == "new",
+                            "{name}: {from}"
+                        );
                     }
                 }
                 "refresh" => {
                     assert!(step["now"].is_number());
                     assert!(expect["resynced"].is_boolean());
                     assert!(expect["reread"].as_array().unwrap().iter().all(is_key));
+                    assert!(expect["evicted"].as_array().unwrap().iter().all(is_key));
                     for change in expect["changed"].as_array().expect("changed") {
                         assert!(is_key(change));
                         assert!(change["before"].is_string() || change["before"].is_null());

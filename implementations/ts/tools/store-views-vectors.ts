@@ -7,7 +7,10 @@
 // force at every step. Rule 1: every answer, and every held view after a refresh, equals a fresh
 // read over the model's holdings at that time. Rule 4: a view is touched by the rule of
 // `touching` exactly when its raw scope changed (ids, arrival records, or a member left and came
-// back). A case that breaks either fails generation.
+// back). The host rule: a host that copies a view's bytes from a `hold` answer whose `from` is
+// "new", afterwards only from `changed[].after`, and stops maintaining a view named in `evicted`,
+// holds at every refresh exactly the held views, each equal to a fresh read. A case that breaks
+// any of the three fails generation.
 
 import { compareUtf8 } from "../src/delta/cbor.js";
 import { claimsToJson, parseClaims } from "../src/delta/json-profile.js";
@@ -142,9 +145,21 @@ class Case {
   private readonly epochs = new Map<string, string>();
   /** Views read since the previous refresh. */
   private readonly dirty = new Set<string>();
+  /** Views an eviction forgot since the previous refresh, not held again or dropped since. */
+  private readonly evictions = new Set<string>();
+  /** The host's copy of each view it believes held, kept by the host rule alone. */
+  private readonly host = new Map<string, string>();
   private processed: number | undefined;
   /** Facts the generator checked, so the document cannot drift from what the cases claim. */
-  readonly seen = { touched: 0, untouched: 0, windows: 0, epochs: 0, resyncs: 0, released: 0 };
+  readonly seen = {
+    touched: 0,
+    untouched: 0,
+    windows: 0,
+    epochs: 0,
+    resyncs: 0,
+    released: 0,
+    hosted: 0,
+  };
 
   constructor(
     named: readonly Named[],
@@ -213,6 +228,8 @@ class Case {
     const key = keyOf(program, root);
     this.views.delete(key);
     this.dirty.delete(key);
+    this.evictions.delete(key);
+    this.host.delete(key);
     this.steps.push({ op: "drop", program, root, expect: { nextBoundary: this.boundary() } });
     return this;
   }
@@ -318,6 +335,7 @@ class Case {
       released.delete(evicts);
       this.views.delete(evicts);
       this.dirty.delete(evicts);
+      this.evictions.add(evicts);
     }
     for (const key of released) {
       const view = this.views.get(key)!;
@@ -345,6 +363,15 @@ class Case {
     }
     this.processed = state.revision;
     return { reads, resynced };
+  }
+
+  private keys(keys: Iterable<string>): ViewsKey[] {
+    return [...keys]
+      .map((key) => {
+        const [program, root] = JSON.parse(key) as [string, string];
+        return { program, root };
+      })
+      .sort(byKey);
   }
 
   private plain(keys: Iterable<string>): ViewsKey[] {
@@ -380,6 +407,18 @@ class Case {
     const view = this.views.get(key)!;
     this.views.delete(key);
     this.views.set(key, view);
+    this.evictions.delete(key);
+    // The pass reads no view whose root is the evicted view's: the runner checks that no `scope`
+    // call of this hold names that root, so no read due in it may reach the root.
+    if (evicts !== undefined) {
+      const [, gone] = JSON.parse(evicts) as [string, string];
+      for (const [other, v] of this.views)
+        if (v.scope.includes(gone))
+          throw new Error(`views vectors: ${other} reaches ${gone}, the root of the view evicted`);
+    }
+    const from = !was ? ("new" as const) : reads.has(key) ? ("read" as const) : ("held" as const);
+    // The host rule: a "new" answer is the view's baseline, and the host copies it.
+    if (from === "new") this.host.set(key, view.bytes);
     const selected = this.world.program(program).selection !== undefined;
     this.steps.push({
       op: "hold",
@@ -388,9 +427,7 @@ class Case {
       now,
       expect: {
         bytes: view.bytes,
-        ...(selected
-          ? {}
-          : { from: was && !reads.has(key) ? ("held" as const) : ("read" as const) }),
+        ...(selected ? {} : { from }),
         position: `${this.peer}.${this.state().revision}`,
         expiresAt: view.expiresAt,
         nextBoundary: this.boundary(),
@@ -416,6 +453,30 @@ class Case {
       view.baseRaw = new Set(view.raw.keys());
     }
     this.dirty.clear();
+    const evicted = this.keys(this.evictions);
+    this.evictions.clear();
+    // The host rule, by brute force: copy from `changed`, stop at `evicted`; then the host holds
+    // exactly the held views, each a fresh read now.
+    const fail = (why: string): never => {
+      throw new Error(`views vectors: the host rule: ${why}`);
+    };
+    for (const c of changed) {
+      const key = keyOf(c.program, c.root);
+      if (!this.host.has(key)) fail(`changed names ${key}, which the host does not hold`);
+      this.host.set(key, c.after);
+    }
+    for (const k of evicted) {
+      const key = keyOf(k.program, k.root);
+      if (!this.host.delete(key)) fail(`evicted names ${key}, which the host does not hold`);
+    }
+    if ([...this.host.keys()].sort().join() !== [...this.views.keys()].sort().join())
+      fail("the host's views are not the held views");
+    for (const [key, bytes] of this.host) {
+      const view = this.views.get(key)!;
+      if (bytes !== this.read(view.program, view.root, now).bytes)
+        fail(`the host's copy of ${key} is not a fresh read at ${now}`);
+      this.seen.hosted += 1;
+    }
     this.steps.push({
       op: "refresh",
       now,
@@ -423,6 +484,7 @@ class Case {
         position: `${this.peer}.${this.state().revision}`,
         reread: this.plain(reads),
         changed: changed.sort(byKey),
+        evicted,
         resynced,
         nextBoundary: this.boundary(),
       },
@@ -889,13 +951,41 @@ function cases(world: World): StoreViewsCase[] {
   );
   add(
     "an-evicted-view-is-read-again",
-    "The holder keeps one view. Holding the leaf at bed:1 evicts the leaf at garden:1. late-g-note then lands at garden:1. Holding garden:1 again reads it: the new bytes, from read. A holder that kept the evicted view and served its old bytes fails here.",
+    "The holder keeps one view. Holding the leaf at bed:1 evicts the leaf at garden:1. late-g-note then lands at garden:1. Holding garden:1 again reads it: the new bytes, from new. A holder that kept the evicted view and served its old bytes fails here.",
     (c) =>
       leaves(c)
         .hold("leaf", "garden:1")
         .hold("leaf", "bed:1")
         .append("A", "late-g-note")
         .hold("leaf", "garden:1"),
+    { maxViews: 1 },
+  );
+  add(
+    "an-evicted-view-held-again-answers-new",
+    "The holder keeps one view. The host copies the leaf at garden:1 from its new answer, and a refresh follows. Holding the leaf at bed:1 evicts garden:1. late-g-note then lands at garden:1. Holding garden:1 again answers from new with the new bytes, and evicts bed:1: the host copies the new bytes, because the answer is new. The refresh reports no change, and evicted names bed:1 alone: garden:1 was evicted and held again. A host that copied only from changed would keep the old bytes of garden:1.",
+    (c) =>
+      leaves(c)
+        .hold("leaf", "garden:1")
+        .refresh()
+        .hold("leaf", "bed:1")
+        .append("A", "late-g-note")
+        .hold("leaf", "garden:1")
+        .refresh(),
+    { maxViews: 1 },
+  );
+  add(
+    "an-evicted-view-not-held-again",
+    "The holder keeps one view. late-g-note touches the leaf at garden:1; then holding the leaf at bed:1 evicts garden:1, and that pass does not read it. Holding the leaf at plant:2 evicts bed:1, and the host drops bed:1. The refresh names garden:1 in evicted, and not bed:1, which the host dropped. The next refresh names nothing.",
+    (c) =>
+      leaves(c)
+        .hold("leaf", "garden:1")
+        .refresh()
+        .append("A", "late-g-note")
+        .hold("leaf", "bed:1")
+        .hold("leaf", "plant:2")
+        .drop("leaf", "bed:1")
+        .refresh()
+        .refresh(),
     { maxViews: 1 },
   );
   add(

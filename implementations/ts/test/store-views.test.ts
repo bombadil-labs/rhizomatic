@@ -204,6 +204,31 @@ describe("views vectors: wrong holders fail", () => {
       fails: "an-evicted-view-is-read-again",
       message: "hold of leaf at garden:1 answered other bytes",
     },
+    {
+      quirk: "readWhenNew",
+      fails: "an-evicted-view-held-again-answers-new",
+      message: "hold of leaf at garden:1 answered from read, expected new",
+    },
+    {
+      quirk: "omitEvicted",
+      fails: "an-evicted-view-not-held-again",
+      message: "refresh evicted [], expected [leaf@garden:1]",
+    },
+    {
+      quirk: "evictedKeepsDropped",
+      fails: "an-evicted-view-not-held-again",
+      message: "refresh evicted [leaf@bed:1 leaf@garden:1], expected [leaf@garden:1]",
+    },
+    {
+      quirk: "evictedKeepsReheld",
+      fails: "an-evicted-view-held-again-answers-new",
+      message: "refresh evicted [leaf@bed:1 leaf@garden:1], expected [leaf@bed:1]",
+    },
+    {
+      quirk: "readEvicted",
+      fails: "an-evicted-view-not-held-again",
+      message: "hold read leaf@garden:1, the view it evicts",
+    },
   ];
   for (const row of NEW_ROWS)
     it(`${row.quirk} fails ${row.fails}`, async () => {
@@ -211,15 +236,30 @@ describe("views vectors: wrong holders fail", () => {
       expect(found.find((f) => f.name === `views/${row.fails}`)?.message).toContain(row.message);
     });
 
-  it("keepEvicted fails only an-evicted-view-is-read-again, and passes without it", async () => {
-    const row = NEW_ROWS[1]!;
-    const found = await failures(quirky({ [row.quirk]: true }));
-    expect(found.map((f) => f.name)).toEqual([`views/${row.fails}`]);
-    const without = copy() as { cases: StoreViewsDocument["cases"] };
-    without.cases = without.cases.filter((c) => c.name !== row.fails);
-    expect(
-      await failures(quirky({ [row.quirk]: true }), {}, without as StoreViewsDocument),
-    ).toEqual([]);
+  const ONLY: readonly { quirk: keyof ViewQuirks; cases: readonly string[] }[] = [
+    {
+      quirk: "keepEvicted",
+      cases: ["an-evicted-view-is-read-again", "an-evicted-view-held-again-answers-new"],
+    },
+    { quirk: "evictedKeepsDropped", cases: ["an-evicted-view-not-held-again"] },
+    { quirk: "readEvicted", cases: ["an-evicted-view-not-held-again"] },
+  ];
+  for (const row of ONLY)
+    it(`${row.quirk} fails only ${row.cases.join(" and ")}, and passes without them`, async () => {
+      const found = await failures(quirky({ [row.quirk]: true }));
+      expect(found.map((f) => f.name).sort()).toEqual(row.cases.map((c) => `views/${c}`).sort());
+      const without = copy() as { cases: StoreViewsDocument["cases"] };
+      without.cases = without.cases.filter((c) => !row.cases.includes(c.name));
+      expect(
+        await failures(quirky({ [row.quirk]: true }), {}, without as StoreViewsDocument),
+      ).toEqual([]);
+    });
+
+  it("readWhenNew also fails the first hold of a program with a selection", async () => {
+    const found = await failures(quirky({ readWhenNew: true }));
+    expect(found.find((f) => f.name === "views/a-program-with-a-selection")?.message).toContain(
+      "hold of before-60 at plant:s answered from read, expected new",
+    );
   });
 
   it("the holder with no quirk passes every run", async () => {
@@ -350,6 +390,21 @@ describe("views vectors: every runner check has a row", () => {
       message: "the vector names an unknown program missing",
     },
     {
+      name: "another evicted set",
+      case: "no-change",
+      edit: (s) =>
+        (s.find((x) => x.op === "refresh")!.expect!.evicted = [
+          { program: "leaf", root: "garden:1" },
+        ]),
+      message: "refresh evicted [], expected [leaf@garden:1]",
+    },
+    {
+      name: "a new view expected held",
+      case: "no-change",
+      edit: (s) => (s.find((x) => x.op === "hold")!.expect!.from = "held"),
+      message: "hold of leaf at garden:1 answered from new, expected held",
+    },
+    {
       name: "a hold read set that misses a read",
       case: "a-hold-passes-for-the-whole-set",
       edit: (s) => (s.filter((x) => x.op === "hold")[2]!.expect!.reread = []),
@@ -394,6 +449,31 @@ describe("views vectors: every runner check has a row", () => {
     const found = await failures(reading);
     expect(found.find((f) => f.name === "views/set-epoch")?.message).toContain(
       "setEpoch made the call read; it makes no store call",
+    );
+  });
+
+  it("a holder that answers new for a held view of a program with a selection", async () => {
+    const renewed: ViewWitness = {
+      create: (peer, options) => {
+        const views = new StoreViews(peer, options);
+        return {
+          register: (name, program) => views.register(name, program),
+          setEpoch: (name, epoch) => views.setEpoch(name, epoch),
+          hold: async (name, root, now) => ({
+            ...(await views.hold(name, root, now)),
+            from: "new",
+          }),
+          refresh: (now) => views.refresh(now),
+          drop: (name, root) => views.drop(name, root),
+          get nextBoundary() {
+            return views.nextBoundary;
+          },
+        };
+      },
+    };
+    const found = await failures(renewed);
+    expect(found.find((f) => f.name === "views/a-program-with-a-selection")?.message).toContain(
+      "hold of before-60 at plant:s answered from new, expected held or read",
     );
   });
 
@@ -662,7 +742,7 @@ describe("StoreViews", () => {
     expect((await views.refresh(10)).reread).toEqual([{ name: "leaf", root: "a" }]);
     await views.hold("leaf", "c", 10); // evicts a, the least recently held
     expect((await views.hold("leaf", "b", 10)).from).toBe("held");
-    expect((await views.hold("leaf", "a", 10)).from).toBe("read");
+    expect((await views.hold("leaf", "a", 10)).from).toBe("new");
   });
 
   it("a view a hold evicts is not read in that pass", async () => {
@@ -772,7 +852,7 @@ describe("StoreViews", () => {
     };
     const views = new StoreViews(peer);
     views.register("leaf", { term: LEAF });
-    expect((await views.hold("leaf", "a", 10)).from).toBe("read");
+    expect((await views.hold("leaf", "a", 10)).from).toBe("new");
     moves = 4;
     await expect(views.refresh(10)).rejects.toMatchObject({ code: "snapshot-moved" });
   });
@@ -804,7 +884,7 @@ describe("StoreViews", () => {
     const views = new StoreViews(peer);
     views.register("leaf", { term: LEAF });
     moves = 3;
-    expect((await views.hold("leaf", "a", 10)).from).toBe("read");
+    expect((await views.hold("leaf", "a", 10)).from).toBe("new");
     expect([reads, releases]).toEqual([4, 4]);
     await w.append([fact("a", 2)]);
     moves = 4;
@@ -873,6 +953,53 @@ describe("StoreViews", () => {
       { name: "leaf", root: "t", before: null, after: await fresh(w.peer, "t", 10) },
     ]);
     expect(JSON.stringify(refreshed)).not.toContain(hexOf(secret.id));
+  });
+
+  it("a pass that reads a purge and then fails keeps the payload; the next pass that succeeds releases the baseline", async () => {
+    const w = await writer();
+    const secret = makeDelta({
+      timestamp: 1,
+      validFrom: 1,
+      author: "did:key:zA",
+      pointers: [at("t"), { role: "value", target: { kind: "primitive", value: MARKER } }],
+    });
+    await w.append([secret, fact("other", 2)]);
+    let broken = false;
+    let fed = 0;
+    const peer: PeerStore = {
+      ...w.peer,
+      changes: (from, to) => ((fed += broken ? 1 : 0), w.peer.changes(from, to)),
+      read: async () => {
+        const snapshot = await w.peer.read();
+        if (!broken) return snapshot;
+        return {
+          ...snapshot,
+          scope: () => Promise.reject(new StoreError("store-closed", "the read fails")),
+        };
+      },
+    };
+    const views = new StoreViews(peer, {}, ERASURE_QUIRKS);
+    views.register("leaf", { term: LEAF });
+    views.register("by", { term: LEAF });
+    await views.hold("leaf", "t", 10);
+    const bystander = await views.hold("by", "other", 10);
+    await w.append([fact("t", 3)]);
+    expect((await views.hold("leaf", "t", 10)).from).toBe("read");
+    await w.peer.purge([secret.id]);
+    const sizes = views.indexSizes();
+    broken = true;
+    await expect(views.refresh(10)).rejects.toMatchObject({ code: "store-closed" });
+    expect(fed).toBeGreaterThan(0);
+    expect(retained(views, needles(secret.id))).toBe(true);
+    expect(views.indexSizes()).toEqual(sizes);
+    broken = false;
+    const refreshed = await views.refresh(10);
+    expect(retained(views, needles(secret.id))).toBe(false);
+    expect(refreshed.changed).toEqual([
+      { name: "leaf", root: "t", before: null, after: await fresh(w.peer, "t", 10) },
+    ]);
+    const again = await views.hold("by", "other", 10);
+    expect([again.from, again.bytes]).toEqual(["held", bystander.bytes]);
   });
 
   it("a purge reaches a held view at the next refresh; a named bystander is not read again", async () => {
@@ -1079,7 +1206,17 @@ const FUZZ_TIMES = [30, 33, 34, 35, 36, 44, 55, 59, 60, 61, 85, 90, 95, 100];
 const PEER_B = `ed25519:${"b7".repeat(32)}`;
 
 type FuzzStats = Record<
-  "holds" | "refreshes" | "touched" | "windows" | "epochs" | "resyncs" | "evictions" | "purges",
+  | "holds"
+  | "refreshes"
+  | "touched"
+  | "windows"
+  | "epochs"
+  | "resyncs"
+  | "evictions"
+  | "purges"
+  | "reheld"
+  | "unheld"
+  | "droppedEvicted",
   number
 >;
 
@@ -1152,8 +1289,16 @@ async function fuzzOne(seed: number, stats: FuzzStats): Promise<void> {
     });
     epochs.set(name, "");
   }
-  type Model = Seen & { program: string; root: string; epoch: string; tracked: string };
+  type Model = Seen & { program: string; root: string; epoch: string };
   const model = new Map<string, Model>();
+  /** Views an eviction forgot since the previous refresh, not held again or dropped since. */
+  const evictions = new Set<string>();
+  /**
+   * The host's copy of each view it believes held, kept by the host rule alone: copy a `hold`
+   * answer whose `from` is "new", then only `changed[].after`; stop at a view in `evicted`.
+   */
+  const host = new Map<string, string>();
+  const evictedOnce = new Set<string>();
   let processed: number | undefined;
   const floor = (): number => {
     if (retention === undefined || records.length <= retention.revisions) return 0;
@@ -1209,7 +1354,6 @@ async function fuzzOne(seed: number, stats: FuzzStats): Promise<void> {
         program: v.program,
         root: v.root,
         epoch: epochs.get(v.program)!,
-        tracked: v.tracked,
       });
     }
   };
@@ -1228,21 +1372,27 @@ async function fuzzOne(seed: number, stats: FuzzStats): Promise<void> {
       const { reads } = pass(now);
       reread(reads, now);
       if (!was && maxViews !== undefined && model.size >= maxViews) {
-        model.delete(model.keys().next().value!);
+        const gone = model.keys().next().value!;
+        model.delete(gone);
+        evictions.add(gone);
+        evictedOnce.add(gone);
         stats.evictions += 1;
       }
       const answer = await views.hold(program, root, now);
       const want = brute.read(held, program, root, now);
       if (answer.bytes !== want.bytes) fail(`hold of ${key} at ${now} answered other bytes`);
-      const v = was
-        ? model.get(key)!
-        : { ...want, program, root, epoch: epochs.get(program)!, tracked: "" };
+      const v = was ? model.get(key)! : { ...want, program, root, epoch: epochs.get(program)! };
       model.delete(key);
-      // The host's copy, as a subscriber to `changed` holds it: refreshes move it, not holds.
-      model.set(key, { ...v, tracked: was ? v.tracked : answer.bytes });
-      if (brute.programs.get(program)!.selection === undefined) {
-        const from = was && !reads.has(key) ? "held" : "read";
+      model.set(key, v);
+      evictions.delete(key);
+      const from = !was ? "new" : reads.has(key) ? "read" : "held";
+      if (brute.programs.get(program)!.selection === undefined || from === "new") {
         if (answer.from !== from) fail(`hold of ${key} answered ${answer.from}, expected ${from}`);
+      } else if (answer.from === "new") fail(`hold of ${key} answered new, and it was held`);
+      // The host rule: a "new" answer is the view's baseline, and the host copies it.
+      if (answer.from === "new") {
+        host.set(key, answer.bytes);
+        if (evictedOnce.has(key)) stats.reheld += 1;
       }
       if (answer.expiresAt !== model.get(key)!.expiresAt) fail(`hold of ${key}: expiresAt`);
       processed = answer.position.revision;
@@ -1262,13 +1412,31 @@ async function fuzzOne(seed: number, stats: FuzzStats): Promise<void> {
         .sort();
       const want = [...reads].filter((k) => plain(k)).sort();
       if (got.join() !== want.join()) fail(`refresh re-read ${got}, expected ${want}`);
-      for (const c of answer.changed)
-        model.get(JSON.stringify([c.name, c.root]))!.tracked = c.after;
-      // Rule 1: every held view, as the host knows it, is a fresh read now.
+      const evicted = answer.evicted.map((k) => JSON.stringify([k.name, k.root]));
+      const wantEvicted = [...evictions].sort((x, y) => {
+        const [xp, xr] = JSON.parse(x) as [string, string];
+        const [yp, yr] = JSON.parse(y) as [string, string];
+        return compareUtf8(xp, yp) || compareUtf8(xr, yr);
+      });
+      if (evicted.join() !== wantEvicted.join())
+        fail(`refresh evicted ${evicted}, expected ${wantEvicted}`);
+      if (evicted.length > 0) stats.unheld += 1;
+      evictions.clear();
+      // The host rule: copy from `changed`, stop at `evicted`.
+      for (const c of answer.changed) {
+        const key = JSON.stringify([c.name, c.root]);
+        if (!host.has(key)) fail(`changed names ${key}, which the host does not hold`);
+        host.set(key, c.after);
+      }
+      for (const key of evicted)
+        if (!host.delete(key)) fail(`evicted names ${key}, which the host does not hold`);
+      // Rule 1: every view the host believes held is held, and is a fresh read now.
+      if ([...host.keys()].sort().join() !== [...model.keys()].sort().join())
+        fail(`after a refresh at ${now}, the host's views are not the held views`);
       for (const [key, v] of model) {
-        if (v.tracked !== brute.read(held, v.program, v.root, now).bytes)
-          fail(`after a refresh at ${now}, ${key} is not a fresh read`);
-        if (v.tracked !== v.bytes) fail(`the model of ${key} disagrees with itself`);
+        if (host.get(key) !== brute.read(held, v.program, v.root, now).bytes)
+          fail(`after a refresh at ${now}, the host's ${key} is not a fresh read`);
+        if (host.get(key) !== v.bytes) fail(`the model of ${key} disagrees with itself`);
       }
       processed = answer.position.revision;
       // Erasure: this pass read every purge so far; the holder keeps no purged id or payload.
@@ -1292,11 +1460,15 @@ async function fuzzOne(seed: number, stats: FuzzStats): Promise<void> {
         if (absent.length > 0) await append(a, [pick(absent)]);
       }
     } else if (r < 0.9) {
-      if (model.size > 0) {
-        const key = pick([...model.keys()]);
-        const v = model.get(key)!;
-        await views.drop(v.program, v.root);
+      // The host drops a view it believes held: perhaps one an eviction already forgot.
+      if (host.size > 0) {
+        const key = pick([...host.keys()]);
+        const [program, root] = JSON.parse(key) as [string, string];
+        if (!model.has(key)) stats.droppedEvicted += 1;
+        await views.drop(program, root);
         model.delete(key);
+        evictions.delete(key);
+        host.delete(key);
       }
     } else {
       const program = pick(FUZZ_PROGRAMS);
@@ -1324,6 +1496,9 @@ describe("held views against brute force", () => {
       resyncs: 0,
       evictions: 0,
       purges: 0,
+      reheld: 0,
+      unheld: 0,
+      droppedEvicted: 0,
     };
     for (let seed = 1; seed <= FUZZ; seed++) await fuzzOne(seed, stats);
     console.log(`views fuzz: ${FUZZ} sequences, ${JSON.stringify(stats)}`);
@@ -1417,3 +1592,6 @@ describe("cost rail: a refresh costs its records and its reads", () => {
 
 // The rail's holder. A quirk set here (for example `scanEveryView`) shows the rail going red.
 const RAIL_QUIRKS: ViewQuirks = {};
+
+// The erasure rail's holder. `advanceOnFailure` here shows the rail of a failed pass going red.
+const ERASURE_QUIRKS: ViewQuirks = {};

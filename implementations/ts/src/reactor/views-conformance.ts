@@ -56,8 +56,11 @@ export type HoldStep = {
   readonly now: number;
   readonly expect: {
     readonly bytes: string;
-    /** Absent for a program with a selection: a holder may read such a view more often. */
-    readonly from?: "held" | "read";
+    /**
+     * "new" when the view was not held before the hold. Absent for a program with a selection: a
+     * holder may read such a view more often, so only "new" is pinned for it, by the runner.
+     */
+    readonly from?: "held" | "read" | "new";
     readonly position: string;
     readonly expiresAt: number | null;
     readonly nextBoundary: number | null;
@@ -77,6 +80,8 @@ export type RefreshStep = {
       readonly before: string | null;
       readonly after: string;
     })[];
+    /** The views an eviction forgot since the previous refresh, not held again or dropped since. */
+    readonly evicted: readonly ViewsKey[];
     readonly resynced: boolean;
     readonly nextBoundary: number | null;
   };
@@ -169,6 +174,7 @@ type Call =
       page?: ChangePage;
     }
   | { readonly op: "get"; readonly ids: readonly Id[] }
+  | { readonly op: "scope"; readonly anchors: readonly Entity[] }
   | { readonly op: string };
 
 function callText(call: Call): string {
@@ -192,7 +198,10 @@ function logged(peer: PeerStore, sink: Sink): PeerStore {
     arrivals: (ids) => (note("arrivals"), snapshot.arrivals(ids)),
     targets: (entities) => (note("targets"), snapshot.targets(entities)),
     negators: (ids) => (note("negators"), snapshot.negators(ids)),
-    scope: (request) => (note("scope"), snapshot.scope(request)),
+    scope: (request) => (
+      sink.log.push({ op: "scope", anchors: request.anchors.map((a) => a.entity) }),
+      snapshot.scope(request)
+    ),
     release: () => (note("release"), snapshot.release()),
   });
   return {
@@ -385,15 +394,27 @@ class ViewsRun {
     }
     const what = `hold of ${step.program} at ${step.root}`;
     check(answer.bytes === step.expect.bytes, `${what} answered other bytes`);
-    const from = resync && !fresh ? "read" : step.expect.from;
+    const from = resync && !fresh ? "read" : (step.expect.from ?? (fresh ? "new" : undefined));
     if (from !== undefined)
       check(answer.from === from, `${what} answered from ${answer.from}, expected ${from}`);
+    else
+      check(
+        answer.from === "held" || answer.from === "read",
+        `${what} answered from ${answer.from}, expected held or read`,
+      );
     this.stands(answer.position, step.expect.position, "hold");
     check(
       answer.expiresAt === step.expect.expiresAt,
       `${what} reports expiresAt ${answer.expiresAt}, expected ${step.expect.expiresAt}`,
     );
     const reread = resync ? kept : step.expect.reread;
+    if (evicts !== undefined) {
+      const gone = this.held.get(evicts)!;
+      const read = this.sink.log.some(
+        (call) => "anchors" in call && call.anchors.includes(gone.root),
+      );
+      check(!read, `hold read ${keyText(gone)}, the view it evicts`);
+    }
     this.walk(
       "hold",
       heldBefore,
@@ -460,6 +481,11 @@ class ViewsRun {
           (expected[i]!.after === undefined || c.after === expected[i]!.after),
         `refresh reports the change of ${c.name} at ${c.root} with other bytes`,
       ),
+    );
+    const evicted = answer.evicted.map((k) => ({ program: k.name, root: k.root }));
+    check(
+      keysText(evicted) === keysText(expect.evicted),
+      `refresh evicted ${keysText(evicted)}, expected ${keysText(expect.evicted)}`,
     );
     this.walk("refresh", heldBefore, resync ? heldBefore : expect.reread);
     this.processed = answer.position;
