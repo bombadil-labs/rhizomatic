@@ -15,9 +15,10 @@
 // host names that state with an epoch per program and calls `setEpoch` when it changes.
 //
 // A held view is a copy outside the store. It can hold a purged delta's payload, in its bytes or
-// in its baseline, until a pass reads the record that removes the delta. That pass reads the view
-// again and releases its baseline, so the holder then keeps none of the payload. A host that
-// erases runs a pass (`refresh`, or `drop`) before it reports.
+// in its baseline, until the first pass that succeeds after the purge. That pass reads the record
+// that removes the delta, reads the view again and releases its baseline, so the holder then keeps
+// none of the payload. A pass that fails applies nothing and keeps the payload. A host that erases
+// runs a pass that succeeds (`refresh`), or forgets the views (`drop`), before it reports.
 
 import { compareUtf8 } from "../delta/cbor.js";
 import type { Delta } from "../delta/types.js";
@@ -76,8 +77,12 @@ export interface ViewRead extends ViewKey {
   readonly position: Position;
   /** The least validity boundary after the read's time among its operand, or null. */
   readonly expiresAt: number | null;
-  /** "held": the view was held and the pass kept its bytes. "read": the pass read it. */
-  readonly from: "held" | "read";
+  /**
+   * "new": the view was not held when the call began (its first hold, or a hold after a drop or an
+   * eviction); the answer is the view's baseline. "read": it was held, and the pass read it again.
+   * "held": it was held, and the pass kept its bytes.
+   */
+  readonly from: "held" | "read" | "new";
   /** The view's capture, at `position`. */
   readonly capture: Capture;
 }
@@ -105,6 +110,11 @@ export interface Refresh {
   readonly changed: readonly ViewChange[];
   /** The views this refresh read again, ascending by name, then root. */
   readonly reread: readonly ViewKey[];
+  /**
+   * Every view that an eviction forgot since the previous refresh and that is not held now and
+   * was not dropped since, ascending by name, then root. The holder no longer maintains them.
+   */
+  readonly evicted: readonly ViewKey[];
   /** The feed could not take the views from their position: every held view was read again. */
   readonly resynced: boolean;
 }
@@ -141,6 +151,16 @@ export interface ViewQuirks {
   readonly keepPurgedBaseline?: boolean;
   /** Keeps an evicted view and, when it is held again, reads it but serves its old bytes. */
   readonly keepEvicted?: boolean;
+  /** Answers "read" for a view that was not held (the first contract's `from`). */
+  readonly readWhenNew?: boolean;
+  /** Answers `evicted` empty. */
+  readonly omitEvicted?: boolean;
+  /** Keeps an evicted view in `evicted` after the host drops it. */
+  readonly evictedKeepsDropped?: boolean;
+  /** Keeps an evicted view in `evicted` after the host holds it again. */
+  readonly evictedKeepsReheld?: boolean;
+  /** Reads the view a `hold` evicts when the pass found it touched, then forgets it. */
+  readonly readEvicted?: boolean;
 }
 
 const DEFAULT_MAX_VIEWS = 1024;
@@ -297,13 +317,17 @@ function holds(sorted: readonly string[], wanted: string): boolean {
  * §4.6, "Held views"). The store-backed counterpart of the memory `Reactor`'s materializations.
  *
  * `hold`, `refresh`, `drop` and `setEpoch` run one at a time, in call order. A call that fails
- * changes nothing. There is no push: `refresh` answers what changed, and the host dispatches it.
+ * changes nothing in the held state. There is no push: `refresh` answers what changed, and the
+ * host dispatches it. A host copies a view's bytes from a `hold` answer whose `from` is "new", and
+ * afterwards only from `refresh(now).changed[].after`; a view in `refresh(now).evicted` is no
+ * longer maintained.
  *
- * Erasure: a held view is a copy outside the store. When a pass reads a record that removes a
- * delta, every view whose bytes or baseline could carry that delta lets them go in that pass: the
- * view is read again, and its baseline is released (the next refresh reports it with `before:
- * null`). A resync releases every baseline. Until such a pass, the holder keeps the bytes. What
- * it already answered (a `hold`, a `before`) is the host's copy.
+ * Erasure: a held view is a copy outside the store. The first pass that succeeds after a purge
+ * reads the record that removes the delta, and every view whose bytes or baseline could carry that
+ * delta lets them go in that pass: the view is read again, and its baseline is released (the next
+ * refresh reports it with `before: null`). A resync releases every baseline. A pass that fails
+ * applies nothing, so the holder keeps the bytes until a pass succeeds. `drop` forgets a view at
+ * once. What the holder already answered (a `hold`, a `before`, an `after`) is the host's copy.
  */
 export class StoreViews {
   private readonly programs = new Map<string, Program>();
@@ -323,6 +347,8 @@ export class StoreViews {
   private readonly evalCounts = new Map<string, number>();
   /** Only for the wrong holder `keepEvicted`. */
   private readonly evicted = new Map<string, Held>();
+  /** Views an eviction forgot since the previous refresh, not held again or dropped since. Keys only. */
+  private readonly evictions = new Set<string>();
   private processed: Position | undefined;
   private queue: Promise<unknown> = Promise.resolve();
   private readonly maxViews: number;
@@ -398,7 +424,13 @@ export class StoreViews {
         bytes: view.bytes,
         position: plan.position,
         expiresAt: view.capture.expiresAt,
-        from: was && !plan.reads.has(key) ? "held" : "read",
+        from: !was
+          ? this.quirks.readWhenNew === true
+            ? "read"
+            : "new"
+          : plan.reads.has(key)
+            ? "read"
+            : "held",
         capture: advanceCapture(view.capture, plan.position.history, plan.position.revision),
       });
     });
@@ -424,14 +456,20 @@ export class StoreViews {
         this.rebase(view);
       }
       this.dirty.clear();
-      const reread = [...plan.reads.keys()].map((key) => {
-        const [name, root] = unkey(key);
-        return { name, root };
-      });
+      const keys = (from: Iterable<string>): ViewKey[] =>
+        [...from]
+          .map((key) => {
+            const [name, root] = unkey(key);
+            return { name, root };
+          })
+          .sort(byKey);
+      const evicted = this.quirks.omitEvicted === true ? [] : keys(this.evictions);
+      this.evictions.clear();
       return Object.freeze({
         position: plan.position,
         changed: Object.freeze(changed.sort(byKey)),
-        reread: Object.freeze(reread.sort(byKey)),
+        reread: Object.freeze(keys(plan.reads.keys())),
+        evicted: Object.freeze(evicted),
         resynced: plan.resynced,
       });
     });
@@ -444,7 +482,9 @@ export class StoreViews {
   drop(name: string, root: Entity): Promise<void> {
     return this.serial(async () => {
       this.program(name);
-      this.forget(keyOf(name, root));
+      const key = keyOf(name, root);
+      this.forget(key);
+      if (this.quirks.evictedKeepsDropped !== true) this.evictions.delete(key);
     });
   }
 
@@ -453,7 +493,10 @@ export class StoreViews {
     return this.expiries.top();
   }
 
-  /** How many times the views of `name` were read. */
+  /**
+   * How many times the views of `name` were read: every read the holder made, including the reads
+   * of a pass that failed or started again. A diagnostic, not part of the held state.
+   */
   evalCountOf(name: string): number {
     return this.evalCounts.get(name) ?? 0;
   }
@@ -549,7 +592,7 @@ export class StoreViews {
         ? this.views.keys().next().value!
         : undefined;
     if (evicts !== undefined) {
-      reread.delete(evicts);
+      if (this.quirks.readEvicted !== true) reread.delete(evicts);
       released.delete(evicts);
     }
     const reads = new Map<string, Fresh>();
@@ -749,6 +792,7 @@ export class StoreViews {
       this.dirty.add(key);
     }
     if (want !== undefined) {
+      if (this.quirks.evictedKeepsReheld !== true) this.evictions.delete(want);
       // The most recently held view goes last.
       const view = this.views.get(want)!;
       this.views.delete(want);
@@ -790,6 +834,7 @@ export class StoreViews {
     if (view === undefined) return;
     this.views.delete(key);
     this.dirty.delete(key);
+    if (evicted) this.evictions.add(key);
     if (evicted && this.quirks.keepEvicted === true) this.evicted.set(key, view);
     if (this.quirks.keepIndexOnDrop === true) return;
     this.unbase(view);

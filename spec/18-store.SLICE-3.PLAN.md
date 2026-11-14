@@ -60,7 +60,7 @@ deleted when slice 3 has landed and its decisions are in `18-store.PROPOSAL.md`.
 | the whole-ground validity timer | the least `expiresAt` over the captures Loam holds |
 | `register(name, term, roots, now)` | `StoreViews.register(name, program)`, then `hold(name, root, now)` for each root |
 | `materializedView(name, root)`, `materializedHex` | `hold(name, root, now)`: async, one pass; `bytes` is the hex |
-| `subscribe(name, cb)` | the host's own list of callbacks, called from `refresh(now).changed` (no push) |
+| `subscribe(name, cb)` | the host's own list of callbacks (no push), kept by the host rule: copy a `hold` answer with `from: "new"`, then `refresh(now).changed[].after`; a view in `refresh(now).evicted` is held again or its subscribers are told |
 | `changesFromLastIngest()` | `refresh(now).changed`: the views whose bytes changed since the previous refresh |
 | `advanceTime(now)` | `refresh(now)`: views whose window no longer holds `now` are read again |
 | `nextValidityBoundary(now)` | `StoreViews.nextBoundary`: the least `expiresAt` over the held views |
@@ -198,15 +198,26 @@ proposal (PR #76). Each is owed by the step or slice named.
   registered is refused; only `hold` is a use; a view a `hold` evicts is not read in that pass;
   the order of reads inside a pass is free, and `reread` and `changed` are sorted (readings 83,
   85, 89 and 90).
+- ✓ The final review of step 9 (12,000 fuzz sequences, no divergence; the erasure fix sound),
+  applied: hosts are told about evictions, by `from: "new"` and `Refresh.evicted`, under one
+  host rule that the generator and the fuzz prove (readings 91 and 92); a pass that reads a purge
+  and then fails does not erase, and a host does not report erasure when the pass throws
+  (reading 93); the runner pins that the pass of a `hold` does not read the view it evicts
+  (reading 94); the count of reads is a diagnostic (reading 95); when a baseline-index entry
+  leaves (reading 96). New cases `an-evicted-view-held-again-answers-new` and
+  `an-evicted-view-not-held-again`; five new wrong holders.
 - Changed from the contract: `drop` and `setEpoch` answer promises (reading 81); `ViewRead` adds
   `capture` (reading 77); `bytes` is an HView or a View (reading 82); `changed` speaks for
   refreshes, against a baseline (reading 76); `ViewChange.before` may be null (reading 88); the
-  vectors pin `reread` and `from` only for programs without a selection (reading 80).
+  vectors pin `reread` and `from` only for programs without a selection (reading 80), but `new`
+  for every program (reading 91); `ViewRead.from` adds `new` and `Refresh` adds `evicted`
+  (readings 91 and 92).
 
 ### Step 10 (held views, Rust) owes
 
 From the documents alone: `spec/18-store.PROPOSAL.md` §4.6 ("Held views", with "A held view lies
-outside erasure") and §4.13 readings 73, 74 and 75 to 90; §4.7.2 (its paragraph on held views);
+outside erasure", and "The host rule") and §4.13 readings 73, 74 and 75 to 96; §4.7.2 (its
+paragraph on held views);
 §6 items 3 to 5; and `vectors/store/README.md` §11.
 
 1. `advance_capture(capture, history, revision)` beside `make_capture` and `parse_capture`, not
@@ -229,44 +240,63 @@ outside erasure") and §4.13 readings 73, 74 and 75 to 90; §4.7.2 (its paragrap
    on another history, a lower revision or the store's `resync-required` (every held view read
    again, every baseline released, `resynced`); time through structures ordered by `expires_at`
    and by `since`; epochs compared by value; a `hold` of a new view into a full set does not
-   read the view it will evict; every read on the pass's snapshot, in any order; then release,
-   then apply. A pass with no view held reads no feed.
+   read the view it will evict, even when the feed touched it; every read on the pass's
+   snapshot, in any order; then release, then apply. A pass with no view held reads no feed.
 4. Faults as values (readings 73, 74 and 89): a page with no progress (`no-progress`), a page
    past r′ (`past-the-bound`) and a `get` answer with an unasked, repeated or unordered id
    (`unasked-ids`) are `FeedError::Fault` with that rule, found before the page is judged; never
    a panic. `snapshot-moved`, from `read()` itself or a later call, starts the pass again, at
-   most four snapshots, each released. A failed pass applies nothing (reading 84). Calls take the
-   holder mutably, so they cannot overlap (reading 81, as reading 64).
+   most four snapshots, each released. A failed pass applies nothing (reading 84): no view,
+   baseline, index entry, evicted key or position moves. `eval_count_of` still counts the reads
+   of a failed pass (reading 95). Calls take the holder mutably, so they cannot overlap (reading
+   81, as reading 64).
 5. The answers: `ViewRead` (bytes as lowercase hex of the canonical result, HView or View;
-   position; `expires_at`; `from`; the capture at the position, from `advance_capture`);
-   `Refresh` (position; `changed` against each view's baseline, with `before: Option<String>`,
-   `None` for a released baseline and reported whatever the bytes; `reread`; `resynced`), both
-   lists ascending by program name, then root, by UTF-8 bytes (reading 85). A view is not in
-   `changed` merely because it is new; its baseline is its first answer. `drop` forgets a view
-   and every index entry it had; eviction forgets the least recently held view (only `hold` is a
-   use) and is not a change; `next_boundary` is the least `expires_at`; `eval_count_of(name)`
-   counts reads.
-6. Erasure (reading 88): after the first pass that reads a purge, the holder keeps none of the
-   purged delta's payload anywhere (bytes, baselines, captures, indexes, ordering); a baseline the
-   purge did not touch is unchanged.
+   position; `expires_at`; `from`, one of `held`, `read` and `new`, where `new` means the view
+   was not held when the call began (reading 91); the capture at the position, from
+   `advance_capture`); `Refresh` (position; `changed` against each view's baseline, with
+   `before: Option<String>`, `None` for a released baseline and reported whatever the bytes;
+   `reread`; `evicted`, the keys an eviction forgot since the previous refresh that no `hold`
+   and no `drop` named after their last eviction, kept as keys only and emptied at each refresh
+   that succeeds (reading 92); `resynced`), all three lists ascending by program name, then
+   root, by UTF-8 bytes (reading 85). A view is not in `changed` merely because it is new; its
+   baseline is its first answer. `drop` forgets a view and every index entry it had, and takes
+   it out of the evicted keys; eviction forgets the least recently held view (only `hold` is a
+   use), is not a change and adds its key; a `hold` takes its view's key out; the baseline
+   index loses a view's entries at a rebase, a release and a forget (reading 96);
+   `next_boundary` is the least `expires_at`; `eval_count_of(name)` counts every read made.
+6. Erasure (readings 88 and 93): after the first pass that succeeds after a purge, the holder
+   keeps none of the purged delta's payload anywhere (bytes, baselines, captures, indexes,
+   ordering); a pass that reads the purge and then fails applies nothing and keeps it; a baseline
+   the purge did not touch is unchanged.
 7. The runner of README §11 with its fixed messages: the `ViewHolder` trait, the setup, the
-   holder made after it over a logged handle, the expected resync below the floor (every held
-   view re-read but the evicted one, every view in `changed` with `before: null`), the hold and
-   refresh checks (the `reread` order check included), `the store broke <rule>: ` for a fault,
-   the call walk of §11.4, and the runs of §11.5. Replace the skip in `tests/store_views.rs` with
+   holder made after it over a logged handle (a `scope` call logged with its anchors' entities),
+   the expected resync below the floor (every held view re-read but the evicted one, every view
+   in `changed` with `before: null`), the hold checks (`from` with `new`, and `held or read` for
+   a held view of a program with a selection; the evicted view's root in no `scope` call) and the
+   refresh checks (the `reread` order check and the `evicted` check included),
+   `the store broke <rule>: ` for a fault, the call walk of §11.4, and the runs of §11.5. Replace the skip in `tests/store_views.rs` with
    the run. The bytes of every answer equal the document's: that is the byte parity of the two
    witnesses.
 8. The rails of README §11.6: the wrong-holder table (the holder with one rule broken at a time,
-   which passes every run with none broken), including "keeps the baseline of a purged member"
-   and "keeps an evicted view and serves its old bytes" (which fails only
-   `an-evicted-view-is-read-again` and passes without it); the two holders that only a rail
-   catches; a row for every runner check (the unordered `reread` and the fault words included);
+   which passes every run with none broken), including "keeps the baseline of a purged member",
+   "keeps an evicted view and serves its old bytes" (which fails only
+   `an-evicted-view-is-read-again` and `an-evicted-view-held-again-answers-new`, and passes
+   without them) and the five holders of the final review (`read` for a view not held; `evicted`
+   empty; a dropped view in `evicted`; a view held again in `evicted`; a read of the evicted
+   view; the holders with a dropped view in `evicted` and with a read of the evicted view each
+   fail only `an-evicted-view-not-held-again`, and pass without it); the two holders that only
+   a rail catches;
+   a row for every runner check (the unordered `reread`, the fault words, another `evicted`, a
+   new view expected `held`, and `new` for a held view of a program with a selection included);
    the holder's own rules (refusals, use and eviction, forgetting with index sizes, the three
    fault rules with nothing applied, moved snapshots from `read()` and later, two-sided erasure
-   with the review's scenario and a walk of the holder for the payload, the capture and
-   `check_fresh`); the fuzz (at least 2,000 sequences, rule 1 after every hold and refresh, rule
-   4 without a selection, no purged entry in the holder after every pass); and the three cost
-   rails, with the per-view scan shown red once.
+   with the review's scenario and a walk of the holder for the payload, a failed pass after a
+   purge that keeps the payload until the next pass succeeds, the capture and `check_fresh`);
+   the fuzz (at least 2,000 sequences, rule 1 after every hold and refresh, rule 4 without a
+   selection, `from` with `new`, `evicted` exactly the model's, a host kept by the host rule
+   alone equal to the held views and to fresh reads at every refresh, drops of evicted views, no
+   purged entry in the holder after every pass); and the three cost rails, with the per-view
+   scan shown red once.
 
 ### Slice 5 owes (Loam)
 
@@ -277,15 +307,21 @@ outside erasure") and §4.13 readings 73, 74 and 75 to 90; §4.7.2 (its paragrap
   itself or keeps its followers pulling.
 - Loam's scoped reads keep fresh with `checkFresh`, not by applying pages; only a full mirror
   applies them (§4.6, "A scope is not a mirror").
-- Loam's maintained views move onto `StoreViews` by the table of §5. Loam's erasure runs a pass
-  (`refresh`, or `drop` of the views) on every `StoreViews` it holds before it reports: a held
-  view keeps a purged delta's bytes, and its baseline, until a pass reads the purge (§4.6, "A
-  held view lies outside erasure"; §4.7.2; §4.13 reading 88). Loam treats every `before`, `after`
-  and `hold` answer it copied before that pass as its own copy, and erases it itself.
+- Loam's maintained views move onto `StoreViews` by the table of §5. Loam's erasure runs a
+  `refresh` that succeeds on every `StoreViews` it holds, or forgets the views with `drop`,
+  before it reports: a held view keeps a purged delta's bytes, and its baseline, until a pass
+  that succeeds reads the purge (§4.6, "A held view lies outside erasure"; §4.7.2; §4.13
+  readings 88 and 93). Loam treats every `before`, `after` and `hold` answer it copied before
+  that pass as its own copy, and erases it itself.
+- Loam's erasure treats a thrown pass as "not erased yet": when that `refresh` throws, Loam does
+  not report erasure of those held views. It runs the pass again, or drops the views (§4.13
+  reading 93).
 - Loam names the state its selections and authority read outside the store (grants, trust, a
   lowering's dependencies) with an epoch per program, and calls `setEpoch` when it changes.
-- Loam's view subscribers copy from `refresh(now).changed`, not from the answers of `hold`
-  (§4.13 reading 76).
+- Loam keeps its views' subscribers by the host rule (§4.6, "The host rule"; §4.13 readings 76,
+  91 and 92): it copies a view's bytes from a `hold` answer whose `from` is `"new"`, and
+  afterwards only from `refresh(now).changed[].after`. A key in `refresh(now).evicted` is no
+  longer maintained: Loam holds it again or tells that view's subscribers.
 
 ### Slice 4 owes
 

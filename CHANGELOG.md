@@ -71,6 +71,16 @@ pass reads the purge; that pass releases them, and the next `refresh` reports th
 memory `Reactor` does not change. The new shared vectors `vectors/store/views.json` pin held
 views; the Rust witness skips them until step 10.
 
+The final review of step 9 (§4.13 readings 91 to 96): hosts are told about evictions.
+`ViewRead.from` has a third value, `"new"`: the view was not held when the call began, and the
+answer is its baseline. `"read"` now means held before and read again by the pass. `Refresh` has
+`evicted`: the views an eviction forgot since the previous refresh, not held again or dropped
+since. A host copies a view from a `"new"` answer, then only from `changed[].after`, and stops at
+`evicted`. Erasure: only a pass that succeeds after a purge releases a held view's payload; a
+pass that throws keeps it, and a host does not report erasure then. Two new cases in
+`views.json`, and the runner checks `evicted` and that a `hold` does not read the view it
+evicts.
+
 ### ⚠️ Breaking
 
 - A store fault in `checkFresh` and `FeedCursor.pull` throws `StoreFaultError` (with `rule` and

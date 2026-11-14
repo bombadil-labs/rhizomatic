@@ -39951,6 +39951,76 @@
       "contract": "rhizomatic.reactor/native-api/1",
       "classification": "native_extension",
       "semantics": "Native reactor API ViewQuirks.keepEvicted implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:Refresh#evicted",
+      "owner": "reactor",
+      "symbol": "Refresh.evicted",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Refresh.evicted implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:Refresh#evicted",
+      "owner": "reactor",
+      "symbol": "Refresh.evicted",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API Refresh.evicted implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#readWhenNew",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.readWhenNew",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.readWhenNew implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#omitEvicted",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.omitEvicted",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.omitEvicted implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#evictedKeepsDropped",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.evictedKeepsDropped",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.evictedKeepsDropped implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#evictedKeepsReheld",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.evictedKeepsReheld",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.evictedKeepsReheld implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#readEvicted",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.readEvicted",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.readEvicted implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }
