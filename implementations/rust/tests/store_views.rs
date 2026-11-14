@@ -1349,10 +1349,16 @@ fn a_failed_pass_after_a_purge_erases_nothing_and_the_next_one_erases() {
         views.hold("target", "e:t", 5.0).unwrap();
         peer.purge(std::slice::from_ref(&secret.id)).unwrap();
         let sizes = views.sizes();
+        let reads = views.eval_count_of("target");
         spy.fault.set(Some(Fault::RefusesScope));
         assert_eq!(
             feed_refused(views.refresh(5.0)),
             Some(StoreErrorCode::StoreClosed)
+        );
+        assert_eq!(
+            views.eval_count_of("target"),
+            reads + 1,
+            "the count of reads includes a read of a failed pass"
         );
         spy.fault.set(None);
         assert!(
