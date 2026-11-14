@@ -3,8 +3,10 @@
 
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
+use std::hint::black_box;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use rhizomatic::anchored::{anchor_analysis, hview_anchors, scope_ids, AnchorAnalysis};
 use rhizomatic::eval::{eval_term_at, result_canonical_hex, EvalResult, Term};
@@ -2028,4 +2030,237 @@ fn twenty_thousand_sequences_agree_with_brute_force() {
     let tally = fuzz(20_000);
     println!("views fuzz, 20000 sequences: {tally:?}");
     fuzz_claims(&tally);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The cost rails (README §11.6, as §3.9.9)
+// ---------------------------------------------------------------------------------------------
+
+/// Linear work gives a ratio of about 8 between N and 8N, work in the held views, the holdings
+/// or the earlier records about 64.
+const BOUND: f64 = 24.0;
+
+fn fastest(runs: usize, enough: Duration, mut run: impl FnMut() -> Duration) -> Duration {
+    let mut best = Duration::MAX;
+    for _ in 0..runs {
+        if best < enough {
+            break;
+        }
+        best = best.min(run());
+    }
+    best
+}
+
+/// N from 256, doubling until the run at N takes 50 ms; the run at N the fastest of five, the
+/// run at 8N the fastest of three, stopped at the first under the bound. `Instant` is monotonic.
+fn ratio(what: &str, run: &dyn Fn(usize) -> Duration) -> (usize, f64) {
+    let mut n = 256;
+    let at_n = loop {
+        let at_n = fastest(5, Duration::ZERO, || run(n));
+        if at_n >= Duration::from_millis(50) {
+            break at_n;
+        }
+        n *= 2;
+    };
+    let at_8n = fastest(3, at_n.mul_f64(BOUND), || run(8 * n));
+    let ratio = at_8n.as_secs_f64() / at_n.as_secs_f64();
+    println!("views, {what}: N = {n}, {at_n:?} and {at_8n:?}, ratio {ratio:.2}");
+    (n, ratio)
+}
+
+/// A run is N rounds of one commit and one refresh. The commits alternate: one appends a fact at
+/// the anchor of the small view, the next purges it, and each refresh reads the small view again.
+/// (An append and its purge between two refreshes touch nothing: the fact is not held at the
+/// pass's snapshot and was never a member.)
+///
+/// One built holder for a cost run: the store, the writer's peer, the holder, the small view's
+/// fact, and the writer.
+struct Costed {
+    _store: MemoryStore,
+    peer: Box<dyn PeerStore>,
+    views: StoreViews<'static>,
+    writer: Writer,
+    touch: Delta,
+}
+
+/// `held` untouched views, `holdings` other deltas and `earlier` head-only commits before the
+/// first hold, and one small view at `small`.
+fn costed(held: usize, holdings: usize, earlier: usize, quirk: Option<ViewQuirk>) -> Costed {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:cost");
+    let mut writer = Writer::default();
+    let mut batch: Vec<Delta> = (0..held.max(holdings))
+        .map(|k| fact(&format!("other:{k}"), "x", &k.to_string()))
+        .collect();
+    batch.push(fact("small", "name", "s"));
+    writer.append(peer.as_ref(), &batch);
+    for _ in 0..earlier {
+        writer.append(peer.as_ref(), &[]);
+    }
+    let mut views = StoreViews::with_quirk(
+        store.peer("peer:cost").unwrap(),
+        StoreViewsOptions {
+            max_views: held + 8,
+            ..StoreViewsOptions::default()
+        },
+        quirk,
+    )
+    .unwrap();
+    register_leaf(&mut views, "leaf");
+    views.hold("leaf", "small", 5.0).unwrap();
+    let others = match held {
+        0 => 4,
+        n => n,
+    };
+    for k in 0..others {
+        views.hold("leaf", &format!("other:{k}"), 5.0).unwrap();
+    }
+    Costed {
+        _store: store,
+        peer,
+        views,
+        writer,
+        touch: fact("small", "note", "t"),
+    }
+}
+
+fn cost_ratio(what: &str, build: &dyn Fn(usize) -> Costed) -> Option<String> {
+    let built: RefCell<BTreeMap<usize, Costed>> = RefCell::default();
+    let run = |n: usize| {
+        let mut built = built.borrow_mut();
+        let c = built.entry(n).or_insert_with(|| build(n));
+        let start = Instant::now();
+        for round in 0..n {
+            match round % 2 {
+                0 => {
+                    c.writer
+                        .append(c.peer.as_ref(), std::slice::from_ref(&c.touch));
+                }
+                _ => {
+                    c.peer.purge(std::slice::from_ref(&c.touch.id)).unwrap();
+                }
+            }
+            let refreshed = black_box(c.views.refresh(5.0).unwrap());
+            assert_eq!(refreshed.reread, [ViewKey::new("leaf", "small")]);
+        }
+        start.elapsed()
+    };
+    let (n, ratio) = ratio(what, &run);
+    (ratio >= BOUND).then(|| {
+        format!(
+            "{what}: the run at 8N = {} took {ratio:.1} times as long as at N = {n}; linear work gives about 8",
+            8 * n
+        )
+    })
+}
+
+fn cost_rail(what: &str, build: fn(usize) -> Costed) {
+    let _timed = crate::timed::exclusive();
+    let slow = crate::timed::remeasured(|| cost_ratio(what, &build));
+    assert!(slow.is_none(), "{}", slow.unwrap());
+}
+
+/// Rail 1: N refreshes beside N held views that no commit touches.
+#[test]
+fn a_pass_costs_its_records_not_the_held_views() {
+    cost_rail("beside N held views", |n| costed(n, 0, 0, None));
+}
+
+/// Rail 2: N refreshes beside N holdings, with five views.
+#[test]
+fn a_pass_costs_its_records_not_the_holdings() {
+    cost_rail("beside N holdings", |n| costed(0, n, 0, None));
+}
+
+/// Rail 3: N refreshes after N records before the processed position.
+#[test]
+fn a_pass_costs_its_records_not_the_records_before_it() {
+    cost_rail("after N earlier records", |n| costed(0, 0, n, None));
+}
+
+/// A holder that asks `touching` of every held view per page is right and slow: rail 1 goes
+/// red. By hand: `cargo test --release --test witness store_views:: -- --ignored`.
+#[test]
+#[ignore]
+fn a_per_view_scan_turns_the_held_views_rail_red() {
+    let _timed = crate::timed::exclusive();
+    let slow = cost_ratio("beside N held views, touching per view", &|n| {
+        costed(n, 0, 0, Some(ViewQuirk::TouchingPerView))
+    });
+    assert!(slow.is_some(), "the per-view scan stayed under the bound");
+}
+
+// ---------------------------------------------------------------------------------------------
+// The runner's words for a store fault (README §11.3, §11.6)
+// ---------------------------------------------------------------------------------------------
+
+/// A store whose opened handles (the holder's) page the feed with no progress; the handles
+/// `createPeer` gives the runner are sound.
+struct StuckWhenOpened(MemoryStore);
+
+struct Stuck(Box<dyn PeerStore>);
+
+impl PeerStore for Stuck {
+    fn id(&self) -> &str {
+        self.0.id()
+    }
+    fn erasure(&self) -> PeerErasure {
+        self.0.erasure()
+    }
+    fn history(&self) -> &str {
+        self.0.history()
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        self.0.read()
+    }
+    fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
+        self.0.append(batch)
+    }
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+        self.0.purge(ids)
+    }
+    fn changes(&self, from: Revision, _: Option<Revision>) -> Result<ChangePage, StoreError> {
+        Ok(ChangePage::Ok {
+            records: Vec::new(),
+            through: from,
+        })
+    }
+}
+
+impl Store for StuckWhenOpened {
+    fn profile(&self) -> &rhizomatic::store::StoreProfile {
+        self.0.profile()
+    }
+    fn create_peer(&self, id: &str, e: ErasurePosture) -> Result<Box<dyn PeerStore>, StoreError> {
+        self.0.create_peer(id, e)
+    }
+    fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError> {
+        Ok(Box::new(Stuck(self.0.peer(id)?)))
+    }
+    fn open_admin(&self) -> Box<dyn rhizomatic::store::Exporter> {
+        self.0.open_admin()
+    }
+    fn close(&self) {
+        self.0.close()
+    }
+}
+
+#[test]
+fn a_store_fault_fails_the_case_with_the_fixed_words() {
+    let error = run_views_conformance(
+        &|_| Ok(Box::new(StuckWhenOpened(MemoryStore::new())) as Box<dyn Store>),
+        &document(),
+        &StoreViewsReader::default(),
+    )
+    .unwrap_err();
+    let failure = error
+        .failures
+        .iter()
+        .find(|f| f.name == "views/an-unrelated-append")
+        .unwrap_or_else(|| panic!("{error}"));
+    assert!(
+        failure.message.starts_with("the store broke no-progress: "),
+        "{}",
+        failure.message
+    );
 }

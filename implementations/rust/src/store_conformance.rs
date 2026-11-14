@@ -59,8 +59,8 @@ pub enum RegisterRefusal {
 impl fmt::Display for RegisterRefusal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Unanchored(reason) => write!(f, "term is not anchored: {reason}"),
-            Self::Refused(e) => write!(f, "{e}"),
+            Self::Unanchored(reason) => f.write_str(&format!("term is not anchored: {reason}")),
+            Self::Refused(e) => f.write_str(&e.to_string()),
         }
     }
 }
