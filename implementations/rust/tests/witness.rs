@@ -5,6 +5,8 @@
 mod freshness_doubles;
 #[path = "support/materialization_assertions.rs"]
 mod materialization_assertions;
+#[path = "support/timed.rs"]
+mod timed;
 
 mod aliased;
 mod anchored;

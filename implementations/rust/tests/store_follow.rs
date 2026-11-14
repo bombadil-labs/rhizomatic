@@ -1977,7 +1977,7 @@ fn fuzz_claims(tally: &Tally) {
     assert_eq!(tally.keeps_unbytes_missed, 0, "{tally:?}");
 }
 
-/// The long run, by hand: `cargo test --release --test store_follow -- --ignored`.
+/// The long run, by hand: `cargo test --release --test witness store_follow:: -- --ignored`.
 #[test]
 #[ignore]
 fn twenty_thousand_sequences_agree_with_brute_force() {
@@ -2075,8 +2075,8 @@ fn cost_rail(what: &str, build: fn(usize) -> Built) {
         panic!("the costed pull answers ok");
     };
     assert_eq!((records.len(), deltas.len()), (16, 16));
-    // A run is measured again once before a slow ratio counts.
-    let slow = scales_linearly(what, &run).and_then(|_| scales_linearly(what, &run));
+    let _timed = crate::timed::exclusive();
+    let slow = crate::timed::remeasured(|| scales_linearly(what, &run));
     assert!(slow.is_none(), "{}", slow.unwrap());
     assert!(counted.get() > 0);
 }

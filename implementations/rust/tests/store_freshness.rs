@@ -2673,7 +2673,8 @@ fn cost_rail(what: &str, build: fn(usize) -> Built) {
         check_fresh(peer.as_ref(), &capture, 100.0).unwrap(),
         Freshness::Current
     );
-    let slow = scales_linearly(what, run);
+    let _timed = crate::timed::exclusive();
+    let slow = crate::timed::remeasured(|| scales_linearly(what, run));
     assert!(slow.is_none(), "{}", slow.unwrap());
 }
 
