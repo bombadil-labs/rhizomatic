@@ -39,7 +39,7 @@ use crate::store::{
 };
 use crate::store_follow::{Position, Pull};
 use crate::store_fresh::{parse_capture, Capture, FeedError, Freshness, Touch, TouchReason};
-use crate::store_held::{Refresh, ViewKey, ViewRead};
+use crate::store_held::{Refresh, ViewFrom, ViewKey, ViewRead};
 use crate::types::Delta;
 
 const SCRIPTS_FORMAT: &str = "rhizomatic-store-scripts/1";
@@ -2222,6 +2222,8 @@ enum Call {
     },
     Get(Vec<String>),
     Arrivals(Vec<String>),
+    /// A `scope` call, with the entities of its request's anchors (README §11.4).
+    Scope(Vec<String>),
     Release,
     Other(&'static str),
 }
@@ -2237,6 +2239,7 @@ impl Call {
             ),
             Self::Get(ids) => format!("get {}", cut_ids(ids)),
             Self::Arrivals(ids) => format!("arrivals {}", cut_ids(ids)),
+            Self::Scope(_) => "scope".into(),
             Self::Release => "release".into(),
             Self::Other(op) => (*op).into(),
         }
@@ -2360,7 +2363,12 @@ impl Snapshot for LoggedSnapshot {
         self.inner.negators(ids)
     }
     fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
-        self.log.borrow_mut().push(Call::Other("scope"));
+        let entities = request
+            .anchors
+            .iter()
+            .map(|Anchor::Entity { entity }| entity.clone())
+            .collect();
+        self.log.borrow_mut().push(Call::Scope(entities));
         self.inner.scope(request)
     }
     fn release(&mut self) {
@@ -3322,7 +3330,7 @@ fn pinned(programs: Option<&BTreeMap<String, ViewsProgram>>, keys: &[ViewKey]) -
 
 /// The calls the walk of §11.4 allows where a read may come.
 fn reads_a_view(call: &Call) -> bool {
-    matches!(call, Call::Other("scope" | "targets" | "negators"))
+    matches!(call, Call::Scope(_) | Call::Other("targets" | "negators"))
 }
 
 /// The walk of one `hold` or `refresh` against the contract (§11.4). `processed` is the
@@ -3381,7 +3389,7 @@ fn walk_pass(
     let mut scoped = false;
     if read_due || selection_held {
         while let Some(call) = log.get(at_call).filter(|call| reads_a_view(call)) {
-            scoped |= matches!(call, Call::Other("scope"));
+            scoped |= matches!(call, Call::Scope(_));
             at_call += 1;
         }
     }
@@ -3589,6 +3597,7 @@ impl Run<'_> {
         let want_from = match (resync && was_held, expect.get("from")) {
             (true, _) => Some("read".to_string()),
             (false, Some(_)) => Some(text(expect, "from")?.to_string()),
+            (false, None) if !was_held => Some("new".to_string()),
             (false, None) => None,
         };
         let want_bytes = text(expect, "bytes")?.to_string();
@@ -3610,13 +3619,19 @@ impl Run<'_> {
             return Err(format!("hold of {name} at {root} answered other bytes"));
         }
         // 2. Where the view came from.
-        if let Some(want) = want_from {
-            if answer.from.as_str() != want {
+        match want_from {
+            Some(want) if answer.from.as_str() != want => {
                 return Err(format!(
                     "hold of {name} at {root} answered from {}, expected {want}",
                     answer.from.as_str()
-                ));
+                ))
             }
+            None if answer.from == ViewFrom::New => {
+                return Err(format!(
+                    "hold of {name} at {root} answered from new, expected held or read"
+                ))
+            }
+            _ => {}
         }
         // 3. The position.
         Self::stands("hold", &answer.position, &history, want_position)?;
@@ -3628,7 +3643,17 @@ impl Run<'_> {
                 number(want_expiry)
             ));
         }
-        // 5. The calls.
+        // 5. The evicted view is not read.
+        if let Some(gone) = &evicted {
+            let named = holding.log.borrow().iter().any(|call| match call {
+                Call::Scope(entities) => entities.contains(&gone.root),
+                _ => false,
+            });
+            if named {
+                return Err(format!("hold read {}, the view it evicts", view_text(gone)));
+            }
+        }
+        // 6. The calls.
         walk_pass(
             "hold",
             &holding.log.borrow(),
@@ -3636,14 +3661,14 @@ impl Run<'_> {
             !reread.is_empty() || !was_held,
             selection_held,
         )?;
-        // 6. The held set and the processed position.
+        // 7. The held set and the processed position.
         if let Some(gone) = &evicted {
             holding.held.retain(|k| k != gone);
         }
         holding.held.retain(|k| *k != key);
         holding.held.push(key);
         holding.processed = Some(answer.position);
-        // 7. The next boundary.
+        // 8. The next boundary.
         Self::next_boundary(holding, want_boundary)
     }
 
@@ -3696,6 +3721,7 @@ impl Run<'_> {
             }
         };
         let want_boundary = bound(expect, "nextBoundary")?;
+        let want_evicted = view_keys(expect, "evicted")?;
         let selection_held = holding.held.iter().any(|k| self.selects(&k.name));
         let programs = self.programs;
         let mut want_pinned = want_reread.clone();
@@ -3760,7 +3786,15 @@ impl Run<'_> {
                 ));
             }
         }
-        // 5. The calls.
+        // 5. The views evictions forgot.
+        if answer.evicted != want_evicted {
+            return Err(format!(
+                "refresh evicted {}, expected {}",
+                views_text(&answer.evicted),
+                views_text(&want_evicted)
+            ));
+        }
+        // 6. The calls.
         walk_pass(
             "refresh",
             &holding.log.borrow(),
@@ -3768,7 +3802,7 @@ impl Run<'_> {
             !want_reread.is_empty(),
             selection_held,
         )?;
-        // 6. The processed position and the next boundary.
+        // 7. The processed position and the next boundary.
         holding.processed = Some(answer.position);
         Self::next_boundary(holding, want_boundary)
     }

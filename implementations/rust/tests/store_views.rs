@@ -110,7 +110,7 @@ fn every_views_case_passes_every_run() {
     let doc = document();
     assert_eq!(doc["format"], "rhizomatic-store-views/1");
     let names = case_names(&doc);
-    assert_eq!(names.len(), 28, "{names:?}");
+    assert_eq!(names.len(), 30, "{names:?}");
     for (label, store) in runs() {
         let report = run(store, &doc, &StoreViewsReader::default())
             .unwrap_or_else(|e| panic!("run {label}: {e}"));
@@ -224,7 +224,42 @@ const TABLE: &[Row] = &[
         quirk: ViewQuirk::ServesEvictedBytes,
         case: "an-evicted-view-is-read-again",
         message: "hold of leaf at garden:1 answered other bytes",
-        only: &["an-evicted-view-is-read-again"],
+        only: &[
+            "an-evicted-view-is-read-again",
+            "an-evicted-view-held-again-answers-new",
+        ],
+    },
+    row(
+        ViewQuirk::AnswersReadForNew,
+        "an-evicted-view-held-again-answers-new",
+        "hold of leaf at garden:1 answered from read, expected new",
+    ),
+    row(
+        ViewQuirk::AnswersReadForNew,
+        "a-program-with-a-selection",
+        "hold of before-60 at plant:s answered from read, expected new",
+    ),
+    row(
+        ViewQuirk::EvictedEmpty,
+        "an-evicted-view-not-held-again",
+        "refresh evicted [], expected [leaf@garden:1]",
+    ),
+    Row {
+        quirk: ViewQuirk::EvictedKeepsDropped,
+        case: "an-evicted-view-not-held-again",
+        message: "refresh evicted [leaf@bed:1 leaf@garden:1], expected [leaf@garden:1]",
+        only: &["an-evicted-view-not-held-again"],
+    },
+    row(
+        ViewQuirk::EvictedKeepsReheld,
+        "an-evicted-view-held-again-answers-new",
+        "refresh evicted [leaf@bed:1 leaf@garden:1], expected [leaf@bed:1]",
+    ),
+    Row {
+        quirk: ViewQuirk::ReadsEvicted,
+        case: "an-evicted-view-not-held-again",
+        message: "hold read leaf@garden:1, the view it evicts",
+        only: &["an-evicted-view-not-held-again"],
     },
     // The rows of the runner's own checks (README §11.6, "Every check has a row").
     row(
@@ -242,7 +277,44 @@ const TABLE: &[Row] = &[
         "no-change",
         "hold answered another history",
     ),
+    row(
+        ViewQuirk::AnswersNewAlways,
+        "a-program-with-a-selection",
+        "hold of before-60 at plant:s answered from new, expected held or read",
+    ),
 ];
+
+/// The other cases some holders fail besides their row's (README §11.6).
+#[test]
+fn some_wrong_holders_fail_more_cases_as_the_table_says() {
+    let doc = document();
+    let failed = |quirk| -> BTreeSet<String> {
+        run(DEFAULT, &doc, &holder(quirk))
+            .unwrap_err()
+            .failures
+            .into_iter()
+            .map(|f| f.name.trim_start_matches("views/").to_string())
+            .collect()
+    };
+    let every: BTreeSet<String> = case_names(&doc)
+        .iter()
+        .map(|n| n.trim_start_matches("views/").to_string())
+        .collect();
+    let read_for_new = failed(ViewQuirk::AnswersReadForNew);
+    assert!(read_for_new.is_superset(&every), "{read_for_new:?}");
+    let empty = failed(ViewQuirk::EvictedEmpty);
+    for case in [
+        "max-views-evicts-the-least-recently-held",
+        "an-evicted-view-held-again-answers-new",
+    ] {
+        assert!(empty.contains(case), "{case}: {empty:?}");
+    }
+    let reheld = failed(ViewQuirk::EvictedKeepsReheld);
+    assert!(
+        reheld.contains("max-views-evicts-the-least-recently-held"),
+        "{reheld:?}"
+    );
+}
 
 /// What is wrong with one row's run, or nothing.
 fn judge(doc: &Value, row: &Row) -> Option<String> {
@@ -367,11 +439,26 @@ fn a_changed_expectation_fails_with_its_message() {
         "views/no-change",
         "hold of leaf at garden:1 answered other bytes",
     );
-    // Another `from`.
+    // Another `from`: a held view expected read.
+    fails_with(
+        &edit(&|d| nth(d, "no-change", "hold", 2)["expect"]["from"] = "read".into()),
+        "views/no-change",
+        "hold of leaf at garden:1 answered from held, expected read",
+    );
+    // A new view expected held.
     fails_with(
         &edit(&|d| nth(d, "no-change", "hold", 0)["expect"]["from"] = "held".into()),
         "views/no-change",
-        "hold of leaf at garden:1 answered from read, expected held",
+        "hold of leaf at garden:1 answered from new, expected held",
+    );
+    // Another `evicted`.
+    fails_with(
+        &edit(&|d| {
+            nth(d, "no-change", "refresh", 0)["expect"]["evicted"] =
+                serde_json::json!([{ "program": "leaf", "root": "garden:1" }])
+        }),
+        "views/no-change",
+        "refresh evicted [], expected [leaf@garden:1]",
     );
     // Another hold position.
     fails_with(
@@ -608,9 +695,12 @@ fn term(name: &str) -> Term {
 /// What a store fault double does to the next pass.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Fault {
+    /// One page with no progress; the next answers soundly.
     NoProgress,
     PastTheBound,
     UnaskedIds,
+    /// `scope` refuses: a read in the pass fails with a store refusal.
+    RefusesScope,
 }
 
 /// Where a moved snapshot shows.
@@ -697,10 +787,13 @@ impl PeerStore for Spy<'_> {
         self.log("changes");
         let page = self.inner.changes(from, to)?;
         Ok(match (self.fault.get(), page) {
-            (Some(Fault::NoProgress), ChangePage::Ok { records, .. }) => ChangePage::Ok {
-                records,
-                through: from,
-            },
+            (Some(Fault::NoProgress), ChangePage::Ok { records, .. }) => {
+                self.fault.set(None);
+                ChangePage::Ok {
+                    records,
+                    through: from,
+                }
+            }
             (Some(Fault::PastTheBound), ChangePage::Ok { records, through }) => ChangePage::Ok {
                 records,
                 through: Revision(through.0 + 1),
@@ -760,6 +853,9 @@ impl Snapshot for SpySnapshot {
     }
     fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
         self.log("scope");
+        if self.fault.get() == Some(Fault::RefusesScope) {
+            return Err(StoreError::new(StoreErrorCode::StoreClosed, "refused"));
+        }
         let (left, at) = self.moves.get();
         if left > 0 && at == Moves::AtScope {
             self.moves.set((left - 1, at));
@@ -888,7 +984,7 @@ fn only_hold_is_a_use_and_the_view_a_hold_evicts_is_not_read() {
     // `pa` was read by the refresh, and is still the least recently held: the hold of a third
     // view evicts it, and its pass does not read it though a commit touched it.
     let held = views.hold("pc", "e:c", 5.0).unwrap();
-    assert_eq!(held.from, ViewFrom::Read);
+    assert_eq!(held.from, ViewFrom::New);
     assert_eq!(views.eval_count_of("pa"), 2, "the evicted view was read");
     assert_eq!(views.eval_count_of("pc"), 1);
     assert_eq!(views.sizes().views, 2);
@@ -898,7 +994,7 @@ fn only_hold_is_a_use_and_the_view_a_hold_evicts_is_not_read() {
         "pb is still held"
     );
     let back = views.hold("pa", "e:a", 5.0).unwrap();
-    assert_eq!(back.from, ViewFrom::Read, "an evicted view is read again");
+    assert_eq!(back.from, ViewFrom::New, "an evicted view is read again");
     assert_eq!(views.eval_count_of("pa"), 3);
 }
 
@@ -1029,6 +1125,15 @@ fn a_moved_snapshot_starts_the_pass_again_at_most_four_times() {
         assert_eq!(held.bytes, fresh(peer.as_ref(), "leaf", "e:a", 5.0));
         let calls = spy.take();
         assert_eq!(calls.iter().filter(|c| *c == "read").count(), 4, "{at:?}");
+        let counted = match at {
+            Moves::AtRead => 1,
+            Moves::AtScope => 4,
+        };
+        assert_eq!(
+            views.eval_count_of("leaf"),
+            counted,
+            "{at:?}: the count of reads includes the reads of restarted passes"
+        );
         let opened = match at {
             Moves::AtRead => 1,
             Moves::AtScope => 4,
@@ -1210,6 +1315,64 @@ fn a_purge_read_by_a_hold_releases_the_baseline_and_keeps_no_payload() {
             after: fresh(peer.as_ref(), "leaf", "e:t", 5.0),
         }]
     );
+}
+
+/// A failed pass after a purge (README §11.6, "Erasure"; SPEC-18 §4.13 reading 93): a refresh
+/// whose pass reads the purge record and then fails in a read applies nothing, so the holder
+/// still keeps the payload and every index its size. The next refresh that succeeds releases the
+/// baseline and reports `before: None`. A holder that moves its position on a failed pass never
+/// releases it.
+#[test]
+fn a_failed_pass_after_a_purge_erases_nothing_and_the_next_one_erases() {
+    for quirk in [None, Some(ViewQuirk::MovesOnFailure)] {
+        let store = MemoryStore::new();
+        let peer = new_peer(&store, "peer:fp");
+        let mut writer = Writer::default();
+        let payload = "payload-failed-pass-9b1e";
+        let secret = fact("e:t", "secret", payload);
+        writer.append(
+            peer.as_ref(),
+            &[
+                secret.clone(),
+                fact("e:t", "name", "t"),
+                fact("e:b", "name", "b"),
+            ],
+        );
+        let spy = Spy::new(peer.as_ref());
+        let mut views =
+            StoreViews::with_quirk(spy.handle(), StoreViewsOptions::default(), quirk).unwrap();
+        register_leaf(&mut views, "target");
+        register_leaf(&mut views, "bystander");
+        views.hold("target", "e:t", 5.0).unwrap();
+        let bystander = views.hold("bystander", "e:b", 5.0).unwrap();
+        writer.append(peer.as_ref(), &[fact("e:t", "note", "n")]);
+        views.hold("target", "e:t", 5.0).unwrap();
+        peer.purge(std::slice::from_ref(&secret.id)).unwrap();
+        let sizes = views.sizes();
+        spy.fault.set(Some(Fault::RefusesScope));
+        assert_eq!(
+            feed_refused(views.refresh(5.0)),
+            Some(StoreErrorCode::StoreClosed)
+        );
+        spy.fault.set(None);
+        assert!(
+            !keeps(&views, &[cbor_text(payload)]).is_empty(),
+            "a failed pass applies nothing"
+        );
+        assert_eq!(views.sizes(), sizes);
+        let refreshed = views.refresh(5.0).unwrap();
+        let erased = refreshed.changed
+            == [ViewChange {
+                name: "target".into(),
+                root: "e:t".into(),
+                before: None,
+                after: fresh(peer.as_ref(), "leaf", "e:t", 5.0),
+            }]
+            && keeps(&views, &traces(&secret, Some(payload))).is_empty();
+        assert_eq!(erased, quirk.is_none(), "{quirk:?}: {refreshed:?}");
+        let held = views.hold("bystander", "e:b", 5.0).unwrap();
+        assert_eq!((held.from, held.bytes), (ViewFrom::Held, bystander.bytes));
+    }
 }
 
 /// A wrong holder that only a rail catches (README §11.6): it moves its processed position on a
@@ -1486,6 +1649,9 @@ struct Tally {
     purges_read: u64,
     windows_left: u64,
     selection_extra: u64,
+    new_answers: u64,
+    evicted_reported: u64,
+    dropped_evicted: u64,
 }
 
 /// The holder and the brute model of one sequence.
@@ -1513,8 +1679,11 @@ struct World<'f> {
     order: Vec<ViewKey>,
     model: BTreeMap<ViewKey, ModelView>,
     processed: Option<u64>,
-    /// What a host that copies from `changed` holds.
+    /// What a host that keeps the host rule alone holds (SPEC-18 §4.6, "The host rule").
     host: BTreeMap<ViewKey, String>,
+    /// The model's `evicted`: what evictions forgot since the last refresh, and no hold or drop
+    /// named since (§4.13 reading 92).
+    evicted: BTreeSet<ViewKey>,
     now: f64,
     pool: Vec<Delta>,
     /// Brute reads over the current holdings, by view and time; cleared by every commit.
@@ -1617,6 +1786,7 @@ impl<'f> World<'f> {
             model: BTreeMap::new(),
             processed: None,
             host: BTreeMap::new(),
+            evicted: BTreeSet::new(),
             now: 100.0,
             pool,
             cache: RefCell::default(),
@@ -1811,12 +1981,15 @@ impl<'f> World<'f> {
         );
         assert_eq!(answer.position.revision.0, self.current(), "{label}");
         let selects = self.program(&name).pushdown.is_some();
-        if !selects {
-            let want = match was_held && !resync && !due.contains(&key) {
-                true => ViewFrom::Held,
-                false => ViewFrom::Read,
-            };
-            assert_eq!(answer.from, want, "{label}: hold of {name} at {root}");
+        let want = match (was_held, resync || due.contains(&key)) {
+            (false, _) => Some(ViewFrom::New),
+            _ if selects => None,
+            (true, true) => Some(ViewFrom::Read),
+            (true, false) => Some(ViewFrom::Held),
+        };
+        match want {
+            Some(want) => assert_eq!(answer.from, want, "{label}: hold of {name} at {root}"),
+            None => assert_ne!(answer.from, ViewFrom::New, "{label}: {name} at {root}"),
         }
         if answer.from == ViewFrom::Held {
             tally.from_held += 1;
@@ -1832,17 +2005,20 @@ impl<'f> World<'f> {
             tally.evictions += 1;
             self.model.remove(gone);
             self.order.retain(|k| k != gone);
-            self.host.remove(gone);
+            self.evicted.insert(gone.clone());
         }
         for k in due.iter().filter(|k| Some(*k) != evicted.as_ref()) {
             self.read_again(k);
         }
-        if !was_held {
-            self.read_again(&key);
-            self.host.insert(key.clone(), answer.bytes.clone());
-        } else if resync {
+        if !was_held || resync {
             self.read_again(&key);
         }
+        // The host rule: copy a `new` answer.
+        if answer.from == ViewFrom::New {
+            tally.new_answers += 1;
+            self.host.insert(key.clone(), answer.bytes.clone());
+        }
+        self.evicted.remove(&key);
         self.order.retain(|k| *k != key);
         self.order.push(key);
         self.processed = Some(self.current());
@@ -1874,6 +2050,10 @@ impl<'f> World<'f> {
         }
         tally.selection_extra += (answer.reread.len() - due.len()) as u64;
         tally.rereads += answer.reread.len() as u64;
+        let want_evicted: Vec<ViewKey> = std::mem::take(&mut self.evicted).into_iter().collect();
+        assert_eq!(answer.evicted, want_evicted, "{label}: evicted");
+        tally.evicted_reported += answer.evicted.len() as u64;
+        // The host rule: only `changed[].after`, and stop at `evicted`.
         for change in &answer.changed {
             tally.released += u64::from(change.before.is_none());
             let key = ViewKey::new(&change.name, &change.root);
@@ -1883,15 +2063,24 @@ impl<'f> World<'f> {
             );
             self.host.insert(key, change.after.clone());
         }
+        for key in &answer.evicted {
+            self.host.remove(key);
+        }
         for k in &due {
             self.read_again(k);
         }
         self.processed = Some(self.current());
+        let hosted: Vec<&ViewKey> = self.host.keys().collect();
+        let held: Vec<&ViewKey> = self.model.keys().collect();
+        assert_eq!(
+            hosted, held,
+            "{label}: the host holds exactly the held views"
+        );
         for (key, view) in &self.model {
             assert_eq!(
                 self.host.get(key),
                 Some(&view.read.bytes),
-                "{label}: the host's copy of {}@{} from changed",
+                "{label}: the host's copy of {}@{}",
                 key.name,
                 key.root
             );
@@ -1941,13 +2130,16 @@ impl<'f> World<'f> {
                 }
             }
             78..=83 => {
-                if !self.order.is_empty() {
-                    let key = self.rng.pick(&self.order).clone();
+                let believed: Vec<ViewKey> = self.host.keys().cloned().collect();
+                if !believed.is_empty() {
+                    let key = self.rng.pick(&believed).clone();
                     self.views.drop_view(&key.name, &key.root).unwrap();
                     tally.drops += 1;
+                    tally.dropped_evicted += u64::from(!self.model.contains_key(&key));
                     self.order.retain(|k| *k != key);
                     self.model.remove(&key);
                     self.host.remove(&key);
+                    self.evicted.remove(&key);
                     self.boundary(label);
                 }
             }
@@ -2010,6 +2202,9 @@ fn fuzz_claims(tally: &Tally) {
         ("purges", tally.purges),
         ("passes after a purge", tally.purges_read),
         ("times below a window", tally.windows_left),
+        ("new answers", tally.new_answers),
+        ("evictions reported", tally.evicted_reported),
+        ("drops of an evicted view", tally.dropped_evicted),
     ] {
         assert!(count > 0, "no {what}: {tally:?}");
     }

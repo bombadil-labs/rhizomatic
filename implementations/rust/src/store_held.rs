@@ -22,13 +22,16 @@ impl ViewKey {
     }
 }
 
-/// Whether a `hold` served the view it held, or read it in its pass.
+/// Where the bytes of a `hold` answer came from (SPEC-18 §4.6; §4.13 reading 91).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ViewFrom {
-    /// The view was held and the pass did not read it.
+    /// The view was held and the pass kept its bytes.
     Held,
-    /// The view was new, or the pass read it again.
+    /// The view was held and the pass read it again.
     Read,
+    /// The view was not held when the call began: its first hold, or a hold after a `drop` or an
+    /// eviction. The answer is its baseline, and a host copies it (the host rule).
+    New,
 }
 
 impl ViewFrom {
@@ -36,6 +39,7 @@ impl ViewFrom {
         match self {
             Self::Held => "held",
             Self::Read => "read",
+            Self::New => "new",
         }
     }
 }
@@ -75,6 +79,10 @@ pub struct Refresh {
     pub changed: Vec<ViewChange>,
     /// The views this pass read again, ascending by program name, then root.
     pub reread: Vec<ViewKey>,
+    /// Every view an eviction forgot since the previous refresh that succeeded, and that no
+    /// `hold` and no `drop` named after its last eviction, ascending (§4.13 reading 92). A host
+    /// that follows the host rule stops maintaining these views.
+    pub evicted: Vec<ViewKey>,
     /// The pass could not take the views from the processed position: every held view was read
     /// again and every baseline released.
     pub resynced: bool,

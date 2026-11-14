@@ -126,6 +126,12 @@ pub enum ViewQuirk {
     ServesEvictedBytes,
     MovesOnFailure,
     TouchingPerView,
+    AnswersReadForNew,
+    AnswersNewAlways,
+    EvictedEmpty,
+    EvictedKeepsDropped,
+    EvictedKeepsReheld,
+    ReadsEvicted,
     UnorderedReread,
     ReadsOnSetEpoch,
     OtherHistory,
@@ -267,6 +273,9 @@ pub struct StoreViews<'a> {
     tick: u64,
     /// The views whose baseline is not `Current`: the only ones a refresh can report.
     unsettled: BTreeSet<ViewKey>,
+    /// The keys evictions forgot since the previous refresh, but those a `hold` or a `drop`
+    /// named since (§4.13 reading 92).
+    evicted: BTreeSet<ViewKey>,
     /// `ServesEvictedBytes` only: the bytes of evicted views.
     graveyard: BTreeMap<ViewKey, String>,
 }
@@ -289,6 +298,7 @@ impl fmt::Debug for StoreViews<'_> {
             .field("by_expiry", &self.by_expiry)
             .field("by_use", &self.by_use)
             .field("unsettled", &self.unsettled)
+            .field("evicted", &self.evicted)
             .field("graveyard", &self.graveyard)
             .finish()
     }
@@ -343,6 +353,7 @@ impl<'a> StoreViews<'a> {
             by_use: BTreeMap::new(),
             tick: 0,
             unsettled: BTreeSet::new(),
+            evicted: BTreeSet::new(),
             graveyard: BTreeMap::new(),
         })
     }
@@ -400,7 +411,11 @@ impl<'a> StoreViews<'a> {
     /// not registered is refused `invalid-request`. No store call.
     pub fn drop_view(&mut self, name: &str, root: &str) -> Result<(), StoreError> {
         self.registered(name)?;
-        self.forget(&ViewKey::new(name, root));
+        let key = ViewKey::new(name, root);
+        self.forget(&key);
+        if !self.quirk(ViewQuirk::EvictedKeepsDropped) {
+            self.evicted.remove(&key);
+        }
         Ok(())
     }
 
@@ -409,7 +424,8 @@ impl<'a> StoreViews<'a> {
         self.by_expiry.first().map(|(bound, _)| bound.0)
     }
 
-    /// How many reads of this program the holder applied.
+    /// How many reads of this program the holder made, the reads of a pass that failed or
+    /// started again included (§4.13 reading 95). A diagnostic, not part of the held state.
     pub fn eval_count_of(&self, name: &str) -> u64 {
         self.programs.get(name).map_or(0, |p| p.reads)
     }
@@ -467,9 +483,12 @@ impl<'a> StoreViews<'a> {
             bytes: view.bytes.clone(),
             position,
             expires_at: view.capture.expires_at(),
-            from: match held_before && !read_now {
-                true => ViewFrom::Held,
-                false => ViewFrom::Read,
+            from: match (held_before, read_now) {
+                _ if self.quirk == Some(ViewQuirk::AnswersNewAlways) => ViewFrom::New,
+                (false, _) if self.quirk(ViewQuirk::AnswersReadForNew) => ViewFrom::Read,
+                (false, _) => ViewFrom::New,
+                (true, true) => ViewFrom::Read,
+                (true, false) => ViewFrom::Held,
             },
             capture,
         })
@@ -509,10 +528,12 @@ impl<'a> StoreViews<'a> {
         if self.quirk(ViewQuirk::UnorderedReread) {
             reread.reverse();
         }
+        let evicted = std::mem::take(&mut self.evicted).into_iter().collect();
         Ok(Refresh {
             position,
             changed,
             reread,
+            evicted,
             resynced,
         })
     }
@@ -529,9 +550,15 @@ impl<'a> StoreViews<'a> {
     /// The pass on a new snapshot, started again on `snapshot-moved` at most `VIEW_SNAPSHOTS`
     /// times in all. It applies nothing.
     fn pass(&mut self, now: f64, hold: Option<&ViewKey>) -> Result<Plan, FeedError> {
+        let mut counts: BTreeMap<String, u64> = BTreeMap::new();
         let planned = on_snapshots(self.peer.as_ref(), VIEW_SNAPSHOTS, |snapshot| {
-            self.plan(snapshot, now, hold)
+            self.plan(snapshot, now, hold, &mut counts)
         });
+        for (name, reads) in counts {
+            if let Some(program) = self.programs.get_mut(&name) {
+                program.reads += reads;
+            }
+        }
         if planned.is_err() && self.quirk(ViewQuirk::MovesOnFailure) {
             if let Ok(mut snapshot) = self.peer.read() {
                 self.processed = Some(position_of(snapshot.as_ref()));
@@ -546,6 +573,7 @@ impl<'a> StoreViews<'a> {
         snapshot: &dyn Snapshot,
         now: f64,
         hold: Option<&ViewKey>,
+        counts: &mut BTreeMap<String, u64>,
     ) -> Result<Plan, FeedError> {
         let position = position_of(snapshot);
         let mut touched = BTreeSet::new();
@@ -597,7 +625,10 @@ impl<'a> StoreViews<'a> {
             if !self.views.contains_key(key) {
                 if self.views.len() >= self.options.max_views {
                     evict = self.by_use.first_key_value().map(|(_, k)| k.clone());
-                    if let Some(gone) = &evict {
+                    if let Some(gone) = evict
+                        .as_ref()
+                        .filter(|_| !self.quirk(ViewQuirk::ReadsEvicted))
+                    {
                         due.remove(gone);
                         released.remove(gone);
                     }
@@ -614,13 +645,13 @@ impl<'a> StoreViews<'a> {
                 .collect();
             if !touched.is_empty() {
                 let mut newer = self.peer.read()?;
-                let read = self.read_all(newer.as_ref(), &touched, now);
+                let read = self.read_all(newer.as_ref(), &touched, now, counts);
                 newer.release();
                 reads = read?;
                 due.retain(|key| !touched.contains(key));
             }
         }
-        reads.extend(self.read_all(snapshot, &due, now)?);
+        reads.extend(self.read_all(snapshot, &due, now, counts)?);
         Ok(Plan {
             position,
             resynced,
@@ -762,6 +793,7 @@ impl<'a> StoreViews<'a> {
         snapshot: &dyn Snapshot,
         due: &BTreeSet<ViewKey>,
         now: f64,
+        counts: &mut BTreeMap<String, u64>,
     ) -> Result<BTreeMap<ViewKey, Fresh>, FeedError> {
         let mut reads = BTreeMap::new();
         for key in due {
@@ -778,6 +810,7 @@ impl<'a> StoreViews<'a> {
             request.cache = self.options.cache;
             request.memo = self.options.memo;
             request.capture = true;
+            *counts.entry(key.name.clone()).or_default() += 1;
             let read = read_anchored(snapshot, request).map_err(|e| match e {
                 crate::store_read::StoreReadError::Store(e) => FeedError::Refused(e),
                 other => FeedError::Refused(invalid(format!(
@@ -813,14 +846,14 @@ impl<'a> StoreViews<'a> {
                 }
             }
             self.forget(gone);
+            if !self.quirk(ViewQuirk::EvictedEmpty) {
+                self.evicted.insert(gone.clone());
+            }
         }
         for key in &plan.released {
             self.release(key);
         }
         for (key, fresh) in plan.reads {
-            if let Some(program) = self.programs.get_mut(&key.name) {
-                program.reads += 1;
-            }
             match self.views.contains_key(&key) {
                 true => self.reread(&key, fresh),
                 false if Some(&key) == hold => self.insert(&key, fresh),
@@ -829,6 +862,9 @@ impl<'a> StoreViews<'a> {
         }
         self.processed = Some(plan.position);
         if let Some(key) = hold {
+            if !self.quirk(ViewQuirk::EvictedKeepsReheld) {
+                self.evicted.remove(key);
+            }
             self.tick += 1;
             if let Some(view) = self.views.get_mut(key) {
                 self.by_use.remove(&view.used);
