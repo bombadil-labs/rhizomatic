@@ -1,9 +1,16 @@
 //! `vectors/store/views.json` (SPEC-18 proposal §4.6, "Held views"; `vectors/store/README.md`
-//! §11). The Rust witness has no view holder until slice 3 step 10 builds it. Until then it reads
-//! the document, checks its format and the shape of every step a runner reads first, and reports
-//! every case skipped, as `follow.json` was skipped before step 8.
+//! §11) and the rails each witness adds (README §11.6).
 
+use rhizomatic::memory_store::{MemoryStore, MemoryStoreOptions};
+use rhizomatic::store::{ChangeRetention, Store, StoreError};
+use rhizomatic::store_conformance::{
+    run_views_conformance, FollowCaseStore, StoreConformanceError, StoreConformanceReport,
+    ViewsReader,
+};
+use rhizomatic::store_views::StoreViewsReader;
 use serde_json::Value;
+
+use crate::freshness_doubles::Scaled;
 
 fn document() -> Value {
     let path = format!(
@@ -13,73 +20,81 @@ fn document() -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).expect("read views.json")).unwrap()
 }
 
-fn is_key(v: &Value) -> bool {
-    v["program"].is_string() && v["root"].is_string()
+/// How one run of README §11.5 builds its stores.
+#[derive(Debug, Clone, Copy)]
+struct RunStore {
+    scale: u64,
+    keep: Option<u64>,
+    page: Option<u64>,
 }
 
+const DEFAULT: RunStore = RunStore {
+    scale: 1,
+    keep: None,
+    page: None,
+};
+
+/// README §11.5 runs 1 to 5, and revisions times 2 keeping two records.
+fn runs() -> Vec<(&'static str, RunStore)> {
+    let run = |scale, keep, page| RunStore { scale, keep, page };
+    vec![
+        ("1 default", DEFAULT),
+        ("2 pages of one", run(1, None, Some(1))),
+        ("3 two kept", run(1, Some(2), None)),
+        ("4 two kept, pages of one", run(1, Some(2), Some(1))),
+        ("5 times 3, pages of one", run(3, None, Some(1))),
+        ("times 2, two kept", run(2, Some(2), None)),
+    ]
+}
+
+fn open(run: RunStore, case: FollowCaseStore) -> Result<Box<dyn Store>, StoreError> {
+    let options = MemoryStoreOptions {
+        change_retention: case.change_retention.unwrap_or(
+            run.keep
+                .map_or(ChangeRetention::Unbounded, ChangeRetention::Revisions),
+        ),
+        change_page_size: case.change_page_size.or(run.page),
+        ..MemoryStoreOptions::default()
+    };
+    let store = MemoryStore::with_options(options)?;
+    Ok(match run.scale {
+        1 => Box::new(store),
+        k => Box::new(Scaled::new(store, k)),
+    })
+}
+
+fn run(
+    store: RunStore,
+    doc: &Value,
+    reader: &dyn ViewsReader,
+) -> Result<StoreConformanceReport, StoreConformanceError> {
+    run_views_conformance(&|case| open(store, case), doc, reader)
+}
+
+fn case_names(doc: &Value) -> Vec<String> {
+    doc["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| format!("views/{}", c["name"].as_str().unwrap()))
+        .collect()
+}
+
+/// Every run of README §11.5 passes every case of the file and skips nothing.
 #[test]
-fn the_views_vectors_are_skipped_until_the_witness_holds_views() {
+fn every_views_case_passes_every_run() {
     let doc = document();
     assert_eq!(doc["format"], "rhizomatic-store-views/1");
-    let programs: Vec<&str> = doc["programs"]
-        .as_array()
-        .expect("programs")
-        .iter()
-        .map(|p| p["name"].as_str().expect("a program's name"))
-        .collect();
-    assert!(!programs.is_empty());
-    assert!(doc["schemas"].as_array().is_some_and(|s| !s.is_empty()));
-    assert!(doc["setup"].as_array().is_some_and(|s| !s.is_empty()));
-    let cases = doc["cases"].as_array().expect("cases");
-    assert!(!cases.is_empty());
-    for case in cases {
-        let name = case["name"].as_str().expect("a case's name");
-        let requires = case["requires"].as_array().expect("requires");
+    let names = case_names(&doc);
+    assert_eq!(names.len(), 28, "{names:?}");
+    for (label, store) in runs() {
+        let report = run(store, &doc, &StoreViewsReader::default())
+            .unwrap_or_else(|e| panic!("run {label}: {e}"));
+        assert_eq!(report.passed, names, "run {label}");
         assert!(
-            requires.iter().any(|r| r == "changes"),
-            "{name} requires changes"
+            report.skipped.is_empty(),
+            "run {label}: {:?}",
+            report.skipped
         );
-        assert!(
-            case["views"]["peer"].is_string(),
-            "{name}: the holder's peer"
-        );
-        for step in case["steps"].as_array().expect("steps") {
-            let op = step["op"].as_str().expect("op");
-            let expect = &step["expect"];
-            match op {
-                "register" | "setEpoch" | "drop" => {
-                    let program = step["program"].as_str().expect("program");
-                    assert!(programs.contains(&program), "{name}: {program}");
-                }
-                "hold" => {
-                    assert!(step["now"].is_number() && step["root"].is_string());
-                    assert!(expect["bytes"].as_str().is_some_and(|b| !b.is_empty()));
-                    assert!(expect["position"].is_string());
-                    assert!(expect["reread"].as_array().unwrap().iter().all(is_key));
-                    if let Some(from) = expect.get("from") {
-                        assert!(from == "held" || from == "read", "{name}: {from}");
-                    }
-                }
-                "refresh" => {
-                    assert!(step["now"].is_number());
-                    assert!(expect["resynced"].is_boolean());
-                    assert!(expect["reread"].as_array().unwrap().iter().all(is_key));
-                    for change in expect["changed"].as_array().expect("changed") {
-                        assert!(is_key(change));
-                        assert!(change["before"].is_string() || change["before"].is_null());
-                        assert!(change["after"].is_string());
-                    }
-                }
-                _ => {}
-            }
-            if matches!(op, "hold" | "refresh" | "drop") {
-                let boundary = &expect["nextBoundary"];
-                assert!(boundary.is_null() || boundary.is_number(), "{name}");
-            }
-        }
     }
-    eprintln!(
-        "skipped {} views cases: the Rust witness builds held views in slice 3 step 10",
-        cases.len()
-    );
 }

@@ -985,6 +985,25 @@ fn a_defective_document_fails_with_its_message() {
         error.failures[0].message,
         "a check step on a store that serves no feed"
     );
+    // A defect of the document is reported before the store's gap (README §10.3): a check of a
+    // capture the case never took, on a store that serves no feed.
+    let check = doc["cases"][0]["steps"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|s| s["op"] == "check")
+        .unwrap();
+    check["capture"] = "never-taken".into();
+    let error = run_freshness_conformance(
+        &|_| Ok(Box::new(DeclaresNoFeed::new(MemoryStore::new())) as Box<dyn Store>),
+        &doc,
+        &StoreFreshness,
+    )
+    .expect_err("an unknown capture");
+    assert_eq!(
+        error.failures[0].message,
+        "the vector uses capture never-taken before taking it"
+    );
     // With its requirement, the case is skipped and reported.
     let report = run_freshness_conformance(
         &|_| Ok(Box::new(DeclaresNoFeed::new(MemoryStore::new())) as Box<dyn Store>),

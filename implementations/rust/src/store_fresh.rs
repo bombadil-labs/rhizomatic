@@ -327,6 +327,36 @@ pub fn make_capture(
     )
 }
 
+/// The same capture at a later revision of the same history (SPEC-18 §4.6, "Captures move without
+/// a write"; §4.13 reading 77). It is not part of the crate's public surface: only a holder of
+/// views calls it.
+///
+/// It ASSUMES what it cannot check: the caller read the feed over `(capture.revision, revision]`
+/// of `history`, and no record touched the capture. Called on anything else, it states a
+/// falsehood that `check_fresh` later believes. It refuses `invalid-request`, in this order,
+/// another history, a revision outside 0 to 2^53 − 1, and a revision below the capture's.
+pub(crate) fn advance_capture(
+    capture: &Capture,
+    history: &str,
+    revision: Revision,
+) -> Result<Capture, StoreError> {
+    if history != capture.history {
+        return Err(malformed("a capture moves only within its own history"));
+    }
+    if revision.0 > MAX_REVISION {
+        return Err(malformed("revision is not an integer from 0 to 2^53 - 1"));
+    }
+    if revision < capture.revision {
+        return Err(malformed(
+            "a capture moves only to a revision at or above its own",
+        ));
+    }
+    Ok(Capture {
+        revision,
+        ..capture.clone()
+    })
+}
+
 /// The anchor kinds of SPEC-18 §4.7.1 that a capture cannot hold yet. A stored capture that
 /// names one is well formed and refused `capability-absent`; another kind is malformed. Slice 6
 /// defines their fields, so only the kind is read.
@@ -734,4 +764,57 @@ pub fn raw_scope(snapshot: &dyn Snapshot, entities: &[String]) -> Result<Vec<Str
             .collect();
     }
     Ok(members.into_iter().collect())
+}
+
+/// SPEC-18 §4.6, "Captures move without a write": `advance_capture` keeps everything but the
+/// revision, and refuses another history, a revision out of range and a lower revision. A value
+/// that is not a built capture cannot reach it: `Capture` has private fields (§4.13 reading 42).
+#[cfg(test)]
+mod advance_rails {
+    use super::*;
+
+    fn built() -> Capture {
+        parse_capture(&serde_json::json!({
+            "history": "mint:a",
+            "revision": 5,
+            "anchors": [{ "kind": "entity", "entity": "garden:1" }],
+            "members": ["aa", "bb"],
+            "since": 10,
+            "expiresAt": 20,
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn a_capture_moves_forward_in_its_history_and_keeps_the_rest() {
+        let capture = built();
+        let moved = advance_capture(&capture, "mint:a", Revision(9)).unwrap();
+        assert_eq!(moved.revision(), Revision(9));
+        assert_eq!(moved.history(), "mint:a");
+        assert_eq!(moved.anchors(), capture.anchors());
+        assert_eq!(moved.members(), capture.members());
+        assert_eq!(
+            (moved.since(), moved.expires_at()),
+            (Some(10.0), Some(20.0))
+        );
+        assert_eq!(
+            advance_capture(&capture, "mint:a", Revision(5)).unwrap(),
+            capture
+        );
+    }
+
+    #[test]
+    fn moving_a_capture_refuses_another_history_a_lower_revision_and_one_out_of_range() {
+        let capture = built();
+        for (history, revision, words) in [
+            ("mint:b", 9, "its own history"),
+            ("mint:a", 4, "at or above its own"),
+            ("mint:a", MAX_REVISION + 1, "2^53 - 1"),
+            ("mint:b", 4, "its own history"),
+        ] {
+            let refused = advance_capture(&capture, history, Revision(revision)).unwrap_err();
+            assert_eq!(refused.code, StoreErrorCode::InvalidRequest);
+            assert!(refused.message.contains(words), "{}", refused.message);
+        }
+    }
 }

@@ -39,12 +39,61 @@ use crate::store::{
 };
 use crate::store_follow::{Position, Pull};
 use crate::store_fresh::{parse_capture, Capture, FeedError, Freshness, Touch, TouchReason};
+use crate::store_held::{Refresh, ViewKey, ViewRead};
 use crate::types::Delta;
 
 const SCRIPTS_FORMAT: &str = "rhizomatic-store-scripts/1";
 const SCOPE_FORMAT: &str = "rhizomatic-store-scope/1";
 const FRESHNESS_FORMAT: &str = "rhizomatic-store-freshness/1";
 const FOLLOW_FORMAT: &str = "rhizomatic-store-follow/1";
+const VIEWS_FORMAT: &str = "rhizomatic-store-views/1";
+
+/// Why `register` refused a program (`vectors/store/README.md` §11.2): the term is not anchored,
+/// with the SPEC-17 §5 reason of an anchored read, or another refusal (a name given twice).
+#[derive(Debug, Clone, PartialEq)]
+pub enum RegisterRefusal {
+    Unanchored(String),
+    Refused(StoreError),
+}
+
+impl fmt::Display for RegisterRefusal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unanchored(reason) => write!(f, "term is not anchored: {reason}"),
+            Self::Refused(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for RegisterRefusal {}
+
+/// A witness's holder of views as the runner drives it (`vectors/store/README.md` §11; SPEC-18
+/// §4.6, "Held views"). A program's term is term JSON; its selection is in pushdown form.
+pub trait ViewHolder {
+    fn register(
+        &mut self,
+        name: &str,
+        term: &Value,
+        pushdown: Option<Pushdown>,
+        epoch: Option<&str>,
+    ) -> Result<(), RegisterRefusal>;
+    fn set_epoch(&mut self, name: &str, epoch: &str) -> Result<(), StoreError>;
+    fn hold(&mut self, name: &str, root: &str, now: f64) -> Result<ViewRead, FeedError>;
+    fn refresh(&mut self, now: f64) -> Result<Refresh, FeedError>;
+    fn drop_view(&mut self, name: &str, root: &str) -> Result<(), StoreError>;
+    fn next_boundary(&self) -> Option<f64>;
+}
+
+/// Makes a witness's holder over a handle the runner owns and logs (§11.1, `views`), with one
+/// registry built from the document's `schemas`. Making it makes no store call.
+pub trait ViewsReader {
+    fn holder(
+        &self,
+        peer: Box<dyn PeerStore>,
+        max_views: Option<u64>,
+        schemas: &Value,
+    ) -> Result<Box<dyn ViewHolder>, String>;
+}
 
 /// A witness's follower (`vectors/store/README.md` §10; SPEC-18 §4.6, "Following the feed"):
 /// `positionOf` and the cursor `follow` makes. The runner hands `follow` a logged handle that it
@@ -621,6 +670,10 @@ struct Run<'a> {
     follower: Option<&'a dyn FollowReader>,
     /// Each follower, by name (§10.2).
     followers: BTreeMap<String, Following>,
+    /// The programs of a views document, by name (§11.1).
+    programs: Option<&'a BTreeMap<String, ViewsProgram>>,
+    /// The holder under test and the runner's record of it (§11).
+    holding: Option<Holding>,
     corpus: &'a Corpus,
     store: Box<dyn Store>,
     profile: StoreProfile,
@@ -778,6 +831,8 @@ impl<'a> Run<'a> {
             captures: BTreeMap::new(),
             follower: None,
             followers: BTreeMap::new(),
+            programs: None,
+            holding: None,
             corpus,
             reference: profile.format_version == corpus.reference_format,
             keep: Keep::of(profile.change_retention),
@@ -1246,9 +1301,6 @@ impl<'a> Run<'a> {
     /// A `check` step (§9.3).
     fn check(&mut self, step: &Value) -> Check {
         let reader = self.reader.ok_or("a check step outside a freshness run")?;
-        if !self.feed() {
-            return Err("a check step on a store that serves no feed".into());
-        }
         let handle = text(step, "peer")?;
         let peer = self.peer_name(handle)?;
         let name = text(step, "capture")?;
@@ -1277,6 +1329,11 @@ impl<'a> Run<'a> {
         let expect = field(step, "expect")?;
         let at_name = text(expect, "revision")?;
         let at = self.named(at_name, &peer)?;
+        // A defect of the document before a gap of the store (README §10.3): the checks above
+        // read the document only; the ones below read the feed model.
+        if !self.feed() {
+            return Err("a check step on a store that serves no feed".into());
+        }
         let current = self
             .feeds
             .get(&peer)
@@ -1464,6 +1521,10 @@ impl<'a> Run<'a> {
             "check" => self.check(step),
             "follow" => self.follow(step),
             "pull" => self.pull(step),
+            "register" => self.register(step),
+            "setEpoch" | "drop" => self.unread_op(step),
+            "hold" => self.hold(step),
+            "refresh" => self.refresh(step),
             "get" => self.get(step),
             "arrivals" => self.arrivals(step),
             "targets" | "negators" => self.index_read(step),
@@ -3199,6 +3260,639 @@ pub fn run_follow_conformance(
         Ok(report)
     } else {
         Err(StoreConformanceError { failures, report })
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Held views (§11)
+// ---------------------------------------------------------------------------------------------
+
+/// One program of a views document (§11.1): its term JSON and its selection, as written.
+#[derive(Debug, Clone)]
+pub struct ViewsProgram {
+    term: Value,
+    selection: Option<Value>,
+}
+
+/// The holder of a case, and what the runner keeps beside it (§11.1).
+struct Holding {
+    peer: String,
+    holder: Box<dyn ViewHolder>,
+    log: CallLog,
+    /// The held views in the order of their last `hold`, oldest first.
+    held: Vec<ViewKey>,
+    /// The position of the last answer of `hold` or `refresh`.
+    processed: Option<Position>,
+    max_views: Option<u64>,
+    registered: BTreeSet<String>,
+}
+
+/// A view as the messages write it: `<program>@<root>`.
+fn view_text(key: &ViewKey) -> String {
+    format!("{}@{}", key.name, key.root)
+}
+
+fn views_text<'k>(keys: impl IntoIterator<Item = &'k ViewKey>) -> String {
+    let listed: Vec<String> = keys.into_iter().map(view_text).collect();
+    format!("[{}]", listed.join(" "))
+}
+
+fn view_keys(v: &Value, key: &str) -> Check<Vec<ViewKey>> {
+    list(v, key)?
+        .iter()
+        .map(|view| Ok(ViewKey::new(text(view, "program")?, text(view, "root")?)))
+        .collect()
+}
+
+/// The views of programs without a selection, ascending (§11.3: the others are free).
+fn pinned(programs: Option<&BTreeMap<String, ViewsProgram>>, keys: &[ViewKey]) -> Vec<ViewKey> {
+    let selects = |name: &str| {
+        programs
+            .and_then(|programs| programs.get(name))
+            .is_some_and(|program| program.selection.is_some())
+    };
+    let mut pinned: Vec<ViewKey> = keys
+        .iter()
+        .filter(|key| !selects(&key.name))
+        .cloned()
+        .collect();
+    pinned.sort();
+    pinned
+}
+
+/// The calls the walk of §11.4 allows where a read may come.
+fn reads_a_view(call: &Call) -> bool {
+    matches!(call, Call::Other("scope" | "targets" | "negators"))
+}
+
+/// The walk of one `hold` or `refresh` against the contract (§11.4). `processed` is the
+/// processed position when the held set before the step was not empty.
+fn walk_pass(
+    op: &str,
+    log: &[Call],
+    processed: Option<&Position>,
+    read_due: bool,
+    selection_held: bool,
+) -> Check {
+    let mut at_call = 0;
+    let differs = |at_call: usize, want: &str| match log.get(at_call) {
+        None => format!("{op} made no call where the contract asks for {want}"),
+        Some(call) => format!(
+            "{op} made the call {} where the contract asks for {want}",
+            call.text()
+        ),
+    };
+    let first = match log.first() {
+        Some(call @ Call::Read(_)) => call,
+        _ => return Err(differs(0, "read")),
+    };
+    at_call += 1;
+    if let (Call::Read(Some((revision, history))), Some(processed)) = (first, processed) {
+        if *history == processed.history {
+            let mut at = processed.revision;
+            while at < *revision {
+                let want = format!("changes({}, {})", at.0, revision.0);
+                let Some(call) = log.get(at_call).filter(|call| call.text() == want) else {
+                    return Err(differs(at_call, &want));
+                };
+                at_call += 1;
+                let Call::Changes {
+                    answer: Some(ChangePage::Ok { records, through }),
+                    ..
+                } = call
+                else {
+                    break;
+                };
+                let ids: BTreeSet<&String> = records.iter().flat_map(|r| &r.added).collect();
+                if !ids.is_empty() {
+                    let want = Call::Get(ids.into_iter().cloned().collect()).text();
+                    if log.get(at_call).map(Call::text) != Some(want.clone()) {
+                        return Err(differs(at_call, &want));
+                    }
+                    at_call += 1;
+                }
+                if *through <= at {
+                    break;
+                }
+                at = *through;
+            }
+        }
+    }
+    let mut scoped = false;
+    if read_due || selection_held {
+        while let Some(call) = log.get(at_call).filter(|call| reads_a_view(call)) {
+            scoped |= matches!(call, Call::Other("scope"));
+            at_call += 1;
+        }
+    }
+    let want = match read_due && !scoped {
+        true => "scope",
+        false => "release",
+    };
+    if !matches!(log.get(at_call), Some(Call::Release)) || want == "scope" {
+        return Err(differs(at_call, want));
+    }
+    at_call += 1;
+    match log.get(at_call) {
+        Some(extra) => Err(format!(
+            "{op} made the call {} after its last call",
+            extra.text()
+        )),
+        None => Ok(()),
+    }
+}
+
+impl Run<'_> {
+    fn program(&self, step: &Value) -> Check<(String, &ViewsProgram)> {
+        let name = text(step, "program")?;
+        self.programs
+            .and_then(|programs| programs.get(name))
+            .map(|program| (name.to_string(), program))
+            .ok_or_else(|| format!("the vector names an unknown program {name}"))
+    }
+
+    fn holding(&mut self, op: &str) -> Check<&mut Holding> {
+        self.holding
+            .as_mut()
+            .ok_or_else(|| format!("a {op} step outside a views run"))
+    }
+
+    /// No store call since the log was cleared (§11.1, §11.2).
+    fn no_call(log: &CallLog, op: &str) -> Check {
+        match log.borrow().first() {
+            Some(call) => Err(format!(
+                "{op} made the call {}; it makes no store call",
+                call.text()
+            )),
+            None => Ok(()),
+        }
+    }
+
+    fn selects(&self, name: &str) -> bool {
+        self.programs
+            .and_then(|programs| programs.get(name))
+            .is_some_and(|program| program.selection.is_some())
+    }
+
+    /// A `register` step (§11.2).
+    fn register(&mut self, step: &Value) -> Check {
+        let (name, program) = self.program(step)?;
+        let pushdown = match &program.selection {
+            Some(v) => Some(
+                self.pushdown(v)?
+                    .map_err(|_| "the program's selection is out of range")?,
+            ),
+            None => None,
+        };
+        let term = program.term.clone();
+        let epoch = match step.get("epoch") {
+            Some(_) => Some(text(step, "epoch")?.to_string()),
+            None => None,
+        };
+        let want = match step.get("expect") {
+            Some(expect) => Some(text(expect, "reason")?.to_string()),
+            None => None,
+        };
+        let holding = self.holding("register")?;
+        holding.log.borrow_mut().clear();
+        let answer = holding
+            .holder
+            .register(&name, &term, pushdown, epoch.as_deref());
+        let refusal = |e: &RegisterRefusal| match e {
+            RegisterRefusal::Unanchored(reason) => reason.clone(),
+            RegisterRefusal::Refused(e) => e.code.as_str().to_string(),
+        };
+        match (answer, want) {
+            (Ok(()), None) => {
+                holding.registered.insert(name);
+            }
+            (Err(e), None) => {
+                return Err(format!("register of {name} was refused: {}", refusal(&e)))
+            }
+            (Ok(()), Some(want)) => {
+                return Err(format!(
+                    "register of {name} answered, expected the refusal {want}"
+                ))
+            }
+            (Err(e), Some(want)) if refusal(&e) != want => {
+                return Err(format!("register refused {}, expected {want}", refusal(&e)))
+            }
+            (Err(_), Some(_)) => {}
+        }
+        Self::no_call(&holding.log, "register")
+    }
+
+    /// A `setEpoch` or `drop` step (§11.2): neither reads.
+    fn unread_op(&mut self, step: &Value) -> Check {
+        let op = text(step, "op")?;
+        let (name, _) = self.program(step)?;
+        let holding = self.holding(op)?;
+        holding.log.borrow_mut().clear();
+        let answer = match op {
+            "setEpoch" => holding.holder.set_epoch(&name, text(step, "epoch")?),
+            _ => holding.holder.drop_view(&name, text(step, "root")?),
+        };
+        answer.map_err(|e| format!("{op} refused with {}: {}", e.code.as_str(), e.message))?;
+        Self::no_call(&holding.log, op)?;
+        if op == "drop" {
+            let key = ViewKey::new(&name, text(step, "root")?);
+            holding.held.retain(|held| *held != key);
+            let want = bound(field(step, "expect")?, "nextBoundary")?;
+            Self::next_boundary(holding, want)?;
+        }
+        Ok(())
+    }
+
+    fn next_boundary(holding: &Holding, want: Option<f64>) -> Check {
+        let got = holding.holder.next_boundary();
+        match same_bound(got, want) {
+            true => Ok(()),
+            false => Err(format!(
+                "the next boundary is {}, expected {}",
+                number(got),
+                number(want)
+            )),
+        }
+    }
+
+    /// The peer's history, revision, and retention floor, for a pass (§11.3).
+    fn pass_model(&self, peer: &str) -> Check<(String, Revision)> {
+        let model = self
+            .feeds
+            .get(peer)
+            .ok_or_else(|| format!("the vector uses peer {peer} before creating it"))?;
+        let (_, floor) = model.floor(self.keep);
+        let history = self
+            .histories
+            .get(peer)
+            .cloned()
+            .ok_or_else(|| format!("the vector uses peer {peer} before creating it"))?;
+        Ok((history, floor))
+    }
+
+    /// Whether the pass must resync whatever the document says (§11.3, "The expected resync").
+    fn must_resync(holding: &Holding, history: &str, floor: Revision) -> bool {
+        !holding.held.is_empty()
+            && holding
+                .processed
+                .as_ref()
+                .is_some_and(|p| p.history == history && p.revision < floor)
+    }
+
+    fn stands(op: &str, position: &Position, history: &str, want: Revision) -> Check {
+        if position.history != history {
+            return Err(format!("{op} answered another history"));
+        }
+        if position.revision != want {
+            return Err(format!(
+                "{op} stands at {}, expected {}",
+                position.revision.0, want.0
+            ));
+        }
+        Ok(())
+    }
+
+    /// A `hold` step (§11.3).
+    fn hold(&mut self, step: &Value) -> Check {
+        let (name, _) = self.program(step)?;
+        let root = text(step, "root")?.to_string();
+        let now = field(step, "now")?
+            .as_f64()
+            .ok_or("`now` is not a number")?;
+        let expect = field(step, "expect")?;
+        let peer = self.holding("hold")?.peer.clone();
+        if !self.holding("hold")?.registered.contains(&name) {
+            return Err(format!("the vector holds {name} before registering it"));
+        }
+        let want_position = self.named(text(expect, "position")?, &peer)?;
+        let (history, floor) = self.pass_model(&peer)?;
+        let key = ViewKey::new(&name, &root);
+        let holding = self.holding.as_ref().expect("checked above");
+        let resync = Self::must_resync(holding, &history, floor);
+        let was_held = holding.held.contains(&key);
+        let evicted = match (was_held, holding.max_views) {
+            (false, Some(max)) if holding.held.len() as u64 >= max => holding.held.first().cloned(),
+            _ => None,
+        };
+        let reread = match resync {
+            true => {
+                let others: Vec<ViewKey> = holding
+                    .held
+                    .iter()
+                    .filter(|k| Some(*k) != evicted.as_ref())
+                    .cloned()
+                    .collect();
+                pinned(self.programs, &others)
+            }
+            false => view_keys(expect, "reread")?,
+        };
+        let want_from = match (resync && was_held, expect.get("from")) {
+            (true, _) => Some("read".to_string()),
+            (false, Some(_)) => Some(text(expect, "from")?.to_string()),
+            (false, None) => None,
+        };
+        let want_bytes = text(expect, "bytes")?.to_string();
+        let want_expiry = bound(expect, "expiresAt")?;
+        let want_boundary = bound(expect, "nextBoundary")?;
+        let selection_held = holding.held.iter().any(|k| self.selects(&k.name));
+        let holding = self.holding.as_mut().expect("checked above");
+        let processed = match holding.held.is_empty() {
+            true => None,
+            false => holding.processed.clone(),
+        };
+        holding.log.borrow_mut().clear();
+        let answer = holding
+            .holder
+            .hold(&name, &root, now)
+            .map_err(|e| failed_call("hold", e))?;
+        // 1. The bytes.
+        if answer.bytes != want_bytes {
+            return Err(format!("hold of {name} at {root} answered other bytes"));
+        }
+        // 2. Where the view came from.
+        if let Some(want) = want_from {
+            if answer.from.as_str() != want {
+                return Err(format!(
+                    "hold of {name} at {root} answered from {}, expected {want}",
+                    answer.from.as_str()
+                ));
+            }
+        }
+        // 3. The position.
+        Self::stands("hold", &answer.position, &history, want_position)?;
+        // 4. The window's end.
+        if !same_bound(answer.expires_at, want_expiry) {
+            return Err(format!(
+                "hold of {name} at {root} reports expiresAt {}, expected {}",
+                number(answer.expires_at),
+                number(want_expiry)
+            ));
+        }
+        // 5. The calls.
+        walk_pass(
+            "hold",
+            &holding.log.borrow(),
+            processed.as_ref(),
+            !reread.is_empty() || !was_held,
+            selection_held,
+        )?;
+        // 6. The held set and the processed position.
+        if let Some(gone) = &evicted {
+            holding.held.retain(|k| k != gone);
+        }
+        holding.held.retain(|k| *k != key);
+        holding.held.push(key);
+        holding.processed = Some(answer.position);
+        // 7. The next boundary.
+        Self::next_boundary(holding, want_boundary)
+    }
+
+    /// A `refresh` step (§11.3).
+    fn refresh(&mut self, step: &Value) -> Check {
+        let now = field(step, "now")?
+            .as_f64()
+            .ok_or("`now` is not a number")?;
+        let expect = field(step, "expect")?;
+        let peer = self.holding("refresh")?.peer.clone();
+        let want_position = self.named(text(expect, "position")?, &peer)?;
+        let (history, floor) = self.pass_model(&peer)?;
+        let holding = self.holding.as_ref().expect("checked above");
+        let resync = Self::must_resync(holding, &history, floor);
+        let listed: Vec<(ViewKey, Value, Value)> = list(expect, "changed")?
+            .iter()
+            .map(|c| {
+                Ok((
+                    ViewKey::new(text(c, "program")?, text(c, "root")?),
+                    field(c, "before")?.clone(),
+                    field(c, "after")?.clone(),
+                ))
+            })
+            .collect::<Check<_>>()?;
+        let (want_resynced, want_reread, want_changed) = match resync {
+            true => {
+                let mut all = holding.held.clone();
+                all.sort();
+                let changed: Vec<(ViewKey, Value, Option<Value>)> = all
+                    .iter()
+                    .map(|key| {
+                        let after = listed
+                            .iter()
+                            .find(|(k, ..)| k == key)
+                            .map(|(.., after)| after.clone());
+                        (key.clone(), Value::Null, after)
+                    })
+                    .collect();
+                (true, pinned(self.programs, &holding.held), changed)
+            }
+            false => {
+                let resynced = field(expect, "resynced")?
+                    .as_bool()
+                    .ok_or("`resynced` is not true or false")?;
+                let changed = listed
+                    .into_iter()
+                    .map(|(key, before, after)| (key, before, Some(after)))
+                    .collect();
+                (resynced, view_keys(expect, "reread")?, changed)
+            }
+        };
+        let want_boundary = bound(expect, "nextBoundary")?;
+        let selection_held = holding.held.iter().any(|k| self.selects(&k.name));
+        let programs = self.programs;
+        let mut want_pinned = want_reread.clone();
+        want_pinned.sort();
+        let holding = self.holding.as_mut().expect("checked above");
+        let processed = match holding.held.is_empty() {
+            true => None,
+            false => holding.processed.clone(),
+        };
+        holding.log.borrow_mut().clear();
+        let answer = holding
+            .holder
+            .refresh(now)
+            .map_err(|e| failed_call("refresh", e))?;
+        // 1. The position.
+        Self::stands("refresh", &answer.position, &history, want_position)?;
+        // 2. Whether it resynced.
+        if answer.resynced != want_resynced {
+            return Err(format!(
+                "refresh resynced {}, expected {want_resynced}",
+                answer.resynced
+            ));
+        }
+        // 3. The views read again: those of programs without a selection, then the order.
+        let got = pinned(programs, &answer.reread);
+        if got != want_pinned {
+            return Err(format!(
+                "refresh re-read {}, expected {}",
+                views_text(&got),
+                views_text(&want_pinned)
+            ));
+        }
+        if answer.reread.windows(2).any(|pair| pair[0] >= pair[1]) {
+            return Err("refresh's re-read list is not ascending".into());
+        }
+        // 4. The views that changed, then their bytes.
+        let got: Vec<ViewKey> = answer
+            .changed
+            .iter()
+            .map(|c| ViewKey::new(&c.name, &c.root))
+            .collect();
+        let want: Vec<ViewKey> = want_changed.iter().map(|(k, ..)| k.clone()).collect();
+        if got != want {
+            return Err(format!(
+                "refresh changed {}, expected {}",
+                views_text(&got),
+                views_text(&want)
+            ));
+        }
+        for (change, (key, before, after)) in answer.changed.iter().zip(&want_changed) {
+            let same_before = match before {
+                Value::Null => change.before.is_none(),
+                v => v.as_str().is_some() && change.before.as_deref() == v.as_str(),
+            };
+            let same_after = after
+                .as_ref()
+                .is_none_or(|after| after.as_str() == Some(change.after.as_str()));
+            if !same_before || !same_after {
+                return Err(format!(
+                    "refresh reports the change of {} at {} with other bytes",
+                    key.name, key.root
+                ));
+            }
+        }
+        // 5. The calls.
+        walk_pass(
+            "refresh",
+            &holding.log.borrow(),
+            processed.as_ref(),
+            !want_reread.is_empty(),
+            selection_held,
+        )?;
+        // 6. The processed position and the next boundary.
+        holding.processed = Some(answer.position);
+        Self::next_boundary(holding, want_boundary)
+    }
+}
+
+/// The programs of a views document, each name once (§11.1).
+fn views_programs(doc: &Value) -> Check<BTreeMap<String, ViewsProgram>> {
+    let mut programs = BTreeMap::new();
+    for program in list(doc, "programs")? {
+        let name = text(program, "name")?;
+        let entry = ViewsProgram {
+            term: field(program, "term")?.clone(),
+            selection: program.get("selection").cloned(),
+        };
+        if programs.insert(name.to_string(), entry).is_some() {
+            return Err(format!("the vector names program {name} twice"));
+        }
+    }
+    Ok(programs)
+}
+
+/// Runs every case of `views.json` on a new store each (§11): the setup, then the holder made
+/// over a logged handle of the case's peer, then the steps. Names are `views/<case>`.
+pub fn run_views_conformance(
+    factory: &FollowStoreFn<'_>,
+    doc: &Value,
+    reader: &dyn ViewsReader,
+) -> Result<StoreConformanceReport, StoreConformanceError> {
+    let mut report = StoreConformanceReport::default();
+    let mut failures = Vec::new();
+    let mut fail = |name: &str, step: Option<usize>, message: String| {
+        failures.push(StoreConformanceFailure {
+            name: name.to_string(),
+            step,
+            message,
+        })
+    };
+    let loaded = match doc.get("format").and_then(Value::as_str) {
+        Some(VIEWS_FORMAT) => Corpus::load(doc, VIEWS_FORMAT).and_then(|corpus| {
+            Ok((
+                list(doc, "setup")?,
+                list(doc, "cases")?,
+                field(doc, "schemas")?,
+                views_programs(doc)?,
+                corpus,
+            ))
+        }),
+        _ => Err("unknown store views format".to_string()),
+    };
+    match loaded {
+        Err(message) => fail("views", None, message),
+        Ok((setup, cases, schemas, programs, corpus)) => {
+            for case in cases {
+                let name = format!("views/{}", case["name"].as_str().unwrap_or("?"));
+                let outcome = case_store(case, &["changeRetention", "changePageSize"])
+                    .map_err(|message| (None, message))
+                    .and_then(|store| match factory(store) {
+                        Err(e) if e.code == StoreErrorCode::CapabilityAbsent => Ok(None),
+                        Err(e) => Err((None, format!("the factory did not open a store: {e}"))),
+                        Ok(store) => Ok(Some(Run::on(&corpus, store))),
+                    })
+                    .and_then(|run| {
+                        let Some(mut run) = run else {
+                            return Ok(Some("store".to_string()));
+                        };
+                        run.programs = Some(&programs);
+                        if let Some(requirement) = run.unmet(case).map_err(|m| (None, m))? {
+                            return Ok(Some(requirement));
+                        }
+                        run.steps(setup)
+                            .map_err(|(step, m)| (step, format!("the setup: {m}")))?;
+                        run.make_holder(case, schemas, reader)
+                            .map_err(|m| (None, m))?;
+                        let steps = list(case, "steps").map_err(|m| (None, m))?;
+                        run.steps(steps).map(|()| None)
+                    });
+                match outcome {
+                    Ok(None) => report.passed.push(name),
+                    Ok(Some(missing)) => report.skipped.push(SkippedScript { name, missing }),
+                    Err((step, message)) => fail(&name, step, message),
+                }
+            }
+        }
+    }
+    if failures.is_empty() {
+        Ok(report)
+    } else {
+        Err(StoreConformanceError { failures, report })
+    }
+}
+
+impl Run<'_> {
+    /// The holder of a case (§11.1, `views`), over a logged handle of its peer. Making it makes
+    /// no store call.
+    fn make_holder(&mut self, case: &Value, schemas: &Value, reader: &dyn ViewsReader) -> Check {
+        let views = field(case, "views")?;
+        let peer = text(views, "peer")?.to_string();
+        if !self.histories.contains_key(&peer) {
+            return Err(format!("the vector uses peer {peer} before creating it"));
+        }
+        let max_views = match views.get("maxViews") {
+            Some(_) => Some(whole(views, "maxViews")?),
+            None => None,
+        };
+        let log = CallLog::default();
+        let logged = LoggedPeer {
+            inner: self
+                .store
+                .peer(self.corpus.peer(&peer)?)
+                .map_err(|e| format!("openPeer refused `{}`", e.code.as_str()))?,
+            log: log.clone(),
+        };
+        let holder = reader.holder(Box::new(logged), max_views, schemas)?;
+        Self::no_call(&log, "making the holder")?;
+        self.holding = Some(Holding {
+            peer,
+            holder,
+            log,
+            held: Vec::new(),
+            processed: None,
+            max_views,
+            registered: BTreeSet::new(),
+        });
+        Ok(())
     }
 }
 
