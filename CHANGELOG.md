@@ -74,8 +74,8 @@ freshness, a feed cursor and held views, in both witnesses against the same vect
   and step-8 API.
 
 - `StoreFaultRule` has a fifth rule, `revision-out-of-range`. In Rust, `StoreFault` has the
-  variant `RevisionOutOfRange { revision }`, and `FeedError` has `Read(StoreReadError)`: an error
-  of a read in a pass of held views that is not a store refusal. It was
+  variant `RevisionOutOfRange { revision }`, and `FeedError` has `Read(String)`: the message of
+  an error of a read in a pass of held views that is not a store refusal. It was
   `Refused(invalid-request)`. An exhaustive `match` adds the arms. This breaks only the unreleased
   slice 3 API.
 - `StoreViews.register` refuses a name given twice before it reads the term. A name given twice

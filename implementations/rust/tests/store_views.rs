@@ -27,7 +27,7 @@ use rhizomatic::store_conformance::{
 use rhizomatic::store_follow::follow_feed;
 use rhizomatic::store_fresh::{check_fresh, validity_window, FeedError, Freshness};
 use rhizomatic::store_held::{ViewChange, ViewFrom, ViewKey};
-use rhizomatic::store_read::{read_anchored, ReadRequest, StoreReadError};
+use rhizomatic::store_read::{read_anchored, ReadRequest};
 use rhizomatic::store_views::{
     StoreViews, StoreViewsOptions, StoreViewsReader, ViewProgram, ViewQuirk, ViewSizes,
     DEFAULT_MAX_VIEWS,
@@ -1402,7 +1402,7 @@ fn an_evaluator_error_passes_up_unchanged_and_nothing_is_applied() {
     views.hold("leaf", "e:a", 5.0).unwrap();
     let sizes = views.sizes();
     match views.hold("holey", "e:a", 5.0) {
-        Err(FeedError::Read(StoreReadError::Eval(message))) => {
+        Err(FeedError::Read(message)) => {
             assert!(message.contains("hole"), "{message}")
         }
         other => panic!("{other:?}"),

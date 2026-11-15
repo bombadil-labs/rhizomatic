@@ -838,7 +838,7 @@ impl<'a> StoreViews<'a> {
             // error of the read passes up unchanged.
             let read = read_anchored(snapshot, request).map_err(|e| match e {
                 crate::store_read::StoreReadError::Store(e) => FeedError::Refused(e),
-                other => FeedError::Read(other),
+                other => FeedError::Read(other.to_string()),
             })?;
             let capture = read.capture.ok_or_else(|| {
                 invalid(format!(

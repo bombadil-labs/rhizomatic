@@ -647,7 +647,7 @@ type ViewKey = { name; root };
   refused when the holder is made.
 - A read in a pass can fail with an error that is not a store refusal: the evaluator's. The call
   then fails with that error, unchanged, and applies nothing (TypeScript rethrows it; Rust returns
-  `FeedError::Read`; reading 99).
+  `FeedError::Read` with its message; reading 99).
 
 **The pass.** `StoreViews` keeps one processed position: every held view stands there. `hold` and
 `refresh` each make one **pass**, in this order:
@@ -1999,8 +1999,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
 99. **An error of a read that is not a store refusal.** A read in a pass can fail with the
     evaluator's error (for example, a hole no binding fills). The call fails with that error,
     unchanged, and applies nothing. TypeScript rethrows the error it caught. Rust returns
-    `FeedError::Read` with the read's `StoreReadError`; it first wrapped the error as a refusal
-    `invalid-request`, which a host could not tell from a refusal of its own call.
+    `FeedError::Read` with the read error's message unchanged: `FeedError` belongs to the storage
+    boundary, which may not name the reactor's `StoreReadError`. Rust first wrapped the error as a
+    refusal `invalid-request`, which a host could not tell from a refusal of its own call.
 100. **The views runners agree.** `maxViews` in a document is a JSON integer of 1 or more (`2.0` is
      2), and each schema's `alg` an integer from 0 to 2^32 − 1. Another value is a document
      defect with fixed words, found before the case's setup and before any holder is made (the

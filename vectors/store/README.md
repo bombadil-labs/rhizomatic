@@ -2720,7 +2720,7 @@ The JSON cannot express these; each witness builds them.
     program at NaN, and `refresh` at Infinity, for `now`.
   - **An evaluator error.** A program anchored at its root, with a hole that no binding fills:
     its `hold` fails with the evaluator's error, unchanged (TypeScript: the thrown `Error`, not a
-    `StoreError`; Rust: `FeedError::Read`). Nothing is applied, and a held view answers `held`.
+    `StoreError`; Rust: `FeedError::Read` with its message). Nothing is applied, and a held view answers `held`.
   - **The count of reads** (reading 95). A refresh whose one read refuses adds 1; a refresh whose
     read meets `snapshot-moved` twice and then answers adds 3.
   - **Use.** Only `hold` makes a view recent: after a `refresh` reads a view, holding a new view

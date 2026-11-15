@@ -110,9 +110,10 @@ impl std::fmt::Display for StoreFault {
 pub enum FeedError {
     Refused(StoreError),
     Fault(StoreFault),
-    /// A read of a held view failed with an error that is not a store refusal: the evaluator's,
-    /// passed up unchanged (SPEC-18 §4.6, "Held views").
-    Read(crate::store_read::StoreReadError),
+    /// A read of a held view failed with an error that is not a store refusal: the evaluator's.
+    /// It carries that error's message unchanged (SPEC-18 §4.6, "Held views"). The storage layer
+    /// cannot name the reactor's error type, so the message is what passes up.
+    Read(String),
 }
 
 impl From<StoreError> for FeedError {
@@ -132,7 +133,7 @@ impl std::fmt::Display for FeedError {
         let text = match self {
             Self::Refused(error) => error.to_string(),
             Self::Fault(fault) => format!("the store broke {}: {fault}", fault.rule()),
-            Self::Read(error) => error.to_string(),
+            Self::Read(message) => message.clone(),
         };
         f.write_str(&text)
     }

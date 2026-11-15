@@ -2680,7 +2680,7 @@ fn failed_call(call: &str, error: FeedError) -> String {
     match error {
         FeedError::Refused(e) => format!("{call} refused with {}: {}", e.code.as_str(), e.message),
         FeedError::Fault(fault) => format!("the store broke {}: {fault}", fault.rule()),
-        FeedError::Read(error) => error.to_string(),
+        FeedError::Read(message) => message,
     }
 }
 
