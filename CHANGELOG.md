@@ -18,68 +18,51 @@ same expected bytes. The memory `Reactor` keeps its whole-set methods, deprecate
 in slice 5. The store is read-only in slice 2: only test fixtures fill one. The TypeScript witness
 is complete; the Rust witness follows the same documents.
 
-The store, slice 3, steps 1 and 3 (SPEC-18 proposal §4.6, §4.13): each peer has a change feed.
-`PeerStore.changes(from, to?)` answers pages of records, one per revision advance, with the head
-and the ids added and removed. The memory store serves it. The shared store vectors check the feed
-after every step of every script. Both witnesses have it (steps 2 and 4 built the Rust side).
+The store, slice 3 (SPEC-18 proposal §4.6, §4.13 readings 1 to 102): revisions, the change feed,
+freshness, a feed cursor and held views, in both witnesses against the same vectors.
 
-The store, slice 3, step 5 (SPEC-18 proposal §4.6, §4.13 readings 24 to 41): freshness. A capture
-records what one anchored read depended on: its peer's history and revision, its anchors, its raw
-scope as ids and the validity window of its operand. `touching` and `checkFresh` decide from the change feed whether a
-capture is current, in calls that depend only on the changes since it.
-
-The store, slice 3, step 6 and its integration (SPEC-18 §4.13 readings 42 to 53): the Rust
-witness has freshness too, built from the documents alone. The two witnesses now agree where the
-reviews found them apart: the maker takes a live snapshot; a repeated mint is refused; a feed page
-with no progress fails a check; `now` must be finite; anchor kinds in a stored capture; a revision
-written `1.0`; one capture JSON for every witness.
-
-The store, slice 3, step 7 (SPEC-18 proposal §4.6 "Following the feed", §4.13 readings 54 to
-66): a pull cursor over the change feed. A follower reads a peer's state on one snapshot, takes
-`positionOf(snapshot)`, and calls `followFeed(peer, position)`; each `pull()` reads one page of
-records with the bytes of every added id the peer still holds. It never hands out the bytes of a
-purged delta (SPEC-4 ERRATA V6). `StoreReactor.follow(from)` makes a cursor, and a read and a
-fetched scope carry their `position`. `parsePosition` checks a stored position. The new shared
-vectors `vectors/store/follow.json` pin the cursor; the Rust witness skips them until step 8.
-`checkFresh` now also fails with an error, not a verdict, on a feed page whose `through` is past
-the revision it asked for. A full mirror may start from a position and then a non-atomic export;
-a follower's copies lie outside the store's erasure, and a follower replaces its mirror after
-`resync-required`. `follow.json` gains single pulls (`once`) with commits between them.
-
-The store, slice 3, step 8 and the integration of steps 7 and 8 (SPEC-18 §4.13 readings 46, 54,
-63, 73 and 74): the Rust witness has the feed cursor too, built from the documents alone. A store
-that breaks its contract is now a store fault, an error value that names the broken rule
-(`no-progress`, `past-the-bound`, `mismatched-answers`, `unasked-ids`), in both witnesses. A
-`get` or `arrivals` answer with an id the reader did not ask for is such a fault, so no reader
-delivers or judges it. Both witnesses refuse a capture with two defects by the same first defect,
-from one shared table (`vectors/store/capture-defects.json`), and their runners agree on case
-stores, skips, messages and the call log.
-
-The store, slice 3, step 9 (SPEC-18 proposal §4.6 "Held views", §4.13 readings 75 to 90): held
-views. A `StoreViews` holds, for one peer, a bounded set of views: each an anchored read of a
-registered program at a root, with its capture. `hold(name, root, now)` answers a view and
-`refresh(now)` brings every held view to one snapshot and one time. Each makes one pass over the
-change feed for the whole set. The pass finds the touched views through an inverted index and
-reads only those again, on its own snapshot; then the views whose window no longer holds `now`,
-and the views whose program's epoch changed (`setEpoch`). After a pass every held view equals a
-fresh read. `refresh` answers the views read again and the views whose bytes changed; there is
-no push. `nextBoundary` is the least `expiresAt` over the held views. `maxViews` bounds the set;
-`drop` forgets a view. A store that breaks its contract fails a pass with `StoreFaultError`, and
-nothing is applied. A held view keeps a purged delta's bytes, and its `changed` baseline, until a
-pass reads the purge; that pass releases them, and the next `refresh` reports the view with
-`before: null`. A host that erases runs a pass first, and erases the copies it took itself. The
-memory `Reactor` does not change. The new shared vectors `vectors/store/views.json` pin held
-views; the Rust witness skips them until step 10.
-
-The final review of step 9 (§4.13 readings 91 to 96): hosts are told about evictions.
-`ViewRead.from` has a third value, `"new"`: the view was not held when the call began, and the
-answer is its baseline. `"read"` now means held before and read again by the pass. `Refresh` has
-`evicted`: the views an eviction forgot since the previous refresh, not held again or dropped
-since. A host copies a view from a `"new"` answer, then only from `changed[].after`, and stops at
-`evicted`. Erasure: only a pass that succeeds after a purge releases a held view's payload; a
-pass that throws keeps it, and a host does not report erasure then. Two new cases in
-`views.json`, and the runner checks `evicted` and that a `hold` does not read the view it
-evicts.
+- **The change feed.** `PeerStore.changes(from, to?)` answers pages of records, one per revision
+  advance, with the head and the ids added and removed; never bytes. A `from` below the
+  retention floor, or above the current revision, answers `resync-required`. The memory store
+  serves it, and the shared store vectors check the feed after every step of every script.
+- **Freshness.** A capture records what one anchored read depended on: its peer's history and
+  revision, its anchors, its raw scope as ids and the validity window of its operand.
+  `touching` and `checkFresh(peer, capture, now)` decide from the feed whether a capture is
+  current, in calls that depend only on the changes since it. A revision means something only in
+  one history of one peer; a capture that crosses a process needs a minted history.
+- **The feed cursor.** A follower takes `positionOf(snapshot)`, reads its state, and calls
+  `followFeed(peer, position)`; each `pull()` reads one page with the bytes of every added id the
+  peer still holds, and never the bytes of a purged delta (SPEC-4 ERRATA V6). A full mirror may
+  start from a position and then an export. A follower's copies lie outside the store's erasure,
+  and it replaces its mirror after `resync-required`. `StoreReactor.follow(from)` makes a cursor;
+  a read and a fetched scope carry their `position`.
+- **Held views.** A `StoreViews` holds, for one peer, a bounded set of views: each an anchored
+  read of a registered program at a root, with its capture. `hold(name, root, now)` and
+  `refresh(now)` each make one pass over the feed for the whole set. The pass finds the touched
+  views through an inverted index and reads only those again, on its own snapshot; then the views
+  whose window no longer holds `now`, and the views whose program's epoch changed (`setEpoch`).
+  After a pass every held view equals a fresh read. There is no push: `refresh` answers the views
+  read again, the views whose bytes changed (`changed`, with `before` null when the baseline was
+  released) and the views evictions forgot (`evicted`). `ViewRead.from` is `"new"`, `"read"` or
+  `"held"`. A host keeps its copies by one rule: copy a `"new"` answer, then only
+  `changed[].after`, and stop at `evicted`. Only a pass that succeeds after a purge releases a held
+  view's copy of the payload; a pass that throws applies nothing, and a host does not report
+  erasure then.
+- **Store faults.** A store that breaks its contract is an error value that names the broken
+  rule, never an abort: `no-progress`, `past-the-bound`, `mismatched-answers`, `unasked-ids` and
+  `revision-out-of-range` (a snapshot whose revision is not an integer from 0 to 2^53 − 1).
+  `checkFresh`, a pull and a pass of held views find a fault before they judge or apply anything.
+  TypeScript throws `StoreFaultError`; Rust returns `FeedError::Fault`.
+- **Vectors.** `vectors/store/freshness.json`, `follow.json` and `views.json`, with
+  `capture-defects.json` and `capture-interchange.json`; each witness's runner reports with the
+  same fixed words (`vectors/store/README.md` §9 to §11).
+- **Agreement of the witnesses.** Both witnesses refuse in one order, count reads the same way,
+  and pass one table of each. An evaluator error in a pass passes up unchanged. `StoreReactor`
+  starts a read again when `read()` itself answers `snapshot-moved`. A fourth cost rail holds the
+  release of baselines to its records; the Rust wrong holders that scan every view run in release
+  mode in CI.
+- The slice 2 and slice 3 build plans are deleted. Their decisions are in the proposal's §12,
+  and what later slices owe is in its §10.2.
 
 ### ⚠️ Breaking
 
@@ -90,6 +73,14 @@ evicts.
   shape returned `StoreError` and panicked on a fault. This breaks only the unreleased step-7
   and step-8 API.
 
+- `StoreFaultRule` has a fifth rule, `revision-out-of-range`. In Rust, `StoreFault` has the
+  variant `RevisionOutOfRange { revision }`, and `FeedError` has `Read(StoreReadError)`: an error
+  of a read in a pass of held views that is not a store refusal. It was
+  `Refused(invalid-request)`. An exhaustive `match` adds the arms. This breaks only the unreleased
+  slice 3 API.
+- `StoreViews.register` refuses a name given twice before it reads the term. A name given twice
+  with an unanchored term is now refused `invalid-request`, not `UnanchoredTermError`. The Rust
+  `hold` refuses a program not registered before a `now` that is not finite.
 - `StoreRead` and `FetchedScope` have a new required member, `position`. A consumer that builds
   either itself adds it.
 - `makeCapture(snapshot, anchors, members, window)` takes a `Snapshot`, where the unreleased

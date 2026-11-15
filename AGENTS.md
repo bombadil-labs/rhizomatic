@@ -205,6 +205,19 @@ GitHub issues when useful; coordinate design changes with Myk and Loam's owner.
 - To share one build directory between worktrees, set `CARGO_TARGET_DIR` to one path. Run those
   builds one at a time.
 
+## Probes
+
+- A mutation probe runs under a time limit and a memory limit, for example `timeout 900` and
+  `ulimit -v 2500000`. Build first without the memory limit, because the linker needs more
+  address space. Then run the test binary under both limits.
+- A probe runs at most 4 test threads (`--test-threads=4`, or `RUST_TEST_THREADS=4`).
+- A mutant that removes a progress check can loop for ever and grow without bound. One grew to
+  4.8 GB.
+- A rail that tests a "no progress" fault makes the fault fire once. The next answer is sound, so
+  a mutant that ignores the fault cannot loop for ever.
+- Restore a mutated file from a copy you took. Do not use `git checkout`: it destroys work you
+  did not commit.
+
 ## Releasing (`@bombadil/rhizomatic` to npm)
 
 Publishing is cutting a tag; CI does the rest. When asked to cut a release:

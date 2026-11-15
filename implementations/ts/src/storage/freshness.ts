@@ -411,7 +411,8 @@ export function touching(
  * to a time.
  *
  * Throws `StoreFaultError` when the store breaks its contract, before it judges what the store
- * answered: a page with no progress short of r′ (`no-progress`), a page past r′
+ * answered: a snapshot whose revision is not an integer from 0 to 2^53 − 1
+ * (`revision-out-of-range`), a page with no progress short of r′ (`no-progress`), a page past r′
  * (`past-the-bound`), or a `get` that answers an id it was not asked for, twice, or out of order
  * (`unasked-ids`).
  */
@@ -443,9 +444,23 @@ const moved = (error: unknown): boolean =>
   error instanceof StoreError && error.code === "snapshot-moved";
 
 /**
- * `body` on a new snapshot of `peer`, released after it. On `snapshot-moved`, from `read()` itself
- * or from a later call, it starts again on a new snapshot, at most four snapshots in all; then
- * `snapshot-moved` passes up. `checkFresh` and a feed cursor's `pull` share it.
+ * A snapshot's revision checked before anything uses it: an integer from 0 to 2^53 − 1, else the
+ * store fault `revision-out-of-range`.
+ */
+function revisionInRange(revision: Revision): void {
+  if (!Number.isSafeInteger(revision) || revision < 0)
+    throw new StoreFaultError(
+      "revision-out-of-range",
+      { revision },
+      `the store's snapshot stands at revision ${revision}, not an integer from 0 to 2^53 - 1`,
+    );
+}
+
+/**
+ * `body` on a new snapshot of `peer`, released after it. The snapshot's revision is checked first
+ * (`revision-out-of-range`). On `snapshot-moved`, from `read()` itself or from a later call, it
+ * starts again on a new snapshot, at most four snapshots in all; then `snapshot-moved` passes up.
+ * `checkFresh`, a feed cursor's `pull` and a pass of held views share it.
  */
 export async function onSnapshots<T>(
   peer: PeerStore,
@@ -460,6 +475,7 @@ export async function onSnapshots<T>(
       throw error;
     }
     try {
+      revisionInRange(snapshot.revision);
       return await body(snapshot);
     } catch (error) {
       if (!moved(error) || attempts > SNAPSHOT_RETRIES) throw error;

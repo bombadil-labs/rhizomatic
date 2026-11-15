@@ -641,6 +641,40 @@ describe("round vectors: a change between two rounds", () => {
     ]);
   });
 
+  it("a read() that itself answers snapshot-moved starts again: three such and the fourth answers; four, and it passes up", async () => {
+    const loaded = await load();
+    for (const [moves, answers] of [
+      [3, true],
+      [4, false],
+    ] as const) {
+      for (const run of [
+        (reactor: StoreReactor) => reactor.read(requestOf(pick("a-subtree"))),
+        (reactor: StoreReactor) => reactor.fetch(["cutting:2"]),
+      ]) {
+        let left = moves;
+        let reads = 0;
+        const peer: PeerStore = {
+          ...loaded.peer,
+          read: async () => {
+            reads += 1;
+            if (left > 0) {
+              left -= 1;
+              throw new StoreError("snapshot-moved", "moved before the snapshot");
+            }
+            return loaded.peer.read();
+          },
+        };
+        const outcome = await run(StoreReactor.open(peer)).then(
+          (answer) => answer,
+          (error: unknown) => error,
+        );
+        expect(reads).toBe(4);
+        if (answers) expect(outcome).not.toBeInstanceOf(StoreError);
+        else expect((outcome as StoreError).code).toBe("snapshot-moved");
+      }
+    }
+  });
+
   for (const code of ["snapshot-released", "capability-absent"] as const)
     it(`a ${code} refusal passes up after one attempt`, async () => {
       const loaded = await load();

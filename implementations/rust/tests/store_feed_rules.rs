@@ -1239,7 +1239,7 @@ const TWO_COMMITS: [&str; 21] = [
     "scope/setup",
 ];
 
-/// The broken feeds of the slice 3 plan (§4), each in the documents it fails, for its reason.
+/// The broken feeds of SPEC-18 slice 3 (README §3.9), each in the documents it fails, for its reason.
 #[test]
 fn the_broken_feeds_fail_where_their_fault_first_shows() {
     let failed = |wrong: Wrong, reason: &str| -> Vec<String> {

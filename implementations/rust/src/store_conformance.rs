@@ -38,7 +38,9 @@ use crate::store::{
     StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta, MAX_REVISION, PURGE_BOUNDARY,
 };
 use crate::store_follow::{Position, Pull};
-use crate::store_fresh::{parse_capture, Capture, FeedError, Freshness, Touch, TouchReason};
+use crate::store_fresh::{
+    json_revision, parse_capture, Capture, FeedError, Freshness, Touch, TouchReason,
+};
 use crate::store_held::{Refresh, ViewFrom, ViewKey, ViewRead};
 use crate::types::Delta;
 
@@ -2678,6 +2680,7 @@ fn failed_call(call: &str, error: FeedError) -> String {
     match error {
         FeedError::Refused(e) => format!("{call} refused with {}: {}", e.code.as_str(), e.message),
         FeedError::Fault(fault) => format!("the store broke {}: {fault}", fault.rule()),
+        FeedError::Read(error) => error.to_string(),
     }
 }
 
@@ -3824,6 +3827,35 @@ fn views_programs(doc: &Value) -> Check<BTreeMap<String, ViewsProgram>> {
     Ok(programs)
 }
 
+/// A case's `maxViews` (§11.1): absent, or a JSON integer of 1 or more (`2.0` is 2).
+fn max_views_of(views: &Value) -> Check<Option<u64>> {
+    match views.get("maxViews") {
+        None => Ok(None),
+        Some(max) => json_revision(max)
+            .filter(|&n| n >= 1)
+            .map(Some)
+            .ok_or_else(|| format!("the vector's maxViews is {max}, not an integer of 1 or more")),
+    }
+}
+
+/// The document's defects that §11.1 finds before the setup: each schema's `alg` is an integer
+/// from 0 to 2^32 − 1, and the case's `maxViews` is an integer of 1 or more.
+fn views_defects(case: &Value, schemas: &Value) -> Check {
+    for schema in schemas
+        .as_array()
+        .ok_or("the document's schemas is not a list")?
+    {
+        let alg = &schema["alg"];
+        if json_revision(alg).is_none_or(|n| n > u64::from(u32::MAX)) {
+            return Err(format!(
+                "the vector's schema {} has alg {alg}, not an integer from 0 to 2^32 - 1",
+                schema["name"].as_str().unwrap_or("?")
+            ));
+        }
+    }
+    max_views_of(field(case, "views")?).map(|_| ())
+}
+
 /// Runs every case of `views.json` on a new store each (§11): the setup, then the holder made
 /// over a logged handle of the case's peer, then the steps. Names are `views/<case>`.
 pub fn run_views_conformance(
@@ -3872,6 +3904,7 @@ pub fn run_views_conformance(
                         if let Some(requirement) = run.unmet(case).map_err(|m| (None, m))? {
                             return Ok(Some(requirement));
                         }
+                        views_defects(case, schemas).map_err(|m| (None, m))?;
                         run.steps(setup)
                             .map_err(|(step, m)| (step, format!("the setup: {m}")))?;
                         run.make_holder(case, schemas, reader)
@@ -3903,10 +3936,7 @@ impl Run<'_> {
         if !self.histories.contains_key(&peer) {
             return Err(format!("the vector uses peer {peer} before creating it"));
         }
-        let max_views = match views.get("maxViews") {
-            Some(_) => Some(whole(views, "maxViews")?),
-            None => None,
-        };
+        let max_views = max_views_of(views)?;
         let log = CallLog::default();
         let logged = LoggedPeer {
             inner: self

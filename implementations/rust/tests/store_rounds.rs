@@ -1766,6 +1766,78 @@ fn the_reactor_gives_up_after_three_retries_and_releases_every_snapshot() {
     );
 }
 
+/// A peer whose `read` itself answers `snapshot-moved` while `left` is above 0.
+struct MovingRead {
+    inner: Box<dyn PeerStore>,
+    left: Rc<Cell<usize>>,
+    reads: Rc<Cell<usize>>,
+}
+
+impl PeerStore for MovingRead {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+    fn erasure(&self) -> PeerErasure {
+        self.inner.erasure()
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        self.reads.set(self.reads.get() + 1);
+        if self.left.get() > 0 {
+            self.left.set(self.left.get() - 1);
+            return Err(StoreError::new(StoreErrorCode::SnapshotMoved, "moved"));
+        }
+        self.inner.read()
+    }
+    fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
+        self.inner.append(batch)
+    }
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+        self.inner.purge(ids)
+    }
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+        self.inner.changes(from, to)
+    }
+}
+
+/// A `read` that itself answers `snapshot-moved` starts the read again, as a later call does:
+/// three such and the fourth snapshot answers; four, and `snapshot-moved` passes up.
+#[test]
+fn the_reactor_starts_again_when_read_itself_answers_snapshot_moved() {
+    let fx = fixture();
+    let case = &fx.cases("cases")[0];
+    for (moves, answers) in [(3, true), (4, false)] {
+        let store = MemoryStore::new();
+        let left = Rc::new(Cell::new(0));
+        let reads = Rc::new(Cell::new(0));
+        let reactor = StoreReactor::open(Box::new(MovingRead {
+            inner: fx.load(&store),
+            left: left.clone(),
+            reads: reads.clone(),
+        }));
+        left.set(moves);
+        let read = reactor.read(request(&fx, case, FetchCache::On));
+        assert_eq!(reads.get(), SNAPSHOT_RETRIES + 1);
+        match answers {
+            true => assert!(read.is_ok(), "{:?}", read.err()),
+            false => assert_eq!(
+                read.unwrap_err().store_code(),
+                Some(StoreErrorCode::SnapshotMoved)
+            ),
+        }
+        left.set(moves);
+        reads.set(0);
+        let fetched = reactor.fetch(&["garden:1".to_string()], Selection::default());
+        assert_eq!(reads.get(), SNAPSHOT_RETRIES + 1);
+        assert_eq!(
+            fetched.err().map(|e| e.code),
+            (!answers).then_some(StoreErrorCode::SnapshotMoved)
+        );
+    }
+}
+
 /// Any refusal but `snapshot-moved` passes up after one attempt, and the snapshot is released
 /// (SPEC-18 §4.12 reading 11; README §5.8). The double refuses only the first `scope` call, so a
 /// wrapper that started again would answer.

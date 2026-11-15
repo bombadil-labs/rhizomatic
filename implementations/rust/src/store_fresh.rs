@@ -51,6 +51,8 @@ pub enum StoreFault {
         asked: Vec<String>,
         answered: Vec<String>,
     },
+    /// `revision-out-of-range`: a snapshot's revision is not an integer from 0 to 2^53 − 1.
+    RevisionOutOfRange { revision: Revision },
 }
 
 impl StoreFault {
@@ -61,6 +63,7 @@ impl StoreFault {
             Self::PastTheBound { .. } => "past-the-bound",
             Self::MismatchedAnswers { .. } => "mismatched-answers",
             Self::UnaskedIds { .. } => "unasked-ids",
+            Self::RevisionOutOfRange { .. } => "revision-out-of-range",
         }
     }
 }
@@ -90,18 +93,26 @@ impl std::fmt::Display for StoreFault {
                 answered.len(),
                 asked.len()
             ),
+            Self::RevisionOutOfRange { revision } => format!(
+                "the store's snapshot stands at revision {}, not an integer from 0 to 2^53 - 1",
+                revision.0
+            ),
         };
         f.write_str(&text)
     }
 }
 
-/// Why a reader that checks the store's answers did not answer: the store refused, or the store
-/// broke its contract. `check_fresh` and [`crate::store_follow::FeedCursor::pull`] return it; a
-/// fault never panics, so a host keeps running beside a faulty store, remote ones included.
+/// Why a reader that checks the store's answers did not answer: the store refused, the store
+/// broke its contract, or (in a pass of held views) a read failed for another reason.
+/// `check_fresh` and [`crate::store_follow::FeedCursor::pull`] return it; a fault never panics,
+/// so a host keeps running beside a faulty store, remote ones included.
 #[derive(Debug, Clone, PartialEq)]
 pub enum FeedError {
     Refused(StoreError),
     Fault(StoreFault),
+    /// A read of a held view failed with an error that is not a store refusal: the evaluator's,
+    /// passed up unchanged (SPEC-18 §4.6, "Held views").
+    Read(crate::store_read::StoreReadError),
 }
 
 impl From<StoreError> for FeedError {
@@ -121,6 +132,7 @@ impl std::fmt::Display for FeedError {
         let text = match self {
             Self::Refused(error) => error.to_string(),
             Self::Fault(fault) => format!("the store broke {}: {fault}", fault.rule()),
+            Self::Read(error) => error.to_string(),
         };
         f.write_str(&text)
     }
@@ -129,11 +141,11 @@ impl std::fmt::Display for FeedError {
 impl std::error::Error for FeedError {}
 
 impl FeedError {
-    /// The refusal's code, or none for a fault.
+    /// The refusal's code, or none for a fault or a read error.
     pub fn code(&self) -> Option<StoreErrorCode> {
         match self {
             Self::Refused(error) => Some(error.code),
-            Self::Fault(_) => None,
+            Self::Fault(_) | Self::Read(_) => None,
         }
     }
 }
@@ -647,7 +659,8 @@ impl Freshness {
 /// Refuses `invalid-request` for a `now` that is not finite.
 ///
 /// A store that breaks its contract is a [`FeedError::Fault`], found before the store's answer is
-/// judged (§4.13 readings 46 and 68): a page with no progress short of r′ (`no-progress`), a page
+/// judged (§4.13 readings 46 and 68): a snapshot whose revision is not an integer from 0 to
+/// 2^53 − 1 (`revision-out-of-range`), a page with no progress short of r′ (`no-progress`), a page
 /// past r′ (`past-the-bound`), and a `get` that answers an id it was not asked for, twice, or out
 /// of order (`unasked-ids`). It never panics on a store fault.
 pub fn check_fresh(
@@ -676,8 +689,9 @@ impl Drop for Held {
     }
 }
 
-/// `body` on a new snapshot of `peer`, released after it. On `snapshot-moved`, from `read` itself
-/// or from a later call, it starts again on a new snapshot, at most `snapshots` in all.
+/// `body` on a new snapshot of `peer`, released after it. The snapshot's revision is checked
+/// first (`revision-out-of-range`). On `snapshot-moved`, from `read` itself or from a later call,
+/// it starts again on a new snapshot, at most `snapshots` in all.
 pub(crate) fn on_snapshots<T>(
     peer: &dyn PeerStore,
     snapshots: usize,
@@ -686,10 +700,14 @@ pub(crate) fn on_snapshots<T>(
     let mut taken = 0;
     loop {
         taken += 1;
-        let answer = peer
-            .read()
-            .map_err(FeedError::from)
-            .and_then(|snapshot| body(Held(snapshot).0.as_ref()));
+        let answer = peer.read().map_err(FeedError::from).and_then(|snapshot| {
+            let held = Held(snapshot);
+            let revision = held.0.revision();
+            match revision.0 > MAX_REVISION {
+                true => Err(StoreFault::RevisionOutOfRange { revision }.into()),
+                false => body(held.0.as_ref()),
+            }
+        });
         match answer {
             Err(FeedError::Refused(e))
                 if e.code == StoreErrorCode::SnapshotMoved && taken < snapshots => {}

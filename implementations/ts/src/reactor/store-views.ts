@@ -371,15 +371,15 @@ export class StoreViews {
   }
 
   /**
-   * Registers a program under `name`. Throws `UnanchoredTermError` for a term that is not
-   * anchored, as a read does (a full-surface program cannot be held), and refuses
-   * `invalid-request` for a name already registered. Makes no store call.
+   * Registers a program under `name`. Refuses `invalid-request` for a name already registered,
+   * before it reads the term; then throws `UnanchoredTermError` for a term that is not anchored,
+   * as a read does (a full-surface program cannot be held). Makes no store call.
    */
   register(name: string, program: ViewProgram): void {
-    const analysis = anchorAnalysis(program.term, program.registry);
-    if (!analysis.anchored) throw new UnanchoredTermError(analysis.reason);
     if (this.programs.has(name))
       throw new StoreError("invalid-request", `views: program ${name} is already registered`);
+    const analysis = anchorAnalysis(program.term, program.registry);
+    if (!analysis.anchored) throw new UnanchoredTermError(analysis.reason);
     this.programs.set(name, {
       term: program.term,
       registry: program.registry,
@@ -406,8 +406,10 @@ export class StoreViews {
    * The view of `name` at `root`, current at `now`: one pass for the whole set (as `refresh`),
    * then, when the view is not held, one read on the pass's snapshot. Holding one view more than
    * `maxViews` forgets the least recently held one first; that view is not read in this pass.
-   * Refuses `invalid-request` for a name not registered and a `now` that is not finite, before
-   * any store call. Throws `StoreFaultError` when the store breaks its contract.
+   * Refuses `invalid-request` for a name not registered, then for a `now` that is not finite,
+   * before any store call. Throws `StoreFaultError` when the store breaks its contract. An error
+   * of a read that is not a store refusal (the evaluator's) passes up unchanged. A call that
+   * throws applies nothing.
    */
   hold(name: string, root: Entity, now: number): Promise<ViewRead> {
     return this.serial(async () => {
@@ -416,6 +418,11 @@ export class StoreViews {
       const key = keyOf(name, root);
       const was = this.views.has(key);
       const plan = await this.pass(now, { name, root });
+      // Everything that can refuse runs before the pass is applied.
+      const restored = this.quirks.keepEvicted === true && !was ? this.evicted.get(key) : undefined;
+      const source =
+        restored?.capture ?? plan.reads.get(key)?.capture ?? this.views.get(key)!.capture;
+      const capture = advanceCapture(source, plan.position.history, plan.position.revision);
       this.commit(plan, key);
       const view = this.views.get(key)!;
       return Object.freeze({
@@ -431,7 +438,7 @@ export class StoreViews {
           : plan.reads.has(key)
             ? "read"
             : "held",
-        capture: advanceCapture(view.capture, plan.position.history, plan.position.revision),
+        capture,
       });
     });
   }
@@ -440,7 +447,8 @@ export class StoreViews {
    * Brings every held view to one snapshot and to `now`. Answers the views read again, and the
    * views whose bytes differ from their baseline (see `Refresh.changed`). Refuses
    * `invalid-request` for a `now` that is not finite, before any store call. Throws
-   * `StoreFaultError` when the store breaks its contract.
+   * `StoreFaultError` when the store breaks its contract. An error of a read that is not a store
+   * refusal passes up unchanged. A call that throws applies nothing.
    */
   refresh(now: number): Promise<Refresh> {
     return this.serial(async () => {
@@ -494,8 +502,9 @@ export class StoreViews {
   }
 
   /**
-   * How many times the views of `name` were read: every read the holder made, including the reads
-   * of a pass that failed or started again. A diagnostic, not part of the held state.
+   * How many times the views of `name` were read: every read the holder started, including a read
+   * that failed and the reads of a pass that failed or started again. A diagnostic, not part of
+   * the held state.
    */
   evalCountOf(name: string): number {
     return this.evalCounts.get(name) ?? 0;
@@ -720,6 +729,8 @@ export class StoreViews {
 
   private async read(snapshot: Snapshot, name: string, root: Entity, now: number): Promise<Fresh> {
     const program = this.programs.get(name)!;
+    // A read counts when it starts, also when it then fails.
+    this.evalCounts.set(name, (this.evalCounts.get(name) ?? 0) + 1);
     const read = await readAnchoredWith(
       snapshot,
       {
@@ -732,7 +743,6 @@ export class StoreViews {
       },
       this.rounds,
     );
-    this.evalCounts.set(name, (this.evalCounts.get(name) ?? 0) + 1);
     return { bytes: resultCanonicalHex(read.result), capture: read.capture!, epoch: program.epoch };
   }
 

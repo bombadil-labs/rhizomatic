@@ -1,4 +1,4 @@
-// The store-backed read (SPEC-18 proposal §4.4, §6.2; slice 2 plan §3). The store boundary is
+// The store-backed read (SPEC-18 proposal §4.4, §6.2, §4.12). The store boundary is
 // asynchronous and batch-shaped; evaluation is synchronous. A read fetches its scope one round
 // at a time from one snapshot and evaluates in memory between rounds. It never scans: a term
 // with no anchors is refused, not served some other way.
@@ -588,6 +588,9 @@ export async function captureScope(
   return makeCapture(snapshot, anchors, raw, fetched.validityAt(now));
 }
 
+const moved = (error: unknown): boolean =>
+  error instanceof StoreError && error.code === "snapshot-moved";
+
 /** How many times `StoreReactor` starts a read again after `snapshot-moved`. */
 export const SNAPSHOT_RETRIES = 3;
 
@@ -611,8 +614,9 @@ export class StoreReactor {
   }
 
   /**
-   * `readAnchored` on a new snapshot. When the peer moves under the read, the whole read starts
-   * again on a new snapshot, up to `SNAPSHOT_RETRIES` times; then `snapshot-moved` passes up.
+   * `readAnchored` on a new snapshot. When the peer moves under the read, also under `read()`
+   * itself, the whole read starts again on a new snapshot, up to `SNAPSHOT_RETRIES` times; then
+   * `snapshot-moved` passes up.
    * Nothing fetched from one snapshot is used with another.
    */
   async read(request: StoreReadRequest): Promise<StoreReactorRead> {
@@ -644,12 +648,17 @@ export class StoreReactor {
     run: (snapshot: Snapshot, attempt: number) => Promise<T>,
   ): Promise<{ value: T; attempts: number }> {
     for (let attempts = 1; ; attempts += 1) {
-      const snapshot = await this.peer.read();
+      let snapshot: Snapshot;
+      try {
+        snapshot = await this.peer.read();
+      } catch (error) {
+        if (moved(error) && attempts <= SNAPSHOT_RETRIES) continue;
+        throw error;
+      }
       try {
         return { value: await run(snapshot, attempts), attempts };
       } catch (error) {
-        const moved = error instanceof StoreError && error.code === "snapshot-moved";
-        if (!moved || attempts > SNAPSHOT_RETRIES) throw error;
+        if (!moved(error) || attempts > SNAPSHOT_RETRIES) throw error;
       } finally {
         snapshot.release();
       }

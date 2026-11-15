@@ -228,6 +228,16 @@ function logged(peer: PeerStore, sink: Sink): PeerStore {
   };
 }
 
+/** A store refusal of `op` in the runner's fixed words: `<op> refused with <code>: `. */
+async function refusedAs(op: string, call: Promise<void>): Promise<void> {
+  try {
+    await call;
+  } catch (error) {
+    if (!(error instanceof StoreError)) throw error;
+    throw new Error(`${op} refused with ${error.code}: ${error.message}`);
+  }
+}
+
 /** One case: the setup, the holder and its steps, on one new store (README §11.1). */
 class ViewsRun {
   private readonly programs = new Map<string, ViewsProgram>();
@@ -252,8 +262,22 @@ class ViewsRun {
       check(!this.programs.has(program.name), `the vector names program ${program.name} twice`);
       this.programs.set(program.name, program);
     }
+    for (const s of vectors.schemas)
+      check(
+        Number.isInteger(s.alg) && s.alg >= 0 && s.alg <= 0xffff_ffff,
+        `the vector's schema ${s.name} has alg ${String(s.alg)}, not an integer from 0 to 2^32 - 1`,
+      );
     this.registry = SchemaRegistry.build(
       vectors.schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+    );
+  }
+
+  /** README §11.1: a case's `maxViews` is a JSON integer of 1 or more, checked before the setup. */
+  static maxViews(views: StoreViewsCase["views"]): void {
+    const max: unknown = views.maxViews;
+    check(
+      max === undefined || (Number.isSafeInteger(max) && (max as number) >= 1),
+      `the vector's maxViews is ${JSON.stringify(max)}, not an integer of 1 or more`,
     );
   }
 
@@ -310,8 +334,10 @@ class ViewsRun {
         ...(step.epoch === undefined ? {} : { epoch: step.epoch }),
       });
     } catch (error) {
-      if (!(error instanceof UnanchoredTermError)) throw error;
-      refused = error.reason;
+      // A refusal is compared by its reason: the SPEC-17 §5 reason, or a store refusal's code.
+      if (error instanceof UnanchoredTermError) refused = error.reason;
+      else if (error instanceof StoreError) refused = error.code;
+      else throw error;
     }
     this.quiet("register");
     if (step.expect === undefined) {
@@ -328,13 +354,13 @@ class ViewsRun {
 
   async setEpoch(step: SetEpochStep): Promise<void> {
     this.program(step.program);
-    await this.holder.setEpoch(step.program, step.epoch);
+    await refusedAs("setEpoch", this.holder.setEpoch(step.program, step.epoch));
     this.quiet("setEpoch");
   }
 
   async drop(step: DropStep): Promise<void> {
     this.program(step.program);
-    await this.holder.drop(step.program, step.root);
+    await refusedAs("drop", this.holder.drop(step.program, step.root));
     this.quiet("drop");
     this.held.delete(keyOf(step.program, step.root));
     this.boundary(step.expect.nextBoundary);
@@ -585,12 +611,13 @@ export async function runViewsConformance(
       }
       const run = new Run(store, vectors);
       const views = new ViewsRun(run, witness, vectors);
+      ViewsRun.maxViews(c.views);
       for (const [i, step] of vectors.setup.entries()) {
         try {
           await run.step(step);
           await run.checkFeeds();
         } catch (error) {
-          throw new Error(`setup step ${i} (${step.op}): ${text(error)}`);
+          throw new Error(`step ${i} (${step.op}): the setup: ${text(error)}`);
         }
       }
       views.start(c.views);

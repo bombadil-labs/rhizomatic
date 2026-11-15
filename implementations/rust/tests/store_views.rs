@@ -18,14 +18,16 @@ use rhizomatic::store::{
     scope_source, target_entities, Admission, AppendResult, ArrivalRecord, ChangePage,
     ChangeRetention, ErasurePosture, PeerErasure, PeerStore, PurgeReport, Pushdown, Revision,
     ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta,
+    MAX_REVISION,
 };
 use rhizomatic::store_conformance::{
     run_views_conformance, FollowCaseStore, RegisterRefusal, StoreConformanceError,
     StoreConformanceReport, ViewsReader,
 };
+use rhizomatic::store_follow::follow_feed;
 use rhizomatic::store_fresh::{check_fresh, validity_window, FeedError, Freshness};
 use rhizomatic::store_held::{ViewChange, ViewFrom, ViewKey};
-use rhizomatic::store_read::{read_anchored, ReadRequest};
+use rhizomatic::store_read::{read_anchored, ReadRequest, StoreReadError};
 use rhizomatic::store_views::{
     StoreViews, StoreViewsOptions, StoreViewsReader, ViewProgram, ViewQuirk, ViewSizes,
     DEFAULT_MAX_VIEWS,
@@ -110,7 +112,7 @@ fn every_views_case_passes_every_run() {
     let doc = document();
     assert_eq!(doc["format"], "rhizomatic-store-views/1");
     let names = case_names(&doc);
-    assert_eq!(names.len(), 30, "{names:?}");
+    assert_eq!(names.len(), 31, "{names:?}");
     for (label, store) in runs() {
         let report = run(store, &doc, &StoreViewsReader::default())
             .unwrap_or_else(|e| panic!("run {label}: {e}"));
@@ -578,6 +580,89 @@ fn a_changed_expectation_fails_with_its_message() {
         "views/a-hold-passes-for-the-whole-set",
         "hold made the call scope where the contract asks for release",
     );
+    // A duplicate refused with another reason than expected.
+    fails_with(
+        &edit(&|d| {
+            nth(d, "a-program-registered-twice-is-refused", "register", 1)["expect"]["reason"] =
+                "aliased".into()
+        }),
+        "views/a-program-registered-twice-is-refused",
+        "register refused invalid-request, expected aliased",
+    );
+    // A `setEpoch` and a `drop` the holder refuses.
+    fails_with(
+        &edit(&|d| {
+            steps_of(d, "no-change").insert(
+                0,
+                serde_json::json!({ "op": "setEpoch", "program": "aliased", "epoch": "e" }),
+            )
+        }),
+        "views/no-change",
+        "setEpoch refused with invalid-request: ",
+    );
+    fails_with(
+        &edit(&|d| {
+            steps_of(d, "no-change").insert(
+                0,
+                serde_json::json!({ "op": "drop", "program": "aliased", "root": "x",
+                                    "expect": { "nextBoundary": null } }),
+            )
+        }),
+        "views/no-change",
+        "drop refused with invalid-request: ",
+    );
+    // A `maxViews` that is not an integer of 1 or more, found before a setup that fails.
+    for (max, shown) in [
+        (serde_json::json!(0), "0"),
+        (serde_json::json!(1.5), "1.5"),
+        (serde_json::json!(-1), "-1"),
+        (serde_json::json!("2"), "\"2\""),
+    ] {
+        let doc = edit(&|d| {
+            let case = d["cases"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|c| c["name"] == "no-change")
+                .unwrap();
+            case["views"]["maxViews"] = max.clone();
+            d["setup"].as_array_mut().unwrap().insert(
+                1,
+                serde_json::json!({ "op": "append", "peer": "A", "deltas": ["no-such-delta"] }),
+            );
+        });
+        fails_with(
+            &doc,
+            "views/no-change",
+            &format!("the vector's maxViews is {shown}, not an integer of 1 or more"),
+        );
+        fails_with(&doc, "views/drop", "the setup: ");
+    }
+    // `maxViews` written 2.0 is the integer 2.
+    let two = edit(&|d| {
+        for case in d["cases"].as_array_mut().unwrap() {
+            if case["views"]["maxViews"] == 2 {
+                case["views"]["maxViews"] = serde_json::json!(2.0);
+            }
+        }
+    });
+    assert!(run(DEFAULT, &two, &StoreViewsReader::default()).is_ok());
+    // An `alg` out of range.
+    for (alg, shown) in [
+        (serde_json::json!(4_294_967_297_u64), "4294967297"),
+        (serde_json::json!(1.5), "1.5"),
+        (serde_json::json!(-1), "-1"),
+    ] {
+        let doc = edit(&|d| d["schemas"][0]["alg"] = alg.clone());
+        let name = doc["schemas"][0]["name"].as_str().unwrap().to_string();
+        fails_with(
+            &doc,
+            "views/no-change",
+            &format!(
+                "the vector's schema {name} has alg {shown}, not an integer from 0 to 2^32 - 1"
+            ),
+        );
+    }
     // A document of another format.
     fails_with(
         &edit(&|d| d["format"] = "rhizomatic-store-views/2".into()),
@@ -701,6 +786,8 @@ enum Fault {
     UnaskedIds,
     /// `scope` refuses: a read in the pass fails with a store refusal.
     RefusesScope,
+    /// A snapshot reports a revision above 2^53 − 1, and `changes` answers `ok` with no records.
+    WildRevision,
 }
 
 /// Where a moved snapshot shows.
@@ -798,6 +885,10 @@ impl PeerStore for Spy<'_> {
                 records,
                 through: Revision(through.0 + 1),
             },
+            (Some(Fault::WildRevision), _) => ChangePage::Ok {
+                records: Vec::new(),
+                through: to.unwrap_or(from),
+            },
             (_, page) => page,
         })
     }
@@ -818,7 +909,10 @@ impl SpySnapshot {
 
 impl Snapshot for SpySnapshot {
     fn revision(&self) -> Revision {
-        self.inner.revision()
+        match self.fault.get() {
+            Some(Fault::WildRevision) => Revision(MAX_REVISION + 1),
+            _ => self.inner.revision(),
+        }
     }
     fn history(&self) -> &str {
         self.inner.history()
@@ -1157,6 +1251,164 @@ fn a_moved_snapshot_starts_the_pass_again_at_most_four_times() {
         assert_eq!(calls.iter().filter(|c| *c == "read").count(), 4, "{at:?}");
         assert_eq!(views.refresh(5.0).unwrap().reread.len(), 1, "{at:?}");
     }
+}
+
+/// A snapshot whose revision is out of range is the store fault `revision-out-of-range`, for a
+/// hold, a refresh, `check_fresh` and a pull. The failed hold changes nothing: not the indexes,
+/// not the use of its view; the next sound pass is right.
+#[test]
+fn a_snapshot_revision_out_of_range_is_a_fault_and_a_failed_hold_changes_nothing() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:w");
+    let mut writer = Writer::default();
+    writer.append(
+        peer.as_ref(),
+        &[fact("e:a", "name", "a"), fact("e:b", "name", "b")],
+    );
+    let spy = Spy::new(peer.as_ref());
+    let mut views = holder_over(&spy, 2);
+    register_leaf(&mut views, "leaf");
+    let a = views.hold("leaf", "e:a", 5.0).unwrap();
+    views.hold("leaf", "e:b", 5.0).unwrap();
+    let sizes = views.sizes();
+    spy.fault.set(Some(Fault::WildRevision));
+    let wild = |answer: Result<(), FeedError>| match answer {
+        Err(FeedError::Fault(fault)) => assert_eq!(fault.rule(), "revision-out-of-range"),
+        other => panic!("{other:?}"),
+    };
+    wild(views.hold("leaf", "e:a", 5.0).map(|_| ()));
+    wild(views.refresh(5.0).map(|_| ()));
+    let handle = spy.handle();
+    wild(check_fresh(handle.as_ref(), &a.capture, 5.0).map(|_| ()));
+    wild(
+        follow_feed(handle.as_ref(), a.position.clone())
+            .unwrap()
+            .pull()
+            .map(|_| ()),
+    );
+    assert_eq!(views.sizes(), sizes);
+    spy.fault.set(None);
+    // The failed hold of e:a did not make it recent: e:c evicts e:a, and e:b is still held.
+    writer.append(peer.as_ref(), &[fact("e:c", "name", "c")]);
+    assert_eq!(views.hold("leaf", "e:c", 5.0).unwrap().from, ViewFrom::New);
+    assert_eq!(views.hold("leaf", "e:b", 5.0).unwrap().from, ViewFrom::Held);
+    let again = views.hold("leaf", "e:a", 5.0).unwrap();
+    assert_eq!(again.from, ViewFrom::New);
+    assert_eq!(again.bytes, fresh(peer.as_ref(), "leaf", "e:a", 5.0));
+    assert_eq!(again.position.revision, Revision(2));
+}
+
+/// SPEC-18 §4.13 reading 95: a read counts when it starts. A refresh whose one read refuses adds
+/// 1; a refresh whose read meets `snapshot-moved` twice and then answers adds 3.
+#[test]
+fn a_read_counts_when_it_starts() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:k");
+    let mut writer = Writer::default();
+    writer.append(peer.as_ref(), &[fact("e:a", "name", "a")]);
+    let spy = Spy::new(peer.as_ref());
+    let mut views = holder_over(&spy, 4);
+    register_leaf(&mut views, "leaf");
+    views.hold("leaf", "e:a", 5.0).unwrap();
+    assert_eq!(views.eval_count_of("leaf"), 1);
+    writer.append(peer.as_ref(), &[fact("e:a", "note", "a2")]);
+    spy.fault.set(Some(Fault::RefusesScope));
+    assert_eq!(
+        feed_refused(views.refresh(5.0)),
+        Some(StoreErrorCode::StoreClosed)
+    );
+    assert_eq!(views.eval_count_of("leaf"), 2);
+    spy.fault.set(None);
+    spy.moves.set((2, Moves::AtScope));
+    assert_eq!(
+        views.refresh(5.0).unwrap().reread,
+        [ViewKey::new("leaf", "e:a")]
+    );
+    assert_eq!(views.eval_count_of("leaf"), 5);
+}
+
+/// SPEC-18 §4.6: the refusals in one order, the same table as the TypeScript witness's.
+#[test]
+fn the_refusals_come_in_one_order() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:o");
+    let spy = Spy::new(peer.as_ref());
+    let mut views = holder_over(&spy, 4);
+    register_leaf(&mut views, "leaf");
+    let which = |error: &StoreError| -> &'static str {
+        match error.message.as_str() {
+            m if m.contains("registered already") => "duplicate",
+            m if m.contains("is not registered") => "name",
+            m if m.contains("finite") => "now",
+            _ => "other",
+        }
+    };
+    let feed = |answer: Result<(), FeedError>| match answer {
+        Err(FeedError::Refused(e)) if e.code == StoreErrorCode::InvalidRequest => which(&e),
+        other => panic!("{other:?}"),
+    };
+    let duplicate = match views.register("leaf", ViewProgram::new(term("aliased"))) {
+        Err(RegisterRefusal::Refused(e)) if e.code == StoreErrorCode::InvalidRequest => which(&e),
+        other => panic!("{other:?}"),
+    };
+    let table = [
+        (
+            "register a name twice with an unanchored term",
+            duplicate,
+            "duplicate",
+        ),
+        (
+            "hold an unknown name at NaN",
+            feed(views.hold("missing", "x", f64::NAN).map(|_| ())),
+            "name",
+        ),
+        (
+            "hold a known name at NaN",
+            feed(views.hold("leaf", "x", f64::NAN).map(|_| ())),
+            "now",
+        ),
+        (
+            "refresh at Infinity",
+            feed(views.refresh(f64::INFINITY).map(|_| ())),
+            "now",
+        ),
+    ];
+    for (what, got, want) in table {
+        assert_eq!(got, want, "{what}");
+    }
+    assert!(spy.take().is_empty());
+}
+
+/// An error of a read that is not a store refusal (the evaluator's) passes up as
+/// `FeedError::Read`, unchanged, and nothing is applied.
+#[test]
+fn an_evaluator_error_passes_up_unchanged_and_nothing_is_applied() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:e");
+    let mut writer = Writer::default();
+    writer.append(peer.as_ref(), &[fact("e:a", "name", "a")]);
+    let spy = Spy::new(peer.as_ref());
+    let mut views = holder_over(&spy, 4);
+    register_leaf(&mut views, "leaf");
+    let holey = parse_term(&serde_json::json!({
+        "op": "group", "key": "byTargetContext",
+        "in": { "op": "select", "pred": { "hasPointer": { "targetEntity": { "var": "root" } } },
+                "in": { "op": "select",
+                        "pred": { "hasPointer": { "targetEntity": { "hole": "nope" } } },
+                        "in": "input" } }
+    }))
+    .unwrap();
+    views.register("holey", ViewProgram::new(holey)).unwrap();
+    views.hold("leaf", "e:a", 5.0).unwrap();
+    let sizes = views.sizes();
+    match views.hold("holey", "e:a", 5.0) {
+        Err(FeedError::Read(StoreReadError::Eval(message))) => {
+            assert!(message.contains("hole"), "{message}")
+        }
+        other => panic!("{other:?}"),
+    }
+    assert_eq!(views.sizes(), sizes);
+    assert_eq!(views.hold("leaf", "e:a", 5.0).unwrap().from, ViewFrom::Held);
 }
 
 #[test]
@@ -2224,7 +2476,7 @@ fn every_pass_agrees_with_brute_force_over_random_sequences() {
     fuzz_claims(&tally);
 }
 
-/// The long run, by hand: `cargo test --release --test witness store_views:: -- --ignored`.
+/// The long run, by hand: `cargo test --release --test witness twenty_thousand -- --ignored`.
 #[test]
 #[ignore]
 fn twenty_thousand_sequences_agree_with_brute_force() {
@@ -2379,8 +2631,108 @@ fn a_pass_costs_its_records_not_the_records_before_it() {
     cost_rail("after N earlier records", |n| costed(0, 0, n, None));
 }
 
+/// Rail 4's holder: N views of one member each, and one delta that no view holds.
+struct Purging {
+    _store: MemoryStore,
+    peer: Box<dyn PeerStore>,
+    views: StoreViews<'static>,
+    writer: Writer,
+    loose: Delta,
+}
+
+fn purging(n: usize, quirk: Option<ViewQuirk>) -> Purging {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:cost");
+    let mut writer = Writer::default();
+    let facts: Vec<Delta> = (0..n)
+        .map(|i| fact(&format!("view:{i}"), "x", "v"))
+        .collect();
+    writer.append(peer.as_ref(), &facts);
+    let mut views = StoreViews::with_quirk(
+        store.peer("peer:cost").unwrap(),
+        StoreViewsOptions {
+            max_views: n,
+            ..StoreViewsOptions::default()
+        },
+        quirk,
+    )
+    .unwrap();
+    register_leaf(&mut views, "leaf");
+    for i in 0..n {
+        views.hold("leaf", &format!("view:{i}"), 5.0).unwrap();
+    }
+    Purging {
+        _store: store,
+        peer,
+        views,
+        writer,
+        loose: fact("loose", "x", "l"),
+    }
+}
+
+/// Rail 4's ratio, or a failure message when it reaches the bound. Each round appends the loose
+/// delta, or purges it, in turn, and refreshes: no view is read, so a round costs little, and
+/// every purge runs the release path over a large N.
+fn release_ratio(quirk: Option<ViewQuirk>) -> Option<String> {
+    let built: RefCell<BTreeMap<usize, Purging>> = RefCell::default();
+    let run = |n: usize| {
+        let mut built = built.borrow_mut();
+        let p = built.entry(n).or_insert_with(|| purging(n, quirk));
+        let start = Instant::now();
+        for round in 0..n {
+            match round % 2 {
+                0 => {
+                    p.writer
+                        .append(p.peer.as_ref(), std::slice::from_ref(&p.loose));
+                }
+                _ => {
+                    p.peer.purge(std::slice::from_ref(&p.loose.id)).unwrap();
+                }
+            }
+            let refreshed = black_box(p.views.refresh(5.0).unwrap());
+            assert!(refreshed.reread.is_empty());
+        }
+        start.elapsed()
+    };
+    let what = "a purge beside N held views";
+    let (n, ratio) = ratio(what, &run);
+    (ratio >= BOUND).then(|| {
+        format!(
+            "{what}: the run at 8N = {} took {ratio:.1} times as long as at N = {n}; linear work gives about 8",
+            8 * n
+        )
+    })
+}
+
+/// Rail 4: N refreshes beside N held views, after commits that add and purge a delta no view
+/// holds. Every second pass runs the release path. A release that scans the held views costs N
+/// per purge. (A round that reads a view, as the TypeScript rail's does, costs this holder so much
+/// more than a scan that the ratio stayed under the bound with one: README §11.6.)
+#[test]
+fn a_release_costs_its_records_not_the_held_views() {
+    let _timed = crate::timed::exclusive();
+    let slow = crate::timed::remeasured(|| release_ratio(None));
+    assert!(slow.is_none(), "{}", slow.unwrap());
+}
+
+/// A holder whose release scans every held view (in place of the baseline index) is right and
+/// slow: rail 4 goes red. Rail 1 runs the release on every second round only, and stayed under
+/// the bound with it. It holds 8N views, so it is slow; CI runs it in release mode:
+/// `cargo test --release --test witness -- --ignored per_view_scan`.
+#[test]
+#[ignore]
+fn a_per_view_scan_in_the_release_turns_rail_four_red() {
+    let _timed = crate::timed::exclusive();
+    let slow = release_ratio(Some(ViewQuirk::ReleasePerView));
+    assert!(
+        slow.is_some(),
+        "the per-view scan of the release stayed under the bound"
+    );
+}
+
 /// A holder that asks `touching` of every held view per page is right and slow: rail 1 goes
-/// red. By hand: `cargo test --release --test witness store_views:: -- --ignored`.
+/// red. In release mode, as CI runs it: `cargo test --release --test witness -- --ignored
+/// per_view_scan`.
 #[test]
 #[ignore]
 fn a_per_view_scan_turns_the_held_views_rail_red() {

@@ -136,6 +136,8 @@ jobs:
           cargo fmt --check
           cargo clippy --all-targets -- -D warnings
           cargo test
+      - name: cost rails in release mode (the wrong holders that scan every held view go red)
+        run: cargo test --release --test witness -- --ignored per_view_scan
       - name: WASM witness builds (the tour's second witness, docs/rust-witness.wasm)
         run: |
           rustup target add wasm32-unknown-unknown

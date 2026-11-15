@@ -207,6 +207,11 @@ class Case {
   }
 
   register(program: string, epoch?: string): this {
+    // A name given twice is refused before the term is read (SPEC-18 §4.6).
+    if (this.epochs.has(program)) {
+      this.steps.push({ op: "register", program, expect: { reason: "invalid-request" } });
+      return this;
+    }
     const p = this.world.program(program);
     const analysis = anchorAnalysis(p.term, this.world.registry);
     if (!analysis.anchored) {
@@ -1004,6 +1009,11 @@ function cases(world: World): StoreViewsCase[] {
     "an-unanchored-program-is-refused",
     "A program whose role is aliased cannot be held: registering it is refused with the reason a read gives.",
     (c) => c.register("aliased").register("leaf").hold("leaf", "garden:1"),
+  );
+  add(
+    "a-program-registered-twice-is-refused",
+    "A name given twice is refused invalid-request, and the first program stays registered with its epoch.",
+    (c) => c.register("leaf", "e1").register("leaf").hold("leaf", "garden:1").refresh(),
   );
   return out;
 }

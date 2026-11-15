@@ -51,7 +51,7 @@ Folded into SPEC-4 §2 (2026-06-11); history in git.
 
 ## V6 — Through a store, the raw stream delivers what is still held
 
-SPEC-18 plan decision O6 (2026-11-12); built in slice 3 step 7. Through a store, a raw-stream
+SPEC-18 decision O6 (§12, 2026-11-12); built in slice 3 step 7. Through a store, a raw-stream
 subscriber is a pull cursor over the change feed (SPEC-18 §4.6, "Following the feed"). It
 receives every accepted delta that the peer still holds when the record that added it is pulled.
 It never receives the bytes of a purged delta; it receives that delta's id in the records, and

@@ -365,7 +365,8 @@ text it reads and the shared step or tower that pins it.
 
 - **Gap.** MR-10b made `checkCurrent` recompute the scoped revision on every check, in
   O(|S(scope)|). SPEC-18 slice 3 gives each peer a change feed and a freshness check whose cost
-  is the changes since a capture (SPEC-18 §4.6). Plan decision O12 asked for MR-10b to allow it.
+  is the changes since a capture (SPEC-18 §4.6). SPEC-18 decision O12 (§12) asked for MR-10b
+  to allow it.
 - **Resolution.** MR-10b gains one rule: a host MAY skip the recomputation when the feed check
   over each component's `rawIds` reports no touch, each component's `revision` changes only with
   that scope's inventory, its own epoch for selection and authority (time dependence included)

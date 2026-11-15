@@ -26,6 +26,7 @@ import { anchorAnalysis, hviewAnchors } from "../src/resolve/anchored.js";
 import { evalTerm, resultCanonicalHex } from "../src/resolve/eval.js";
 import { SchemaRegistry } from "../src/schema/schema.js";
 import { advanceCapture, checkFresh } from "../src/storage/freshness.js";
+import { followFeed } from "../src/storage/follow.js";
 import { createMemoryStore, type MemoryStoreOptions } from "../src/storage/memory-store.js";
 import {
   StoreConformanceError,
@@ -405,6 +406,30 @@ describe("views vectors: every runner check has a row", () => {
       message: "hold of leaf at garden:1 answered from new, expected held",
     },
     {
+      name: "a duplicate refused with another reason than expected",
+      case: "a-program-registered-twice-is-refused",
+      edit: (s) => (s[1]!.expect = { reason: "aliased" }),
+      message: "register refused invalid-request, expected aliased",
+    },
+    {
+      name: "a setEpoch the holder refuses",
+      case: "no-change",
+      edit: (s) => s.unshift({ op: "setEpoch", program: "aliased", epoch: "e" } as Step),
+      message: "setEpoch refused with invalid-request: ",
+    },
+    {
+      name: "a drop the holder refuses",
+      case: "no-change",
+      edit: (s) =>
+        s.unshift({
+          op: "drop",
+          program: "aliased",
+          root: "x",
+          expect: { nextBoundary: null },
+        } as Step),
+      message: "drop refused with invalid-request: ",
+    },
+    {
       name: "a hold read set that misses a read",
       case: "a-hold-passes-for-the-whole-set",
       edit: (s) => (s.filter((x) => x.op === "hold")[2]!.expect!.reread = []),
@@ -419,6 +444,36 @@ describe("views vectors: every runner check has a row", () => {
       const found = await failures(WITNESS, {}, doc);
       expect(found.find((f) => f.name === `views/${row.case}`)?.message).toContain(row.message);
     });
+
+  it("a maxViews that is not an integer of 1 or more is a document defect, found before the setup", async () => {
+    for (const max of [0, 1.5, -1, "2"]) {
+      const doc = copy();
+      (caseOf(doc, "no-change").views as { maxViews?: unknown }).maxViews = max;
+      // A setup that fails: the other cases report it, this one reports its maxViews first.
+      (doc.setup as unknown as Record<string, unknown>[]).splice(1, 0, {
+        op: "append",
+        peer: "A",
+        deltas: ["no-such-delta"],
+      });
+      const found = await failures(WITNESS, {}, doc);
+      expect(found.find((f) => f.name === "views/no-change")?.message, String(max)).toContain(
+        `the vector's maxViews is ${JSON.stringify(max)}, not an integer of 1 or more`,
+      );
+      expect(found.find((f) => f.name === "views/drop")?.message).toContain("the setup: ");
+    }
+  });
+
+  it("an alg out of range is a document defect", async () => {
+    for (const alg of [2 ** 32 + 1, 1.5, -1]) {
+      const doc = copy();
+      (doc.schemas[0] as { alg: number }).alg = alg;
+      const found = await failures(WITNESS, {}, doc);
+      expect(found.map((f) => f.name)).toEqual(doc.cases.map((c) => `views/${c.name}`));
+      expect(found[0]!.message).toContain(
+        `the vector's schema ${doc.schemas[0]!.name} has alg ${alg}, not an integer from 0 to 2^32 - 1`,
+      );
+    }
+  });
 
   it("a document of another format", async () => {
     const doc = { ...copy(), format: "rhizomatic-store-views/0" } as unknown as StoreViewsDocument;
@@ -560,6 +615,16 @@ const fact = (entity: string, t: number, valid?: { from?: number; until?: number
     pointers: [at(entity), { role: "value", target: { kind: "primitive", value: `v${t}` } }],
   });
 const PEER = `ed25519:${"7e".repeat(32)}`;
+/** Anchored at the root, with a hole no binding fills: its evaluation throws. */
+const HOLEY = parseTerm({
+  op: "group",
+  key: "byTargetContext",
+  in: {
+    op: "select",
+    pred: { hasPointer: { targetEntity: { var: "root" } } },
+    in: { op: "select", pred: { hasPointer: { targetEntity: { hole: "nope" } } }, in: "input" },
+  },
+});
 const LEAF = parseTerm({
   op: "group",
   key: "byTargetContext",
@@ -762,10 +827,14 @@ describe("StoreViews", () => {
       const w = await writer();
       await w.append([fact("a", 1)]);
       let fault = false;
+      // The fault fires once, so a holder that ignores it cannot loop for ever.
       const peer: PeerStore = {
         ...w.peer,
-        changes: async (from, to) =>
-          fault ? { status: "ok", records: [], through: from } : w.peer.changes(from, to),
+        changes: async (from, to) => {
+          if (!fault) return w.peer.changes(from, to);
+          fault = false;
+          return { status: "ok", records: [], through: from };
+        },
       };
       const views = new StoreViews(peer, {}, quirk);
       views.register("leaf", { term: LEAF });
@@ -801,6 +870,8 @@ describe("StoreViews", () => {
         ...w.peer,
         changes: async (from, to) => {
           if (!broken || fault.changes === undefined) return w.peer.changes(from, to);
+          // The fault fires once, so a holder that ignores it cannot loop for ever.
+          broken = false;
           return {
             status: "ok",
             records: [{ revision: from + 1, head: null, added: [touching.id], removed: [] }],
@@ -890,6 +961,140 @@ describe("StoreViews", () => {
     moves = 4;
     await expect(views.refresh(10)).rejects.toMatchObject({ code: "snapshot-moved" });
     expect([reads, releases]).toEqual([8, 8]);
+  });
+
+  it("a snapshot whose revision is out of range is a store fault: hold, refresh, checkFresh and pull apply nothing", async () => {
+    const w = await writer();
+    await w.append([fact("a", 1), fact("b", 1)]);
+    let wild = false;
+    const peer: PeerStore = {
+      ...w.peer,
+      read: async () => {
+        const snapshot = await w.peer.read();
+        return wild ? { ...snapshot, revision: 2 ** 53 } : snapshot;
+      },
+      changes: async (from, to) =>
+        wild ? { status: "ok", records: [], through: to ?? from } : w.peer.changes(from, to),
+    };
+    const views = new StoreViews(peer, { maxViews: 2 });
+    views.register("leaf", { term: LEAF });
+    const a = await views.hold("leaf", "a", 10);
+    await views.hold("leaf", "b", 10);
+    const sizes = views.indexSizes();
+    wild = true;
+    const fault = (error: unknown) => (error as StoreFaultError).rule;
+    for (const call of [
+      () => views.hold("leaf", "a", 10),
+      () => views.refresh(10),
+      () => checkFresh(peer, a.capture, 10),
+      () => followFeed(peer, a.position).pull(),
+    ]) {
+      const error = await call().catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(StoreFaultError);
+      expect(fault(error)).toBe("revision-out-of-range");
+    }
+    expect(views.indexSizes()).toEqual(sizes);
+    wild = false;
+    // The failed hold of a did not make it recent: c evicts a, and b is still held.
+    await w.append([fact("c", 1)]);
+    expect((await views.hold("leaf", "c", 10)).from).toBe("new");
+    expect((await views.hold("leaf", "b", 10)).from).toBe("held");
+    const again = await views.hold("leaf", "a", 10);
+    expect([again.from, again.bytes, again.position.revision]).toEqual([
+      "new",
+      await fresh(w.peer, "a", 10),
+      2,
+    ]);
+  });
+
+  it("counts a read when it starts: a refused read adds 1; two moves and then an answer add 3", async () => {
+    const w = await writer();
+    await w.append([fact("a", 1)]);
+    let refuse = false;
+    let moves = 0;
+    const peer: PeerStore = {
+      ...w.peer,
+      read: async () => {
+        const snapshot = await w.peer.read();
+        return {
+          ...snapshot,
+          scope: async (request) => {
+            if (refuse) throw new StoreError("store-closed", "the read fails");
+            if (moves > 0) {
+              moves -= 1;
+              throw new StoreError("snapshot-moved", "moved");
+            }
+            return snapshot.scope(request);
+          },
+        };
+      },
+    };
+    const views = new StoreViews(peer);
+    views.register("leaf", { term: LEAF });
+    await views.hold("leaf", "a", 10);
+    expect(views.evalCountOf("leaf")).toBe(1);
+    await w.append([fact("a", 2)]);
+    refuse = true;
+    await expect(views.refresh(10)).rejects.toMatchObject({ code: "store-closed" });
+    expect(views.evalCountOf("leaf")).toBe(2);
+    refuse = false;
+    moves = 2;
+    expect((await views.refresh(10)).reread).toEqual([{ name: "leaf", root: "a" }]);
+    expect(views.evalCountOf("leaf")).toBe(5);
+  });
+
+  it("refuses in one order: the name before now, a duplicate name before the term", async () => {
+    const calls: string[] = [];
+    const views = new StoreViews(counting(calls));
+    views.register("leaf", { term: LEAF });
+    const aliased = parseTerm(
+      document.programs.find((p) => p.name === "aliased")!.term as Record<string, unknown>,
+    );
+    const which = (error: unknown): string => {
+      if (!(error instanceof StoreError) || error.code !== "invalid-request") return String(error);
+      if (error.message.includes("already registered")) return "duplicate";
+      if (error.message.includes("no program is registered")) return "name";
+      if (error.message.includes("finite")) return "now";
+      return error.message;
+    };
+    const table: readonly [string, () => unknown, string][] = [
+      [
+        "register a name twice with an unanchored term",
+        () => views.register("leaf", { term: aliased }),
+        "duplicate",
+      ],
+      ["hold an unknown name at NaN", () => views.hold("missing", "x", Number.NaN), "name"],
+      ["hold a known name at NaN", () => views.hold("leaf", "x", Number.NaN), "now"],
+      ["refresh at Infinity", () => views.refresh(Number.POSITIVE_INFINITY), "now"],
+    ];
+    for (const [what, call, want] of table) {
+      let got: string;
+      try {
+        await call();
+        got = "answered";
+      } catch (error) {
+        got = which(error);
+      }
+      expect(got, what).toBe(want);
+    }
+    expect(calls).toEqual([]);
+  });
+
+  it("an evaluator error passes up unchanged, and nothing is applied", async () => {
+    const w = await writer();
+    await w.append([fact("a", 1)]);
+    const views = new StoreViews(w.peer);
+    views.register("leaf", { term: LEAF });
+    views.register("holey", { term: HOLEY });
+    await views.hold("leaf", "a", 10);
+    const sizes = views.indexSizes();
+    const error = await views.hold("holey", "a", 10).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(StoreError);
+    expect(error).not.toBeInstanceOf(StoreFaultError);
+    expect((error as Error).message).toContain("unbound hole");
+    expect(views.indexSizes()).toEqual(sizes);
+    expect((await views.hold("leaf", "a", 10)).from).toBe("held");
   });
 
   it("resyncs with no feed call on another history or a lower revision", async () => {
@@ -1566,6 +1771,36 @@ describe("cost rail: a refresh costs its records and its reads", () => {
       const roots = Array.from({ length: n }, (_, i) => `view:${i}`);
       await w.append([fact("hot", 1), ...roots.map((root, i) => fact(root, i + 2))]);
       return timed(w, await holder(w, roots), n);
+    });
+  }, 600_000);
+
+  // Rail 4: each round purges a member of one held view, so every pass runs the release path. Each
+  // view holds eight members, one for each run on the same holder. A release that scans the held
+  // views costs N per round. (The Rust witness purges a delta no view holds instead: there a round
+  // that reads a view costs too much against a scan for the rail to see it. Here a round that
+  // reads nothing lets N grow until the collector's work, which scales with the heap, shows.)
+  it(`N held views, a purge in one per round: N refreshes cost less than ${BOUND} times at 8N`, async () => {
+    await scaling("refresh after a purge in one of N held views", async (n) => {
+      const w = await writer();
+      const roots = Array.from({ length: n }, (_, i) => `view:${i}`);
+      const members = roots.map((root, i) =>
+        Array.from({ length: 8 }, (_, k) => fact(root, 8 * i + k + 2)),
+      );
+      await w.append(members.flat());
+      const views = new StoreViews(w.peer, { maxViews: n }, RAIL_QUIRKS);
+      views.register("leaf", { term: LEAF });
+      for (const root of roots) await views.hold("leaf", root, 10);
+      let run = 0;
+      return async () => {
+        const k = run++;
+        const start = performance.now();
+        for (let i = 0; i < n; i++) {
+          await w.peer.purge([members[i]![k]!.id]);
+          const refreshed = await views.refresh(10);
+          if (refreshed.reread.length !== 1) throw new Error(`re-read ${refreshed.reread.length}`);
+        }
+        return performance.now() - start;
+      };
     });
   }, 600_000);
 

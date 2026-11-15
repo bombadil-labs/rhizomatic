@@ -126,6 +126,7 @@ pub enum ViewQuirk {
     ServesEvictedBytes,
     MovesOnFailure,
     TouchingPerView,
+    ReleasePerView,
     AnswersReadForNew,
     AnswersNewAlways,
     EvictedEmpty,
@@ -362,9 +363,9 @@ impl<'a> StoreViews<'a> {
         self.quirk == Some(quirk)
     }
 
-    /// Registers a program under `name`. An unanchored term is refused with the SPEC-17 §5
-    /// reason of an anchored read; a name given twice is refused `invalid-request`. No store
-    /// call.
+    /// Registers a program under `name`. A name given twice is refused `invalid-request`, before
+    /// the term is read; then an unanchored term is refused with the SPEC-17 §5 reason of an
+    /// anchored read. No store call.
     pub fn register(&mut self, name: &str, program: ViewProgram) -> Result<(), RegisterRefusal> {
         if self.programs.contains_key(name) {
             return Err(RegisterRefusal::Refused(invalid(format!(
@@ -424,8 +425,9 @@ impl<'a> StoreViews<'a> {
         self.by_expiry.first().map(|(bound, _)| bound.0)
     }
 
-    /// How many reads of this program the holder made, the reads of a pass that failed or
-    /// started again included (§4.13 reading 95). A diagnostic, not part of the held state.
+    /// How many reads of this program the holder started: a read counts when it starts, also
+    /// when it then fails, and the reads of a pass that failed or started again count (§4.13
+    /// reading 95). A diagnostic, not part of the held state.
     pub fn eval_count_of(&self, name: &str) -> u64 {
         self.programs.get(name).map_or(0, |p| p.reads)
     }
@@ -455,21 +457,29 @@ impl<'a> StoreViews<'a> {
     /// Holds the view `(name, root)` and answers it at the pass's position (§4.6). The pass is
     /// the pass of `refresh`, over every held view, then reads this view when it is not held.
     /// When the view is new and `max_views` views are held, the least recently held view is
-    /// forgotten, and the pass does not read it. Only `hold` makes a view recent.
+    /// forgotten, and the pass does not read it. Only `hold` makes a view recent. It refuses a
+    /// program not registered, then a `now` that is not finite. A call that fails applies
+    /// nothing: everything that can refuse runs before the pass is applied.
     pub fn hold(&mut self, name: &str, root: &str, now: f64) -> Result<ViewRead, FeedError> {
-        Self::finite(now, "hold")?;
         self.registered(name)?;
+        Self::finite(now, "hold")?;
         let key = ViewKey::new(name, root);
         let plan = self.pass(now, Some(&key))?;
         let read_now = plan.reads.contains_key(&key);
         let held_before = self.views.contains_key(&key);
         let position = plan.position.clone();
+        let source = match (plan.reads.get(&key), self.views.get(&key)) {
+            (Some(fresh), _) => &fresh.capture,
+            (None, Some(view)) => &view.capture,
+            (None, None) => {
+                return Err(
+                    invalid(format!("StoreViews: the view {name} at {root} is not held")).into(),
+                )
+            }
+        };
+        let capture = advance_capture(source, &position.history, position.revision)?;
         self.apply(plan, Some(&key));
-        let view = self
-            .views
-            .get(&key)
-            .ok_or_else(|| invalid(format!("StoreViews: the view {name} at {root} is not held")))?;
-        let capture = advance_capture(&view.capture, &position.history, position.revision)?;
+        let view = &self.views[&key];
         let position = match self.quirk(ViewQuirk::OtherHistory) {
             true => Position {
                 history: format!("{}:another", position.history),
@@ -495,7 +505,7 @@ impl<'a> StoreViews<'a> {
     }
 
     /// One pass (§4.6), then `changed` against each view's baseline; every held view's bytes
-    /// then become its baseline.
+    /// then become its baseline. A call that fails applies nothing.
     pub fn refresh(&mut self, now: f64) -> Result<Refresh, FeedError> {
         Self::finite(now, "refresh")?;
         let plan = self.pass(now, None)?;
@@ -763,7 +773,20 @@ impl<'a> StoreViews<'a> {
                                 })
                                 .cloned(),
                         );
-                        released.extend(lookup(&self.by_baseline, id));
+                        match self.quirk(ViewQuirk::ReleasePerView) {
+                            true => released.extend(
+                                self.views
+                                    .iter()
+                                    .filter(|(_, v)| match &v.baseline {
+                                        Baseline::Older { members, .. } => {
+                                            members.binary_search(id).is_ok()
+                                        }
+                                        _ => false,
+                                    })
+                                    .map(|(k, _)| k.clone()),
+                            ),
+                            false => released.extend(lookup(&self.by_baseline, id)),
+                        }
                     }
                     if !self.quirk(ViewQuirk::TouchingPerView) {
                         touched.extend(holding);
@@ -811,12 +834,11 @@ impl<'a> StoreViews<'a> {
             request.memo = self.options.memo;
             request.capture = true;
             *counts.entry(key.name.clone()).or_default() += 1;
+            // A store refusal stays one, so `snapshot-moved` starts the pass again; any other
+            // error of the read passes up unchanged.
             let read = read_anchored(snapshot, request).map_err(|e| match e {
                 crate::store_read::StoreReadError::Store(e) => FeedError::Refused(e),
-                other => FeedError::Refused(invalid(format!(
-                    "StoreViews: the read of {} at {} failed: {other}",
-                    key.name, key.root
-                ))),
+                other => FeedError::Read(other),
             })?;
             let capture = read.capture.ok_or_else(|| {
                 invalid(format!(
@@ -1088,7 +1110,9 @@ impl ViewsReader for StoreViewsReader {
                         .as_str()
                         .ok_or("a schema has no name")?
                         .to_string(),
-                    alg: s["alg"].as_u64().ok_or("a schema has no alg")? as u32,
+                    alg: crate::store_fresh::json_revision(&s["alg"])
+                        .and_then(|alg| u32::try_from(alg).ok())
+                        .ok_or("a schema's alg is not an integer from 0 to 2^32 - 1")?,
                     body: parse_term(&s["body"])?,
                 })
             })

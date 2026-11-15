@@ -1719,6 +1719,11 @@ Document defects: `the vector uses capture <name> before taking it`, and
 `the vector checks capture <name> on another peer` (the handle belongs to another peer). A check
 on a store with no feed: `a check step on a store that serves no feed`.
 
+**The order of a check step's failures.** First the document's defects, in this order: no `now`,
+an unknown capture name, the `anotherPeer` flags, an unknown revision name. Then the store's gap:
+the store serves no feed. Then the checks that read the feed model:
+`the vector checks at <name>, and the peer is at <r>`, and then the call.
+
 **The expected verdict.** Let F be the peer's retention floor in the runner's model (§3.9.2). When
 the check is not on another peer and the capture's revision is below F, the expected verdict is `{"status": "resync-required"}`,
 whatever the document says: a document is written for a feed that keeps every record.
@@ -1731,7 +1736,8 @@ history). Log each call when it is made, also a call that then refuses. Call
 It must answer. A store refusal that passes up out of it fails with
 `checkFresh refused with <code>`, followed by the refusal's message. A store fault (SPEC-18 §4.13
 reading 73) fails with `the store broke <rule>: `, followed by the fault's message; `<rule>` is
-`no-progress`, `past-the-bound`, `mismatched-answers` or `unasked-ids`. Then check, in this order:
+`no-progress`, `past-the-bound`, `mismatched-answers`, `unasked-ids` or `revision-out-of-range`
+(a snapshot whose revision is not an integer from 0 to 2^53 − 1). Then check, in this order:
 
 1. The status equals the expected status. Else, below the floor,
    `checkFresh answered <s> for a capture below the retention floor F`, and otherwise
@@ -1968,7 +1974,10 @@ The JSON cannot express these; each witness builds them.
   refusal and not a verdict, and nothing panics. The same two pages, each also carrying a record
   that adds a delta at the capture's anchor, fail the same way and do not answer `stale`: the
   fault is found before the page is judged (reading 68). A wrapper whose `get` answers one more id
-  than it was asked for fails the check with `unasked-ids` (reading 74). `checkFresh` and the
+  than it was asked for fails the check with `unasked-ids` (reading 74). A wrapper whose snapshot
+  reports a revision above 2^53 − 1 fails the check with `revision-out-of-range` (reading 97; the
+  rail of §11.6, "Faults", checks on such a snapshot).
+  `checkFresh` and the
   capture-from-scope function refuse a `now` of NaN, Infinity or −Infinity `invalid-request`.
 - **The runner's own words.** A reader whose `checkFresh` runs over a feed with no progress fails
   `unrelated-appends` with `the store broke no-progress: `. A case `store` with another field or a
@@ -2330,7 +2339,9 @@ The JSON cannot express these; each witness builds them.
   `past-the-bound`, not a store refusal and not a panic; `get` and `arrivals` that disagree fail
   with `mismatched-answers`. A `get` and an `arrivals` that both answer one more id, in order and
   in agreement, fail with `unasked-ids`, deliver nothing, and leave the cursor usable (SPEC-18
-  §4.13 reading 74). **A fault is found before the page is judged:** the same two faulty pages, each also
+  §4.13 reading 74). A snapshot whose revision is above 2^53 − 1 fails the pull with
+  `revision-out-of-range` (reading 97; the rail of §11.6, "Faults", pulls on such a snapshot).
+  **A fault is found before the page is judged:** the same two faulty pages, each also
   carrying a record that adds an id, fail with the calls `read`, `changes`, `release` and no
   `get`. The matching rail of §9.7 gives `checkFresh` faulty pages that add a touching id; it must
   fail with a store fault, not answer `stale`. Two pulls started together run one after the other. A purge whose bytes another peer
@@ -2412,7 +2423,9 @@ A case that breaks any of them fails generation.
 - `format`: refuse any other value, with `unknown store views format`. `reference`, `peers` and
   `deltas` are the common header of §2. The corpus is the corpus of `rounds.json` and eight more
   deltas whose names start `x-`.
-- `schemas`: the hyperschemas of `rounds.json`. Build one registry from all of them.
+- `schemas`: the hyperschemas of `rounds.json`. Build one registry from all of them. Each `alg`
+  is a JSON integer from 0 to 2^32 − 1 (`1.0` is 1); another value is a document defect:
+  `the vector's schema <name> has alg <x>, not an integer from 0 to 2^32 - 1`.
 - `programs`: each has a `name`, a `term` (term JSON) and an optional `selection` in pushdown form
   (§1.4.1), with corpus names in `excludeIds`. Absent means no selection. A program is a read's
   term; a view is a program at a root. A name given twice is a defect:
@@ -2420,13 +2433,18 @@ A case that breaks any of them fails generation.
   `the vector names an unknown program <p>`.
 - `setup`: steps of §3, run at the start of every case on its new store, with the checks of §3
   and the feed check after every step (§3.9.4). It creates peer A and appends the two admissions
-  of `rounds.json`.
+  of `rounds.json`. A setup step that fails fails the case with `the setup: `, followed by the
+  step's own message (a locator of the step may come first, §9.3).
 - `cases`: run each on a **new** store. `requires` is as in §3; every case lists `changes`. Skip
   a case whose requirement fails, and report it skipped. `store` (optional) is as in §10.1: each
   field present replaces the run's (§11.5). A witness that cannot build such a store skips the
   case and reports it skipped.
 - `views`: after the setup, make the holder over a **logged** handle of the peer `peer` (§11.4),
   with `maxViews` when present. Absent `maxViews`: the holder's default, which no case reaches.
+  `maxViews` is a JSON integer of 1 or more (`2.0` is 2). Another value (`0`, `1.5`, a negative
+  number, a value that is not a number) is a document defect:
+  `the vector's maxViews is <x>, not an integer of 1 or more`. The runner checks each `alg`, then
+  the case's `maxViews`, before the case's setup runs and before any holder is made.
   Making the holder makes no store call, else
   `making the holder made the call <call>; it makes no store call`.
 - `steps`: the steps of §3, with the same checks, bookkeeping, revision names and feed model,
@@ -2456,12 +2474,17 @@ A witness's holder offers what TypeScript's `ViewHolder` does: `register(name, p
 - **`register`.** Register the program's term, the registry, its selection (pushdown form, the
   names of `excludeIds` turned into ids) and `epoch` when present. Without `expect` it must
   answer: else `register of <p> was refused: <reason>`. With `expect.reason`, it must be refused
-  with that SPEC-17 §5 reason, as an anchored read refuses (§5.6): else, when it answered,
+  with that reason: else, when it answered,
   `register of <p> answered, expected the refusal <reason>`, and when another reason,
-  `register refused <reason>, expected <reason>`. A refused program is not registered.
+  `register refused <reason>, expected <reason>`. The reason of a refusal is the SPEC-17 §5
+  reason of an unanchored term, as an anchored read refuses (§5.6), or the code of any other
+  refusal (`invalid-request` for a name given twice). A refused program is not registered.
 - **`setEpoch`.** Call it with the program and the epoch.
 - **`drop`.** Call it. The runner forgets the view from its held set. Then the holder's
   `nextBoundary` equals `expect.nextBoundary`, else `the next boundary is <x>, expected <y>`.
+
+A `setEpoch` or `drop` that the holder refuses fails with `<op> refused with <code>`, followed by
+its message.
 
 None of the three makes a store call, else `<op> made the call <call>; it makes no store call`.
 
@@ -2518,8 +2541,10 @@ stand.
 **The call.** Start a new call log. Call `hold(program, root, now)` or `refresh(now)`. A store
 refusal that passes up fails with `hold refused with <code>` or `refresh refused with <code>`,
 followed by its message. A store fault (SPEC-18 §4.13 readings 73, 74 and 89) fails with
-`the store broke <rule>: `, followed by the fault's message, as in §9.3. Any other error fails the
-case with its own message. Then check, in this
+`the store broke <rule>: `, followed by the fault's message, as in §9.3 (`<rule>` is
+`no-progress`, `past-the-bound`, `unasked-ids` or `revision-out-of-range`). Any other error fails
+the case with its own message: an error of a read that is not a store refusal passes up out of
+the holder unchanged (SPEC-18 §4.13 reading 99). Then check, in this
 order.
 
 For `hold`:
@@ -2663,7 +2688,14 @@ The JSON cannot express these; each witness builds them.
 
 - **Every check has a row.** A holder whose `reread` is not ascending fails
   `two-views-share-an-anchor` with `refresh's re-read list is not ascending`. A store whose feed
-  pages make no progress fails `an-unrelated-append` with `the store broke no-progress: `.
+  pages make no progress fails `an-unrelated-append` with `the store broke no-progress: `. A
+  duplicate `register` expected with another reason fails
+  `a-program-registered-twice-is-refused` with `register refused invalid-request, expected aliased`.
+  A `setEpoch` and a `drop` of a program the case did not register fail with
+  `setEpoch refused with invalid-request` and `drop refused with invalid-request`. A `maxViews` of
+  `0`, `1.5`, `-1` or `"2"` fails the case with its defect, also beside a setup that fails, which
+  fails the other cases with `the setup: `; a `maxViews` written `2.0` passes. An `alg` of
+  2^32 + 1, `1.5` or `-1` fails every case with its defect.
   Change one expected value of a case and its check fails with its message: other bytes; another `from`; another hold position; another `expiresAt`; another next
   boundary; another refresh position; another `resynced`; another `reread`; another `changed`;
   another change's bytes; another `evicted` (`no-change`:
@@ -2682,6 +2714,15 @@ The JSON cannot express these; each witness builds them.
     holder is made.
   - `hold`, `setEpoch` and `drop` of a program not registered, and a `now` that is not finite,
     are refused `invalid-request` with no store call. `drop` of a view not held is no error.
+  - **The order of the refusals** (SPEC-18 §4.13 reading 98). One table, the same in each
+    witness: `register` of a name already registered, with an unanchored term, is refused as a
+    duplicate; `hold` of an unknown program at NaN is refused for the name; `hold` of a known
+    program at NaN, and `refresh` at Infinity, for `now`.
+  - **An evaluator error.** A program anchored at its root, with a hole that no binding fills:
+    its `hold` fails with the evaluator's error, unchanged (TypeScript: the thrown `Error`, not a
+    `StoreError`; Rust: `FeedError::Read`). Nothing is applied, and a held view answers `held`.
+  - **The count of reads** (reading 95). A refresh whose one read refuses adds 1; a refresh whose
+    read meets `snapshot-moved` twice and then answers adds 3.
   - **Use.** Only `hold` makes a view recent: after a `refresh` reads a view, holding a new view
     into a full set still evicts it. A view a `hold` evicts is not read in that pass (its
     program's count of reads does not move).
@@ -2694,7 +2735,12 @@ The JSON cannot express these; each witness builds them.
     (`unasked-ids`), each fail the call with the store fault of that rule (TypeScript
     `StoreFaultError`), never a refusal or another error. Nothing is applied: every index keeps
     its size, and the next refresh over a sound store reports the touched view with the bytes
-    it had before.
+    it had before. **A revision out of range** (reading 97): a wrapper whose snapshot reports a
+    revision above 2^53 − 1 and whose `changes` answers `ok` with no records. With two views held,
+    a `hold` of the first, a `refresh`, `checkFresh` and a pull each fail with
+    `revision-out-of-range`. The holder keeps its index sizes, and the failed `hold` did not make
+    its view recent: over the sound store, a third view evicts the first, the second answers
+    `held`, and the first is then read again with the bytes of a fresh read.
   - **Moved snapshots.** On `snapshot-moved`, from `read()` itself or from a later call, a pass
     starts again, at most four snapshots, each released; four moves pass `snapshot-moved` up.
   - **Erasure, two-sided.** After a purge of a member and a `refresh`, the target view's bytes
@@ -2733,16 +2779,34 @@ The JSON cannot express these; each witness builds them.
   that each kind of event occurred.
 - **The cost rails**, timed from outside as in §3.9.9 (N from 256, doubling until the run takes
   50 ms; the run at N the fastest of five; the run at 8N the fastest of three, stopping at the
-  first under the bound; the ratio below 24). A run is N rounds of one commit and one refresh;
-  each commit appends, then purges, a fact at the anchor of one small view, which the refresh
-  reads again:
+  first under the bound; the ratio below 24). A run is N rounds of one commit and one refresh.
+  In rails 1 to 3 each commit appends, then purges, a fact at the anchor of one small view, which
+  the refresh reads again:
   1. beside N held views (and at 8N, 8N), which no commit touches;
   2. beside N holdings, with five views;
-  3. after N records before the processed position (N head-only commits before the first hold).
+  3. after N records before the processed position (N head-only commits before the first hold);
+  4. beside N held views (and at 8N, 8N), with a commit that purges before every second
+     refresh at least, so the passes run the release of baselines. Each witness picks the round
+     that lets its timer see a scan:
+     - TypeScript: each view holds eight members; each round purges one member of one view, and
+       the refresh reads that view again. Each run on one holder purges another of the eight.
+     - Rust: each round adds, or purges, in turn, one delta that no view holds; the refresh reads
+       nothing.
+
+     A round that reads a view costs the Rust holder so much more than a scan of every view that
+     the ratio stays under the bound. A round that reads nothing lets N grow in TypeScript until
+     the garbage collector, whose work grows with the heap, decides the ratio.
 
   A pass that walks the held views, the holdings or the earlier records costs N per round, and
-  the total scales by about 64. The TypeScript witness measured ratios of 12 to 14, 10 to 11 and 8 to 9; a
-  holder that asks `touching` of every view per page measured 44 on rail 1.
+  the total scales by about 64. The TypeScript witness measured ratios of 12 to 14, 10 to 11 and
+  8 to 9 on rails 1 to 3, and 13 to 16 on rail 4; a holder that asks `touching` of every view per
+  page measured 44 on rail 1. Rail 4 exists because rail 1 runs the release only on every second
+  round. A release that scans every held view, in place of the baseline-index lookup, measured
+  19.5 to 23.9 on rail 1, under the bound. On rail 4 it measured 42 to 49 (TypeScript, the right
+  holder 13 to 16) and 89 (Rust in release mode, the right holder 9; 45 and 8 in a debug build).
+  The Rust witness keeps both scans as wrong holders (`TouchingPerView`, `ReleasePerView`) whose
+  rails are ignored in a debug build, and CI runs them in release mode:
+  `cargo test --release --test witness -- --ignored per_view_scan`.
 
 ### 11.7 What the cases hold
 
@@ -2793,3 +2857,5 @@ The JSON cannot express these; each witness builds them.
 - A hold whose pass reads another view, and the refresh that reports that view's change
   (`a-hold-passes-for-the-whole-set`).
 - An unanchored program is refused at `register` (`an-unanchored-program-is-refused`).
+- A name given twice is refused `invalid-request`, and the first program stays registered with
+  its epoch (`a-program-registered-twice-is-refused`).

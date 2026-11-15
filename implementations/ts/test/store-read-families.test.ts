@@ -1,5 +1,5 @@
-// The existing read vector families, run a second time through a store (SPEC-18 slice 2 plan §5,
-// O2). Each family's deltas go into a memory store peer by the test fixture loader; the expected
+// The existing read vector families, run a second time through a store (SPEC-18 §4.12
+// reading 29; §12, slice 2 decision O2). Each family's deltas go into a memory store peer by the test fixture loader; the expected
 // bytes are the family's own, unchanged.
 //
 // - The SPEC-17 anchored read cases (`eval-anchored.json`, `readCases`) through `readAnchored`,
