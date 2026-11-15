@@ -1,4 +1,4 @@
-// The SPEC-14 principal reads over a fetched scope (SPEC-18 slice 2 plan §4, §5). Each shared
+// The SPEC-14 principal reads over a fetched scope (SPEC-18 §4.12; §12, slice 2). Each shared
 // principal case and history case loads into a memory store peer; the test fetches the scope of
 // one entity, the principal root, and runs the read over that synchronous source. The answer
 // must equal the vector's expectation and the Reactor's full result.

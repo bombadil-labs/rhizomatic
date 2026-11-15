@@ -189,6 +189,33 @@ describe("freshness vectors", () => {
     expect(report.skipped.map((s) => s.missing)).toEqual(document.cases.map(() => "changes"));
   });
 
+  it("a check step reports the document's defects, then the store's gap, then the model's checks", async () => {
+    const noFeed = factoryOf({ profile: (p) => ({ ...p, changeRetention: "none" }) });
+    const first = document.cases.find((c) => c.steps.some((s) => s.op === "check"))!;
+    const run = async (
+      edit: (check: { expect: { revision: string } }) => void,
+      factory = noFeed,
+    ) => {
+      const doc = JSON.parse(committed) as StoreFreshnessDocument;
+      const c = doc.cases.find((x) => x.name === first.name)!;
+      (c as unknown as { requires: string[] }).requires = [];
+      edit(c.steps.find((s) => s.op === "check") as unknown as { expect: { revision: string } });
+      const error = await runFreshnessConformance(factory, WITNESS, doc).then(
+        () => undefined,
+        (e: unknown) => e,
+      );
+      return (error as StoreConformanceError).failures.find((f) => f.name === `freshness/${c.name}`)
+        ?.message;
+    };
+    expect(await run((s) => (s.expect.revision = "A.99"))).toContain(
+      "the vector names an unknown revision A.99",
+    );
+    expect(await run(() => undefined)).toContain("a check step on a store that serves no feed");
+    expect(await run((s) => (s.expect.revision = "A.0"), factoryOf())).toContain(
+      "the vector checks at A.0, and the peer is at",
+    );
+  });
+
   it("a factory that cannot build a case's store skips that case", async () => {
     const report = await runFreshnessConformance(
       async (request) => (request.changeRetention === undefined ? createMemoryStore() : undefined),

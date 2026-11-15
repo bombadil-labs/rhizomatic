@@ -54,13 +54,15 @@ export class StoreError extends Error {
  * - `past-the-bound`: a page's `through` is past the asked `to`;
  * - `mismatched-answers`: `get` and `arrivals` on one snapshot name other ids;
  * - `unasked-ids`: an answer of `get` or `arrivals` names an id the call did not ask for, names
- *   one twice, or is not ascending.
+ *   one twice, or is not ascending;
+ * - `revision-out-of-range`: a snapshot's revision is not an integer from 0 to 2^53 − 1.
  */
 export type StoreFaultRule =
   | "no-progress"
   | "past-the-bound"
   | "mismatched-answers"
-  | "unasked-ids";
+  | "unasked-ids"
+  | "revision-out-of-range";
 
 /**
  * A store broke its contract: a fault, not a refusal (`StoreError`). `checkFresh` and a feed

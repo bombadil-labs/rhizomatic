@@ -51,6 +51,8 @@ pub enum StoreFault {
         asked: Vec<String>,
         answered: Vec<String>,
     },
+    /// `revision-out-of-range`: a snapshot's revision is not an integer from 0 to 2^53 − 1.
+    RevisionOutOfRange { revision: Revision },
 }
 
 impl StoreFault {
@@ -61,6 +63,7 @@ impl StoreFault {
             Self::PastTheBound { .. } => "past-the-bound",
             Self::MismatchedAnswers { .. } => "mismatched-answers",
             Self::UnaskedIds { .. } => "unasked-ids",
+            Self::RevisionOutOfRange { .. } => "revision-out-of-range",
         }
     }
 }
@@ -90,18 +93,27 @@ impl std::fmt::Display for StoreFault {
                 answered.len(),
                 asked.len()
             ),
+            Self::RevisionOutOfRange { revision } => format!(
+                "the store's snapshot stands at revision {}, not an integer from 0 to 2^53 - 1",
+                revision.0
+            ),
         };
         f.write_str(&text)
     }
 }
 
-/// Why a reader that checks the store's answers did not answer: the store refused, or the store
-/// broke its contract. `check_fresh` and [`crate::store_follow::FeedCursor::pull`] return it; a
-/// fault never panics, so a host keeps running beside a faulty store, remote ones included.
+/// Why a reader that checks the store's answers did not answer: the store refused, the store
+/// broke its contract, or (in a pass of held views) a read failed for another reason.
+/// `check_fresh` and [`crate::store_follow::FeedCursor::pull`] return it; a fault never panics,
+/// so a host keeps running beside a faulty store, remote ones included.
 #[derive(Debug, Clone, PartialEq)]
 pub enum FeedError {
     Refused(StoreError),
     Fault(StoreFault),
+    /// A read of a held view failed with an error that is not a store refusal: the evaluator's.
+    /// It carries that error's message unchanged (SPEC-18 §4.6, "Held views"). The storage layer
+    /// cannot name the reactor's error type, so the message is what passes up.
+    Read(String),
 }
 
 impl From<StoreError> for FeedError {
@@ -121,6 +133,7 @@ impl std::fmt::Display for FeedError {
         let text = match self {
             Self::Refused(error) => error.to_string(),
             Self::Fault(fault) => format!("the store broke {}: {fault}", fault.rule()),
+            Self::Read(message) => message.clone(),
         };
         f.write_str(&text)
     }
@@ -129,11 +142,11 @@ impl std::fmt::Display for FeedError {
 impl std::error::Error for FeedError {}
 
 impl FeedError {
-    /// The refusal's code, or none for a fault.
+    /// The refusal's code, or none for a fault or a read error.
     pub fn code(&self) -> Option<StoreErrorCode> {
         match self {
             Self::Refused(error) => Some(error.code),
-            Self::Fault(_) => None,
+            Self::Fault(_) | Self::Read(_) => None,
         }
     }
 }
@@ -325,6 +338,36 @@ pub fn make_capture(
         window.since,
         window.expires_at,
     )
+}
+
+/// The same capture at a later revision of the same history (SPEC-18 §4.6, "Captures move without
+/// a write"; §4.13 reading 77). It is not part of the crate's public surface: only a holder of
+/// views calls it.
+///
+/// It ASSUMES what it cannot check: the caller read the feed over `(capture.revision, revision]`
+/// of `history`, and no record touched the capture. Called on anything else, it states a
+/// falsehood that `check_fresh` later believes. It refuses `invalid-request`, in this order,
+/// another history, a revision outside 0 to 2^53 − 1, and a revision below the capture's.
+pub(crate) fn advance_capture(
+    capture: &Capture,
+    history: &str,
+    revision: Revision,
+) -> Result<Capture, StoreError> {
+    if history != capture.history {
+        return Err(malformed("a capture moves only within its own history"));
+    }
+    if revision.0 > MAX_REVISION {
+        return Err(malformed("revision is not an integer from 0 to 2^53 - 1"));
+    }
+    if revision < capture.revision {
+        return Err(malformed(
+            "a capture moves only to a revision at or above its own",
+        ));
+    }
+    Ok(Capture {
+        revision,
+        ..capture.clone()
+    })
 }
 
 /// The anchor kinds of SPEC-18 §4.7.1 that a capture cannot hold yet. A stored capture that
@@ -617,7 +660,8 @@ impl Freshness {
 /// Refuses `invalid-request` for a `now` that is not finite.
 ///
 /// A store that breaks its contract is a [`FeedError::Fault`], found before the store's answer is
-/// judged (§4.13 readings 46 and 68): a page with no progress short of r′ (`no-progress`), a page
+/// judged (§4.13 readings 46 and 68): a snapshot whose revision is not an integer from 0 to
+/// 2^53 − 1 (`revision-out-of-range`), a page with no progress short of r′ (`no-progress`), a page
 /// past r′ (`past-the-bound`), and a `get` that answers an id it was not asked for, twice, or out
 /// of order (`unasked-ids`). It never panics on a store fault.
 pub fn check_fresh(
@@ -646,8 +690,9 @@ impl Drop for Held {
     }
 }
 
-/// `body` on a new snapshot of `peer`, released after it. On `snapshot-moved`, from `read` itself
-/// or from a later call, it starts again on a new snapshot, at most `snapshots` in all.
+/// `body` on a new snapshot of `peer`, released after it. The snapshot's revision is checked
+/// first (`revision-out-of-range`). On `snapshot-moved`, from `read` itself or from a later call,
+/// it starts again on a new snapshot, at most `snapshots` in all.
 pub(crate) fn on_snapshots<T>(
     peer: &dyn PeerStore,
     snapshots: usize,
@@ -656,10 +701,14 @@ pub(crate) fn on_snapshots<T>(
     let mut taken = 0;
     loop {
         taken += 1;
-        let answer = peer
-            .read()
-            .map_err(FeedError::from)
-            .and_then(|snapshot| body(Held(snapshot).0.as_ref()));
+        let answer = peer.read().map_err(FeedError::from).and_then(|snapshot| {
+            let held = Held(snapshot);
+            let revision = held.0.revision();
+            match revision.0 > MAX_REVISION {
+                true => Err(StoreFault::RevisionOutOfRange { revision }.into()),
+                false => body(held.0.as_ref()),
+            }
+        });
         match answer {
             Err(FeedError::Refused(e))
                 if e.code == StoreErrorCode::SnapshotMoved && taken < snapshots => {}
@@ -734,4 +783,55 @@ pub fn raw_scope(snapshot: &dyn Snapshot, entities: &[String]) -> Result<Vec<Str
             .collect();
     }
     Ok(members.into_iter().collect())
+}
+
+/// SPEC-18 §4.6, "Captures move without a write": `advance_capture` keeps everything but the
+/// revision, and refuses another history, a revision out of range and a lower revision. A value
+/// that is not a built capture cannot reach it: `Capture` has private fields (§4.13 reading 42).
+#[cfg(test)]
+fn built() -> Capture {
+    parse_capture(&serde_json::json!({
+        "history": "mint:a",
+        "revision": 5,
+        "anchors": [{ "kind": "entity", "entity": "garden:1" }],
+        "members": ["aa", "bb"],
+        "since": 10,
+        "expiresAt": 20,
+    }))
+    .unwrap()
+}
+
+#[cfg(test)]
+#[test]
+fn a_capture_moves_forward_in_its_history_and_keeps_the_rest() {
+    let capture = built();
+    let moved = advance_capture(&capture, "mint:a", Revision(9)).unwrap();
+    assert_eq!(moved.revision(), Revision(9));
+    assert_eq!(moved.history(), "mint:a");
+    assert_eq!(moved.anchors(), capture.anchors());
+    assert_eq!(moved.members(), capture.members());
+    assert_eq!(
+        (moved.since(), moved.expires_at()),
+        (Some(10.0), Some(20.0))
+    );
+    assert_eq!(
+        advance_capture(&capture, "mint:a", Revision(5)).unwrap(),
+        capture
+    );
+}
+
+#[cfg(test)]
+#[test]
+fn moving_a_capture_refuses_another_history_a_lower_revision_and_one_out_of_range() {
+    let capture = built();
+    for (history, revision, words) in [
+        ("mint:b", 9, "its own history"),
+        ("mint:a", 4, "at or above its own"),
+        ("mint:a", MAX_REVISION + 1, "2^53 - 1"),
+        ("mint:b", 4, "its own history"),
+    ] {
+        let refused = advance_capture(&capture, history, Revision(revision)).unwrap_err();
+        assert_eq!(refused.code, StoreErrorCode::InvalidRequest);
+        assert!(refused.message.contains(words), "{}", refused.message);
+    }
 }

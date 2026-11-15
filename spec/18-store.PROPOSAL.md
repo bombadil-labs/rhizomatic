@@ -228,7 +228,8 @@ the memo. A later round re-assembles the top level and evaluates the children it
 finished.
 
 **Across reads,** cached results are keyed by revision and invalidated through the change feed
-(§4.6). This is the stored-view mechanism (§4.7.4); it needs nothing new.
+(§4.6). Held views (§4.6, "Held views") are this mechanism in memory; stored views (§4.7.4) keep
+it on disk.
 
 **Later, optional:** an *expansion pushdown* capability lets a store follow `expand` roles
 itself, so a SQL store can answer a two-level read in one round. It is added only if a benchmark
@@ -461,7 +462,7 @@ minted history that is empty, starts with `memory:local:`, or repeats a history 
 issued to any peer, now or before, is refused `invalid-request` when the peer is created, and
 the peer is not created. The store keeps every history it issued. A caller that keeps a revision
 across calls (a capture, a feed cursor) keeps the history with it and compares it. `changes` takes no history. This history is the "history epoch"
-of plan decision O3.
+of decision O3 (§12).
 
 `checkFresh(peer, capture, now)` answers `current`, `stale` with the touch, `not-yet` with
 `since`, `expired` with `expiresAt`, or `resync-required` with the current revision. `now` is
@@ -474,9 +475,10 @@ explicit `to`. For each page that names an added id, it makes one `get` of those
 snapshot, and then judges the page. It stops at the first touch. A page that makes no progress
 short of r′ (`through ≤ from`), or that claims records past r′ (`through > r′`), is a store
 fault, not a verdict. So is a `get` whose answer names an id the check did not ask for, names
-one twice, or is not ascending. The call fails with a **store fault**, an error value that names
-the broken rule (`no-progress`, `past-the-bound`, `unasked-ids`), before the page is judged
-(§4.13 readings 46, 73 and 74). **The order of the answers:**
+one twice, or is not ascending, and a snapshot whose revision is not an integer from 0 to
+2^53 − 1. The call fails with a **store fault**, an error value that names the broken rule
+(`no-progress`, `past-the-bound`, `unasked-ids`, `revision-out-of-range`), before the page is
+judged (§4.13 readings 46, 73, 74 and 97). **The order of the answers:**
 `resync-required`, then `stale`, then the window (`not-yet` when `now < since`, `expired` when
 `now ≥ expiresAt`), else `current`. Its calls and cost depend on the records and ids since the
 capture, never on what the peer holds and never on records before the capture. It replaces
@@ -488,7 +490,7 @@ keeps its own epoch for that state and compares it itself. A selection that depe
 such state.
 
 **Following the feed.** A follower keeps what it read from a peer and brings it up to date from
-the feed with a pull cursor. There is no push (plan decision O5).
+the feed with a pull cursor. There is no push (decision O5, §12).
 
 ```ts
 type Position = { history: History; revision: Revision };   // what a follower saves between runs
@@ -519,7 +521,7 @@ type Pull =
 - **What `ok` carries.** `records` is the page. `deltas` holds, for each id in some record's
   `added` that the peer holds at s, the delta with this peer's arrival record at s: ascending by
   id, each id once. An id the peer no longer holds at s has no delta. A pull never hands out the
-  bytes of a purged delta, also while another peer still holds them (plan decision O6). The
+  bytes of a purged delta, also while another peer still holds them (decision O6, §12). The
   removal arrives in the record that made it. `position` is `{history, revision: through}`, and
   the cursor moves there.
 - **`resync-required`** carries the position of s. It does not move the cursor. Every later pull
@@ -531,7 +533,8 @@ type Pull =
   A page with no progress (`no-progress`), a page whose `through` is past s's revision
   (`past-the-bound`), a `get` or `arrivals` whose answer names an id the pull did not ask for,
   names one twice, or is not ascending (`unasked-ids`), and a `get` and `arrivals` that name
-  other ids on one snapshot (`mismatched-answers`) are store faults. The pull fails with a store
+  other ids on one snapshot (`mismatched-answers`) are store faults, and so is a snapshot whose
+  revision is not an integer from 0 to 2^53 − 1 (`revision-out-of-range`). The pull fails with a store
   fault, an error value that names the rule, not a store refusal; it delivers none of the
   answer. Every snapshot is released, also on an error. A pull that fails does not move the
   cursor, and the cursor stays usable. Pulls on one cursor run one at a time, in call order.
@@ -597,6 +600,206 @@ it stops pulling. Erasing that copy is the host's duty, not the store's (§4.7.2
 'absent'"). After `resync-required` the follower REPLACES its mirror with a new start (above). It
 never merges the old mirror into the new one: it will not receive the removals it missed, so a
 merge would keep purged bytes forever.
+
+**Held views.** A host that serves the same reads again and again holds them in memory and keeps
+them current through the feed. A `StoreViews` does this for one peer. A **view** is the result of
+one anchored read `(program, root)` together with its capture. It is the store-backed counterpart
+of the memory `Reactor`'s materializations; the memory `Reactor` does not change (§12, slice 3
+decision e).
+
+```ts
+class StoreViews {
+  constructor(peer: PeerStore, options?: { maxViews?: number; rounds?: RoundPolicy });
+  register(name: string, program: { term: Term; registry?: SchemaRegistry;
+                                    selection?: StoreSelection; epoch?: string }): void;
+  setEpoch(name: string, epoch: string): Promise<void>;
+  hold(name: string, root: Entity, now: number): Promise<ViewRead>;
+  refresh(now: number): Promise<Refresh>;
+  drop(name: string, root: Entity): Promise<void>;
+  readonly nextBoundary: number | null;   // the least expiresAt over the held views
+}
+type ViewRead = { name; root; bytes: string; position: Position; expiresAt: number | null;
+                  from: "held" | "read" | "new"; capture: Capture };
+type Refresh = { position: Position; changed: readonly ViewChange[];
+                 reread: readonly ViewKey[]; evicted: readonly ViewKey[]; resynced: boolean };
+type ViewChange = { name; root; before: string | null; after: string };   // bytes as hex
+type ViewKey = { name; root };
+```
+
+- `bytes` is the canonical encoding of the read's result, as lowercase hex: the HView, or the
+  View of a `resolve` program. Two witnesses give the same bytes.
+- `register` refuses a name given twice `invalid-request`, before it reads the term. Then it
+  refuses a term that is not anchored, with the refusal of an anchored read (the SPEC-17 §5
+  reason). A full-surface program cannot be held. It makes no store call.
+- `epoch` names the host's state that the program's selection or authority reads outside the
+  store (default `""`). `setEpoch` gives the program a new value. A view read under one epoch is
+  read again by the next pass once its program's epoch is another. Epochs compare by value.
+- `hold`, `refresh`, `drop` and `setEpoch` run one at a time, in call order. A call that fails
+  changes nothing in the held state: no view, no baseline, no index entry, not the list of
+  evicted views, not the order of use and not the processed position. Everything that can
+  refuse runs before the pass is applied. The queue goes on. A witness's count of reads
+  (TypeScript `evalCountOf`, Rust `eval_count_of`) counts a read when it starts: every read the
+  holder started, a read that then failed and the reads of a pass that failed or started again
+  included (reading 95). It is a diagnostic, not part of the held state.
+- `hold`, `setEpoch` and `drop` refuse a name not registered, and `hold` and `refresh` a `now`
+  that is not finite, `invalid-request`, before any store call. `hold` checks the name first,
+  then `now` (reading 98). `maxViews` is an integer of 1 or more (default 1024); another value is
+  refused when the holder is made.
+- A read in a pass can fail with an error that is not a store refusal: the evaluator's. The call
+  then fails with that error, unchanged, and applies nothing (TypeScript rethrows it; Rust returns
+  `FeedError::Read` with its message; reading 99).
+
+**The pass.** `StoreViews` keeps one processed position: every held view stands there. `hold` and
+`refresh` each make one **pass**, in this order:
+
+1. Take one snapshot s.
+2. **The feed.** When views are held, and s has the processed position's history and a revision
+   r′ above it, read `changes(processed, r′)` page by page, with that explicit `to`. For each page
+   that names an added id, make one `get` of those ids on s, distinct and ascending; a page that
+   adds nothing gets no `get`. The answer of `get` names only ids it was asked for, each once,
+   ascending; else the store broke `unasked-ids` (reading 74). A view is **touched** by the rule of `touching`: a record's
+   `removed` names one of its members, or an added id still held at r′ points at one of its
+   anchors or negates one of its members. The holder finds the touched views through an inverted
+   index (anchor entity → views, member id → views). It never asks each view per record. A
+   record's `removed` also **releases** the baseline (below) of every view whose baseline was
+   read from a raw scope that holds the removed id.
+3. **Resync.** When s has another history, or a revision below the processed one, or the store
+   answers `resync-required`, every held view is read again, every baseline is released, and the
+   pass has `resynced`. It reads no more of the feed: the records it missed may remove anything. With no view held, the pass reads no feed.
+4. **Time.** Unless the pass resynced: every held view whose window `[since, expiresAt)` does not
+   hold `now` is read again. The holder keeps its views ordered by `expiresAt` and by `since`, so
+   this costs O(log + views found).
+5. **Epochs.** Unless the pass resynced: every view whose program's epoch changed since the view
+   was read is read again.
+6. **Reads.** Every view to read again, and for `hold` the view asked for when it is not held, is
+   read with `readAnchored` (capture asked for) **on s**. A view not read keeps its bytes. The
+   order of the reads is not part of the contract. When a `hold` asks for a new view and
+   `maxViews` views are held, the least recently held view will be forgotten: the pass does not
+   read it, even when the feed touched it.
+7. Release s. Then apply the pass: released baselines, new bytes and captures, index entries,
+   the processed position s. For `hold`, the least recently held view is forgotten first when
+   the view asked for is new and the set is full, and its key joins the evicted list; then the
+   view asked for becomes the most recent, and its key leaves the evicted list. Only `hold`
+   counts as a use: a `refresh` that reads a view does not make it recent.
+
+When a snapshot moves under the pass (`snapshot-moved`, from `read()` itself or from a later
+call), the pass starts again on a new snapshot, at most four in all, as `checkFresh` does. A
+store that breaks its contract is a **store fault** (readings 46, 73, 74 and 97): a snapshot whose
+revision is not an integer from 0 to 2^53 − 1 (`revision-out-of-range`), a feed page with no
+progress (`no-progress`), a page past r′ (`past-the-bound`), or a `get` answer with an id it was
+not asked for, a repeat or an id out of order (`unasked-ids`). The pass fails with the fault
+value (TypeScript `StoreFaultError`, with `rule` and `values`; Rust `FeedError::Fault`) before it
+judges that page, and nothing is applied.
+
+**What each call answers.**
+
+- `hold` answers the view: its bytes, the pass's position, its `expiresAt`, its capture at that
+  position, and `from`. `from` is `new` when the view was not held when the call began: its
+  first hold, or a hold after a `drop` or an eviction. It is `read` when the view was held and
+  the pass read it again, and `held` when the view was held and the pass kept its bytes. A `new`
+  answer is the view's baseline.
+- `refresh` answers the pass's position, `resynced`, `reread` (the views this pass read again,
+  ascending by name, then root, UTF-8 bytes) and `changed`, ordered as `reread`. Each held view
+  has a **baseline**: its bytes at the previous refresh, or, for a view first held since then,
+  its first answer. `changed` lists every held view whose bytes differ from its baseline, with
+  `before` (the baseline) and `after` (its bytes now), and every view whose baseline was
+  released, with `before: null`, whatever its bytes now are. A view is not in `changed` merely
+  because it is new: one first held since the previous refresh is there when its bytes changed
+  after that first read. A view that a `hold` read again since the previous refresh is there
+  when its bytes differ from its baseline. A view forgotten is not there. The refresh then makes
+  every held view's bytes its baseline.
+- `refresh` also answers `evicted`: the key of every view that an eviction forgot since the
+  previous refresh and that no `hold` and no `drop` has named since its last eviction. It is
+  ascending as `reread`. So `evicted` names exactly the views that a host following the rule
+  below believes held, and that are not held at this refresh because of an eviction. A view evicted and then held again is held, and is not there; a view
+  evicted and then dropped is one the host let go, and is not there. The holder keeps only these
+  keys, and empties the list at each refresh that succeeds.
+- `drop` forgets one view; a view not held is no error. Forgetting, by `drop` or by eviction,
+  leaves nothing in any index.
+- **The baseline index.** A view's baseline-index entries (member id → view) exist only while
+  its baseline was read from another capture than its current one. They are added when a pass
+  reads the view again while its baseline comes from its current capture. They are removed when a refresh
+  makes the current bytes the baseline, when a pass releases the baseline, and when the view is
+  forgotten.
+
+**The host rule.** A host copies a view's bytes from a `hold` answer whose `from` is `new`, and
+afterwards only from `refresh(now).changed[].after`. A key in `refresh(now).evicted` is no longer
+maintained: the host holds it again (the answer is `new`, and the host copies it) or tells that
+view's subscribers that it stopped. A host that follows this rule holds, after every refresh,
+exactly the held views, each equal to a fresh read. A `held` or `read` answer goes to the caller
+of `hold` only; its bytes reach the host's copy through `changed`.
+
+**The claim** (SPEC-4 §1 through a store). After a pass at position p and time `now`, every held
+view's bytes equal a fresh `readAnchored` of its program and root on the snapshot at p, at `now`.
+Why it holds:
+
+- A view read in the pass was read on s, at `now`.
+- A view not read was current at the processed position q, at some time t inside its window. By
+  the feed claim (above), no touch in (q, p] means its raw scope is the same at p, id for id,
+  with the same arrival records. Its selection reads only its deltas, their arrival records and
+  host state; the host state has not changed, because its epoch has not. So its trimmed scope
+  is the same, and so is its window. By the window claim, the read answers the same at every time
+  in the window, and `now` is in the window.
+- Every held view stands at the processed position. The first read of a view, on s, puts it
+  there. Each later pass moves every view to its own s: the views it reads by reading them, the
+  others by the claim.
+
+**Exact without a selection; sound with one.** With no selection a view is read again by
+`refresh` exactly when it is touched, or `now` is outside its window, or its epoch changed, or
+the pass resynced. Each condition is exact: `touching` is exact for the raw scope (above), and a
+window's bounds are boundaries of the operand. With a selection a holder may read a view more
+often (a touch the selection rejects), never less.
+
+**Captures move without a write.** Every held view stands at the processed position, so a view
+the feed proved untouched has, in meaning, a capture at that position. The holder does not
+rewrite those captures: that would cost O(held views) per pass. It builds the moved capture only
+when `hold` answers one, with `advanceCapture(capture, history, revision)`. That function is in
+`storage/freshness.ts` and is not part of the package surface. It assumes what it cannot check:
+the caller read the feed over `(capture.revision, revision]` of that history and no record touched
+the capture. Called on anything else, it states a falsehood that `checkFresh` later believes.
+`makeCapture` and `parseCapture` are unchanged.
+
+**Cost.** A pass costs O(records and ids since the processed position + the reads of the
+touched, expired and re-epoched views + log(held views) per touched id). It never costs O(held
+views × records) and never O(holdings). `hold` of a held view that nothing touched costs one pass
+with no read. The cost of a read is its own (§4.4).
+
+**No push.** `refresh` answers what changed; a host dispatches it. There is no `subscribe` on
+`StoreViews`. A host that wants a subscriber per view keeps its own list and calls it from the
+answer of `refresh`.
+
+**What a held view does not cover.** It sees the store only. A host whose selection or authority
+reads other state (trust, grants outside the store, a clock other than the window) names that
+state with the program's epoch and calls `setEpoch` when it changes, as for `checkFresh`.
+
+**A held view lies outside erasure.** A `StoreViews` is a copy outside the store, like a
+follower's mirror (§4.7.2). A held view's bytes, and its baseline, can carry the payload of a
+delta. They leave the holder exactly here:
+
+- The first pass that succeeds after the purge (`refresh`, or any `hold`) reads the record that
+  removes the delta. It reads again every view whose current raw scope holds that delta, and
+  releases the baseline of every view whose baseline was read from a raw scope that holds it.
+  The holder keeps no byte of a released baseline; the next `refresh` reports the view with
+  `before: null`. After that pass the holder keeps none of the delta's payload: not in bytes,
+  baselines, captures, indexes or the order of its views. A capture keeps ids of members only,
+  and the purged id is no longer a member.
+- A pass that fails applies nothing, even when it read the record that removes the delta. The
+  holder then keeps the bytes and the baselines. The next pass that succeeds reads the record
+  again from the processed position, and releases them.
+- A pass that resyncs releases every baseline, because the records it missed may remove anything.
+- A baseline that the purge did not touch stays as it was. Its bytes come from the raw scope of
+  its read, and that raw scope does not hold the purged delta, so they cannot carry it.
+- `drop` and eviction forget a view at once. `drop` is not a pass: it makes no store call, and
+  it forgets.
+
+Until a pass succeeds after the purge, the holder keeps the bytes. What the holder already
+answered is the host's copy: the bytes of a `hold`, and a `before` or `after` that a `refresh`
+returned before that pass. A host that erases, before it reports, runs a `refresh` that
+succeeds on every holder, or forgets the views with `drop`; and it erases the copies it took
+itself. When that `refresh` throws, the host does not report erasure of the views of that
+holder: it runs the pass again, or drops the views. A held view may carry another delta's
+reference to the purged id (a negation names its target): that is the negation's payload, not
+the purged delta's.
 
 ### 4.7 Capabilities
 
@@ -701,6 +904,16 @@ drops a purged delta when it pulls the record that removes it, and not before; w
 pulling, it keeps the bytes. Erasing a follower's copy is the host's duty. After
 `resync-required` a follower replaces its mirror with a new read and never merges, because it
 will not receive the removals it missed.
+
+**A held view lies outside "absent".** A `StoreViews` (§4.6, "Held views") keeps a view's bytes
+and its baseline in memory. A purge removes nothing from them. The first pass that succeeds after
+the purge reads the purge's record, reads the affected views again and releases their baselines;
+from then on the holder keeps none of the payload. Until then it remains: a pass that reads the
+record and then fails applies nothing. What a holder already answered is the host's copy. A host
+that erases, before it reports, runs a `refresh` that succeeds on each holder or forgets the
+views with `drop` (which forgets, and makes no store call), and erases its own copies. When the
+`refresh` throws, the host does not report erasure of those views: it runs the pass again or
+drops the views.
 
 **Later extensions, not in scope now:**
 
@@ -1054,8 +1267,8 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
 
 ### 4.12 Slice 2 readings
 
-Slice 2 builds the read of §4.4 and §6.2 beside the memory reactor
-(`18-store.SLICE-2.PLAN.md`). Where §4.3, §4.4 and the plan were silent, the store-backed read
+Slice 2 builds the read of §4.4 and §6.2 beside the memory reactor. Its build plan is deleted;
+its decisions are in §12. Where §4.3, §4.4 and the plan were silent, the store-backed read
 decided as follows. `vectors/store/rounds.json` and `vectors/store/README.md` §5 pin each point
 that a vector can pin.
 
@@ -1086,7 +1299,7 @@ that a vector can pin.
    anchor of a later round. A store that leaves the field to the host may return d early. The
    later round owes n, and the read already holds d. The round vectors hold this shape
    (`b1-late-note-neg-at-c2`), and each witness tests it with a store that returns d alone.
-6. **The rounds are normative** (plan O3). The first round asks for the request root and the
+6. **The rounds are normative** (§12, slice 2 decision O3). The first round asks for the request root and the
    term's static anchors. Each later round asks for the anchors the last evaluation shows that
    no round has asked for. SPEC-17 §6 allows lazy growth inside one evaluation; a store-backed
    read does not use it, so two witnesses make the same store calls.
@@ -1148,7 +1361,7 @@ that a vector can pin.
 20. **A sticky residual has no vector.** A memory profile is the same in every round, so each
     witness tests reading 2 with a store double that leaves a field to the host in alternate
     rounds, in both parities.
-21. **The evaluation memo** (§4.4, plan §3). A **child evaluation** is one schema body evaluated
+21. **The evaluation memo** (§4.4). A **child evaluation** is one schema body evaluated
     at one root: each child of an `expand`, and the body of a `fix`. The memo maps a key to the
     HView of a child evaluation. The key is (schema reference, bindings, root):
     - the schema reference as the term writes it: the name, or the pinned hash;
@@ -1280,7 +1493,8 @@ that a vector can pin.
     host predicate. A listing whose id does not recompute is refused, not repaired.
     `collectDeltaSet(peerExporter)` is the listing as a set. A store that keeps arrival records
     in its listing in a later slice can lift the refusal.
-29. **The existing read families run a second time through a store** (plan §5, O2). Each witness
+29. **The existing read families run a second time through a store** (§12, slice 2 decision
+    O2). Each witness
     loads each family's deltas into a memory store peer with its fixture loader and expects the
     family's own bytes: every evaluation case of `vectors/l1-eval` (an anchored term through
     `readAnchored`, from the case's root or else its first static anchor; an unanchored one
@@ -1296,11 +1510,24 @@ that a vector can pin.
 
 ### 4.13 Slice 3 readings
 
-Slice 3 builds the change feed of §4.6 (`18-store.SLICE-3.PLAN.md`, steps 1 to 4), freshness
-(steps 5 and 6, readings 24 to 54) and the feed cursor (step 7, readings 55 to 74). Where §4.6
-and the plan were silent, the feed decided as follows.
-`vectors/store/scripts.json`, `vectors/store/freshness.json`, `vectors/store/follow.json` and
-`vectors/store/README.md` §3.9, §9 and §10 pin each point that a vector can pin.
+Slice 3 builds the change feed of §4.6 (steps 1 to 4), freshness (steps 5 and 6), the feed
+cursor (steps 7 and 8) and held views (steps 9 and 10). Its build plan is deleted; its decisions
+are in §12, and what later slices owe is in §10.2. Where §4.6 and the plan were silent, the feed
+decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`,
+`vectors/store/follow.json`, `vectors/store/views.json` and `vectors/store/README.md` §3.9, §9,
+§10 and §11 pin each point that a vector can pin.
+
+**A map of the readings.**
+
+| Topic | Readings |
+|---|---|
+| The feed: records, pages, the floor, retention, shape | 1 to 23 |
+| Freshness: the window, captures, histories, `checkFresh` | 24 to 54 |
+| The feed cursor, followers and full mirrors | 55 to 72 |
+| Store faults (error values with a named rule) | 46, 63, 68, 73, 74, 89, 97 |
+| Held views (`StoreViews`), with their cost rails | 75 to 96, 98, 99, 101 |
+| The runners' words and order | 53, 54, 67, 100 |
+| `StoreReactor` and a moved `read()` | 102 |
 
 1. **Revisions are integers.** A revision is an integer from 0 to 2^53 − 1 in every witness. The
    vectors need this to name a revision past the current one (`ahead`, README §3.9).
@@ -1602,7 +1829,7 @@ and the plan were silent, the feed decided as follows.
     broke its contract as a value, never by aborting the host: slice 4 brings stores that can be
     remote, and a library must not take its host down over one faulty store. The fault names its
     rule with the same words in every witness: `no-progress`, `past-the-bound`,
-    `mismatched-answers` and `unasked-ids`. It is distinct from a refusal (`StoreError`): a
+    `mismatched-answers`, `unasked-ids` and `revision-out-of-range` (reading 97). It is distinct from a refusal (`StoreError`): a
     refusal is the store keeping its contract, and a fault is the store breaking it. TypeScript
     throws `StoreFaultError`, with `rule` and `values`; Rust returns `FeedError::Fault`, a
     `StoreFault` whose variant is the rule and whose fields are the values. Every snapshot is
@@ -1611,6 +1838,189 @@ and the plan were silent, the feed decided as follows.
     not ask for, names an id twice, or is not ascending is the fault `unasked-ids`, and the
     reader uses none of it. Otherwise a faulty store could hand a follower the bytes of a delta
     the peer purged, or have `checkFresh` judge a delta no record named.
+75. **A hold passes for the whole set.** `hold` makes the same pass as `refresh`, over every held
+    view, then reads its own view if it is not held. A holder keeps one processed position, and
+    every held view stands there. A hold that judged its one view alone would leave the views at
+    two positions. The next pass would then read records that some views had already judged, and
+    read them again where the exact rule owes nothing. A hold of a held view that nothing touched
+    costs one pass with no read (`views.json`, `a-hold-passes-for-the-whole-set`).
+76. **`changed` speaks for refreshes.** A hold's pass may read other views again. Their new bytes
+    are not lost: `refresh` answers every view whose bytes differ from its baseline (the bytes at
+    the previous refresh, or its first answer since). A view is not in `changed` merely because it
+    is new; it is there when its bytes changed after its first read (`views.json`,
+    `a-new-view-that-changes-before-the-refresh`). The contract's first text said that views first
+    held since the previous refresh are never there; that was wrong. The answer of a `hold` goes
+    to its caller; `changed` is for the host's subscribers. A host that copies every `hold` answer
+    sees a view change and then never hears that it changed back: the TypeScript fuzz found this
+    in its own first model of the host (seed 62 of 2,000). A host that copies from `changed` alone
+    misses an evicted view held again (reading 91). The host rule of §4.6 is the one rule: copy a
+    `hold` answer whose `from` is `new`, then only `changed[].after`, and stop maintaining a view
+    named in `evicted`.
+77. **A capture moves without a write.** The contract first said that the captures of untouched
+    views move to the pass's revision. Rewriting each costs O(held views) per pass, which the cost
+    rule forbids. Every held view stands at the processed position by the claim, so the holder
+    builds the moved capture only when `hold` answers one, with `advanceCapture` (§4.6). The
+    function is internal and states its assumption; `makeCapture` and `parseCapture` do not
+    change. `ViewRead.capture` is an addition to the contract: it lets a host hand a view's
+    capture to `checkFresh`, and a rail does so and gets `current`.
+78. **No view, no feed.** A pass with no view held reads no feed: there is nothing to touch. Its
+    snapshot's position becomes the processed position. So the first `hold` reads `read`, one
+    round of `scope` calls and `release`, and nothing else.
+79. **Epochs compare by value.** A view is read again when its program's epoch differs from the
+    epoch it was read under. An epoch set and then set back before the next pass reads nothing:
+    the host says its state is the one the view was read under (`views.json`, `set-epoch`).
+80. **The vectors pin the re-read set without a selection.** With a selection a holder may read a
+    view more often (§4.6). So `reread` in `views.json` lists only views of programs without a
+    selection, and `hold` carries no `from` for a program with one; the runner still pins `new`
+    for a view not held, which a selection cannot change (reading 91). The bytes are pinned for
+    every program. The case `a-program-with-a-selection` has a touch the selection rejects.
+81. **`drop` and `setEpoch` are queued.** The contract wrote them as `void`. Rule 6 serializes
+    them with `hold` and `refresh`: a `drop` during a pass must not land before the pass applies.
+    So both answer a promise. Neither makes a store call.
+82. **The bytes of a View.** The contract said "canonical HView". A `resolve` program answers a
+    View, so `bytes` is the canonical encoding of the read's result, HView or View, as
+    `rounds.json` encodes it (`canonicalHex`).
+83. **Eviction is not a change; it is reported apart.** Holding one view more than `maxViews`
+    forgets the least recently held view. Only `hold` counts as a use; a `refresh` that reads a
+    view does not make it recent. The pass of that `hold` does not read the view it will forget
+    (reading 94). The evicted view is not in `changed`; the next refresh names it in `evicted`
+    (reading 92). A later `hold` of it reads it again (`from: new`, the bytes now:
+    `an-evicted-view-is-read-again`; a holder that served the old bytes passed every other case).
+    Forgetting leaves no index entry: a rail checks that every index returns to its size, and the
+    wrong holder that keeps entries reads a dropped view again (`drop`). `drop` of a program not
+    registered is refused `invalid-request`, as `setEpoch` is; `drop` of a view not held is no
+    error.
+84. **A failed pass applies nothing.** A pass decides, reads, and only then applies. A store
+    fault (readings 46, 73, 74 and 89) or a refusal fails the call, and no view, index entry or position moves. A
+    holder that moved its position on a failure would skip the records of the failed pass: the
+    rail's next refresh then misses a touched view.
+85. **The key order.** `reread` and `changed` are ascending by program name, then root, each by
+    UTF-8 bytes. Both witnesses order them so, and the runner checks it. The order of the reads
+    inside a pass is not part of the contract: the call walk allows any.
+86. **The proof.** The generator of `views.json` holds views as the contract says and proves, at
+    every pass, that each view it keeps equals a fresh read over the model (rule 1), and that a
+    view is touched exactly when its raw scope changed, an arrival record changed, or a member left
+    (rule 4). The TypeScript fuzz ran 20,000 sequences (README §11.6); its committed form runs
+    2,000.
+87. **The cost.** A pass looks up each record's ids in the inverted index. The TypeScript rails
+    measured ratios of 12 to 14 (held views), 10 to 11 (holdings) and 8 to 9 (earlier records) for 8N against
+    N; a holder that asks `touching` of every view per page measured 44.
+88. **A held view lies outside erasure, until a pass that succeeds reads the purge.** The review
+    of step 9 found the first build keeping a purged payload in the baseline of `changed` past the
+    pass that read the purge, and handing it back as `before` at the next refresh. The rule now:
+    the first pass that succeeds after the purge reads the record removing the delta, reads again
+    every view whose raw scope holds it and releases every baseline read from a raw scope that
+    holds it; the next refresh reports such a view with `before: null`. A pass that reads the
+    record and then fails applies nothing (reading 93). A baseline the purge did not touch is unchanged: its raw scope does
+    not hold the delta, so its bytes cannot carry it. A resync releases every baseline. After the
+    pass the holder keeps none of the payload anywhere; the rail walks the holder's objects for the
+    payload and finds none, while a named bystander is not read again and keeps its bytes and
+    baseline (`views.json`, `a-purge-read-by-a-hold-releases-the-baseline`; the wrong holder that
+    keeps the baseline fails it). A baseline can carry a member the view has since lost, so the
+    holder looks a removed id up in a baseline index as well as among current members
+    (`a-baseline-keeps-a-member-the-view-lost`). What a holder answered before that pass is the
+    host's copy. A host that erases runs a `refresh` that succeeds on every holder, or drops the
+    views, before it reports, and erases its own copies (§4.6, §4.7.2; §10.2, "Slice 5 owes").
+89. **Faults in a pass.** A pass reports a store that breaks its contract as the fault value of
+    reading 73, with the rules of the cursor: `no-progress`, `past-the-bound`, `unasked-ids` for
+    its `get` answer (reading 74), and `revision-out-of-range` (reading 97). A pass makes no `arrivals` call, so `mismatched-answers`
+    does not arise there. `snapshot-moved` from `read()` itself is retried like the rest. The
+    runner reports a fault with `the store broke <rule>: `.
+90. **Why `before: null` and not a digest.** A released view could keep a digest of its old bytes
+    and report a change only when the digest differs. It keeps nothing instead, and reports the
+    view whatever its bytes are: a host learns less from `before: null` than from a digest, and the
+    cost is at most one extra notification per purge.
+91. **A host is told about evictions.** The final review of step 9 found a stale view for a host
+    that followed the contract. With `maxViews` 1: hold a (the host copies a's bytes); refresh;
+    hold b, which evicts a silently; append at a; hold a again, which answers the new bytes,
+    `from: read`; the refresh then answers `changed: []`. The documents told a host to copy from
+    `changed`, not from `hold` answers, so its subscribers kept a's old bytes for good. The host
+    could not tell this hold from a hold of a held view that the pass read again. Two parts fix
+    it. `ViewRead.from` has a third value, `new`: the view was not held when the call began (its
+    first hold, or a hold after a `drop` or an eviction), and the answer is its baseline. `read`
+    now means held before and read again by this pass. And `Refresh.evicted` names the views
+    that evictions forgot (reading 92). The host rule (§4.6) follows: copy a `new` answer, then
+    only `changed[].after`, and stop at `evicted`. The generator of `views.json` and the
+    TypeScript fuzz each keep a host by that rule alone, and prove at every refresh that it holds
+    exactly the held views, each equal to a fresh read (`views.json`,
+    `an-evicted-view-held-again-answers-new`). A view that is not held when the hold begins
+    answers `new` whatever its program's selection, so the runner pins `new` for every program;
+    for a program with a selection it pins only that a held view answers `held` or `read`.
+92. **What `evicted` names.** Exactly the keys that a host following the rule believes held and
+    that are not held at this refresh because of an eviction: every view an eviction forgot since
+    the previous refresh, but one that a `hold` or a `drop` named after its last eviction. A view
+    evicted and then held again is held; a view evicted and then dropped was let go by the host.
+    The list is ascending by program name, then root, in UTF-8 bytes. The holder keeps only the
+    keys, and empties them at each refresh that succeeds; a failed call changes none of them
+    (`views.json`, `an-evicted-view-not-held-again` and `an-evicted-view-held-again-answers-new`).
+93. **A failed pass does not erase.** The documents said that the first pass that reads the record
+    removing a delta releases the baseline. A pass that reads the record and then fails (a store
+    refusal or fault in a read) applies nothing, so it keeps the bytes and the baselines; only the
+    next pass that succeeds releases them, and its refresh reports `before: null`. A host does not
+    report erasure of its held views when the pass throws: it runs the pass again or drops the
+    views. `drop` is not a pass and makes no store call: it forgets. A rail reads a purge in a
+    pass that then fails, finds the payload still in the holder, and then finds it gone after the
+    next refresh, which reports `before: null`.
+94. **The pass of a `hold` does not read the view it evicts, and the vectors pin it.** A holder
+    that read the evicted view passed every case: a `hold` of a new view always makes a read, so
+    the call walk allowed more `scope` calls. The runner now logs each `scope` call with the
+    entities of its request's anchors, and a `hold` that evicts a view fails when one of its
+    `scope` calls names the evicted view's root. The generator proves that no view held after
+    such a `hold`, the new one included, has that root in its scope, so a holder that keeps the
+    rule never names it. The case `an-evicted-view-not-held-again` touches the view before the
+    `hold` that evicts it.
+95. **The count of reads is a diagnostic.** "A call that fails changes nothing" speaks of the held
+    state. A witness's count of reads (`evalCountOf`) counts a read when the read starts, before
+    any store call of the read. So it counts every read the holder started: a read that then
+    fails, and every read of a pass that failed or started again. A refresh whose one read
+    refuses adds 1. A refresh whose read meets `snapshot-moved` twice and then answers adds 3.
+    The TypeScript witness first counted a read only when it returned; both witnesses now pass
+    one table of these two cases.
+96. **When a baseline-index entry leaves.** A view's entries in the baseline index (member id →
+    view) exist only while its baseline was read from another capture than its current one. They
+    are removed when a refresh makes the current bytes the baseline, when a pass releases the
+    baseline, and when the view is forgotten by `drop` or eviction. A rail checks that every index
+    returns to its size.
+97. **A revision out of range is a store fault.** The review of steps 9 and 10 found a `hold` that
+    failed and still changed the holder. A wrapper store's snapshot reported a revision above
+    2^53 − 1, and its `changes` answered `ok` with no records. The pass applied, and only then did
+    building the answer's capture refuse: the processed position and the view's use had moved.
+    Two parts fix it. Every reader that takes a snapshot (`checkFresh`, a pull, a pass of held
+    views) checks its revision first: a revision outside 0 to 2^53 − 1 is the store fault
+    `revision-out-of-range`, with the revision as its value. And `hold` builds the answer's
+    capture before it applies the pass, so everything that can refuse runs first. A rail in each
+    witness holds two views, fails a `hold`, a `refresh`, `checkFresh` and a pull over that
+    wrapper, and then shows the use order unchanged and the next sound pass right.
+98. **The order of the refusals.** `hold` checks the program's name, then that `now` is finite.
+    `register` refuses a name given twice, then an unanchored term: a duplicate is found without
+    reading the term. `refresh` checks `now`. The Rust `hold` checked `now` first and the
+    TypeScript `register` read the term first; both now follow this order. Each witness passes one
+    table of the same inputs.
+99. **An error of a read that is not a store refusal.** A read in a pass can fail with the
+    evaluator's error (for example, a hole no binding fills). The call fails with that error,
+    unchanged, and applies nothing. TypeScript rethrows the error it caught. Rust returns
+    `FeedError::Read` with the read error's message unchanged: `FeedError` belongs to the storage
+    boundary, which may not name the reactor's `StoreReadError`. Rust first wrapped the error as a
+    refusal `invalid-request`, which a host could not tell from a refusal of its own call.
+100. **The views runners agree.** `maxViews` in a document is a JSON integer of 1 or more (`2.0` is
+     2), and each schema's `alg` an integer from 0 to 2^32 − 1. Another value is a document
+     defect with fixed words, found before the case's setup and before any holder is made (the
+     Rust runner truncated an `alg` of 2^32 + 1 to 1). A `register` that the holder refuses is
+     compared with `expect.reason` by its reason: the SPEC-17 §5 reason, or the code of any other
+     refusal (`a-program-registered-twice-is-refused` expects `invalid-request`). A refused
+     `setEpoch` or `drop` fails with `<op> refused with <code>`, and a failing setup step with
+     `the setup: `. A freshness `check` step reports the document's defects first, then the
+     store's gap (no feed), then the checks that read the feed model (README §9.3).
+101. **A fourth cost rail.** Rail 1 runs the release of baselines only on every second round, so a
+     release that scans every held view, in place of the baseline-index lookup, stayed under the
+     bound there (19.5 to 23.9). Rail 4 runs a purge before every refresh (TypeScript) or every
+     second refresh with no read (Rust), so the release dominates; that scan measured 42 to 49
+     and 89. Each witness picks the round its timer can see (README §11.6). The Rust witness keeps
+     both scans as wrong holders whose rails CI runs in release mode.
+102. **`StoreReactor` retries a moved `read()`.** §4.12 reading 11 retried `snapshot-moved` from a
+     call on the snapshot. A `read()` that itself answers `snapshot-moved` passed up at once,
+     though `checkFresh`, a pull and a pass retried it. `StoreReactor.read` and `fetch` now start
+     again on it too, within the same four snapshots.
 
 
 ## 5. Architectures
@@ -1752,23 +2162,29 @@ cache.
    hash when a read or dispatch first needs them. No replay.
 2. **Read.** Rounds with both in-read caches (§4.4). A read holds at most its own scope in memory.
 3. **Ingest.** Admission validates and verifies. `append` commits atomically, maintaining derived
-   indexes. Dispatch reads the new change record: for each added delta it calls
-   `ViewStore.affected` with the anchors the delta touches (its target entities, its indexed
-   values, the derived indexes it entered). For a negation of x, it uses x's anchors, from
-   `get(x)`. Each affected view is evaluated again over its scope, or marked stale and evaluated
-   on its next read.
-4. **Views.** A maintained view is a stored, anchored read with its capture. It is current when no
-   change since its revision touches the capture (§4.6), `now` is before `expiresAt`, and the
-   host's own epoch for its selection and authority has not moved. Incremental equivalence
-   (SPEC-4 §1) still holds: a view evaluated again over its scope equals a batch evaluation over
-   the surface (SPEC-17 §6 theorem). A very large view is evaluated again whole when it changes;
-   finer maintenance is an optimization, not a contract change.
-5. **Subscriptions.** A view subscription is told when dispatch touches that view. A raw-stream
-   subscriber is a feed cursor (§4.6, "Following the feed"): it pulls the records after its
+   indexes, and writes one change record. Ingest does not dispatch. A holder of views reads the
+   new records on its next pass (§4.6, "Held views"): for each added id still held it looks up
+   the views whose anchors the delta points at, and for a negation of x the views that hold x as
+   a member; for each removed id, the views that hold it. It reads those views again on the
+   pass's snapshot. Slice 6 adds stored views (`ViewStore.affected`), the same lookup on disk,
+   and the anchors of indexed values and derived indexes.
+4. **Views.** A maintained view is an anchored read with its capture, held by a `StoreViews`
+   (§4.6, "Held views") until slice 6 stores it. It is current when no change since its position
+   touches the capture (§4.6), `now` is inside its window `[since, expiresAt)`, and the host's
+   epoch for its selection and authority has not moved. Incremental equivalence (SPEC-4 §1)
+   holds through a store: after a pass at position p and time `now`, every held view equals a
+   fresh read on the snapshot at p at `now` (the claim of "Held views"), and a fresh read over
+   its scope equals a batch evaluation over the surface (SPEC-17 §6 theorem). A very large view
+   is read again whole when it changes; finer maintenance is an optimization, not a contract
+   change.
+5. **Subscriptions.** There is no push. `StoreViews.refresh(now)` answers the views whose bytes
+   changed since the previous refresh; a host calls its view subscribers from that answer. A
+   raw-stream subscriber is a feed cursor (§4.6, "Following the feed"): it pulls the records after its
    position, with the bytes of each added id still held, one page per pull. It resumes from a
    saved position. Past retention, in another history, or from a position past the peer, it
    receives `resync-required`, reads its state again and follows from that read. It never
-   receives the bytes of a purged delta (SPEC-4 ERRATA V6).
+   receives the bytes of a purged delta (SPEC-4 ERRATA V6). A holder of views that resyncs reads
+   every held view again; it never merges.
 6. **Full-surface reads.** A read with a part that no anchor covers is a full-surface read.
    - A **registered** hyperschema never stays full-surface: registration creates its derived index
      (§4.7.5).
@@ -1830,7 +2246,7 @@ possible: Loam moves in slice 5, before stored views and derived indexes exist.
 |---|---|
 | 1 | Interface, profile, memory reference store, `openStore`, `registerStoreScheme`, `runStoreConformance`, store and scope vectors. TS and Rust. |
 | 2 | Reactor reads through a store: rounds, fetch cache and evaluation memo; `snapshot()` moves to the `Exporter`. Every existing vector passes on the memory store. |
-| 3 | Revisions and the change feed: `changes(from, to)`, retention, `resync-required`, the freshness check, raw-stream subscriptions from a revision. |
+| 3 | Revisions and the change feed: `changes(from, to)`, retention, `resync-required`, the freshness check, raw-stream subscriptions from a revision, held views. **Built in both witnesses:** the feed (#79), freshness (#80), the feed cursor (#81), held views (#83). |
 | 4 | SQLite stores (TS and Rust) with proven erasure and posture gating; the journal split (small checkpoint, holdings Merkle root, open from the tail, `fsck`, format markers). |
 | 5 | Loam moves onto `@bombadil/rhizomatic/store/sqlite` (§10.1). Its boot replay, its generic SQLite code and its `data_version` check are deleted; its repair layer stays. |
 | 6 | Stored views and durable dispatch; derived indexes and their lifecycle; generalized anchors, lazy value indexes and `aliased` anchoring. |
@@ -1839,8 +2255,9 @@ possible: Loam moves in slice 5, before stored views and derived indexes exist.
 **Between slice 2 and slice 6** the capabilities `views` and `derivedIndexes` are absent from
 every profile. During that time:
 
-- A maintained view is a memory cache. It is keyed by revision and invalidated through the change
-  feed once slice 3 lands. A process rebuilds it on first use after open. Open stays O(tail).
+- A maintained view is a memory cache: a held view (§4.6, "Held views"). It stands at a position
+  and is kept current through the change feed. A process rebuilds it on first use after open.
+  Open stays O(tail).
 - A registered term that entity anchors do not cover runs as a full-surface read. Its route report
   marks it unoptimized. This is the cost such a term has today; slice 6 removes it.
 - A value comparison is a residual selection, never an anchor.
@@ -1880,6 +2297,84 @@ Slice 5 is more than a move. Measured on Loam main at `6cce5a25` (2026-11-09):
 - **Review.** Slice 5 moves erasure code. It may not widen what a purge removes. Every erasure
   rail stays two-sided: the target is gone and a named bystander survives.
 
+### 10.2 Owed by later slices
+
+Slice 3 leaves these to later slices. Each was owed by the slice 3 build plan, which is deleted.
+
+**Slice 4 owes.**
+
+- A remote or durable store relies on the fault values. A store across a process or a network
+  can break its contract. `checkFresh`, a pull and a pass of held views report that as a store
+  fault with its rule, not by aborting the host (§4.13 reading 73). Slice 4 decides how a remote
+  store's client reports a transport failure, and keeps the fault values for a broken contract.
+- A durable store persists each peer's history (§4.6, "History"). It gives the peer a new history
+  when the store is restored from a backup, or when a peer is deleted and created again. It keeps
+  every history it issued across a reopen, so a host mint that repeats is refused there too
+  (§4.13 reading 49).
+- Records appear in revision order (§4.6; §4.13 reading 5). A store open to several writing
+  processes enforces this at commit. Slice 4 adds the rail; a sequential runner cannot test it.
+- The purge report names the change feed as a surface that still holds the id of a purged delta
+  (§4.7.2).
+- A durable store's default retention is bounded. Under `unbounded` retention a purged id stays
+  in the feed for as long as the store lives.
+- A purge does not report a surface `absent` while an open snapshot can still read the bytes.
+- "Nothing is served silently" (§4.7.3) covers lost rows. Slice 4 narrows it, or backs it, for lost
+  index entries: a lost index entry hides a delta without a read failing.
+- A cost rail that a debug build cannot see runs in release mode in CI, as the held-views wrong
+  holders do (§4.13 reading 101). The cost rails of a durable store follow this rule.
+
+**Slice 5 owes (Loam).**
+
+- Loam's followers of the feed drop their mirror on `resync-required`, and start again from a
+  position and a read. They never merge (§4.6, "A follower's copies lie outside erasure").
+- Loam's erasure accounts for its followers. A purge reaches a follower's mirror only when the
+  follower pulls the removal, and a follower that stops pulling keeps the bytes. Loam erases those
+  copies itself, or keeps its followers pulling.
+- Loam's scoped reads keep fresh with `checkFresh`, not by applying pages. Only a full mirror
+  applies pages (§4.6, "A scope is not a mirror").
+- Loam's maintained views move onto `StoreViews` (§4.6, "Held views"; the table below).
+- Loam's erasure runs a `refresh` that succeeds on every `StoreViews` it holds, or forgets the views
+  with `drop`, before it reports. A held view keeps a purged delta's bytes, and its baseline,
+  until a pass that succeeds reads the purge (§4.13 readings 88 and 93). Loam treats every `hold`
+  answer, `before` and `after` it copied before that pass as its own copy, and erases it itself.
+- Loam treats a thrown pass as "not erased yet". When that `refresh` throws, Loam does not report
+  erasure of those held views. It runs the pass again, or drops the views (§4.13 reading 93).
+- Loam names the state its selections and authority read outside the store (grants, trust, a
+  lowering's dependencies) as an epoch per program. It calls `setEpoch` when that state changes.
+- Loam keeps its views' subscribers by the host rule (§4.6, "The host rule"; §4.13 readings 76,
+  91 and 92). It copies a view's bytes from a `hold` answer whose `from` is `"new"`, and
+  afterwards only from `refresh(now).changed[].after`. A key in `refresh(now).evicted` is no
+  longer maintained: Loam holds it again or tells that view's subscribers.
+- `principalResolverForReactor` compares the whole input with the reactor on every call. It
+  compares revisions instead when Loam moves (left by slice 2).
+
+What Loam uses in place of what it has today:
+
+| Loam today | Slice 3 |
+|---|---|
+| `catchUp` rereads the whole store | `FeedCursor.pull()`; `removed` triggers what a reseat did |
+| `refreshImpl` compares the journal head | `pull()`; an empty page means nothing to do |
+| `durableCurrent` reads SQLite `data_version` | `checkFresh` over the read's capture, or compare revisions |
+| the watch pulse re-evaluates on every delta | pull, then evaluate only if `touching` says so |
+| the gateway's size-driven revision | the store revision; erasure pins stay a Loam-side epoch |
+| the whole-ground validity timer | the least `expiresAt` over the captures Loam holds |
+| `register(name, term, roots, now)` | `StoreViews.register(name, program)`, then `hold(name, root, now)` for each root |
+| `materializedView(name, root)`, `materializedHex` | `hold(name, root, now)`: async, one pass; `bytes` is the hex |
+| `subscribe(name, cb)` | the host's own list of callbacks (no push), kept by the host rule |
+| `changesFromLastIngest()` | `refresh(now).changed`: the views whose bytes changed since the previous refresh |
+| `advanceTime(now)` | `refresh(now)`: views whose window no longer holds `now` are read again |
+| `nextValidityBoundary(now)` | `StoreViews.nextBoundary`: the least `expiresAt` over the held views |
+| `refreshAll(now)` (a lowering dependency changed) | `setEpoch(name, epoch)` for each program that reads it, then `refresh(now)` |
+| `evalCountOf(name)` | `StoreViews.evalCountOf(name)` |
+
+**Slice 6 owes.**
+
+- Stored views (§4.7.4) join the list of purge surfaces.
+- Value and derived-index anchors join a capture, `rawScope` and `touching`. Their fields in the
+  capture JSON are defined then. Until then `parseCapture` reads only their kind (§4.13 reading
+  30).
+- A registered term's lowering hook still receives the whole set (left by slice 2).
+
 ## 11. What this replaces
 
 - The SPEC-4 §3 normative minimum moves here. The indexes become store obligations, not reactor
@@ -1909,6 +2404,71 @@ slice 6, after Loam is on the store. No content is removed, and the whole arc st
 step 7. The reason: slice 5 depends on the feed and on nothing else in the former slice 3, and a
 consumer on the store tests the interface before the largest slice is built on it. §10.1 lists
 what slice 5 covers in Loam.
+
+**Slice 2 decisions** (from its build plan, deleted). Decisions a to e:
+
+- **a.** The memory `Reactor` stays synchronous and in memory. A store-backed read is added beside
+  it (`readAnchored`, `fetchScope`, `StoreReactor`).
+- **b.** The store path has no whole-set method. The memory `Reactor` keeps `snapshot`,
+  `arrivalLog`, `digest` and `eval`, each deprecated, until Loam moves (slice 5).
+- **c.** One fetch cache and one evaluation memo per read (§4.4; §4.12).
+- **d.** Slice 2 is read-only. Only test fixtures fill a store.
+- **e.** Subscriptions and materializations stay on the memory `Reactor`.
+
+The open questions O1 to O5 were decided "yes" on 2026-11-12, under Myk's delegation:
+
+- **O1.** `Reactor.snapshot()` stays on the memory `Reactor`, deprecated, until slice 5.
+- **O2.** "Every existing vector passes on the memory store" covers the vectors whose subject is a
+  read (§4.12 reading 29).
+- **O3.** The anchors of each round are contract (§4.12 reading 6).
+- **O4.** No host path writes to a store before slice 4.
+- **O5.** `DeltaSource` promises its ids sorted ascending by UTF-8 bytes, each once. This is a
+  contract change on an exported interface.
+- `ScopeReads` stays, marked internal.
+
+**Slice 3 decisions** (from its build plan, deleted). Decisions a to g:
+
+- **a.** `PeerStore.changes(from, to?)` answers pages of records `{revision, head, added,
+  removed}`: ids only, one record per revision advance, never changed.
+- **b.** The memory store keeps every record by default, with a bounded option. A `from` older
+  than what is kept answers `resync-required`, a result and not an error.
+- **c.** `touching` is pure, and `checkFresh` reads the feed. Freshness is exact without a
+  selection and sound with one.
+- **d.** Raw subscriptions are a pull cursor (`FeedCursor`) that resumes from a saved position.
+- **e.** The memory `Reactor` does not change. `StoreViews` gives store-backed hosts held views.
+- **f.** The next validity boundary is per read, never per peer.
+- **g.** The whole-peer version address waits for slice 4.
+
+The open calls O1 to O12, decided on 2026-11-12 under Myk's delegation (⚑ changes what the
+system promises):
+
+- **O1.** A record carries the head. A head-only commit is a revision and writes a record.
+- **O2.** `resync-required` is a result, not an error, like `conflict`.
+- **⚑ O3.** A `from` later than the current revision answers `resync-required`. The history of
+  §4.6 is the history epoch this needs.
+- **⚑ O4.** Retained records keep the ids of purged deltas, never their bytes (§4.7.2).
+- **O5.** The feed is pull only. There is no push.
+- **⚑ O6.** The raw stream delivers bytes only for ids still held at pull time. This narrows
+  SPEC-4 §5 (SPEC-4 ERRATA V6).
+- **O7.** Freshness is exact without a selection and sound with one.
+- **⚑ O8.** The next validity boundary is per read only. This changes Loam's validity timer.
+- **O9.** The version address waits for slice 4.
+- **O10.** `StoreViews` lands in slice 3.
+- **O11.** The memory store keeps every record by default, with a bounded option.
+- **O12.** SPEC-16 MR-10b is amended, in one sentence, to allow the feed check.
+
+**Slice 3 decisions made while building** (Claude, under Myk's delegation of 2026-11-12):
+
+- A record keeps a purged id, never bytes.
+- The feed is pull only: a cursor for raw streams, `refresh` for held views.
+- A capture carries its time window `[since, expiresAt)`, and `checkFresh` takes `now`.
+- A revision means something only in one history of one peer, and every reader compares it.
+- `parseCapture` and `parsePosition` refuse a history local to one process.
+- A store fault is an error value with a named rule, never an abort, in every witness.
+- A follower starts from a position taken first, then a read or an export.
+- A follower's mirror and a held view are copies outside the store; the host erases them.
+- A host keeps its copies of held views by the host rule (`from: "new"`, `changed`, `evicted`).
+- Only a pass that succeeds releases a purged payload; a failed pass erases nothing.
 
 **Open items carried forward** (not blocking slice 1):
 

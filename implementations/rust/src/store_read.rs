@@ -787,10 +787,10 @@ impl StoreReactor {
         self.peer.as_ref()
     }
 
-    /// Runs `body` on a new snapshot, released on every path. On `snapshot-moved` it starts
-    /// again on a new snapshot, at most `SNAPSHOT_RETRIES` more times; any other refusal passes
-    /// up at once. `body` receives the attempt, counted from 1. Returns the answer and how many
-    /// snapshots it took.
+    /// Runs `body` on a new snapshot, released on every path. On `snapshot-moved`, from `read`
+    /// itself or from `body`, it starts again on a new snapshot, at most `SNAPSHOT_RETRIES` more
+    /// times; any other refusal passes up at once. `body` receives the attempt, counted from 1.
+    /// Returns the answer and how many snapshots it took.
     fn on_snapshots<T, E: From<StoreError>>(
         &self,
         mut body: impl FnMut(&dyn Snapshot, usize) -> Result<T, E>,
@@ -798,8 +798,14 @@ impl StoreReactor {
     ) -> Result<(T, usize), E> {
         let mut taken = 0;
         loop {
-            let snapshot = Held(self.peer.read()?);
             taken += 1;
+            let snapshot = match self.peer.read() {
+                Ok(snapshot) => Held(snapshot),
+                Err(e) if e.code == StoreErrorCode::SnapshotMoved && taken <= SNAPSHOT_RETRIES => {
+                    continue
+                }
+                Err(e) => return Err(e.into()),
+            };
             match body(snapshot.0.as_ref(), taken) {
                 Err(e) if moved(&e) && taken <= SNAPSHOT_RETRIES => continue,
                 other => return other.map(|answer| (answer, taken)),

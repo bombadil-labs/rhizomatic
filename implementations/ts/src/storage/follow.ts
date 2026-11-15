@@ -2,7 +2,7 @@
 // position of a snapshot, fills a full mirror of the peer (from that snapshot, or from an export
 // taken after it), and then pulls the records after the position, one page per pull, with the
 // bytes of every added id the peer still holds. It never hands out the bytes of a purged delta
-// (plan decision O6).
+// (SPEC-18 §12, decision O6).
 //
 // A follower that applies each ok pull in order (for each record: delete its `removed`, then set
 // each of its `added` to the delivered delta, or delete it when none was delivered) holds exactly
@@ -60,7 +60,8 @@ export interface FeedCursor {
    * in all.
    *
    * Throws `StoreFaultError` when the store breaks its contract, before anything the store
-   * answered is used: a page with no progress (`no-progress`), a page past the snapshot's
+   * answered is used: a snapshot whose revision is not an integer from 0 to 2^53 − 1
+   * (`revision-out-of-range`), a page with no progress (`no-progress`), a page past the snapshot's
    * revision (`past-the-bound`), a `get` or `arrivals` that answers an id it was not asked for,
    * twice, or out of order (`unasked-ids`), and a `get` and `arrivals` that name other ids
    * (`mismatched-answers`). A pull that throws does not move the cursor; it stays usable.

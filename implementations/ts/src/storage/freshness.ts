@@ -247,6 +247,32 @@ export function parseCapture(value: unknown): Capture {
 }
 
 /**
+ * The same capture, moved to a later revision of the same history: anchors, members and window
+ * unchanged. Not part of the package surface. Held views use it (SPEC-18 §4.6, "Held views").
+ *
+ * It assumes what it cannot check: the caller read the feed over `(capture.revision, revision]`
+ * of this history and found no record that touches the capture (`touching` answers null). Then
+ * S(anchors over H) at `revision` equals `members`, with the same arrival records, so the moved
+ * capture states the truth. Called on anything else, it states a falsehood that `checkFresh`
+ * later believes. Refuses `invalid-request` for a capture that was not built here, another
+ * history, and a revision that is below the capture's or not an integer from 0 to 2^53 − 1.
+ */
+export function advanceCapture(capture: Capture, history: History, revision: Revision): Capture {
+  built(capture);
+  if (history !== capture.history)
+    throw new StoreError("invalid-request", "capture: a capture moves only within its history");
+  if (!Number.isSafeInteger(revision) || revision < capture.revision)
+    throw new StoreError(
+      "invalid-request",
+      "capture: a capture moves only to a later revision of its history",
+    );
+  if (revision === capture.revision) return capture;
+  const moved = Object.freeze({ ...capture, revision }) as Capture;
+  BUILT.add(moved);
+  return moved;
+}
+
+/**
  * The checks of a capture, with no constructor: for a runner that judges a capture a witness
  * returned. Answers the reason it would be refused, or null. A local history is allowed.
  */
@@ -385,7 +411,8 @@ export function touching(
  * to a time.
  *
  * Throws `StoreFaultError` when the store breaks its contract, before it judges what the store
- * answered: a page with no progress short of r′ (`no-progress`), a page past r′
+ * answered: a snapshot whose revision is not an integer from 0 to 2^53 − 1
+ * (`revision-out-of-range`), a page with no progress short of r′ (`no-progress`), a page past r′
  * (`past-the-bound`), or a `get` that answers an id it was not asked for, twice, or out of order
  * (`unasked-ids`).
  */
@@ -417,9 +444,23 @@ const moved = (error: unknown): boolean =>
   error instanceof StoreError && error.code === "snapshot-moved";
 
 /**
- * `body` on a new snapshot of `peer`, released after it. On `snapshot-moved`, from `read()` itself
- * or from a later call, it starts again on a new snapshot, at most four snapshots in all; then
- * `snapshot-moved` passes up. `checkFresh` and a feed cursor's `pull` share it.
+ * A snapshot's revision checked before anything uses it: an integer from 0 to 2^53 − 1, else the
+ * store fault `revision-out-of-range`.
+ */
+function revisionInRange(revision: Revision): void {
+  if (!Number.isSafeInteger(revision) || revision < 0)
+    throw new StoreFaultError(
+      "revision-out-of-range",
+      { revision },
+      `the store's snapshot stands at revision ${revision}, not an integer from 0 to 2^53 - 1`,
+    );
+}
+
+/**
+ * `body` on a new snapshot of `peer`, released after it. The snapshot's revision is checked first
+ * (`revision-out-of-range`). On `snapshot-moved`, from `read()` itself or from a later call, it
+ * starts again on a new snapshot, at most four snapshots in all; then `snapshot-moved` passes up.
+ * `checkFresh`, a feed cursor's `pull` and a pass of held views share it.
  */
 export async function onSnapshots<T>(
   peer: PeerStore,
@@ -434,6 +475,7 @@ export async function onSnapshots<T>(
       throw error;
     }
     try {
+      revisionInRange(snapshot.revision);
       return await body(snapshot);
     } catch (error) {
       if (!moved(error) || attempts > SNAPSHOT_RETRIES) throw error;

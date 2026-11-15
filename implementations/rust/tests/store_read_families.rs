@@ -1,5 +1,5 @@
 //! The existing read families a second time, through a store (SPEC-18 proposal §4.12 reading 29;
-//! slice 2 plan §5, O2). Each family's deltas load into a memory store peer, and each case must
+//! §12, slice 2 decision O2). Each family's deltas load into a memory store peer, and each case must
 //! answer the family's own bytes:
 //!
 //! - every evaluation case of `vectors/l1-eval`: an anchored term through `read_anchored`, from

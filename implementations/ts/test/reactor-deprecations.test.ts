@@ -1,5 +1,5 @@
-// The whole-set methods of the memory `Reactor` are deprecated (SPEC-18 slice 2 plan, decision b
-// and O1): `snapshot`, `arrivalLog`, `digest` and the unflagged `eval`, plus `legacyHoldings`,
+// The whole-set methods of the memory `Reactor` are deprecated (SPEC-18 §12, slice 2 decision
+// b and O1): `snapshot`, `arrivalLog`, `digest` and the unflagged `eval`, plus `legacyHoldings`,
 // which returns the same whole-set access for the legacy in-memory peer. They stay for consumers
 // until slice 5. This rail holds two things: each of the five carries `@deprecated` naming a
 // replacement, and no source file outside the reactor itself reaches one, except the two legacy

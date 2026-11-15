@@ -1,4 +1,4 @@
-//! The whole-set `Reactor` methods are deprecated (SPEC-18 slice 2 plan §2(b), O1), and nothing
+//! The whole-set `Reactor` methods are deprecated (SPEC-18 §12, slice 2 decision b, O1), and nothing
 //! in `src/` calls them.
 //!
 //! The rail is the compiler: `src/lib.rs` carries `#![forbid(deprecated)]`, so any use of a

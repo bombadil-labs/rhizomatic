@@ -265,6 +265,8 @@ class FreshnessRun {
   }
 
   async check(step: CheckStep): Promise<void> {
+    // README §9.3: the document's defects, then the store's gap, then the checks of the model.
+    check(typeof step.now === "number", "the vector's check has no now");
     const taken = this.captures.get(step.capture);
     check(taken !== undefined, `the vector uses capture ${step.capture} before taking it`);
     const { capture, owner } = taken;
@@ -276,10 +278,9 @@ class FreshnessRun {
         ? `the vector checks capture ${step.capture} on another peer`
         : `the vector says capture ${step.capture} is checked on another peer, and it is not`,
     );
-    check(typeof step.now === "number", "the vector's check has no now");
+    const revision = this.run.resolve({ revision: step.expect.revision }, step.peer);
     const model = this.run.model(checked);
     check(model !== undefined, "a check step on a store that serves no feed");
-    const revision = this.run.resolve({ revision: step.expect.revision }, step.peer);
     check(
       model.current === revision,
       `the vector checks at ${step.expect.revision}, and the peer is at ${model.current}`,
