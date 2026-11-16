@@ -100,7 +100,11 @@ describe("the query-plan rail", () => {
         planOf(db, sql),
       ]),
     );
-    expect(Object.keys(TRIGGERS)).toEqual(["trigger holding_residue", "trigger delta_residue"]);
+    expect(Object.keys(TRIGGERS)).toEqual(
+      ["holding", "delta", "target", "reference"].flatMap((table) =>
+        ["delete", "update"].map((event) => `trigger ${table}_${event}_residue`),
+      ),
+    );
     db.close();
     if (process.env["RHIZOMATIC_WRITE_PLANS"] === "1")
       writeFileSync(committedPath, `${JSON.stringify(plans, null, 2)}\n`);

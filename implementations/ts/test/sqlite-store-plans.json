@@ -1,5 +1,6 @@
 {
   "schemaSize": ["SCAN sqlite_master"],
+  "files": [],
   "metaGet": ["SEARCH meta USING INDEX sqlite_autoindex_meta_1 (key=?)"],
   "metaPut": [],
   "residueRead": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
@@ -109,6 +110,12 @@
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)"
   ],
   "exportStored": ["SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id>?)"],
-  "trigger holding_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
-  "trigger delta_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"]
+  "trigger holding_delete_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger holding_update_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger delta_delete_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger delta_update_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger target_delete_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger target_update_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger reference_delete_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger reference_update_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"]
 }

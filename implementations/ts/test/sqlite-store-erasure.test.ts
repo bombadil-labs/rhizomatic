@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { createMemoryStore } from "../src/storage/memory-store.js";
-import { SQLITE_STATEMENTS } from "../src/storage/sqlite-statements.js";
+import { SQLITE_SCHEMA, SQLITE_STATEMENTS } from "../src/storage/sqlite-statements.js";
 import { openSqliteStore, type SqliteStore } from "../src/storage/sqlite-store.js";
 import {
   StoreError,
@@ -29,14 +29,17 @@ import {
   type Store,
   type StoreErrorCode,
 } from "../src/storage/store.js";
+import { makeDelta } from "../src/delta/set.js";
 import {
   appearance,
+  batchOf,
   deadMarkers,
   marked,
   markersOf,
   scan,
   space,
   writerOf,
+  type BatchSpec,
   type Marked,
 } from "./support/sqlite-erasure.js";
 
@@ -165,13 +168,19 @@ async function filled(
   return { store, peers };
 }
 
-/** Runs the child with a mode; answers its report and how it ended. */
-function child(path: string, peer: string, mode: string, purge: readonly string[]) {
-  const proc = spawn(
-    process.execPath,
-    ["--import", "tsx", childScript, path, peer, mode, JSON.stringify(purge)],
-    { cwd: pkg, stdio: ["ignore", "pipe", "pipe"] },
-  );
+/**
+ * Runs the child with a mode; answers its report and how it ended. `limit` runs it under a limit
+ * on the size of the files it writes, in blocks of 512 bytes.
+ */
+function child(path: string, peer: string, mode: string, purge: unknown, limit?: number) {
+  const args = ["--import", "tsx", childScript, path, peer, mode, JSON.stringify(purge)];
+  const proc =
+    limit === undefined
+      ? spawn(process.execPath, args, { cwd: pkg, stdio: ["ignore", "pipe", "pipe"] })
+      : spawn("sh", ["-c", `ulimit -f ${limit} && exec "$0" "$@"`, process.execPath, ...args], {
+          cwd: pkg,
+          stdio: ["ignore", "pipe", "pipe"],
+        });
   children.push(proc);
   let out = "";
   let errors = "";
@@ -195,6 +204,9 @@ function child(path: string, peer: string, mode: string, purge: readonly string[
           fail(new Error(`the child ended (${how}) before it printed ${text}: ${errors}`)),
         );
       }),
+    /** The first line the child printed that starts with one of `starts`. */
+    printedLine: async (...starts: string[]) =>
+      out.split("\n").find((line) => starts.some((start) => line.startsWith(start))) ?? "",
     /** Waits until the child holds at `point`. */
     held: (point: string) =>
       new Promise<void>((done, fail) => {
@@ -509,9 +521,9 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
       every("owed"),
       removedAll(x),
     ]);
-    // No rebuild ran: two rows left per id, `clean` stands, and the log still holds the bytes.
+    // No rebuild ran: four rows left per id, `clean` stands, and the log still holds the bytes.
     expect(ledger(path)).toEqual({
-      dirty: before.dirty + 2 * x.length,
+      dirty: before.dirty + 4 * x.length,
       clean: before.clean,
       records: [],
       debts: [],
@@ -530,7 +542,7 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
     await bystandersHold(dir, peers["peer:u"]!, bystanders);
   });
 
-  it("the counter: every store path that deletes a holding or delta row raises dirty in its own transaction, by one per row; a rolled-back delete, a refused purge and VACUUM leave it; a cascaded pointer row needs no count of its own", async () => {
+  it("the counter: every delete and every update of a holding, delta, target or reference row raises dirty in its own transaction, by one per row, a cascade and an upsert included; a rolled-back delete, a refused purge and VACUUM leave it; no statement uses REPLACE", async () => {
     const { dir, path } = place();
     const [x, y, s, bystanders] = [group("XD", 3), group("YD", 2), group("SD", 2), group("BD", 2)];
     const sa = s.map((d, i) => appearance("SA", i, d));
@@ -540,22 +552,18 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
     });
     const u = peers["peer:u"]!;
     const count = () => ledger(path).dirty;
-    // No statement deletes a pointer row or rewrites a holding or a delta: the pointer rows leave
-    // only by the cascade from their holding, inside the delete the trigger counts.
+    // A REPLACE deletes rows and fires no delete trigger while recursive_triggers is off.
     expect(
-      Object.entries(SQLITE_STATEMENTS)
-        .filter(([, sql]) =>
-          /DELETE FROM (target|reference)\b|UPDATE (holding|delta)\b|REPLACE/i.test(sql),
-        )
-        .map(([name]) => name),
+      [SQLITE_SCHEMA, ...Object.values(SQLITE_STATEMENTS)].filter((sql) => /REPLACE/i.test(sql)),
     ).toEqual([]);
     const start = count();
-    // A removal: one holding and one delta per id; each delta has three pointer rows.
+    // A removal: one holding and one delta per id, and the cascade of its entity pointer (one
+    // target row) and its delta pointer (one reference row).
     expect(outcomes(await u.purge(ids(x)))).toEqual(removedAll(x));
-    expect(count()).toBe(start + 2 * x.length);
-    // A release: the holding only; the other peer keeps the delta row.
+    expect(count()).toBe(start + 4 * x.length);
+    // A release: the holding and its pointer rows; the other peer keeps the delta row.
     expect(outcomes(await u.purge(ids(s)))).toEqual(all(s, "held-by-other-peer"));
-    expect(count()).toBe(start + 2 * x.length + s.length);
+    expect(count()).toBe(start + 4 * x.length + 3 * s.length);
     const counted = count();
     // A purge whose first transaction fails leaves the count and the holdings as they were.
     const undo = wrap("run", function (original, args) {
@@ -570,14 +578,28 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
     }
     expect(count()).toBe(counted);
     expect((await u.read()).count).toBe(y.length + bystanders.length);
-    // A rolled-back delete in another connection, and a VACUUM, leave the count.
+    // Another connection: each rewrite of an erasable row counts, in any spelling of the table.
     const db = new Database(path);
     db.exec("BEGIN IMMEDIATE");
-    db.prepare("DELETE FROM holding WHERE delta = ?").run(y[0]!.delta.id);
-    db.prepare("DELETE FROM delta WHERE id = ?").run(y[0]!.delta.id);
-    expect((db.prepare("SELECT dirty FROM residue").get() as { dirty: number }).dirty).toBe(
-      counted + 2,
-    );
+    const raised = (sql: string, ...args: unknown[]) => {
+      const before = (db.prepare("SELECT dirty FROM residue").get() as { dirty: number }).dirty;
+      db.prepare(sql).run(...args);
+      return (db.prepare("SELECT dirty FROM residue").get() as { dirty: number }).dirty - before;
+    };
+    const [one, two] = [y[0]!.delta.id, y[1]!.delta.id];
+    expect([
+      raised('UPDATE OR ABORT main."holding" SET sig = NULL WHERE delta = ?', one),
+      raised("UPDATE delta SET author = 'a' WHERE id = ?", one),
+      raised(
+        `INSERT INTO delta (id, claims, author, timestamp) VALUES (?, x'00', 'b', 0)
+         ON CONFLICT (id) DO UPDATE SET author = excluded.author`,
+        one,
+      ),
+      raised("DELETE FROM main.target WHERE delta = ?", two),
+      raised('DELETE FROM "reference" WHERE delta = ?', two),
+      raised("DELETE FROM holding WHERE delta = ?", one),
+      raised("DELETE FROM delta WHERE id = ?", one),
+    ]).toEqual([1, 1, 1, 1, 1, 3, 1]);
     db.exec("ROLLBACK");
     db.exec("VACUUM");
     expect(() => db.exec("DELETE FROM residue")).toThrow(/the residue row is kept/);
@@ -694,7 +716,13 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
             removedAll(xa),
           ]);
           const asked = await b.purge(ids(xb));
-          expect(shape(asked)).toEqual([posture, every("absent"), removedAll(xb)]);
+          // A peer of posture unproven never empties the log, and A's last transaction left
+          // frames in it, so B's surfaces are owed (reading 119).
+          expect(shape(asked)).toEqual([
+            posture,
+            every(posture === "proven" ? "absent" : "owed"),
+            removedAll(xb),
+          ]);
           expect(scan(dir, markersOf([...xb, ...xa]))).toEqual([]);
           expect(outcomes(await b.purge(ids(xb)))).toEqual(all(xb, "not-held"));
         }
@@ -804,10 +832,10 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
       } else expect(after.clean).toBeLessThan(after.dirty);
       const again = await open(path);
       const a = await again.peer("peer:a");
+      // The reader keeps the frames of the child's last transaction in the log, so even a clean
+      // file gives no proof (reading 119).
       const held = reader(path);
-      expect(states(await a.purge([]))).toEqual(
-        every(mode === "kill-after-last" ? "absent" : "owed"),
-      );
+      expect(states(await a.purge([]))).toEqual(every("owed"));
       held.release();
       expect(shape(await a.purge(ids(x)))).toEqual(["proven", every("absent"), removedAll(x)]);
       expect(scan(dir, markersOf(x))).toEqual([]);
@@ -1153,10 +1181,11 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
       every("absent"),
       removedAll(asked),
     ]);
-    // An unproven peer keeps no record: its retry answers not-held, which claims nothing.
+    // An unproven peer keeps no record: its retry answers not-held, which claims nothing. It
+    // never empties the log, and B's last transaction left frames in it: owed (reading 119).
     expect(shape(await u.purge(ids(n)))).toEqual([
       "nothing-removed",
-      every("absent"),
+      every("owed"),
       all(n, "not-held"),
     ]);
     expect(scan(dir, markersOf([...r, ...k, ...d, ...n]))).toEqual([]);
@@ -1182,6 +1211,266 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
     expect((await a.purge(ids(x))).claim).toBe("proven");
     expect(scan(dir, markersOf(x))).toEqual([]);
     await bystandersHold(dir, a, bystanders);
+  });
+  describe("a write that does not commit leaves its pages in the log, and no counter sees it (reading 119)", () => {
+    /** A batch whose pages reach the log: an appearance of X, and 1,200 large marked deltas. */
+    const batchFor = (tag: string, x: string): BatchSpec => ({ tag, of: [[x, 0]], fill: 1200 });
+    /** The markers of X's appearance and of the first 100 deltas of the batch. */
+    const sample = (dead: readonly Marked[]) => markersOf(dead.slice(0, 101));
+    const inLog = (found: readonly string[]) => found.filter((f) => f.startsWith("store.db-wal: "));
+
+    /** A child appends the batch for `peer` and dies at the batch's change record. */
+    async function dies(path: string, peer: string, batch: BatchSpec) {
+      const run = child(path, peer, "append,kill-append-end", { batch, after: 1_000_000 });
+      expect(await run.ended).toBe("SIGKILL");
+    }
+
+    async function proved(path: string, tag: string) {
+      const [x, bystanders] = [group(tag, 1), group(`B${tag}`, 2)];
+      const { store, peers } = await filled(path, {
+        "peer:a": { posture: "proven", deltas: [...x, ...bystanders] },
+        "peer:b": { posture: "proven", deltas: [] },
+      });
+      const a = peers["peer:a"]!;
+      expect(shape(await a.purge(ids(x)))).toEqual(["proven", every("absent"), removedAll(x)]);
+      return { store, a, x, bystanders };
+    }
+
+    for (const appender of ["peer:a", "peer:b"])
+      it(`another process's append of X for ${appender} dies after its pages reach the log; A's next purge of X empties the log first and says absent, and no marker is in any file`, async () => {
+        const { dir, path } = place();
+        const { a, x, bystanders } = await proved(path, `XW${appender.at(-1)}`);
+        const batch = batchFor(`DW${appender.at(-1)}`, `XW${appender.at(-1)}`);
+        const dead = batchOf(batch);
+        await dies(path, appender, batch);
+        // The batch's pages are in the log, and no row of it is in the file.
+        expect(inLog(scan(dir, sample(dead))).length).toBeGreaterThan(0);
+        expect(deadMarkers(path, dead.slice(0, 101)).sort()).toEqual(
+          [...new Set(sample(dead))].sort(),
+        );
+        expect(shape(await a.purge(ids(x)))).toEqual(["proven", every("absent"), removedAll(x)]);
+        expect(scan(dir, [...sample(dead), ...markersOf(x)])).toEqual([]);
+        await bystandersHold(dir, a, bystanders);
+      }, 120_000);
+
+    it("an append fails on a file-size limit and does not commit; the same process's next purge of X empties the log first and says absent, and no marker is in any file", async () => {
+      const { dir, path } = place();
+      const { a, x, bystanders } = await proved(path, "XL1");
+      const batch = batchFor("DL1", "XL1");
+      const dead = batchOf(batch);
+      // A limit of 2 MB on each file the child writes: the batch's pages pass it in the log.
+      const run = child(
+        path,
+        "peer:a",
+        "append,hold-appended,hold-report",
+        {
+          batch,
+          after: 1_000_000,
+          purge: ids(x),
+        },
+        4096,
+      );
+      await run.held("appended");
+      expect(["refused store-unavailable", "appended uncertain"]).toContain(
+        (await run.printedLine("refused ", "appended ")).trim(),
+      );
+      expect(inLog(scan(dir, sample(dead))).length).toBeGreaterThan(0);
+      run.go("appended");
+      await run.held("report");
+      const found = scan(dir, [...sample(dead), ...markersOf(x)]);
+      run.kill();
+      expect(shape(run.report())).toEqual(["proven", every("absent"), removedAll(x)]);
+      expect(found).toEqual([]);
+      await bystandersHold(dir, a, bystanders);
+    }, 120_000);
+
+    it("B's append of X dies while A's purge of X is held before its last transaction; A's last transaction finds frames in the log, empties it and tries again, and its report is true at its commit", async () => {
+      const { dir, path } = place();
+      const [x, bystanders] = [group("XN1", 1), group("BN1", 2)];
+      const { store } = await filled(path, {
+        "peer:a": { posture: "proven", deltas: [...x, ...bystanders] },
+        "peer:b": { posture: "proven", deltas: [] },
+      });
+      await store.close();
+      const run = child(path, "peer:a", "hold-last,hold-after-last", ids(x));
+      await run.held("last");
+      const batch = batchFor("DN1", "XN1");
+      const dead = batchOf(batch);
+      await dies(path, "peer:b", batch);
+      expect(inLog(scan(dir, sample(dead))).length).toBeGreaterThan(0);
+      run.go("last");
+      await run.held("after-last");
+      const found = scan(dir, [...sample(dead), ...markersOf(x)]);
+      run.go("after-last");
+      expect(await run.ended).toBe("0");
+      expect(shape(run.report())).toEqual(["proven", every("absent"), removedAll(x)]);
+      expect(found).toEqual([]);
+      const again = await open(path);
+      await bystandersHold(dir, await again.peer("peer:a"), bystanders);
+    }, 120_000);
+
+    it("another connection commits a write before each try of the last transaction: after three tries the purge answers owed without the proof, on a file that is not clean and on a clean one; it raises no clean and keeps its records; the next ask proves", async () => {
+      const { dir, path } = place();
+      const [k, x, bystanders] = [group("KT1", 2), group("XT1", 2), group("BT1", 2)];
+      const { peers } = await filled(path, {
+        "peer:a": { posture: "proven", deltas: [...k, ...x, ...bystanders] },
+      });
+      const a = peers["peer:a"]!;
+      let writes = 0;
+      expect(shape(await a.purge(ids(k)))).toEqual(["proven", every("absent"), removedAll(k)]);
+      /** The purge, while another connection commits a write before each try of its last transaction. */
+      async function busyLog(targets: readonly Marked[]) {
+        const other = new Database(path);
+        let begun = 0;
+        const undo = wrap("run", function (original, args) {
+          if (this.source === "BEGIN IMMEDIATE" && ++begun >= 2)
+            other.prepare("INSERT INTO meta (key, value) VALUES (?, 'x')").run(`k${++writes}`);
+          return original(...args);
+        });
+        try {
+          const report = await a.purge(ids(targets));
+          return [begun - 1, report] as const;
+        } finally {
+          undo();
+          other.close();
+        }
+      }
+      // A clean file: k's record answers, and the log is never empty at the lock.
+      const [tries, clean] = await busyLog(k);
+      expect(ledger(path).clean).toBe(ledger(path).dirty);
+      expect([tries, ...shape(clean)]).toEqual([3, "unproven", every("owed"), removedAll(k)]);
+      expect(ledger(path).records).toEqual(recordsOf("peer:a", k));
+      // A file that is not clean: x's removal.
+      const [again, report] = await busyLog(x);
+      expect([again, ...shape(report)]).toEqual([3, "unproven", every("owed"), removedAll(x)]);
+      const after = ledger(path);
+      expect([after.clean < after.dirty, after.records]).toEqual([
+        true,
+        recordsOf("peer:a", [...k, ...x]),
+      ]);
+      expect(shape(await a.purge(ids([...k, ...x])))).toEqual([
+        "proven",
+        every("absent"),
+        removedAll([...k, ...x]),
+      ]);
+      expect(scan(dir, markersOf([...k, ...x]))).toEqual([]);
+      await bystandersHold(dir, a, bystanders);
+    });
+
+    it("a proven purge of a clean file empties the log before its last transaction: it takes the write lock twice and says absent", async () => {
+      const { path } = place();
+      const [x, w] = [group("XC1", 1), group("WC1", 1)];
+      const { peers } = await filled(path, { "peer:a": { posture: "proven", deltas: x } });
+      const a = peers["peer:a"]!;
+      expect((await a.purge(ids(x))).claim).toBe("proven");
+      await (
+        await writerOf(a)
+      )(w);
+      expect(ledger(path).clean).toBe(ledger(path).dirty);
+      expect(statSync(`${path}-wal`).size).toBeGreaterThan(0);
+      let begun = 0;
+      const undo = wrap("run", function (original, args) {
+        if (this.source === "BEGIN IMMEDIATE") begun++;
+        return original(...args);
+      });
+      let report: PurgeReport;
+      try {
+        report = await a.purge([]);
+      } finally {
+        undo();
+      }
+      expect([begun, states(report)]).toEqual([2, every("absent")]);
+    });
+  });
+
+  it("another process appends X for A while A's purge of X is held before the rebuild reads the count: X answers held-by-other-peer, index-entries owed, and the report carries the peer's revision at its last commit", async () => {
+    const { path } = place();
+    const [x, bystanders] = [group("XI1", 2), group("BI1", 2)];
+    const { store } = await filled(path, {
+      "peer:a": { posture: "proven", deltas: [...x, ...bystanders] },
+    });
+    await store.close();
+    const run = child(path, "peer:a", "hold-read,hold-after-last", ids(x));
+    await run.held("read");
+    const again = await open(path);
+    const a = await again.peer("peer:a");
+    await (
+      await writerOf(a)
+    )(x);
+    run.go("read");
+    await run.held("after-last");
+    run.go("after-last");
+    expect(await run.ended).toBe("0");
+    const report = run.report();
+    expect([report.claim, states(report), outcomes(report), report.revision]).toEqual([
+      "nothing-removed",
+      { ...every("absent"), "index-entries": "owed" },
+      all(x, "held-by-other-peer"),
+      3,
+    ]);
+    expect((await a.read()).revision).toBe(3);
+  }, 60_000);
+
+  it("clean only rises: B's rebuild raises clean past the count A's rebuild read; A's last transaction keeps B's value and answers proven", async () => {
+    const { dir, path } = place();
+    const [xa, yb, bystanders] = [group("XM1", 2), group("YM1", 2), group("BM1", 2)];
+    const { store } = await filled(path, {
+      "peer:a": { posture: "proven", deltas: [...xa, ...bystanders] },
+      "peer:b": { posture: "proven", deltas: yb },
+    });
+    await store.close();
+    const run = child(path, "peer:a", "hold-vacuum,hold-after-last", ids(xa));
+    await run.held("vacuum");
+    const again = await open(path);
+    const b = await again.peer("peer:b");
+    expect(shape(await b.purge(ids(yb)))).toEqual(["proven", every("absent"), removedAll(yb)]);
+    run.go("vacuum");
+    await run.held("after-last");
+    const found = scan(dir, markersOf([...xa, ...yb]));
+    run.go("after-last");
+    expect(await run.ended).toBe("0");
+    expect(shape(run.report())).toEqual(["proven", every("absent"), removedAll(xa)]);
+    expect(found).toEqual([]);
+    const end = ledger(path);
+    expect(end.clean).toBe(end.dirty);
+    await bystandersHold(dir, await again.peer("peer:a"), bystanders);
+  }, 60_000);
+
+  it("a release of one holding with no pointer rows raises dirty by exactly one; the proven peer rebuilds and says absent, and its sender and signature leave the file", async () => {
+    const { dir, path } = place();
+    const base = marked("LO1", 0);
+    const delta = makeDelta(
+      {
+        timestamp: 1,
+        validFrom: 0,
+        author: base.markers.author,
+        pointers: [{ role: "says", target: { kind: "primitive", value: base.markers.value } }],
+      },
+      base.delta.sig!,
+    );
+    const lone: Marked = {
+      ...base,
+      delta,
+      markers: { ...base.markers, entity: base.markers.value, reference: base.markers.value },
+    };
+    const other = appearance("LO2", 0, lone);
+    const bystanders = group("BL1", 2);
+    const { peers } = await filled(path, {
+      "peer:a": { posture: "proven", deltas: [lone, ...bystanders] },
+      "peer:b": { posture: "proven", deltas: [other] },
+    });
+    const before = ledger(path);
+    expect(before.clean).toBe(before.dirty);
+    expect(shape(await peers["peer:a"]!.purge(ids([lone])))).toEqual([
+      "nothing-removed",
+      every("absent"),
+      all([lone], "held-by-other-peer"),
+    ]);
+    const after = ledger(path);
+    expect([after.dirty, after.clean]).toEqual([before.dirty + 1, before.dirty + 1]);
+    expect(scan(dir, ownMarkers([lone]))).toEqual([]);
+    await bystandersHold(dir, peers["peer:b"]!, [other]);
+    await bystandersHold(dir, peers["peer:a"]!, bystanders);
   });
 });
 

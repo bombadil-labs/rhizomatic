@@ -2,11 +2,14 @@
 // A child process serves purges (test/support/sqlite-erasure-child.ts, mode `serve`) and holds in
 // a window of each one: before the rebuild reads the count, before `VACUUM`, before the
 // checkpoint, or before the last transaction. In the window this process appends, purges, or
-// takes or lets go of a reader that keeps the log busy. Peers of mixed posture act on a few ids;
-// every appended holding has its own sender and signature.
+// takes or lets go of a reader that keeps the log busy, or runs a write that does not commit:
+// another connection with a small page cache writes a delta and a holding, whose pages reach the
+// log, and rolls back. Peers of mixed posture act on a few ids; every appended holding has its
+// own sender and signature.
 //
-// The child holds again just after the last commit of its purge. This process then scans every
-// file of the store's directory, and checks one rule against the report that follows:
+// The child holds again just after the last commit of its purge. A process that holds no
+// connection then scans every file of the store's directory (support `scanner`), and this
+// process checks one rule against the report that follows:
 //
 //   a file surface `absent`, or the claim `proven`, means no marker of a dead appearance is in any
 //   file; `removed` means no row of the delta is in the file.
@@ -27,7 +30,7 @@ import {
   appearance,
   deadMarkers,
   marked,
-  scan,
+  scanner,
   space,
   writerOf,
   type Marked,
@@ -100,6 +103,7 @@ function server() {
 it("seeded model check: a report that says absent, proven or removed is true at its last commit, with another process acting in each window", async () => {
   const random = generator(SEED);
   const child = server();
+  const scans = scanner();
   const tally = {
     sequences: 0,
     purges: 0,
@@ -108,6 +112,8 @@ it("seeded model check: a report that says absent, proven or removed is true at 
     absent: 0,
     proven: 0,
     refused: 0,
+    unfinished: 0,
+    inLog: 0,
   };
   const violations: string[] = [];
   try {
@@ -145,17 +151,17 @@ it("seeded model check: a report that says absent, proven or removed is true at 
           if (t.outcome === "removed" && live.has(t.id))
             violations.push(`${sequence} ${how}: removed ${t.id} while its row is in the file`);
       };
-      const look = () => {
+      const look = async () => {
         const dead = deadMarkers(path, appearances);
         const db = new Database(path, { readonly: true });
         const live = new Set(
           (db.prepare("SELECT id FROM delta").all() as { id: string }[]).map((r) => r.id),
         );
         db.close();
-        return { found: scan(dir, dead), live };
+        return { found: await scans.scan(dir, dead), live };
       };
       const act = async () => {
-        const roll = random.below(10);
+        const roll = random.below(11);
         if (roll < 4) {
           const name = random.pick(names);
           const base = random.pick(bases);
@@ -169,8 +175,35 @@ it("seeded model check: a report that says absent, proven or removed is true at 
         } else if (roll < 8) {
           const report = await peers.get(random.pick(names))!.purge(someIds());
           tally.purges++;
-          const { found, live } = look();
+          const { found, live } = await look();
           check(report, found, live, "local");
+        } else if (roll < 9) {
+          tally.unfinished++;
+          const shown = marked(`Q${sequence}d`, appearances.length);
+          appearances.push(shown);
+          const bulk = "~".repeat(20_000);
+          const db = new Database(path);
+          db.pragma("cache_size = 2");
+          db.exec("BEGIN IMMEDIATE");
+          db.prepare("INSERT INTO delta (id, claims, author, timestamp) VALUES (?, ?, ?, 0)").run(
+            shown.delta.id,
+            Buffer.from(`${Object.values(shown.markers).join(" ")}${bulk}`),
+            shown.markers.author,
+          );
+          db.prepare(
+            "INSERT INTO holding (peer, delta, seq, arrival, sig, author) VALUES (?, ?, ?, ?, ?, ?)",
+          ).run(
+            random.pick(names),
+            shown.delta.id,
+            1_000_000 + appearances.length,
+            JSON.stringify({ sender: shown.sender, bulk }),
+            shown.delta.sig!,
+            shown.markers.author,
+          );
+          db.exec("ROLLBACK");
+          db.close();
+          // The rolled-back pages are in the log: the action is not void.
+          if ((await scans.scan(dir, [shown.markers.sender])).length > 0) tally.inLog++;
         } else if (readerDb === undefined) {
           readerDb = new Database(path);
           readerDb.exec("BEGIN");
@@ -204,7 +237,7 @@ it("seeded model check: a report that says absent, proven or removed is true at 
             for (let n = random.below(3); n > 0; n--) await act();
             writeFileSync(`${path}.go-${window}`, "");
           } else if (line === "held after-last") {
-            seen = look();
+            seen = await look();
             writeFileSync(`${path}.go-after-last`, "");
           } else if (line.startsWith("report ")) {
             check(
@@ -229,9 +262,11 @@ it("seeded model check: a report that says absent, proven or removed is true at 
     }
   } finally {
     child.end();
+    scans.end();
   }
   console.log(`model check, seed ${SEED}: ${JSON.stringify(tally)}`);
   expect(violations).toEqual([]);
   expect(tally.absent).toBeGreaterThan(0);
   expect(tally.windows).toBeGreaterThan(0);
+  expect(tally.inLog).toBe(tally.unfinished);
 }, 300_000);
