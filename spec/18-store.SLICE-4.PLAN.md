@@ -269,9 +269,14 @@ Limits, stated in the report's boundary text and in the proposal:
 - *A second purge of a re-held id* upserts the row to `owed` under the present generation.
 - *A store of `unproven` peers keeps one mark, not a row per id.* An `unproven` peer's purge sets
   one file-level mark, "residue owed since generation g", in `meta`. A rebuild clears it. S4-16
-  reads that way; no id is kept for a peer that asked for no proof.
+  reads that way; no id is kept for a peer that asked for no proof. The mark holds the generation
+  of the latest such purge. A rebuild clears it only when that generation is older than the one
+  the rebuild raised. The mark counts as an `owed` row in the S4-12 rule and in the rule for the
+  asking peer's row.
 - *A file that 4a wrote holds residue with no debt row.* 4b raises the format string to
-  `rhizomatic-store-sqlite/2`. Opening a `/1` file runs one rebuild first, then stamps `/2`.
+  `rhizomatic-store-sqlite/2`. Opening a `/1` file runs one rebuild first, then stamps `/2`. When that rebuild or its truncate is
+  busy, open stamps `/2` and sets the file mark, so every report says `owed` until a rebuild
+  succeeds.
 
 **Rails, each seen red first, each two-sided, on real files in a `mkdtempSync` directory.** A
 target carries a distinct marker in each place the schema copies erasable material: a primitive
