@@ -62,6 +62,8 @@ export type SqliteStoreOptions = {
 };
 
 const DEFAULT_RETENTION = { revisions: 1024 } as const;
+// Until step 4b rebuilds the pages after a purge, freed space can keep a purged delta's bytes.
+const ERASURE_CLASS: ErasureClass = "unprovable";
 const EXPORT_PAGE = 256;
 
 // The connection rules (plan §4): each pragma is set, then read back.
@@ -244,7 +246,7 @@ class SqliteStore implements Store {
         views: false,
         derivedIndexes: false,
         digest: false,
-        erasure: "unprovable" as const,
+        erasure: ERASURE_CLASS,
       }),
       indexedValueRoles: Object.freeze([]),
       pushdown: Object.freeze({ timestampAtMost: true, arrivalAtMost: true, excludeIds: true }),
@@ -360,7 +362,8 @@ class SqliteStore implements Store {
     }
     if (posture !== "proven" && posture !== "unproven")
       throw new StoreError("invalid-request", "createPeer: declare the erasure posture");
-    const storeClass = this.profile.capabilities.erasure;
+    // The class is the store's own, never read back from the profile a caller can replace.
+    const storeClass: ErasureClass = ERASURE_CLASS;
     if (posture === "proven" && storeClass !== "proven")
       throw new StoreError(
         "posture-refused",
@@ -589,6 +592,7 @@ class SqliteStore implements Store {
         if (entries === undefined) throw refusal;
         const fresh = new Map<Id, Admitted>();
         const sequences = new Set<number>();
+        let maxSeq = row.maxSeq;
         for (const entry of entries) {
           if (fresh.has(entry.id) || this.#s.holdingFind.get(peer, entry.id) !== undefined)
             continue;
@@ -599,6 +603,7 @@ class SqliteStore implements Store {
               "append: an arrival sequence does not pass the peer's last sequence",
             );
           sequences.add(sequence);
+          maxSeq = Math.max(maxSeq, sequence);
           fresh.set(entry.id, entry);
         }
         for (const { id, claims, sig, arrival } of fresh.values()) {
@@ -625,7 +630,7 @@ class SqliteStore implements Store {
           revision: row.revision + 1,
           head: nextHead,
           count: row.count + ids.length,
-          maxSeq: Math.max(row.maxSeq, ...sequences),
+          maxSeq,
         };
         this.#advance(peer, row, next, ids, []);
         return { status: "committed", revision: next.revision, added: ids };

@@ -205,6 +205,14 @@ describe("the SQLite store's profile and scheme", () => {
     });
     expect(Object.isFrozen(store.profile)).toBe(true);
     expect(await refusal(store.createPeer("p", { erasure: "proven" }))).toBe("posture-refused");
+    // A caller that replaces the profile does not switch off the posture gate.
+    Object.assign(store, {
+      profile: {
+        ...store.profile,
+        capabilities: { ...store.profile.capabilities, erasure: "proven" },
+      },
+    });
+    expect(await refusal(store.createPeer("p", { erasure: "proven" }))).toBe("posture-refused");
   });
 
   it("openStore opens sqlite:///path, and refuses another form without echoing it", async () => {
