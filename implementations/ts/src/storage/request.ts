@@ -21,19 +21,6 @@ const LONE_SURROGATE = /\p{Cs}/u;
 /** True when the string is well-formed UTF-16: it holds no lone surrogate. */
 export const wellFormed = (text: string): boolean => !LONE_SURROGATE.test(text);
 
-function claimsWellFormed(claims: Claims): boolean {
-  const texts: string[] = [claims.author];
-  for (const { role, target } of claims.pointers) {
-    texts.push(role);
-    if (target.kind === "primitive" && typeof target.value === "string") texts.push(target.value);
-    else if (target.kind === "entity") texts.push(target.entity.id, target.entity.context ?? "");
-    else if (target.kind === "delta")
-      texts.push(target.deltaRef.delta, target.deltaRef.context ?? "");
-    else if (target.kind === "bytes") texts.push(target.mime);
-  }
-  return texts.every(wellFormed);
-}
-
 /**
  * A caller's list of ids or entities, read once into a list the store owns. Refuses
  * `invalid-request` for anything that is not a list of well-formed strings.
@@ -76,8 +63,8 @@ export function admit(entry: unknown): Admitted {
   let id: string;
   try {
     own = copyMember(entry as VerifiedDelta);
-    if (!claimsWellFormed(own.delta.claims) || !wellFormed(own.arrival.sender))
-      return refuse("a string is not well-formed");
+    // The canonical encoding refuses a string of the claims that is not well-formed.
+    if (!wellFormed(own.arrival.sender)) return refuse("an arrival sender is not well-formed");
     id = computeId(own.delta.claims);
   } catch (error) {
     if (error instanceof StoreError) throw error;
