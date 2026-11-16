@@ -705,6 +705,7 @@ dependencies = [
  "ed25519-dalek",
  "hex",
  "proptest",
+ "rhizomatic",
  "serde_json",
  "sha2",
  "syn",

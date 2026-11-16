@@ -104,39 +104,49 @@ impl Default for StoreViewsOptions {
     }
 }
 
-/// One rule a holder written for the rails breaks (`vectors/store/README.md` §11.6). The right
-/// holder has none. It exists so that the rails can prove each rule is load-bearing.
-#[doc(hidden)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ViewQuirk {
-    NeverRereads,
-    RereadsEverything,
-    IgnoresRemoved,
-    IgnoresNegators,
-    KeepsFirstIndex,
-    KeepsForgottenIndex,
-    IgnoresSince,
-    IgnoresExpiry,
-    IgnoresEpoch,
-    ReadsOnNewerSnapshot,
-    MergesOnResync,
-    FeedPerView,
-    StaticBoundary,
-    KeepsPurgedBaseline,
-    ServesEvictedBytes,
-    MovesOnFailure,
-    TouchingPerView,
-    ReleasePerView,
-    AnswersReadForNew,
-    AnswersNewAlways,
-    EvictedEmpty,
-    EvictedKeepsDropped,
-    EvictedKeepsReheld,
-    ReadsEvicted,
-    UnorderedReread,
-    ReadsOnSetEpoch,
-    OtherHistory,
+// `ViewQuirk`: one rule a holder written for the rails breaks (`vectors/store/README.md` §11.6).
+// The right holder has none. It exists so that the rails can prove each rule is load-bearing. It
+// is public only with the feature `wrong-holders`, which the tests turn on. Without it the type is
+// crate-private, so a public item that accepted it would fail the lint `private_interfaces`.
+macro_rules! view_quirk {
+    ($vis:vis) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        #[cfg_attr(not(feature = "wrong-holders"), allow(dead_code))]
+        $vis enum ViewQuirk {
+            NeverRereads,
+            RereadsEverything,
+            IgnoresRemoved,
+            IgnoresNegators,
+            KeepsFirstIndex,
+            KeepsForgottenIndex,
+            IgnoresSince,
+            IgnoresExpiry,
+            IgnoresEpoch,
+            ReadsOnNewerSnapshot,
+            MergesOnResync,
+            FeedPerView,
+            StaticBoundary,
+            KeepsPurgedBaseline,
+            ServesEvictedBytes,
+            MovesOnFailure,
+            TouchingPerView,
+            ReleasePerView,
+            AnswersReadForNew,
+            AnswersNewAlways,
+            EvictedEmpty,
+            EvictedKeepsDropped,
+            EvictedKeepsReheld,
+            ReadsEvicted,
+            UnorderedReread,
+            ReadsOnSetEpoch,
+            OtherHistory,
+        }
+    };
 }
+#[cfg(feature = "wrong-holders")]
+view_quirk!(pub);
+#[cfg(not(feature = "wrong-holders"))]
+view_quirk!(pub(crate));
 
 /// The sizes of a holder's indexes and orderings, for the rails of forgetting.
 #[doc(hidden)]
@@ -320,7 +330,7 @@ impl<'a> StoreViews<'a> {
     }
 
     /// The holder with one rule broken, for the rails (README §11.6).
-    #[doc(hidden)]
+    #[cfg(feature = "wrong-holders")]
     pub fn with_quirk(
         peer: Box<dyn PeerStore + 'a>,
         options: StoreViewsOptions,
@@ -1089,8 +1099,20 @@ impl ViewHolder for Conforming {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct StoreViewsReader {
     /// `None` for the right holder; a rule broken for the rails.
-    #[doc(hidden)]
+    #[cfg(feature = "wrong-holders")]
     pub quirk: Option<ViewQuirk>,
+}
+
+impl StoreViewsReader {
+    #[cfg(feature = "wrong-holders")]
+    fn quirk(&self) -> Option<ViewQuirk> {
+        self.quirk
+    }
+
+    #[cfg(not(feature = "wrong-holders"))]
+    fn quirk(&self) -> Option<ViewQuirk> {
+        None
+    }
 }
 
 impl ViewsReader for StoreViewsReader {
@@ -1126,7 +1148,7 @@ impl ViewsReader for StoreViewsReader {
             max_views,
             ..StoreViewsOptions::default()
         };
-        let views = StoreViews::with_quirk(peer, options, self.quirk)
+        let views = StoreViews::made(peer, options, self.quirk())
             .map_err(|e| format!("the holder was refused: {e}"))?;
         Ok(Box::new(Conforming { views, registry }))
     }

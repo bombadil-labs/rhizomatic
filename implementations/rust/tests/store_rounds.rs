@@ -36,9 +36,9 @@ use rhizomatic::store::{
     collect_delta_set, negated_ids, scope_source, target_entities, Admission, Anchor, AppendResult,
     ArrivalRecord, ChangePage, ErasurePosture, PeerErasure, PeerExporter, PeerStore, PurgeOutcome,
     PurgeReport, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource,
-    Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta,
+    Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta, MAX_REVISION,
 };
-use rhizomatic::store_fresh::{raw_scope, validity_window};
+use rhizomatic::store_fresh::{raw_scope, validity_window, FeedError};
 use rhizomatic::store_read::{
     capture_scope, fetch_scope, read_anchored, read_anchored_with_memo, read_full_surface,
     EvalMemo, FetchCache, FinalChildMemo, FullSurfaceRequest, FullSurfaceRoute, ReadRequest,
@@ -1759,11 +1759,125 @@ fn the_reactor_gives_up_after_three_retries_and_releases_every_snapshot() {
     let err = reactor
         .fetch(&["garden:1".to_string()], Selection::default())
         .unwrap_err();
-    assert_eq!(err.code, StoreErrorCode::SnapshotMoved);
+    assert_eq!(refusal(err), Some(StoreErrorCode::SnapshotMoved));
     assert_eq!(
         (reads.get(), releases.get()),
         (2 * (SNAPSHOT_RETRIES + 1), 2 * (SNAPSHOT_RETRIES + 1))
     );
+}
+
+/// The refusal code of a fetch error, when it is a refusal.
+fn refusal(error: FeedError) -> Option<StoreErrorCode> {
+    match error {
+        FeedError::Refused(e) => Some(e.code),
+        _ => None,
+    }
+}
+
+/// A peer whose snapshots report `revision` and otherwise answer as the inner peer's.
+struct AtRevision {
+    inner: Box<dyn PeerStore>,
+    revision: Revision,
+}
+
+impl PeerStore for AtRevision {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+    fn erasure(&self) -> PeerErasure {
+        self.inner.erasure()
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        Ok(Box::new(Restamped {
+            inner: self.inner.read()?,
+            revision: self.revision,
+        }))
+    }
+    fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
+        self.inner.append(batch)
+    }
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+        self.inner.purge(ids)
+    }
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+        self.inner.changes(from, to)
+    }
+}
+
+struct Restamped {
+    inner: Box<dyn Snapshot>,
+    revision: Revision,
+}
+
+impl Snapshot for Restamped {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
+    fn revision(&self) -> Revision {
+        self.revision
+    }
+    fn head(&self) -> Option<&str> {
+        self.inner.head()
+    }
+    fn count(&self) -> u64 {
+        self.inner.count()
+    }
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+        self.inner.get(ids)
+    }
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+        self.inner.arrivals(ids)
+    }
+    fn targets(&self, e: &[String]) -> Result<Vec<String>, StoreError> {
+        self.inner.targets(e)
+    }
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+        self.inner.negators(ids)
+    }
+    fn scope(&self, r: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+        self.inner.scope(r)
+    }
+    fn release(&mut self) {
+        self.inner.release();
+    }
+}
+
+/// `StoreReactor::read` and `fetch` check a snapshot's revision before they use it (SPEC-18
+/// §4.13 reading 103): 2^53 is the store fault `revision-out-of-range`, and 2^53 − 1 answers.
+#[test]
+fn a_snapshot_at_revision_2_pow_53_is_refused_revision_out_of_range_by_read_and_fetch() {
+    let fx = fixture();
+    let case = &fx.cases("cases")[0];
+    for (revision, refused) in [(MAX_REVISION + 1, true), (MAX_REVISION, false)] {
+        let store = MemoryStore::new();
+        let reactor = StoreReactor::open(Box::new(AtRevision {
+            inner: fx.load(&store),
+            revision: Revision(revision),
+        }));
+        let read = reactor.read(request(&fx, case, FetchCache::On));
+        let fetched = reactor.fetch(&["garden:1".to_string()], Selection::default());
+        match refused {
+            true => {
+                let read = read.expect_err("read answered");
+                let fetched = fetched.expect_err("fetch answered");
+                assert!(
+                    matches!(&read, StoreReadError::Fault(f) if f.rule() == "revision-out-of-range"),
+                    "{read:?}"
+                );
+                assert!(
+                    matches!(&fetched, FeedError::Fault(f) if f.rule() == "revision-out-of-range"),
+                    "{fetched:?}"
+                );
+            }
+            false => {
+                assert_eq!(read.map(|r| r.revision), Ok(Revision(revision)));
+                assert_eq!(fetched.map(|f| f.revision), Ok(Revision(revision)));
+            }
+        }
+    }
 }
 
 /// A peer whose `read` itself answers `snapshot-moved` while `left` is above 0.
@@ -1832,7 +1946,7 @@ fn the_reactor_starts_again_when_read_itself_answers_snapshot_moved() {
         let fetched = reactor.fetch(&["garden:1".to_string()], Selection::default());
         assert_eq!(reads.get(), SNAPSHOT_RETRIES + 1);
         assert_eq!(
-            fetched.err().map(|e| e.code),
+            fetched.err().and_then(refusal),
             (!answers).then_some(StoreErrorCode::SnapshotMoved)
         );
     }
@@ -1873,7 +1987,7 @@ fn another_refusal_passes_up_after_one_attempt_and_releases_the_snapshot() {
                 _ => reactor
                     .fetch(&["garden:1".to_string()], Selection::default())
                     .map(|_| ())
-                    .map_err(|e| Some(e.code)),
+                    .map_err(refusal),
             };
             assert_eq!(got, Err(Some(code)), "{op}/{code:?}");
             assert_eq!(

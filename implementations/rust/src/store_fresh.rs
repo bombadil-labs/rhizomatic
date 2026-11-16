@@ -690,6 +690,15 @@ impl Drop for Held {
     }
 }
 
+/// A snapshot's revision checked before anything uses it: an integer from 0 to 2^53 − 1, else the
+/// store fault `revision-out-of-range`.
+pub(crate) fn revision_in_range(revision: Revision) -> Result<(), StoreFault> {
+    match revision.0 > MAX_REVISION {
+        true => Err(StoreFault::RevisionOutOfRange { revision }),
+        false => Ok(()),
+    }
+}
+
 /// `body` on a new snapshot of `peer`, released after it. The snapshot's revision is checked
 /// first (`revision-out-of-range`). On `snapshot-moved`, from `read` itself or from a later call,
 /// it starts again on a new snapshot, at most `snapshots` in all.
@@ -703,11 +712,8 @@ pub(crate) fn on_snapshots<T>(
         taken += 1;
         let answer = peer.read().map_err(FeedError::from).and_then(|snapshot| {
             let held = Held(snapshot);
-            let revision = held.0.revision();
-            match revision.0 > MAX_REVISION {
-                true => Err(StoreFault::RevisionOutOfRange { revision }.into()),
-                false => body(held.0.as_ref()),
-            }
+            revision_in_range(held.0.revision())?;
+            body(held.0.as_ref())
         });
         match answer {
             Err(FeedError::Refused(e))

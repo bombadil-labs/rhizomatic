@@ -42,7 +42,14 @@ tiny_http = "0.12"
 ureq = { version = "2", default-features = false }
 tempfile = "3"
 
+[features]
+# The wrong holders of the views rails (`vectors/store/README.md` §11.6): `ViewQuirk`,
+# `StoreViews::with_quirk` and `StoreViewsReader::quirk`. Off by default, so no public item of
+# the crate accepts a quirk. The tests turn it on through the dev-dependency on this crate below.
+wrong-holders = []
+
 [dev-dependencies]
+rhizomatic = { path = ".", features = ["wrong-holders"] }
 proptest = "1"
 syn = { version = "2", features = ["full", "visit", "extra-traits"] }
 
