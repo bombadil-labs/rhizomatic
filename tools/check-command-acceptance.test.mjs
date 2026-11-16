@@ -26,9 +26,19 @@ test('native evidence requires every executed fixture and scenario in both witne
     v => { v.rust = v.rust.replace('4 ignored', '5 ignored') + 'test store_views::another_long_run ... ignored\n'; },
     v => { v.rust = v.rust.replace(/test store_views::a_per_view_scan_turns[^\n]+\n/, '').replace('4 ignored', '3 ignored'); },
     v => { v.rust = v.rust.replace(/test store_views::a_per_view_scan_turns[^\n]+\n/, ''); },
+    v => { v.rust = v.rust.replace('test store_views::a_per_view_scan_turns_the_held_views_rail_red ...', 'test store_views::a_per_view_scan_turns_another_rail_red ...'); },
+    v => { v.rust = v.rust.replace('test result: ok.', 'test result: okay.'); },
+    v => { v.rust = v.rust.replace(/test result: ok\.[^\n]*\n/, ''); },
     v => { v.rust += 'test result: ok. 1 passed; 0 failed; 1 ignored;\n'; },
     v => { v.rust += 'test result: FAILED. 0 passed; 1 failed; 0 ignored;\n'; },
   ]) { const altered = structuredClone(input); mutate(altered); assert.throws(() => nativeScenarioEvidence(altered)); }
+});
+test('the ignored count is the sum over every test binary and equals the listed names', () => {
+  const input = nativeInput();
+  const split = { ...input, rust: input.rust.replace('test result: ok. 1 passed; 0 failed; 4 ignored;', 'test result: ok. 1 passed; 0 failed; 3 ignored;\ntest result: ok. 0 passed; 0 failed; 1 ignored;') };
+  assert.equal(nativeScenarioEvidence(split).rust.size, 58);
+  const short = { ...input, rust: input.rust.replace('4 ignored', '3 ignored') };
+  assert.throws(() => nativeScenarioEvidence(short));
 });
 test('the Rust tests that carry #[ignore] are exactly the ones the native run may skip', () => {
   const rust = new URL('../implementations/rust/', import.meta.url), found = [];
@@ -79,6 +89,7 @@ function aggregateInput() {
 test('all 78 case identities are retained and manual review is never inferred from green tests', () => {
   const input = aggregateInput(), pending = assembleAcceptance(input);
   assert.equal(pending.status, 'pending_independent_review');
+  assert.deepEqual(pending.rustIgnoredTests, rustIgnoredTests);
   assert.equal(pending.witnesses[0].scenarios.filter(s => s.status === 'passed').length, 77);
   assert.equal(assembleAcceptance({ ...input, review }).status, 'passed');
   assert.throws(() => assembleAcceptance({ ...input, scenarios: scenarios.slice(1) }));

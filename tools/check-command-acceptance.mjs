@@ -150,9 +150,11 @@ export function requireCheckerCases(gate, observed) {
   for (const name of requiredCheckerCases[gate]) assert(observed.has(name), `unexecuted ${gate} checker case: ${name}`);
 }
 
-// The Rust tests that carry #[ignore]. The native run skips exactly these and no other; each runs
-// where its doc comment says. A new #[ignore] fails here and in check-command-acceptance.test.mjs
-// until it is named in this list with the place that runs it.
+// The Rust tests that carry #[ignore]. The native run skips exactly these and no other. The two
+// per_view_scan cost rails run in the Rust witness job, in release mode, by their full names. The
+// two twenty_thousand_sequences fuzz tests run only by hand, in release mode; no CI job runs them.
+// A new #[ignore] fails here and in check-command-acceptance.test.mjs until it is named in this
+// list with the place that runs it. The acceptance report records the list as rustIgnoredTests.
 export const rustIgnoredTests = {
   'store_follow::twenty_thousand_sequences_agree_with_brute_force': 'the long fuzz, by hand in release mode',
   'store_views::twenty_thousand_sequences_agree_with_brute_force': 'the long fuzz, by hand in release mode',
@@ -282,7 +284,7 @@ export function assembleAcceptance({ scenarios, commit, tree, native, gates, tow
     if (s.id === 'existing_conformance' || s.id === 'ci_fault_execution') evidence.push({ conformance });
     return { id: s.id, status: 'passed', evidence };
   }) }));
-  return { format: 'rhizomatic-command-acceptance-evidence/1', commit, tree, status: review ? 'passed' : 'pending_independent_review', witnesses, gates };
+  return { format: 'rhizomatic-command-acceptance-evidence/1', commit, tree, status: review ? 'passed' : 'pending_independent_review', witnesses, gates, rustIgnoredTests };
 }
 
 export async function runAcceptance({ out, conformanceFile, reviewFile, requireReview = false, seed = randomBytes(16).toString('hex'), repository = root }) {
