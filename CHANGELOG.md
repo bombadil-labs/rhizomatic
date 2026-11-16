@@ -50,7 +50,7 @@ freshness, a feed cursor and held views, in both witnesses against the same vect
 The store, slice 4, step 4a (TypeScript): a SQLite store at `@bombadil/rhizomatic/store/sqlite`
 (`openSqliteStore`, and `openStore("sqlite:///path")` once the subpath is imported). It passes
 the four shared suites. Its erasure class is `unprovable` until step 4b. `better-sqlite3` is an
-optional peer dependency. Two contract changes reach both stores: the refusal `store-unavailable`
+optional peer dependency. Three contract changes reach both stores: the refusal `store-unavailable`
 (§4.13 reading 105), strings must be well-formed (reading 104), and -0 answers as +0
 (reading 106). Rust follows in step 4e.
 
@@ -149,14 +149,18 @@ step 4e.
 ### ⚠️ Breaking
 
 The store is new in this release. The first ten items below break only a store, a factory or a
-caller written against an unreleased build. The later items are from slices 1 to 3. Of those, the
-change to `DeltaSource.targets`, `DeltaSource.negators`, `Reactor.targets` and `Reactor.negators`
-(the last item) reaches a consumer of `0.11.0-next.10`.
+caller written against an unreleased build, with one exception: the own-fields item also reaches
+`OrdinaryJournalPeer.open`, which `0.11.0-next.10` exported. The later items are from slices 1 to
+3. Of those, the change to `DeltaSource.targets`, `DeltaSource.negators`, `Reactor.targets` and
+`Reactor.negators` (the last item) reaches a consumer of `0.11.0-next.10`.
+
+The first four items are in the TypeScript witness only in this release. "Both stores" there
+means the two TypeScript stores, memory and SQLite. The Rust witness gets them in step 4e.
 
 - ⚠️ **`PurgeReport.retains` is required.** A store written outside this package adds it to every
   purge report: the surfaces that may still hold a target's id (decision S4-5).
 - ⚠️ **`store-unavailable` is a new refusal code** (§4.13 reading 105). A durable store gives it
-  when a lock is held past the wait or the engine cannot read the file. A `match` over
+  when a lock is held past the wait or the engine cannot read the file. A `switch` over
   `StoreErrorCode` adds it. A purge refused `store-unavailable` may have committed its delete:
   purge again.
 - ⚠️ **Strings must be well-formed** (reading 104). A string with a lone surrogate is refused in
@@ -172,7 +176,8 @@ change to `DeltaSource.targets`, `DeltaSource.negators`, `Reactor.targets` and `
   restore gives every peer a new history when it is `true`. A factory without files ignores it.
 - ⚠️ **Options and requests are read as own fields only** (reading 126). A field set on
   `Object.prototype` reads as absent. A caller that passes options through a prototype passes a
-  plain object.
+  plain object. This reaches `OrdinaryJournalPeer.open`: `allowDegraded` and `requireExisting`
+  given through a prototype now read as absent, so the open uses the defaults.
 - ⚠️ **A factory checks `requires` before it changes a file** (reading 126). A registered factory
   that can create a file or mint histories refuses `capability-absent` first, with
   `missingRequirements(profile, options.requires ?? [])`. `openStore` still checks the opened
