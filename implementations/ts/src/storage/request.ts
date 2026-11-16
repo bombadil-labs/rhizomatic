@@ -42,7 +42,9 @@ function positiveZero(claims: Claims): Claims {
     ...claims,
     timestamp: claims.timestamp + 0,
     validFrom: claims.validFrom + 0,
-    ...(claims.validUntil === undefined ? {} : { validUntil: claims.validUntil + 0 }),
+    ...(Object.hasOwn(claims, "validUntil") && claims.validUntil !== undefined
+      ? { validUntil: claims.validUntil + 0 }
+      : {}),
     pointers: claims.pointers.map((pointer) =>
       pointer.target.kind === "primitive" && typeof pointer.target.value === "number"
         ? { role: pointer.role, target: { kind: "primitive", value: pointer.target.value + 0 } }
@@ -84,7 +86,7 @@ export function admit(entry: unknown): Admitted {
   // Claims are shared across peers by id. An id that does not recompute would let one peer's
   // append change what another peer reads.
   if (id !== own.delta.id) refuse("a delta id does not match its claims");
-  const sig = own.delta.sig;
+  const sig = Object.hasOwn(own.delta, "sig") ? own.delta.sig : undefined;
   if (sig !== undefined && !SIG.test(sig))
     refuse("a signature is not 128 lowercase hex characters");
   const { at, sequence, transfer, sender } = own.arrival;
