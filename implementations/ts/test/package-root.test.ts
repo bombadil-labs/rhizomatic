@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
+import type { ArrivalSeq, Entity, Head, Id } from "../src/index.js";
 
 const pkg = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -70,5 +71,17 @@ describe("the package root without better-sqlite3", () => {
     expect(manifest.dependencies["better-sqlite3"]).toBeUndefined();
     expect(manifest.peerDependencies["better-sqlite3"]).toBeDefined();
     expect(manifest.peerDependenciesMeta["better-sqlite3"]?.optional).toBe(true);
+  });
+});
+
+describe("the package root exports the store's id types", () => {
+  it("Id, Entity, Head and ArrivalSeq name the types of a member's id, an anchor, a head and an arrival sequence (npm run typecheck fails without them)", () => {
+    const member: { id: Id; entity: Entity; head: Head; sequence: ArrivalSeq } = {
+      id: "id",
+      entity: "entity",
+      head: "head",
+      sequence: 1,
+    };
+    expect(member).toEqual({ id: "id", entity: "entity", head: "head", sequence: 1 });
   });
 });
