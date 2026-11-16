@@ -6,6 +6,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+Follow-ups from the reviews of slice 4 and from the first Loam trial on `0.11.0-next.11`
+(TypeScript). No change needs action from a consumer of `0.11.0-next.11`.
+
+- The package root exports the store's id types: `Id`, `Entity`, `Head` and `ArrivalSeq`.
+- A store reads a delta's `sig` and `validUntil` as own fields, and so do the canonical encoding
+  and the claims check. Before, an append of an unsigned delta stored a `sig` that only
+  `Object.prototype` held (§4.13 reading 126).
+- A refused open of a file that is not a SQLite store changes no byte and leaves no `-wal` or
+  `-shm` file. The open checks the format before it sets the journal mode. A SQLite file with no
+  schema object still opens as a new store (reading 126).
+- The `unknown-scheme` message says that the `sqlite` scheme is registered when the host imports
+  `@bombadil/rhizomatic/store/sqlite`. It is still one fixed message for every unrouted URL.
+- Importing `@bombadil/rhizomatic/store/sqlite` without `better-sqlite3` fails with an error that
+  names the package and `npm install better-sqlite3`, with Node's error as its `cause`. The
+  subpath now loads the driver with `require`, through `createRequire`.
+- Tools: the command acceptance check pins the ignored Rust tests by name, and its report lists
+  them. The release-mode step of the Rust witness job runs the two cost rails by their full names.
+
 ## 0.11.0-next.11 — 2026-11-16
 
 Release D: the store (SPEC-18 proposal), slices 1 to 3 in TypeScript and Rust, and slice 4 steps
@@ -52,7 +70,8 @@ The store, slice 4, step 4a (TypeScript): a SQLite store at `@bombadil/rhizomati
 the four shared suites. Its erasure class is `unprovable` until step 4b. `better-sqlite3` is an
 optional peer dependency. Three contract changes reach both stores: the refusal `store-unavailable`
 (§4.13 reading 105), strings must be well-formed (reading 104), and -0 answers as +0
-(reading 106). Rust follows in step 4e.
+(reading 106). Rust follows in step 4e for the first and the third. A Rust string is well-formed
+by its type, so the second needs no Rust work.
 
 The store, slice 4, step 4b (TypeScript): the SQLite store proves erasure. A purge by a peer of
 posture `proven` rebuilds the pages (`VACUUM`) and truncates the log, and the report says
