@@ -25,7 +25,7 @@
   "targetAdd": [],
   "referenceAdd": [],
   "changeAdd": [],
-  "changeDrop": ["SEARCH change USING PRIMARY KEY (peer=? AND revision=?)"],
+  "changeDrop": ["SEARCH change USING INDEX sqlite_autoindex_change_1 (peer=? AND revision=?)"],
   "debtAdd": [],
   "debtDrop": ["SEARCH debt USING PRIMARY KEY (peer=? AND delta=?)"],
   "holdingDrop": [
@@ -84,7 +84,9 @@
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
     "USE TEMP B-TREE FOR ORDER BY"
   ],
-  "changes": ["SEARCH change USING PRIMARY KEY (peer=? AND revision>? AND revision<?)"],
+  "changes": [
+    "SEARCH change USING INDEX sqlite_autoindex_change_1 (peer=? AND revision>? AND revision<?)"
+  ],
   "exportPeers": ["SEARCH peer USING COVERING INDEX sqlite_autoindex_peer_1 (id>?)"],
   "exportIds": ["SEARCH holding USING PRIMARY KEY (peer=? AND delta>?)"],
   "exportDeltas": [

@@ -39,6 +39,24 @@ export function strings(given: unknown, what: string): string[] {
   return own;
 }
 
+/**
+ * The claims with every -0 as +0, the value the canonical encoding writes (SPEC-1; §4.13 reading
+ * 106). A store answers what the id hashes, so every store answers +0.
+ */
+function positiveZero(claims: Claims): Claims {
+  return {
+    ...claims,
+    timestamp: claims.timestamp + 0,
+    validFrom: claims.validFrom + 0,
+    ...(claims.validUntil === undefined ? {} : { validUntil: claims.validUntil + 0 }),
+    pointers: claims.pointers.map((pointer) =>
+      pointer.target.kind === "primitive" && typeof pointer.target.value === "number"
+        ? { role: pointer.role, target: { kind: "primitive", value: pointer.target.value + 0 } }
+        : pointer,
+    ),
+  };
+}
+
 /** One admitted entry, copied and checked: its id, claims, signature and arrival record. */
 export type Admitted = {
   readonly id: Id;
@@ -63,13 +81,12 @@ export function admit(entry: unknown): Admitted {
   let id: string;
   try {
     own = copyMember(entry as VerifiedDelta);
-    // The canonical encoding refuses a string of the claims that is not well-formed.
-    if (!wellFormed(own.arrival.sender)) return refuse("an arrival sender is not well-formed");
     id = computeId(own.delta.claims);
-  } catch (error) {
-    if (error instanceof StoreError) throw error;
+  } catch {
     return refuse("an entry is malformed");
   }
+  // The canonical encoding refuses a string of the claims that is not well-formed.
+  if (!wellFormed(own.arrival.sender)) refuse("an arrival sender is not well-formed");
   // Claims are shared across peers by id. An id that does not recompute would let one peer's
   // append change what another peer reads.
   if (id !== own.delta.id) refuse("a delta id does not match its claims");
@@ -86,7 +103,12 @@ export function admit(entry: unknown): Admitted {
     sender.length === 0
   )
     refuse("an arrival record is malformed");
-  return { id, claims: own.delta.claims, sig, arrival: own.arrival };
+  return {
+    id,
+    claims: positiveZero(own.delta.claims),
+    sig,
+    arrival: { ...own.arrival, at: at + 0 },
+  };
 }
 
 /**

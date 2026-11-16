@@ -66,14 +66,46 @@ const DEFAULT_RETENTION = { revisions: 1024 } as const;
 const ERASURE_CLASS: ErasureClass = "unprovable";
 const EXPORT_PAGE = 256;
 
-// The connection rules (plan §4): each pragma is set, then read back.
-const PRAGMAS: readonly (readonly [string, string, unknown])[] = [
+/**
+ * The connection rules (plan §4), as the engine reports them: `foreign_keys` and `secure_delete`
+ * 1 (on), `journal_mode` "wal", `synchronous` 2 (full), `temp_store` 1 (file), and
+ * `busy_timeout` in ms.
+ */
+export type SqliteConnection = {
+  readonly foreign_keys: unknown;
+  readonly secure_delete: unknown;
+  readonly journal_mode: unknown;
+  readonly synchronous: unknown;
+  readonly temp_store: unknown;
+  readonly busy_timeout: unknown;
+};
+
+/** The SQLite store's whole-store operations, with a read of its connection rules. */
+export interface SqliteExporter extends Exporter {
+  /**
+   * The effective value of each connection rule, read from the engine now. For an operator: open
+   * refuses a connection whose values differ from the rules, so these are the rules' values.
+   */
+  connection(): SqliteConnection;
+}
+
+/** A store opened by `openSqliteStore`. */
+export interface SqliteStore extends Store {
+  openAdmin(): SqliteExporter;
+}
+
+// The connection rules: each pragma is set, then read back, and open refuses a difference.
+const RULES = (
+  busyTimeoutMs: number,
+): readonly (readonly [keyof SqliteConnection, string, unknown])[] => [
   ["foreign_keys", "ON", 1],
   ["secure_delete", "ON", 1],
   ["journal_mode", "WAL", "wal"],
   ["synchronous", "FULL", 2],
   ["temp_store", "FILE", 1],
+  ["busy_timeout", String(busyTimeoutMs), busyTimeoutMs],
 ];
+const MAX_BUSY_TIMEOUT = 2 ** 31 - 1;
 
 type Statements = { readonly [K in keyof typeof SQLITE_STATEMENTS]: Database.Statement };
 type PeerRow = {
@@ -90,14 +122,20 @@ type DeltaRow = { id: Id; claims: Uint8Array; sig: string | null };
 
 const sorted = (ids: Iterable<Id>): Id[] => [...new Set(ids)].sort(compareUtf8);
 
-/** A refusal for an error of the engine: the store cannot serve the call now. */
+/**
+ * A refusal for an error of the engine (§4.13 reading 105). Only a busy or locked engine invites
+ * a retry. Any other error (a constraint, a damaged file, the disk) answers the same until its
+ * cause is fixed, so the message says what failed and does not invite one.
+ */
 function unavailable(error: unknown): unknown {
-  return error instanceof Database.SqliteError
-    ? new StoreError(
-        "store-unavailable",
-        `the SQLite store cannot serve this call now (${error.code}); ask again`,
-      )
-    : error;
+  if (!(error instanceof Database.SqliteError)) return error;
+  const busy = /^SQLITE_(BUSY|LOCKED)/.test(error.code);
+  return new StoreError(
+    "store-unavailable",
+    busy
+      ? `the SQLite store cannot serve this call now (${error.code}); ask again`
+      : `the SQLite store failed: ${error.message} (${error.code}); this is not a lock, and the same call fails again until the cause is fixed`,
+  );
 }
 
 // ---- claims from their canonical bytes ----------------------------------------------------------
@@ -178,9 +216,13 @@ function takeOptions(options: unknown): OwnOptions {
   const positive = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 1;
   if (
     busyTimeoutMs !== undefined &&
-    !(Number.isSafeInteger(busyTimeoutMs) && (busyTimeoutMs as number) >= 0)
+    !(
+      Number.isSafeInteger(busyTimeoutMs) &&
+      (busyTimeoutMs as number) >= 0 &&
+      (busyTimeoutMs as number) <= MAX_BUSY_TIMEOUT
+    )
   )
-    refuse("busyTimeoutMs is an integer, 0 or more");
+    refuse(`busyTimeoutMs is an integer from 0 to ${MAX_BUSY_TIMEOUT}`);
   let retention: Retention | undefined;
   if (changeRetention === "unbounded") retention = "unbounded";
   else if (changeRetention !== undefined) {
@@ -203,7 +245,7 @@ function takeOptions(options: unknown): OwnOptions {
 
 // ---- the store --------------------------------------------------------------------------------
 
-class SqliteStore implements Store {
+class SqliteFileStore implements SqliteStore {
   readonly profile: StoreProfile;
   readonly #db: Database.Database;
   readonly #s: Statements;
@@ -214,19 +256,20 @@ class SqliteStore implements Store {
   readonly #keep: number;
   readonly #pageSize: number;
   readonly #mint: ((peer: PeerId) => History) | undefined;
+  readonly #rules: ReturnType<typeof RULES>;
   #closed = false;
 
   constructor(db: Database.Database, options: OwnOptions) {
     this.#db = db;
-    db.pragma(`busy_timeout = ${options.busyTimeoutMs}`);
-    for (const [name, value, expected] of PRAGMAS) {
-      db.pragma(`${name} = ${value}`);
-      if (db.pragma(name, { simple: true }) !== expected)
+    this.#rules = RULES(options.busyTimeoutMs);
+    for (const [name, value] of this.#rules) db.pragma(`${name} = ${value}`);
+    const now = this.#connection();
+    for (const [name, value, expected] of this.#rules)
+      if (now[name] !== expected)
         throw new StoreError(
           "open-failed",
           `sqlite store: the connection refused ${name} = ${value}`,
         );
-    }
     this.#begin = db.prepare("BEGIN");
     this.#beginWrite = db.prepare("BEGIN IMMEDIATE");
     this.#commit = db.prepare("COMMIT");
@@ -328,6 +371,13 @@ class SqliteStore implements Store {
     } catch {
       // The connection ends the transaction itself when a rollback fails.
     }
+  }
+
+  /** The effective value of each connection rule, read from the engine. */
+  #connection(): SqliteConnection {
+    return Object.fromEntries(
+      this.#rules.map(([name]) => [name, this.#db.pragma(name, { simple: true })]),
+    ) as SqliteConnection;
   }
 
   #open(): void {
@@ -698,7 +748,7 @@ class SqliteStore implements Store {
     });
   }
 
-  openAdmin(): Exporter {
+  openAdmin(): SqliteExporter {
     this.#open();
     const s = this.#s;
     const read = <T>(body: () => T): T => {
@@ -747,6 +797,10 @@ class SqliteStore implements Store {
           ),
       }),
       storedIds: () => pages(ids(s.exportStored)),
+      connection: () => {
+        this.#open();
+        return this.#connection();
+      },
     };
   }
 
@@ -767,10 +821,17 @@ class SqliteStore implements Store {
  * Refuses `open-failed` for a file that is not a store of this format, and `invalid-request` for
  * options of the wrong type and for a retention other than the file keeps.
  */
-export async function openSqliteStore(path: string, options?: SqliteStoreOptions): Promise<Store> {
+export async function openSqliteStore(
+  path: string,
+  options?: SqliteStoreOptions,
+): Promise<SqliteStore> {
   const own = takeOptions(options);
-  if (typeof path !== "string" || path === "")
-    throw new StoreError("invalid-request", "sqlite store: the path is a non-empty string");
+  // The engine ends a path at U+0000, so such a path names another file.
+  if (typeof path !== "string" || path === "" || path.includes("\0"))
+    throw new StoreError(
+      "invalid-request",
+      "sqlite store: the path is a non-empty string without U+0000",
+    );
   let db: Database.Database;
   try {
     db = new Database(path);
@@ -778,7 +839,7 @@ export async function openSqliteStore(path: string, options?: SqliteStoreOptions
     throw new StoreError("open-failed", "sqlite store: the file did not open");
   }
   try {
-    return new SqliteStore(db, own);
+    return new SqliteFileStore(db, own);
   } catch (error) {
     db.close();
     if (error instanceof StoreError) throw error;
@@ -791,15 +852,25 @@ export async function openSqliteStore(path: string, options?: SqliteStoreOptions
 
 const URL_FORM = 'store scheme "sqlite" takes a file address: sqlite:///path/to/file.db';
 
-registerStoreScheme("sqlite", async (url) => {
+const fromUrl = async (url: string): Promise<Store> => {
   let path: string;
   try {
     if (!/^sqlite:\/\//i.test(url)) throw new TypeError("form");
     const file = new URL(`file:${url.slice("sqlite:".length)}`);
     if (file.search !== "" || file.hash !== "") throw new TypeError("form");
     path = fileURLToPath(file);
+    if (path.includes("\0")) throw new TypeError("form");
   } catch {
     throw new StoreError("invalid-url", URL_FORM);
   }
   return openSqliteStore(path);
-});
+};
+
+// Loading this module never fails on the registration. When `sqlite` is taken (by a host's own
+// factory, or by this module evaluated once before), the scheme stays as it is.
+try {
+  registerStoreScheme("sqlite", fromUrl);
+} catch (error) {
+  if (!(error instanceof Error && (error as { code?: unknown }).code === "scheme-exists"))
+    throw error;
+}

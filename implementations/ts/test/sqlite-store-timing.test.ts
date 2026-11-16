@@ -153,15 +153,72 @@ describe("the query-plan rail, part 3: the time of each operation does not grow 
 
   for (const [name, op] of Object.entries(ops))
     it(`${name}: at ${LARGE} deltas at most ${BOUND} times the time at ${SMALL}`, async () => {
-      const seen: string[] = [];
-      for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
-        const t = await fastest(op(small));
-        const T = await fastest(op(large));
-        seen.push(`${t.toFixed(2)} ms and ${T.toFixed(2)} ms, ratio ${(T / t).toFixed(2)}`);
-        if (T / t <= BOUND) break;
-      }
-      console.log(`sqlite timing, ${name}: ${seen.join("; ")}`);
-      const last = seen.at(-1)!;
-      expect(Number(last.split("ratio ")[1]), last).toBeLessThanOrEqual(BOUND);
+      await withinBound(name, op(small), op(large));
     }, 600_000);
+});
+
+/** Times both bodies, and measures again while the ratio passes the bound, up to three times. */
+async function withinBound(name: string, small: () => Promise<void>, large: () => Promise<void>) {
+  const seen: string[] = [];
+  for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+    const t = await fastest(small);
+    const T = await fastest(large);
+    seen.push(`${t.toFixed(2)} ms and ${T.toFixed(2)} ms, ratio ${(T / t).toFixed(2)}`);
+    if (T / t <= BOUND) break;
+  }
+  console.log(`sqlite timing, ${name}: ${seen.join("; ")}`);
+  const last = seen.at(-1)!;
+  expect(Number(last.split("ratio ")[1]), last).toBeLessThanOrEqual(BOUND);
+}
+
+describe("the time of a feed read does not grow with the size of the records beside it", () => {
+  // A table that keys whole rows (WITHOUT ROWID) compares a key with every cell a seek passes, and
+  // a cell that overflows its page is read whole. A feed whose records sit beside records of
+  // 12,000 ids then costs the size of those neighbours. The same feed beside records of one id
+  // is the reference.
+  const NEIGHBOUR = 12_000;
+  const plain = (n: number): Delta =>
+    makeDelta({
+      timestamp: n,
+      validFrom: 0,
+      author: AUTHOR,
+      pointers: [{ role: "about", target: { kind: "entity", entity: { id: `p:${n}` } } }],
+    });
+
+  async function feed(size: number) {
+    const store = await fixture.open({ changeRetention: "unbounded" });
+    const peer = await store.createPeer("peer:feed", { erasure: "unproven" });
+    let sequence = 0;
+    let head: string | null = null;
+    const append = async (deltas: readonly Delta[]) => {
+      const next = `head-${sequence + 1}`;
+      const result = await peer.append({
+        expectedHead: head,
+        nextHead: next,
+        frame: null,
+        added: deltas.map((delta) => ({
+          delta,
+          arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: 1, sender: "f" },
+        })),
+      });
+      if (result.status !== "committed") throw new Error(result.status);
+      head = next;
+      return result.revision;
+    };
+    const neighbours = Array.from({ length: size }, (_, i) => plain(50_000_000 + i));
+    await append([plain(1)]);
+    await append(neighbours);
+    await append([plain(2)]);
+    await peer.purge(neighbours.map((d) => d.id));
+    const target = await append([plain(3)]);
+    await append(neighbours);
+    await append([plain(4)]);
+    return async () => {
+      for (let i = 0; i < CALLS; i++) await peer.changes(target - 1, target);
+    };
+  }
+
+  it(`changes beside records of ${NEIGHBOUR} ids: at most ${BOUND} times the time beside records of one`, async () => {
+    await withinBound("changes beside large records", await feed(1), await feed(NEIGHBOUR));
+  }, 600_000);
 });

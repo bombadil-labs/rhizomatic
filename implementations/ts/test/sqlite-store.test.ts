@@ -5,8 +5,8 @@
 // Not covered here: the plans of the statements (sqlite-store-plans.test.ts), their cost
 // (sqlite-store-timing.test.ts) and a crash during an append (sqlite-store-crash.test.ts).
 
-import { openSync, readFileSync, statSync, writeSync, closeSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { closeSync, openSync, readdirSync, readFileSync, statSync, writeSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import Database from "better-sqlite3";
 import { afterAll, describe, expect, it } from "vitest";
@@ -266,6 +266,9 @@ describe("the SQLite store's profile and scheme", () => {
   it("refuses options of the wrong type", async () => {
     for (const options of [
       { busyTimeoutMs: -1 },
+      { busyTimeoutMs: 1.5 },
+      { busyTimeoutMs: 2 ** 31 },
+      { busyTimeoutMs: Number.MAX_SAFE_INTEGER },
       { changePageSize: 0 },
       { changeRetention: { revisions: 0 } },
       { changeRetention: "none" },
@@ -274,6 +277,42 @@ describe("the SQLite store's profile and scheme", () => {
       expect(await refusal(openSqliteStore(fixture.path(), options as never))).toBe(
         "invalid-request",
       );
+  });
+
+  it("waits at most 2^31 - 1 ms, which the engine reads back", async () => {
+    const store = await fixture.open({ busyTimeoutMs: 2 ** 31 - 1 });
+    expect(store.openAdmin().connection().busy_timeout).toBe(2 ** 31 - 1);
+  });
+
+  it("reads every connection rule back from the engine, and refuses a connection that breaks one", async () => {
+    const store = await fixture.open({ busyTimeoutMs: 1234 });
+    expect(store.openAdmin().connection()).toEqual({
+      foreign_keys: 1,
+      secure_delete: 1,
+      journal_mode: "wal",
+      synchronous: 2,
+      temp_store: 1,
+      busy_timeout: 1234,
+    });
+    // An in-memory database keeps no log file, so the engine answers another journal mode.
+    const error = (await openSqliteStore(":memory:").catch((e: unknown) => e)) as StoreError;
+    expect([error.code, error.message]).toEqual([
+      "open-failed",
+      "sqlite store: the connection refused journal_mode = WAL",
+    ]);
+    await store.close();
+    expect(() => store.openAdmin()).toThrow(StoreError);
+  });
+
+  it("refuses a path with U+0000, which the engine would end there, and makes no file", async () => {
+    const before = readdirSync(fixture.dir);
+    const url = `${pathToFileURL(fixture.dir).href.replace(/^file:/, "sqlite:")}/one%00.secret.db`;
+    const error = (await openStore(url).catch((e: unknown) => e)) as StoreError;
+    expect([error.code, error.message.includes("secret")]).toEqual(["invalid-url", false]);
+    expect(await refusal(openSqliteStore(join(fixture.dir, "one\u0000.other.db")))).toBe(
+      "invalid-request",
+    );
+    expect(readdirSync(fixture.dir)).toEqual(before);
   });
 
   it("keeps peers, holdings, arrivals, the feed and histories across a reopen", async () => {
@@ -398,6 +437,9 @@ describe("store-unavailable: the SQLite store cannot serve the call", () => {
     expect(await refusal(store.createPeer("peer:b", { erasure: "unproven" }))).toBe(
       "store-unavailable",
     );
+    expect(
+      ((await w.append([fact("x", 3)]).catch((e: unknown) => e)) as StoreError).message,
+    ).toContain("ask again");
     // Reads do not wait for the write lock in WAL mode.
     expect(await before.get([x.id])).toEqual([x]);
     other.exec("ROLLBACK");
@@ -435,6 +477,33 @@ describe("store-unavailable: the SQLite store cannot serve the call", () => {
       () => w.peer.changes(0),
     ])
       expect(await refusal(call())).toBe("store-unavailable");
+    await store.close();
+  });
+});
+
+describe("an engine error that is not a lock does not invite a retry", () => {
+  it("a broken constraint refuses store-unavailable, names the constraint, and changes nothing", async () => {
+    const path = fixture.path();
+    const store = await openSqliteStore(path);
+    const w = await writer(store);
+    await w.append([fact("x", 1)]);
+    // Damage the file from outside: the peer's last sequence goes back to 0.
+    const raw = new Database(path);
+    raw.prepare("UPDATE peer SET max_seq = 0").run();
+    raw.close();
+    const y = fact("x", 2);
+    const error = (await w.peer
+      .append({
+        expectedHead: "head-1",
+        nextHead: "head-2",
+        frame: null,
+        added: [{ delta: y, arrival: { id: y.id, at: 1, sequence: 1, transfer: 1, sender: "f" } }],
+      })
+      .catch((e: unknown) => e)) as StoreError;
+    expect(error.code).toBe("store-unavailable");
+    expect(error.message).toContain("UNIQUE constraint failed: holding.peer, holding.seq");
+    expect(error.message).not.toContain("ask again");
+    expect((await w.peer.read()).count).toBe(1);
     await store.close();
   });
 });

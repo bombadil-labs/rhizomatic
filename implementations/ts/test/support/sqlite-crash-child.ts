@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { makeDelta } from "../../src/delta/set.js";
 import { openSqliteStore } from "../../src/storage/sqlite-store.js";
-import { StoreError, type PeerStore } from "../../src/storage/store.js";
+import { StoreError, type AppendResult, type PeerStore } from "../../src/storage/store.js";
 
 export const BATCH = 8;
 export const CRASH_PEER = "peer:crash";
@@ -22,7 +22,13 @@ export const batchDelta = (n: number, j: number) =>
     ],
   });
 
-async function main(path: string): Promise<void> {
+/**
+ * Appends until killed. With `full`, the file size is limited from outside: the child appends
+ * until an append is not committed, prints that answer as one JSON line, and ends.
+ */
+async function main(path: string, full: boolean): Promise<void> {
+  // Past the file size limit the system sends SIGXFSZ; with a listener, the write fails instead.
+  if (full) process.on("SIGXFSZ", () => undefined);
   const store = await openSqliteStore(path, { changeRetention: "unbounded" });
   let peer: PeerStore;
   try {
@@ -35,20 +41,35 @@ async function main(path: string): Promise<void> {
   for (;;) {
     const snapshot = await peer.read();
     const n = snapshot.revision + 1;
-    const result = await peer.append({
-      expectedHead: snapshot.head,
-      nextHead: `head-${n}`,
-      frame: null,
-      added: Array.from({ length: BATCH }, (_, j) => {
-        const delta = batchDelta(n, j);
-        const sequence = BATCH * (n - 1) + j + 1;
-        return { delta, arrival: { id: delta.id, at: n, sequence, transfer: n, sender: "crash" } };
-      }),
-    });
-    if (result.status !== "committed") throw new Error(`append answered ${result.status}`);
+    let result: AppendResult;
+    try {
+      result = await peer.append({
+        expectedHead: snapshot.head,
+        nextHead: `head-${n}`,
+        frame: null,
+        added: Array.from({ length: BATCH }, (_, j) => {
+          const delta = batchDelta(n, j);
+          const sequence = BATCH * (n - 1) + j + 1;
+          return {
+            delta,
+            arrival: { id: delta.id, at: n, sequence, transfer: n, sender: "crash" },
+          };
+        }),
+      });
+    } catch (error) {
+      if (!full) throw error;
+      process.stdout.write(
+        `${JSON.stringify({ refused: (error as StoreError).code, batch: n })}\n`,
+      );
+      process.exit(0);
+    }
+    if (result.status === "committed") continue;
+    if (!full) throw new Error(`append answered ${result.status}`);
+    process.stdout.write(`${JSON.stringify({ ...result, batch: n })}\n`);
+    process.exit(0);
   }
 }
 
-// Run as a program, not when the rail imports the batch shape.
+// Run as a program, not when a rail imports the batch shape.
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url))
-  await main(process.argv[2]!);
+  await main(process.argv[2]!, process.argv[3] === "full");

@@ -2053,8 +2053,16 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      - A read refused this way answered nothing. It never answers an empty list in its place.
      - An append refused this way changed nothing. An append that fails at or after its commit
        answers `uncertain` (§4.5).
-     - A purge is one transaction. The caller of a refused purge asks again; the second answer
+     - A purge is one transaction. Nothing of a refused purge stays half done; a second purge
        reports the present state.
+     - Only a busy or locked engine invites the caller to ask again. Any other engine error (a
+       broken constraint, a damaged file, an error of the disk) gives the same answer until its
+       cause is fixed. Its message names what failed and does not invite a retry.
+106. **-0 is +0** (slice 4, step 4a). The canonical encoding writes -0 as +0 (SPEC-1), so a delta
+     with -0 and one with +0 have one id. A store answers the value its id hashes: every number of
+     the claims that is -0 answers +0, and so does an arrival record's `at`. Admission makes the
+     change, in every store, so the memory store and the SQLite store answer alike. The memory
+     store answered -0 before; the SQLite store, which keeps the canonical bytes, answered +0.
 
 
 ## 5. Architectures

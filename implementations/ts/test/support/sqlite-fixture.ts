@@ -6,7 +6,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { openSqliteStore, type SqliteStoreOptions } from "../../src/storage/sqlite-store.js";
+import {
+  openSqliteStore,
+  type SqliteStore,
+  type SqliteStoreOptions,
+} from "../../src/storage/sqlite-store.js";
 import type { PeerStore, Snapshot, Store } from "../../src/storage/store.js";
 
 export type SqliteFixture = {
@@ -14,7 +18,7 @@ export type SqliteFixture = {
   /** A path for a new store file in the directory. */
   path(): string;
   /** A new store in a new file. */
-  open(options?: SqliteStoreOptions): Promise<Store>;
+  open(options?: SqliteStoreOptions): Promise<SqliteStore>;
   /** A new store in a new file, checked after every call by `audit`. */
   audited(options?: SqliteStoreOptions): Promise<Store>;
   cleanup(): Promise<void>;
@@ -97,10 +101,10 @@ function auditedStore(store: Store, path: string): Store {
 
 export function sqliteFixture(prefix: string): SqliteFixture {
   const dir = mkdtempSync(join(tmpdir(), `${prefix}-`));
-  const opened: Store[] = [];
+  const opened: SqliteStore[] = [];
   let n = 0;
   const path = (): string => join(dir, `store-${n++}.db`);
-  const open = async (options?: SqliteStoreOptions, at = path()): Promise<Store> => {
+  const open = async (options?: SqliteStoreOptions, at = path()): Promise<SqliteStore> => {
     const store = await openSqliteStore(at, options);
     opened.push(store);
     return store;

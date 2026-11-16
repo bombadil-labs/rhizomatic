@@ -25,7 +25,8 @@ The store, slice 4, step 4a (TypeScript): a SQLite store at `@bombadil/rhizomati
 (`openSqliteStore`, and `openStore("sqlite:///path")` once the subpath is imported). It passes
 the four shared suites. Its erasure class is `unprovable` until step 4b. `better-sqlite3` is an
 optional peer dependency. Two contract changes reach both stores: the refusal `store-unavailable`
-(§4.13 reading 105), and strings must be well-formed (reading 104). Rust follows in step 4e.
+(§4.13 reading 105), strings must be well-formed (reading 104), and -0 answers as +0
+(reading 106). Rust follows in step 4e.
 
 - **The change feed.** `PeerStore.changes(from, to?)` answers pages of records, one per revision
   advance, with the head and the ids added and removed; never bytes. A `from` below the

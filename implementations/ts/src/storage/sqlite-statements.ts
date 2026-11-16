@@ -1,6 +1,7 @@
 // The SQLite store's schema and every statement it prepares (SPEC-18 slice 4 plan §4, §5). The
 // statements are kept in one list so that a rail can read the plan of each one. A base table is
-// never given an alias, so a plan names the table it reads.
+// never given an alias, so a plan names the table it reads. A table whose rows can overflow a
+// page (`delta`, `change`) has a rowid: a seek in a WITHOUT ROWID table compares whole cells.
 
 export const SQLITE_SCHEMA = `
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
@@ -59,7 +60,7 @@ CREATE TABLE change (
   added TEXT NOT NULL,
   removed TEXT NOT NULL,
   PRIMARY KEY (peer, revision)
-) STRICT, WITHOUT ROWID;
+) STRICT;
 CREATE TABLE debt (
   peer TEXT NOT NULL REFERENCES peer,
   delta TEXT NOT NULL,
