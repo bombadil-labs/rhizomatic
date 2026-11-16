@@ -23,8 +23,9 @@ export const hostModules = {
   },
   "storage/sqlite-store.ts": {
     modules: ["better-sqlite3", "node:crypto", "node:url"],
+    globals: { process: ["platform"] },
     reason:
-      "The SQLite store: its file through better-sqlite3, random histories, and file URLs.",
+      "The SQLite store: its file through better-sqlite3, random histories, file URLs, and the platform that sets its erasure class.",
   },
   "federation/http.ts": {
     modules: ["node:http"],
