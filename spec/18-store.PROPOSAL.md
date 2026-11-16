@@ -842,6 +842,7 @@ type PurgeReport = {
   revision: Revision;
   targets: readonly { id: Id; outcome: "removed" | "held-by-other-peer" | "not-held" }[];
   surfaces: readonly { surface: string; state: "absent" | "owed" | "unprovable" }[];
+  retains: readonly { surface: "change-feed" | "purge-debt" | "surface-debt"; holds: "id" }[];
 };
 ```
 
@@ -867,6 +868,10 @@ type PurgeReport = {
 - `PurgeReport` lists each declared storage surface (rows, index entries, journal frames,
   checkpoints, freed pages, write-ahead logs, segment files, caches) with `absent`, `owed` or
   `unprovable`.
+- `retains` names the store-controlled surfaces that may still hold the **id**, never the bytes,
+  of a target the peer released or owes (decision S4-5, step 4b; §4.13 reading 108). The list may
+  name a surface that no longer holds the id. It never omits one that does. The claim does not
+  cover ids.
 
 **Erasure class.** The profile declares one:
 
@@ -883,9 +888,22 @@ type PurgeReport = {
 - Step 7 adds the peer's erasure class to its published peer description, so a sender can refuse
   to share data with a peer that cannot erase it.
 
-**The boundary of "absent".** Absence covers the files and objects the store controls. It does not
-cover filesystem or SSD remanence after a file is unlinked, or backups made outside the store.
-Every erasure report states this boundary.
+**The boundary of "absent".** Absence covers the files and objects the store controls. Every
+erasure report states this boundary. It does not cover:
+
+- filesystem or SSD remanence after a file is unlinked;
+- backups made outside the store;
+- **the process memory of a store that keeps its data in files** (decision S4-14; Myk's ruling,
+  2026-11-15). A durable store's page cache and statement memory hold bytes until the process
+  frees them. A store whose only medium is memory (the memory store) declares `process-memory` as
+  a surface, `unprovable`, and never claims `proven`. Without this limit no durable store could
+  claim `proven`;
+- swap, hibernation and crash dumps, which can write process memory to disk. They are the host's
+  concern.
+- a log file beside another name of the database file (reading 119). The store reads the one log
+  beside the engine's path. A removed hard link, a rename of the file without its log, and a bind
+  mount of the file each leave or make a log that the store cannot see. SQLite names each as
+  misuse that can corrupt a database. They are the operator's concern.
 
 **Ids in the change feed lie outside "absent"** (decision O4, 2026-11-12). The change feed (§4.6)
 is a store-controlled surface. It keeps the id of a purged delta. It never keeps the bytes or
@@ -896,7 +914,7 @@ the claims of that delta. A record never changes once written, so a purge does n
 - Under `unbounded` retention, the id stays in the feed for as long as the store lives.
 - A host that needs ids to leave uses a bounded retention, `{revisions: n}`. The id then leaves
   when the store drops the record that names it.
-- Slice 4 adds the feed to the purge report as a surface that still holds the id.
+- The purge report's `retains` names the feed whenever the store keeps one (step 4b).
 
 **A follower's mirror lies outside "absent".** A follower of the feed (§4.6, "Following the
 feed") keeps a copy of the bytes outside the store. A purge removes nothing from it. The follower
@@ -2051,10 +2069,18 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      §4.11 reading 2. The memory store never gives it. This is a change to the contract of both
      witnesses: TypeScript adds the code with its SQLite store, and Rust adds it in step 4e.
      - A read refused this way answered nothing. It never answers an empty list in its place.
-     - An append refused this way changed nothing. An append that fails at or after its commit
-       answers `uncertain` (§4.5).
-     - A purge is one transaction. Nothing of a refused purge stays half done; a second purge
-       reports the present state.
+     - An append refused this way added no row and moved no revision. It can still have left
+       bytes: the engine writes the pages of a large write to the log before the commit, and a
+       write that fails or dies leaves them there. They stay in the log until the next proof
+       empties it (reading 119). An append that fails at or after its commit answers `uncertain`
+       (§4.5).
+     - A purge of the SQLite store runs a first transaction, which deletes, and a last
+       transaction, which decides the report (reading 115). A refused purge may have committed
+       its delete. The retry reports the present state. For a peer of posture `unproven` the
+       retry can answer `not-held` where the first call would have said `removed`: that peer
+       keeps no record (reading 110). No retry answer is false. A peer of posture `proven` keeps
+       `removed` across a refusal: its records and purge debts are consumed only in the last
+       transaction.
      - Only a busy or locked engine invites the caller to ask again. Any other engine error (a
        broken constraint, a damaged file, an error of the disk) gives the same answer until its
        cause is fixed. Its message names what failed and does not invite a retry.
@@ -2063,7 +2089,173 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      the claims that is -0 answers +0, and so does an arrival record's `at`. Admission makes the
      change, in every store, so the memory store and the SQLite store answer alike. The memory
      store answered -0 before; the SQLite store, which keeps the canonical bytes, answered +0.
-
+107. **The later proof** (slice 4, step 4b; decision S4-13). A store that records the removal of
+     an id answers a later purge of that id `removed`, with the surface states of that call. The
+     id need not be held or owed by the peer. The record is the peer's own, so the answer tells
+     the peer nothing about another peer. A peer that never removed the id gets `not-held`, as
+     before. The SQLite store writes the record, a `surface_debt` row `(peer, delta)`, for a peer
+     of posture `proven`, in the transaction of the delete. In the last transaction of a later
+     purge (reading 115):
+     - the delta row is in the file: the answer is `held-by-other-peer`, and the record stays. An
+       append ends every record of its id (reading 118), so this case needs a record that no
+       append ended; the store checks it all the same;
+     - the delta row is not in the file and the file is clean (reading 117): the answer is
+       `removed`, every file surface is `absent`, and the record ends;
+     - the delta row is not in the file and the file is not clean: the answer is `removed`, every
+       file surface is `owed`, and the record stays.
+108. **`retains`** (slice 4, step 4b; decision S4-5). Every purge report carries `retains`, the
+     surfaces that may still hold the id of a target whose outcome is `removed` or
+     `held-by-other-peer`. A target that is `not-held` never adds to it: a purge does not tell a
+     peer about holdings it did not have. In a fixed order:
+     - `change-feed` whenever the store's retention is not `none`. Both TypeScript stores always
+       list it;
+     - `purge-debt` while a purge debt of any peer names such a target;
+     - `surface-debt` while a record of a removal (reading 107) of any peer names such a target.
+     The memory store lists the first two. The SQLite store lists all three. Rust adds the field
+     in step 4e.
+109. **The residue of a removal belongs to the file** (slice 4, step 4b; decision S4-12). A
+     rebalanced page can keep copies of a deleted row in its free space. The SQLite store keeps
+     the residue with two counters (reading 117), not per id:
+     - a purge deletes its rows in a first transaction; the triggers count each deleted
+       `holding`, `delta`, `target` and `reference` row in that transaction. A release of a holding that another peer keeps
+       deletes the peer's `holding` row (its arrival record, its signature) and its pointer rows,
+       and is counted the same way;
+     - a peer of posture `proven` then rebuilds when the file is not clean: it reads `dirty` as
+       `d` in its own transaction and runs `VACUUM`. It always runs `wal_checkpoint(TRUNCATE)`,
+       also on a clean file. When every step succeeded and the log is empty at the last
+       transaction's lock (reading 119), the last transaction sets `clean = max(clean, d)`. It
+       rebuilds also when it removed nothing, and also for a later ask;
+     - every file surface is `absent` when, in the last transaction, the log was empty at the
+       lock and the file is clean; it is `owed` otherwise. The claim is not `proven` then;
+     - when a purge debt answers `removed` while the file is not clean, a peer of posture `proven`
+       gets a record (reading 107), so that its next ask can be answered `proven`.
+     A crash at any point leaves `clean` at most `dirty`. A reopened store reports `owed` until a
+     rebuild succeeds.
+110. **A peer that asks for no proof** (slice 4, step 4b; decision S4-16). A purge by a peer of
+     posture `unproven` runs no rebuild and keeps no record per id: the counter is its record.
+     What such a purge reports:
+     - every file surface `owed` while the file is not clean, which is always so after it deletes
+       a row;
+     - every file surface `absent` only when the file is clean and the log was empty when its
+       last transaction took the lock (reading 119). It never empties the log itself, and the last
+       transaction of most purges leaves frames there, so this answer is rare;
+     - the claim `unproven` when a target is `removed`, and `nothing-removed` when none is. It is
+       never `proven`.
+     A later ask of an id it removed answers `not-held`. §4.7.2 permits it: `not-held` claims
+     nothing about bytes, and the peer asked for no proof.
+111. **A busy log** (slice 4, step 4b). `wal_checkpoint(TRUNCATE)` answers a row and does not
+     throw. The store reads it: anything but `busy = 0` and `log = 0` is a failed truncate. Then
+     the old pages are still in the database file, not only in the log, so every file surface is
+     `owed`, `rows` and `index-entries` included. A reader in another process causes this; the
+     store's own snapshots hold no transaction (decision S4-2). A `VACUUM` or a checkpoint that
+     throws (busy, locked, a full disk, an error of the disk) is `owed` too, and the purge still
+     answers its report: its delete has committed.
+112. **The SQLite store's class and surfaces** (slice 4, step 4b). The class is `proven` on Linux
+     and `unprovable` on every other platform, read once from the platform and never from the
+     profile or from a row (§5.2 names the Windows and macOS gaps). The declared surfaces are, in
+     order: `rows`, `index-entries`, `page-free-space`, `freed-pages`, `write-ahead-log` and
+     `temp-files`. `temp-files` is `unprovable` on a store of class `unprovable`, so such a store
+     never claims `proven`. `createPeer` and `peer` refuse `posture-refused` for a peer of posture
+     `proven` on a store whose class is not `proven`, also for a peer that a store of class
+     `proven` created in the same file. The format is `rhizomatic-store-sqlite/2`. Open refuses a
+     file of format `/1`, which step 4a wrote, with `open-failed`, and names both formats. No
+     migration ships.
+113. **What a settled row proves.** Withdrawn: replaced by reading 118. Records have no state.
+114. **Any deleted row of a peer leaves residue** (slice 4, step 4b, after review). A purge that
+     deletes a row of the purging peer leaves residue, a release of a holding that another peer
+     keeps included. The triggers count its `holding` row and its pointer rows in the same
+     transaction (reading 117). The
+     surface states then follow reading 109: `absent` only when the file is clean. The claim stays
+     `nothing-removed` when no target is `removed`. The other peer's copy keeps its own arrival
+     record and signature.
+115. **A report speaks for the state at its last commit** (slice 4, step 4b, second and third
+     review). A purge of the SQLite store ends with one more write transaction, after the rebuild
+     or in its place. Everything the report states comes from that transaction, from state read
+     in it, for every target, whatever the order of the ids in the call:
+     - it sets `clean` when the call's own rebuild and truncate succeeded (reading 117), then
+       reads whether the file is clean;
+     - it looks again at the delta row of every target the call released, and of every id it
+       answers from a record or a purge debt, whatever the peer's posture and whether a rebuild
+       ran. Another process can append or purge the id between the first transaction and this
+       one;
+     - a present row gives `held-by-other-peer`. The peer then has the purge debt it would have
+       had if its first transaction had seen the other holder, so its next ask is consistent. An
+       absent row gives `removed`;
+     - it consumes the records and purge debts it answers from, and computes `retains`;
+     - its `revision` is the peer's revision read in it. Another process can append between the
+       first transaction and this one; the report then carries that later revision, the one its
+       outcomes speak for (after the fourth review).
+     The report is true at the instant this transaction commits, which is the last instant the
+     store can speak for. An append after it can add the same bytes again; no store can prevent
+     that. When this transaction cannot commit, the purge refuses `store-unavailable`: its delete
+     has committed and the file is not clean, and a second purge answers the present state
+     (reading 105). The memory store takes its second look in the same synchronous call, with no
+     writer between, so it has no such window.
+116. **A permitted difference: what a former holder hears.** Withdrawn: replaced by reading 118.
+     The two stores now give the same answer.
+117. **The file is clean iff `clean = dirty`** (slice 4, step 4b, after the third and fourth
+     reviews). The SQLite store keeps one row, `residue (dirty, clean)`, with `clean <= dirty`
+     checked by the engine. An `AFTER DELETE` and an `AFTER UPDATE` trigger on each table whose
+     rows hold erasable material (`holding`, `delta`, `target`, `reference`) raise `dirty` by
+     one per row, in the transaction of the write. A cascade fires them too. No code path can
+     delete or rewrite such a row and not count it, and a rolled-back write rolls its count
+     back. A `REPLACE` deletes rows without firing a delete trigger while `recursive_triggers`
+     is off, so no statement of the store uses one. `VACUUM` writes no row and fires no trigger.
+     A rebuild reads `dirty` as `d` before `VACUUM`, and its call's last transaction sets
+     `clean = max(clean, d)` only when `VACUUM` and the truncate both succeeded and the log was
+     empty at its lock. A delete that commits after that read raises `dirty` past `d`, in
+     whichever step of the rebuild it falls, so the file stays not clean. A file surface is
+     `absent` only when two conditions hold in the purge's last transaction: the file is clean,
+     and the log was empty when that transaction took the write lock (reading 119). There is no
+     other ground for `absent`. Its costs:
+     - under steady deletes by other processes, a peer of posture `proven` can find the file not
+       clean at every last commit, and report `owed` each time. This is a loss of liveness, never
+       a false report. Each such ask pays a rebuild, which is O(store);
+     - every purge takes the write lock twice, and a purge that finds frames in the log takes it
+       up to four times (reading 119).
+118. **A record ends at an append of its id** (slice 4, step 4b, after the third review). An
+     append of an id deletes every peer's record of a removal of that id (reading 107), in the
+     append's transaction. The bytes are live again, so no proof of absence exists for that
+     removal. A former holder that asks after the append answers `not-held`: it owes nothing and
+     learns nothing about the new holder. The memory store answers the same. A peer can reach
+     `removed` and `proven` for that id again only by holding it and removing it again, or by a
+     purge debt (§4.7.2).
+119. **A write that does not commit** (slice 4, step 4b, after the fourth review). The engine
+     writes the pages of a write to the log before its commit: at the commit, and earlier when the
+     write spills the page cache. A write that fails (an error of the disk, a full disk) or dies
+     leaves those pages in `store.db-wal`, past the last commit. It deletes no row, so no counter
+     sees it. The rule:
+     - a peer of posture `proven` runs `wal_checkpoint(TRUNCATE)` before its last transaction,
+       also on a clean file. When its `VACUUM` throws, it runs no truncate and has no proof. The
+       file is then not clean, so the report is `owed`, unless another process rebuilt it since;
+     - the last transaction starts with `BEGIN IMMEDIATE`. Under the write lock, before its first
+       write, it reads the size of the log file from its path. The path is the engine's own path of
+       the database file (`PRAGMA database_list`), not the path of the open call. A size of 0 is
+       the second condition of reading 117. A missing file, or a file it cannot read, is not 0. A
+       database file with a link count other than 1 is also not 0: a second hard link has a log
+       of its own, under its own name. The store reads one log, beside that path. A log beside
+       any other name of the file is outside what the store sees, and a report does not cover
+       it (§4.7.2). Examples: a hard link that was removed, a rename of the file without its
+       log, a bind mount of the file;
+     - when the size is not 0, a peer of posture `proven` rolls back, runs the truncate again and
+       takes the lock again. Its third try answers without the proof: no `clean` update, every
+       file surface `owed`, and a record for each `removed` target, as for a busy truncate
+       (reading 111). When a truncate fails, the next try answers at once without the proof: no
+       `clean` update, and `absent` only when the log is empty under the lock and the file is
+       clean (reading 117). A peer of posture `unproven` takes the lock once;
+     - why it holds: only the holder of the write lock writes frames, and a writer that fails or
+       dies never shrinks the log. A writer that starts again from the first frame writes over the
+       old frames and leaves the file at its size. So an empty log at the lock holds no frame of
+       any writer, committed or not. Measured with SQLite 3.53.2: the frames of a rolled-back write
+       stay in the file; a later commit does not shrink it; `BEGIN IMMEDIATE`, a read in it and the
+       commit of a transaction that writes nothing add no frame; `TRUNCATE` empties a log that
+       holds frames past the last commit;
+     - the last transaction then writes pages of `residue`, `debt` and `surface_debt` and their
+       indexes, and can write the file header. These hold counters and ids, which a report may
+       keep (decision O4). After a `VACUUM`, or in a clean file, no free space of such a page
+       holds a byte that a removal left: a delete of an erasable row would have raised `dirty`;
+     - the cost is liveness, never a false report: steady writes by other processes can keep
+       frames in the log at every try, and the purge then answers `owed`.
 
 ## 5. Architectures
 
@@ -2114,9 +2306,21 @@ schema.
   indexes and filters; its cost is the peer's, not the container's.
 - **Erasure:** `secure_delete = ON` and a truncated WAL are not enough for `proven`. When SQLite
   rebalances a page, it leaves old copies of live cells in unused space, and a later purge does
-  not reach them (slice 4 plan §2). A SQLite store is `proven` only when it rebuilds its pages
-  after a purge (step 4b). Until then its class is `unprovable`. Postgres keeps dead rows until
-  `VACUUM`, and even `VACUUM FULL` leaves WAL archives, replicas and backups, so it is
+  not reach them (slice 4 plan §2). The SQLite store rebuilds its pages after a purge (`VACUUM`
+  in place with `temp_store = FILE`, then `wal_checkpoint(TRUNCATE)`; step 4b, §4.13 readings
+  107 to 119). Two counters, kept by triggers, tell whether the file is clean (reading 117), and
+  a proof also needs an empty log under the write lock (reading 119). Its class is `proven` on Linux only, where the erasure rails run. Two named gaps:
+  - **Windows.** The rebuild's temporary file of live deltas is deleted at close, not unlinked
+    at creation. A power loss during a rebuild can leave it in the temp directory, and a later
+    purge of those deltas does not reach it. A temp directory the store controls, or a sweep at
+    open, could close it.
+  - **macOS.** No CI job runs the erasure rails there. `fsync` on macOS does not flush the
+    drive's cache without `PRAGMA fullfsync`, so a power loss after a `proven` report could leave
+    the old pages on the disk. The class stays `unprovable` until a macOS job runs the rails and
+    the durability question is settled.
+
+  On these and every other platform the class is `unprovable`. Postgres keeps dead
+  rows until `VACUUM`, and even `VACUUM FULL` leaves WAL archives, replicas and backups, so it is
   `unprovable`.
 - **Use:** servers and CLIs. SQLite also runs in browsers as WebAssembly over OPFS.
 
@@ -2367,10 +2571,13 @@ Slice 3 leaves these to later slices. Each was owed by the slice 3 build plan, w
 - Records appear in revision order (§4.6; §4.13 reading 5). A store open to several writing
   processes enforces this at commit. Slice 4 adds the rail; a sequential runner cannot test it.
 - The purge report names the change feed as a surface that still holds the id of a purged delta
-  (§4.7.2).
+  (§4.7.2). Done in step 4b: `retains` (§4.13 reading 108).
 - A durable store's default retention is bounded. Under `unbounded` retention a purged id stays
   in the feed for as long as the store lives.
 - A purge does not report a surface `absent` while an open snapshot can still read the bytes.
+  Done in step 4b for the SQLite store: a snapshot holds no transaction (decision S4-2), and a
+  reader in another process keeps the log from truncating, so the report says `owed`
+  (§4.13 reading 111).
 - "Nothing is served silently" (§4.7.3) covers lost rows. Slice 4 narrows it, or backs it, for lost
   index entries: a lost index entry hides a delta without a read failing.
 - A cost rail that a debug build cannot see runs in release mode in CI, as the held-views wrong
@@ -2522,6 +2729,38 @@ system promises):
 - A follower's mirror and a held view are copies outside the store; the host erases them.
 - A host keeps its copies of held views by the host rule (`from: "new"`, `changed`, `evicted`).
 - Only a pass that succeeds releases a purged payload; a failed pass erases nothing.
+
+**Slice 4, step 4b decisions** (from `18-store.SLICE-4.PLAN.md`, moved here as 4b lands; ⚑
+changes what the system promises):
+
+- **⚑ S4-5.** The purge report names what it retains, conservatively (§4.13 reading 108). A
+  contract change in both witnesses; Rust follows in step 4e.
+- **⚑ S4-12.** `proven` on SQLite needs a rebuild of the pages, and the residue belongs to the
+  file, not to a peer (reading 109).
+- **⚑ The file is clean iff `clean = dirty`, kept by triggers** (reading 117). With an empty log
+  under the write lock (reading 119), it is the only ground for a file surface `absent`. It
+  replaced the per-id states, generations and file-level mark after the third review of PR #87.
+- **⚑ A write that does not commit** (reading 119). Its pages can stay in the log, and no counter
+  sees them. A proof empties the log and reads its size under the write lock. This applies to a
+  peer of posture `unproven` too: it says `absent` only with an empty log.
+- **S4-13.** A later purge gives the later proof (reading 107), until an append of the id ends the
+  record (reading 118).
+- **⚑ A report speaks for the state at its last commit** (reading 115). The last transaction of a
+  purge looks again at every target it released or answers from a record, and consumes the
+  records it answers from.
+- **⚑ S4-14.** The process memory of a store that keeps its data in files lies outside the erasure
+  claim. Myk's ruling, 2026-11-15 (§4.7.2, "The boundary of absent").
+- **S4-16.** A peer of posture `unproven` does not pay for a rebuild and keeps no record: the
+  counter is its record (reading 110).
+- **⚑ The SQLite store claims `proven` on Linux only** and is `unprovable` elsewhere (reading
+  112). Windows and macOS are named gaps in §5.2. macOS waits for a CI job that runs the erasure
+  rails and for a decision on `fullfsync`.
+- **⚑ Any purge that deletes a row of the peer leaves residue** (reading 114). The triggers
+  count a release of a holding that another peer keeps.
+- **A refused purge may have committed its delete** (reading 105). No retry answer is false.
+- **A file of format `/1` is refused.** Step 4b changed the tables (`holding` is a rowid table) and
+  raised the format to `/2`. The work is greenfield, so no rebuild or migration of a `/1` file
+  ships.
 
 **Open items carried forward** (not blocking slice 1):
 

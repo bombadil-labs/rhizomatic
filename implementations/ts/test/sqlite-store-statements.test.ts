@@ -4,6 +4,7 @@
 // and closes. Transaction control and the connection pragmas are listed here by name.
 
 import Database from "better-sqlite3";
+import { makeDelta } from "../src/delta/set.js";
 import { afterAll, describe, expect, it } from "vitest";
 import { SQLITE_SCHEMA, SQLITE_STATEMENTS } from "../src/storage/sqlite-statements.js";
 import { runStoreConformance } from "../src/storage/store-conformance.js";
@@ -27,7 +28,6 @@ const ALLOWED = new Set<string>([
   "PRAGMA busy_timeout = 5000",
   "PRAGMA busy_timeout",
   ...RULES.map((rule) => `PRAGMA ${rule}`),
-  "PRAGMA wal_checkpoint(TRUNCATE)",
 ]);
 
 type Method = (this: Database.Database, text: string, ...rest: unknown[]) => unknown;
@@ -47,6 +47,24 @@ describe("the statement list", () => {
       expect(report.skipped).toEqual([]);
       const store = await fixture.open();
       store.openAdmin().connection();
+      // A peer of posture proven runs the rebuild on a store of class proven.
+      if (store.profile.capabilities.erasure === "proven") {
+        const peer = await store.createPeer("peer:p", { erasure: "proven" });
+        const delta = makeDelta({
+          timestamp: 1,
+          validFrom: 0,
+          author: "a",
+          pointers: [{ role: "about", target: { kind: "entity", entity: { id: "e" } } }],
+        });
+        const arrival = { id: delta.id, at: 1, sequence: 1, transfer: 1, sender: "s" };
+        await peer.append({
+          expectedHead: null,
+          nextHead: "h",
+          frame: null,
+          added: [{ delta, arrival }],
+        });
+        expect((await peer.purge([delta.id])).claim).toBe("proven");
+      }
       await store.close();
     } finally {
       Object.assign(proto, originals);
@@ -56,6 +74,16 @@ describe("the statement list", () => {
     for (const text of [
       SQLITE_SCHEMA,
       SQLITE_STATEMENTS.scope,
+      ...(process.platform === "linux"
+        ? [
+            SQLITE_STATEMENTS.vacuum,
+            SQLITE_STATEMENTS.residueDirty,
+            SQLITE_STATEMENTS.residueClean,
+            SQLITE_STATEMENTS.surfaceDebtAdd,
+          ]
+        : []),
+      SQLITE_STATEMENTS.checkpoint,
+      SQLITE_STATEMENTS.residueRead,
       "BEGIN IMMEDIATE",
       "PRAGMA synchronous",
     ])

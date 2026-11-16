@@ -1,13 +1,22 @@
-// The SQLite store (SPEC-18 proposal §5.2; slice 4 plan, step 4a). Every contract read is one
-// indexed statement, and the engine keeps the consistency it can: foreign keys, uniqueness,
+// The SQLite store (SPEC-18 proposal §5.2; slice 4 plan, steps 4a and 4b). Every contract read is
+// one indexed statement, and the engine keeps the consistency it can: foreign keys, uniqueness,
 // checks and strict types. A snapshot holds a revision, not a transaction: each call is one short
-// read transaction that checks the revision first (decision S4-2). Erasure is `unprovable` until
-// the pages are rebuilt after a purge (step 4b), so every report says `unproven`.
+// read transaction that checks the revision first (decision S4-2).
+//
+// Erasure (plan §7). A deleted row can leave copies of its bytes in the free space of live pages,
+// so a purge by a peer of posture `proven` rebuilds the pages (`VACUUM`) and empties the log
+// (`wal_checkpoint(TRUNCATE)`). The residue belongs to the file, and two counters keep it: a
+// trigger raises `residue.dirty` in the transaction of every delete or update of a row that holds
+// erasable material, and a rebuild that read `dirty = d` before it began raises `residue.clean`
+// to `d`. A write that does not commit deletes no row, but its pages can stay in the log, so the
+// counters do not see it. A file surface is `absent` only when both hold in the purge's last
+// transaction: the log was empty when it took the write lock, and `clean = dirty`.
 //
 // Importing this module registers the `sqlite:` scheme of `openStore`. The package root never
 // imports it, so a host without `better-sqlite3` can still load the root.
 
 import { randomBytes } from "node:crypto";
+import { statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { compareUtf8, decode, type CborValue } from "../delta/cbor.js";
@@ -42,7 +51,7 @@ import {
   type StoreProfile,
 } from "./store.js";
 
-export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/1";
+export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/2";
 
 export type SqliteStoreOptions = {
   /** How long a call waits for a lock another connection holds, in ms. Default 5000. */
@@ -62,9 +71,19 @@ export type SqliteStoreOptions = {
 };
 
 const DEFAULT_RETENTION = { revisions: 1024 } as const;
-// Until step 4b rebuilds the pages after a purge, freed space can keep a purged delta's bytes.
-const ERASURE_CLASS: ErasureClass = "unprovable";
+/**
+ * The store's erasure class, read once from the platform. A rebuild writes the live deltas to a
+ * temporary file. On Linux the engine unlinks that file when it creates it, so a crash leaves
+ * nothing, and the erasure rails run there. On Windows the file is deleted at close, and a power
+ * loss during a rebuild can leave a file of live deltas that a later purge does not reach. On
+ * macOS no rail has run, and `fsync` does not flush the drive's cache without `fullfsync`. The
+ * class is `unprovable` on every platform but Linux.
+ */
+const ERASURE_CLASS: ErasureClass = process.platform === "linux" ? "proven" : "unprovable";
 const EXPORT_PAGE = 256;
+/** How many times a purge's last transaction takes the write lock to find the log empty. */
+const LAST_TRIES = 3;
+const LOG_NOT_EMPTY = new Error("the log holds frames");
 
 /**
  * The connection rules (plan §4), as the engine reports them: `foreign_keys` and `secure_delete`
@@ -94,16 +113,17 @@ export interface SqliteStore extends Store {
   openAdmin(): SqliteExporter;
 }
 
-// The connection rules: each pragma is set, then read back, and open refuses a difference.
+// The connection rules: each pragma is set, then read back, and open refuses a difference. The
+// wait comes first: `journal_mode` reads the file, and must wait only as long as the host asked.
 const RULES = (
   busyTimeoutMs: number,
 ): readonly (readonly [keyof SqliteConnection, string, unknown])[] => [
+  ["busy_timeout", String(busyTimeoutMs), busyTimeoutMs],
   ["foreign_keys", "ON", 1],
   ["secure_delete", "ON", 1],
   ["journal_mode", "WAL", "wal"],
   ["synchronous", "FULL", 2],
   ["temp_store", "FILE", 1],
-  ["busy_timeout", String(busyTimeoutMs), busyTimeoutMs],
 ];
 const MAX_BUSY_TIMEOUT = 2 ** 31 - 1;
 
@@ -123,16 +143,20 @@ type DeltaRow = { id: Id; claims: Uint8Array; sig: string | null };
 const sorted = (ids: Iterable<Id>): Id[] => [...new Set(ids)].sort(compareUtf8);
 
 /**
- * A refusal for an error of the engine (§4.13 reading 105). Only a busy or locked engine invites
- * a retry. Any other error (a constraint, a damaged file, the disk) answers the same until its
- * cause is fixed, so the message says what failed and does not invite one.
+ * A refusal for an error of the engine (§4.13 reading 105). Only a transient error invites a
+ * retry: a busy or locked engine, a lost race for the log's lock (`SQLITE_PROTOCOL`,
+ * `SQLITE_IOERR_LOCK`), an interrupted call and a failed allocation. Any other error (a
+ * constraint, a damaged file, the disk) answers the same until its cause is fixed, so the message
+ * says what failed and does not invite one.
  */
 function unavailable(error: unknown): unknown {
   if (!(error instanceof Database.SqliteError)) return error;
-  const busy = /^SQLITE_(BUSY|LOCKED)/.test(error.code);
+  const transient = /^SQLITE_(BUSY|LOCKED|PROTOCOL$|IOERR_LOCK$|INTERRUPT$|NOMEM$)/.test(
+    error.code,
+  );
   return new StoreError(
     "store-unavailable",
-    busy
+    transient
       ? `the SQLite store cannot serve this call now (${error.code}); ask again`
       : `the SQLite store failed: ${error.message} (${error.code}); this is not a lock, and the same call fails again until the cause is fixed`,
   );
@@ -257,6 +281,7 @@ class SqliteFileStore implements SqliteStore {
   readonly #pageSize: number;
   readonly #mint: ((peer: PeerId) => History) | undefined;
   readonly #rules: ReturnType<typeof RULES>;
+  readonly #file: string;
   #closed = false;
 
   constructor(db: Database.Database, options: OwnOptions) {
@@ -270,6 +295,9 @@ class SqliteFileStore implements SqliteStore {
           "open-failed",
           `sqlite store: the connection refused ${name} = ${value}`,
         );
+    // The engine's own full path of the file, so that a later change of directory moves nothing.
+    const files = db.prepare(SQLITE_STATEMENTS.files).all() as { name: string; file: string }[];
+    this.#file = files.find((f) => f.name === "main")!.file;
     this.#begin = db.prepare("BEGIN");
     this.#beginWrite = db.prepare("BEGIN IMMEDIATE");
     this.#commit = db.prepare("COMMIT");
@@ -339,8 +367,9 @@ class SqliteFileStore implements SqliteStore {
 
   /**
    * Runs `body` in one transaction: a read, or a write that holds the write lock from its start.
-   * An engine error refuses `store-unavailable` and changes nothing. `uncertain` answers for a
-   * failed commit, after which the store cannot tell whether the transaction committed.
+   * An engine error refuses `store-unavailable` and rolls this transaction back; an earlier
+   * transaction of the same call stays committed. `uncertain` answers for a failed commit, after
+   * which the store cannot tell whether the transaction committed.
    */
   #run<T>(mode: "read" | "write", body: () => T, uncertain?: (error: unknown) => T): T {
     try {
@@ -460,6 +489,11 @@ class SqliteFileStore implements SqliteStore {
         ? this.#run("read", () => this.#peerRow(id))
         : undefined;
     if (row === undefined) throw new StoreError("peer-absent", "peer: no such peer");
+    if (row.posture === "proven" && ERASURE_CLASS !== "proven")
+      throw new StoreError(
+        "posture-refused",
+        `peer: the peer promises proven erasure and this store's class is ${ERASURE_CLASS}`,
+      );
     return this.#handle(id, row);
   }
 
@@ -467,7 +501,7 @@ class SqliteFileStore implements SqliteStore {
     return {
       id,
       history: row.history,
-      erasure: { posture: row.posture, storeClass: row.storeClass },
+      erasure: { posture: row.posture, storeClass: ERASURE_CLASS },
       read: async () => {
         this.#open();
         return this.#snapshot(
@@ -671,6 +705,8 @@ class SqliteFileStore implements SqliteStore {
             else if (target.kind === "delta")
               this.#s.referenceAdd.run(peer, target.deltaRef.delta, role, id);
           this.#s.debtDrop.run(peer, id);
+          // A record of a removal speaks of bytes that left the file. A holding of the id ends it.
+          this.#s.surfaceDebtClose.run(id);
         }
         const ids = sorted(fresh.keys());
         if (ids.length === 0 && row.head === nextHead)
@@ -692,60 +728,184 @@ class SqliteFileStore implements SqliteStore {
     );
   }
 
+  /**
+   * The purge (plan §6, §7). The first transaction removes the holdings and writes the change
+   * record; the triggers count each deleted row. A peer of posture `proven` then rebuilds while
+   * the file is not clean, and always empties the log. The last transaction decides the whole
+   * report from what it reads, so the report is true at its commit (§4.13 reading 115). It
+   * consumes every record it answers from, and nothing before it does. When it finds frames in
+   * the log, a peer of posture `proven` lets go of the lock, empties the log and tries again; the
+   * last try answers without the proof (reading 119).
+   */
   #purge(peer: PeerId, ids: readonly Id[]): PurgeReport {
     const s = this.#s;
-    return this.#run("write", () => {
+    const asked = sorted(ids);
+    const first = this.#run("write", () => {
       const row = this.#peerRow(peer)!;
-      const targets: { id: Id; outcome: PurgeOutcome }[] = [];
+      const proving = ERASURE_CLASS === "proven" && row.posture === "proven";
       const released: Id[] = [];
-      let rowsOwed = false;
-      let indexesOwed = false;
-      for (const id of sorted(ids)) {
-        let outcome: PurgeOutcome;
-        if (s.holdingFind.get(peer, id) !== undefined) {
-          s.holdingDrop.run(peer, id);
-          released.push(id);
-          if (s.heldElsewhere.get(id) === undefined) s.deltaDrop.run(id);
-          else s.debtAdd.run(peer, id);
-          // The report states what a second look finds, not what the removal intended.
-          indexesOwed ||= (s.indexLeft.get({ peer, id }) as { found: number }).found === 1;
-          outcome = s.deltaFind.get(id) === undefined ? "removed" : "held-by-other-peer";
-        } else if (s.debtFind.get(peer, id) !== undefined) {
-          if (s.deltaFind.get(id) === undefined) {
-            s.debtDrop.run(peer, id);
-            outcome = "removed";
-          } else outcome = "held-by-other-peer";
-        } else outcome = "not-held";
-        rowsOwed ||= outcome === "removed" && s.deltaFind.get(id) !== undefined;
-        targets.push({ id, outcome });
+      for (const id of asked) {
+        if (s.holdingFind.get(peer, id) === undefined) continue;
+        s.holdingDrop.run(peer, id);
+        released.push(id);
+        if (s.heldElsewhere.get(id) !== undefined) s.debtAdd.run(peer, id);
+        else {
+          s.deltaDrop.run(id);
+          // The record of the removal, in the delete's transaction: a crash after it keeps the
+          // peer's later proof (decision S4-13).
+          if (proving) s.surfaceDebtAdd.run(peer, id);
+        }
       }
-      let revision = row.revision;
-      if (released.length > 0) {
-        revision++;
+      if (released.length > 0)
         this.#advance(
           peer,
           row,
-          { ...row, revision, count: row.count - released.length },
+          { ...row, revision: row.revision + 1, count: row.count - released.length },
           [],
           released,
         );
-      }
-      const removed = targets.some((target) => target.outcome === "removed");
-      return {
-        claim: removed ? "unproven" : "nothing-removed",
-        boundary: PURGE_BOUNDARY,
-        revision,
-        targets,
-        surfaces: [
-          { surface: "rows", state: rowsOwed ? "owed" : "absent" },
-          { surface: "index-entries", state: indexesOwed ? "owed" : "absent" },
-          // Freed pages and the log can keep bytes until the pages are rebuilt (step 4b).
-          { surface: "page-free-space", state: "unprovable" },
-          { surface: "freed-pages", state: "unprovable" },
-          { surface: "write-ahead-log", state: "unprovable" },
-        ],
-      };
+      return { proving, released: new Set(released), dirty: !this.#clean() };
     });
+    let proof = first.proving ? this.#rebuild(first.dirty) : undefined;
+    for (let tries = 1; ; tries++) {
+      try {
+        return this.#run("write", () => this.#decide(peer, asked, first, proof, tries));
+      } catch (error) {
+        if (error !== LOG_NOT_EMPTY) throw error;
+        if (!this.#truncate()) proof = undefined;
+      }
+    }
+  }
+
+  /**
+   * The body of a purge's last transaction (§4.13 readings 115, 117 and 119). It runs under the
+   * write lock and decides the whole report from what it reads.
+   */
+  #decide(
+    peer: PeerId,
+    asked: readonly Id[],
+    first: { proving: boolean; released: ReadonlySet<Id> },
+    proof: { d: number | undefined } | undefined,
+    tries: number,
+  ): PurgeReport {
+    const s = this.#s;
+    // Only the holder of the write lock writes frames, and a writer that failed or died never
+    // shrinks the log. An empty log now holds no frame of any writer, committed or not.
+    const empty = this.#logEmpty();
+    if (proof !== undefined && !empty && tries < LAST_TRIES) throw LOG_NOT_EMPTY;
+    if (empty && proof?.d !== undefined) s.residueClean.run(proof.d);
+    const clean = empty && this.#clean();
+    let left = false;
+    // Each answer reads the state now, under the write lock: another process may have appended
+    // or purged the id since the first transaction.
+    const answer = (id: Id): PurgeOutcome => {
+      const present = s.deltaFind.get(id) !== undefined;
+      if (first.released.has(id)) {
+        left ||= (s.indexLeft.get({ peer, id }) as { found: number }).found === 1;
+        if (present) {
+          if (s.holdingFind.get(peer, id) === undefined) s.debtAdd.run(peer, id);
+          return "held-by-other-peer";
+        }
+        s.debtDrop.run(peer, id);
+        if (first.proving) s.surfaceDebtAdd.run(peer, id);
+        return "removed";
+      }
+      if (s.debtFind.get(peer, id) !== undefined) {
+        if (present) return "held-by-other-peer";
+        s.debtDrop.run(peer, id);
+        // Another peer's purge removed the bytes. While the file is not clean, this peer gets
+        // a record, so that a later ask can give the proof.
+        if (first.proving && !clean) s.surfaceDebtAdd.run(peer, id);
+        return "removed";
+      }
+      if (s.surfaceDebtFind.get(peer, id) === undefined) return "not-held";
+      if (present) return "held-by-other-peer";
+      // The later proof (decision S4-13): the record ends once the file is clean.
+      if (clean) s.surfaceDebtDrop.run(peer, id);
+      return "removed";
+    };
+    const targets = asked.map((id) => ({ id, outcome: answer(id) }));
+    // The surfaces that may still hold the id of a target this peer released or owes. The list
+    // may name one that no longer does; it never omits one that does (decision S4-5).
+    const named = targets.filter((t) => t.outcome !== "not-held").map((t) => t.id);
+    const retains: PurgeReport["retains"][number][] = [{ surface: "change-feed", holds: "id" }];
+    if (named.some((id) => s.debtNames.get(id) !== undefined))
+      retains.push({ surface: "purge-debt", holds: "id" });
+    if (named.some((id) => s.surfaceDebtNames.get(id) !== undefined))
+      retains.push({ surface: "surface-debt", holds: "id" });
+    const files = clean ? "absent" : "owed";
+    const surfaces: PurgeReport["surfaces"] = [
+      { surface: "rows", state: files },
+      { surface: "index-entries", state: left ? "owed" : files },
+      { surface: "page-free-space", state: files },
+      { surface: "freed-pages", state: files },
+      { surface: "write-ahead-log", state: files },
+      { surface: "temp-files", state: ERASURE_CLASS === "proven" ? files : "unprovable" },
+    ];
+    return {
+      claim: !targets.some((t) => t.outcome === "removed")
+        ? "nothing-removed"
+        : first.proving && surfaces.every((surface) => surface.state === "absent")
+          ? "proven"
+          : "unproven",
+      boundary: PURGE_BOUNDARY,
+      // The peer's revision at this commit, which the report speaks for (reading 115).
+      revision: this.#peerRow(peer)!.revision,
+      targets,
+      surfaces,
+      retains,
+    };
+  }
+
+  /** `clean = dirty`: a rebuild began after the last delete or update of an erasable row. */
+  #clean(): boolean {
+    const { dirty, clean } = this.#s.residueRead.get() as { dirty: number; clean: number };
+    return clean === dirty;
+  }
+
+  /**
+   * The log file is there and empty, and the database file has one name only: a second hard link
+   * has a log of its own, which this stat cannot see. A path stat opens no descriptor, so it drops
+   * no lock.
+   */
+  #logEmpty(): boolean {
+    try {
+      return statSync(this.#file).nlink === 1 && statSync(`${this.#file}-wal`).size === 0;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Rebuilds the pages when the file is not clean, and always empties the log. Answers `{d}`,
+   * the count of deletes it read before `VACUUM` (none when it ran none), when every step
+   * succeeded, and `undefined` otherwise. A delete that commits after that read raises `dirty`
+   * past `d`, so the file stays not clean, whichever step it fell between.
+   */
+  #rebuild(dirty: boolean): { d: number | undefined } | undefined {
+    const s = this.#s;
+    let d: number | undefined;
+    if (dirty)
+      try {
+        d = this.#run("read", () => s.residueDirty.get() as { dirty: number }).dirty;
+        s.vacuum.run();
+      } catch {
+        return undefined;
+      }
+    return this.#truncate() ? { d } : undefined;
+  }
+
+  /**
+   * Empties the log. A busy checkpoint answers a row and does not throw. Until it truncates,
+   * the old pages stay in the database file and the log.
+   */
+  #truncate(): boolean {
+    try {
+      const { busy, log } = this.#s.checkpoint.get() as { busy: number; log: number };
+      return busy === 0 && log === 0;
+    } catch {
+      return false;
+    }
   }
 
   openAdmin(): SqliteExporter {
@@ -808,7 +968,7 @@ class SqliteFileStore implements SqliteStore {
     if (this.#closed) return;
     this.#closed = true;
     try {
-      this.#db.pragma("wal_checkpoint(TRUNCATE)");
+      this.#s.checkpoint.get();
     } catch {
       // Another connection holds the log; it is truncated at a later close.
     }
@@ -820,6 +980,10 @@ class SqliteFileStore implements SqliteStore {
  * Opens the SQLite store in the file at `path`, and creates it when the file is new or empty.
  * Refuses `open-failed` for a file that is not a store of this format, and `invalid-request` for
  * options of the wrong type and for a retention other than the file keeps.
+ *
+ * Importing this module registers the `sqlite` scheme of `openStore`. A host that registered its
+ * own `sqlite` factory first keeps the scheme: the import neither replaces it nor fails. This
+ * function always opens this store, whoever holds the scheme.
  */
 export async function openSqliteStore(
   path: string,

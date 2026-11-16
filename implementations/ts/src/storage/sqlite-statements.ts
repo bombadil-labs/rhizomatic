@@ -1,7 +1,17 @@
 // The SQLite store's schema and every statement it prepares (SPEC-18 slice 4 plan §4, §5). The
 // statements are kept in one list so that a rail can read the plan of each one. A base table is
 // never given an alias, so a plan names the table it reads. A table whose rows can overflow a
-// page (`delta`, `change`) has a rowid: a seek in a WITHOUT ROWID table compares whole cells.
+// page (`delta`, `holding`, `change`) has a rowid: a seek in a WITHOUT ROWID table reads whole
+// cells. A holding's arrival record has no size bound.
+
+/**
+ * The tables whose rows hold erasable material: claims, an author, an arrival record, a
+ * signature, an entity id or a referenced id. A trigger counts every delete and every update of
+ * one of their rows in `residue.dirty` (plan §7). A cascade from `holding` fires the triggers of
+ * `target` and `reference` too. A `REPLACE` deletes rows and fires no delete trigger while
+ * `recursive_triggers` is off, so no statement of the store uses it (a rail reads the list).
+ */
+const ERASABLE = ["holding", "delta", "target", "reference"] as const;
 
 export const SQLITE_SCHEMA = `
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
@@ -33,7 +43,7 @@ CREATE TABLE holding (
   author TEXT NOT NULL,
   PRIMARY KEY (peer, delta),
   UNIQUE (peer, seq)
-) STRICT, WITHOUT ROWID;
+) STRICT;
 CREATE INDEX holding_by_delta ON holding (delta);
 CREATE INDEX holding_by_author ON holding (peer, author);
 CREATE TABLE target (
@@ -66,6 +76,27 @@ CREATE TABLE debt (
   delta TEXT NOT NULL,
   PRIMARY KEY (peer, delta)
 ) STRICT, WITHOUT ROWID;
+CREATE INDEX debt_by_delta ON debt (delta);
+CREATE TABLE surface_debt (
+  peer TEXT NOT NULL REFERENCES peer,
+  delta TEXT NOT NULL,
+  PRIMARY KEY (peer, delta)
+) STRICT, WITHOUT ROWID;
+CREATE INDEX surface_debt_by_delta ON surface_debt (delta);
+CREATE TABLE residue (
+  one INTEGER PRIMARY KEY CHECK (one = 1),
+  dirty INTEGER NOT NULL CHECK (dirty >= 0),
+  clean INTEGER NOT NULL CHECK (clean >= 0 AND clean <= dirty)
+) STRICT;
+INSERT INTO residue (one, dirty, clean) VALUES (1, 0, 0);
+CREATE TRIGGER residue_kept BEFORE DELETE ON residue
+  BEGIN SELECT RAISE(ABORT, 'the residue row is kept'); END;
+${ERASABLE.flatMap((table) =>
+  ["DELETE", "UPDATE"].map(
+    (event) => `CREATE TRIGGER ${table}_${event.toLowerCase()}_residue AFTER ${event} ON ${table}
+  BEGIN UPDATE residue SET dirty = dirty + 1 WHERE one = 1; END;`,
+  ),
+).join("\n")}
 `;
 
 // The pushdown fields of a scope, as nullable parameters: a null bound keeps every delta.
@@ -75,8 +106,12 @@ const PASSES = (id: string): string => `(@seq IS NULL OR holding.seq <= @seq)
 
 export const SQLITE_STATEMENTS = {
   schemaSize: "SELECT count(*) AS size FROM sqlite_schema",
+  files: "PRAGMA database_list",
   metaGet: "SELECT value FROM meta WHERE key = ?",
   metaPut: "INSERT INTO meta (key, value) VALUES (?, ?)",
+  residueRead: "SELECT dirty, clean FROM residue WHERE one = 1",
+  residueDirty: "SELECT dirty FROM residue WHERE one = 1",
+  residueClean: "UPDATE residue SET clean = max(clean, ?) WHERE one = 1",
 
   historyFind: "SELECT 1 FROM history WHERE value = ?",
   historyAdd: "INSERT INTO history (value) VALUES (?)",
@@ -91,6 +126,9 @@ export const SQLITE_STATEMENTS = {
   heldElsewhere: "SELECT 1 FROM holding WHERE delta = ? LIMIT 1",
   deltaFind: "SELECT 1 FROM delta WHERE id = ?",
   debtFind: "SELECT 1 FROM debt WHERE peer = ? AND delta = ?",
+  debtNames: "SELECT 1 FROM debt WHERE delta = ? LIMIT 1",
+  surfaceDebtFind: "SELECT 1 FROM surface_debt WHERE peer = ? AND delta = ?",
+  surfaceDebtNames: "SELECT 1 FROM surface_debt WHERE delta = ? LIMIT 1",
   indexLeft: `SELECT EXISTS (SELECT 1 FROM holding WHERE peer = @peer AND delta = @id)
     OR EXISTS (SELECT 1 FROM target WHERE peer = @peer AND delta = @id)
     OR EXISTS (SELECT 1 FROM reference WHERE peer = @peer AND delta = @id) AS found`,
@@ -109,6 +147,13 @@ export const SQLITE_STATEMENTS = {
   debtDrop: "DELETE FROM debt WHERE peer = ? AND delta = ?",
   holdingDrop: "DELETE FROM holding WHERE peer = ? AND delta = ?",
   deltaDrop: "DELETE FROM delta WHERE id = ?",
+  surfaceDebtAdd: `INSERT INTO surface_debt (peer, delta) VALUES (?, ?)
+    ON CONFLICT (peer, delta) DO NOTHING`,
+  surfaceDebtDrop: "DELETE FROM surface_debt WHERE peer = ? AND delta = ?",
+  surfaceDebtClose: "DELETE FROM surface_debt INDEXED BY surface_debt_by_delta WHERE delta = ?",
+
+  vacuum: "VACUUM",
+  checkpoint: "PRAGMA wal_checkpoint(TRUNCATE)",
 
   get: `SELECT holding.delta AS id, delta.claims, holding.sig
     FROM json_each(@keys) AS asked

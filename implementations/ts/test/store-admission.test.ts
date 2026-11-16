@@ -86,4 +86,31 @@ for (const [name, open] of Object.entries(stores))
         Object.is(scoped!.arrival.at, 0),
       ]).toEqual([true, true]);
     });
+
+    it("-0 as the end of validity answers +0", async () => {
+      const peer = await (await open()).createPeer("peer:a", { erasure: "unproven" });
+      const claims = {
+        timestamp: 1,
+        validFrom: -1,
+        validUntil: -0,
+        author: AUTHOR,
+        pointers: [{ role: "about", target: { kind: "entity" as const, entity: { id: "w" } } }],
+      };
+      const delta = makeDelta(claims);
+      expect(delta.id).toBe(makeDelta({ ...claims, validUntil: 0 }).id);
+      await peer.append({
+        expectedHead: null,
+        nextHead: "h",
+        frame: null,
+        added: [{ delta, arrival: { id: delta.id, at: 1, sequence: 1, transfer: 1, sender: "s" } }],
+      });
+      const snapshot = await peer.read();
+      const [read] = await snapshot.get([delta.id]);
+      const [scoped] = (await snapshot.scope({ anchors: [{ kind: "entity", entity: "w" }] }))
+        .deltas;
+      expect([
+        Object.is(read!.claims.validUntil, 0),
+        Object.is(scoped!.delta.claims.validUntil, 0),
+      ]).toEqual([true, true]);
+    });
   });

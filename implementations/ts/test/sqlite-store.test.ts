@@ -184,7 +184,7 @@ async function writer(store: Store, id = "peer:a") {
 // ---- the store's own rules -------------------------------------------------------------------
 
 describe("the SQLite store's profile and scheme", () => {
-  it("declares what step 4a holds, and nothing more", async () => {
+  it("declares what step 4b holds, and nothing more; the class is proven on Linux only", async () => {
     const store = await fixture.open();
     expect(store.profile).toEqual({
       capabilities: {
@@ -194,25 +194,17 @@ describe("the SQLite store's profile and scheme", () => {
         views: false,
         derivedIndexes: false,
         digest: false,
-        erasure: "unprovable",
+        erasure: process.platform === "linux" ? "proven" : "unprovable",
       },
       indexedValueRoles: [],
       pushdown: { timestampAtMost: true, arrivalAtMost: true, excludeIds: true },
       writers: "one-process",
       atRest: "trusted",
       changeRetention: { revisions: 1024 },
-      formatVersion: "rhizomatic-store-sqlite/1",
+      formatVersion: "rhizomatic-store-sqlite/2",
     });
     expect(Object.isFrozen(store.profile)).toBe(true);
-    expect(await refusal(store.createPeer("p", { erasure: "proven" }))).toBe("posture-refused");
-    // A caller that replaces the profile does not switch off the posture gate.
-    Object.assign(store, {
-      profile: {
-        ...store.profile,
-        capabilities: { ...store.profile.capabilities, erasure: "proven" },
-      },
-    });
-    expect(await refusal(store.createPeer("p", { erasure: "proven" }))).toBe("posture-refused");
+    // The posture gate on a store of class unprovable: sqlite-store-erasure.test.ts, rail 6.
   });
 
   it("openStore opens sqlite:///path, and refuses another form without echoing it", async () => {
@@ -249,6 +241,19 @@ describe("the SQLite store's profile and scheme", () => {
     foreign.exec("CREATE TABLE t (x)");
     foreign.close();
     expect(await refusal(openSqliteStore(other))).toBe("open-failed");
+  });
+
+  it("refuses a file of format /1, which step 4a wrote, naming both formats; no migration ships", async () => {
+    const path = fixture.path();
+    await (await openSqliteStore(path)).close();
+    const db = new Database(path);
+    db.prepare("UPDATE meta SET value = 'rhizomatic-store-sqlite/1' WHERE key = 'format'").run();
+    db.close();
+    const error = (await openSqliteStore(path).catch((e: unknown) => e)) as StoreError;
+    expect([error.code, error.message]).toEqual([
+      "open-failed",
+      "sqlite store: the file holds format rhizomatic-store-sqlite/1, and this store reads rhizomatic-store-sqlite/2",
+    ]);
   });
 
   it("keeps the retention it was created with, and refuses another at a later open", async () => {
@@ -450,6 +455,73 @@ describe("store-unavailable: the SQLite store cannot serve the call", () => {
     await store.close();
   });
 
+  it("open waits no longer than busyTimeoutMs while another connection holds the file", async () => {
+    const path = fixture.path();
+    await (await openSqliteStore(path)).close();
+    const other = new Database(path);
+    other.pragma("locking_mode = EXCLUSIVE");
+    other.exec("BEGIN EXCLUSIVE");
+    const start = performance.now();
+    const answer = await refusal(openSqliteStore(path, { busyTimeoutMs: 0 }));
+    const waited = performance.now() - start;
+    other.exec("ROLLBACK");
+    other.close();
+    expect([answer, waited < 1000]).toEqual(["open-failed", true]);
+    await (await openSqliteStore(path, { busyTimeoutMs: 0 })).close();
+  });
+
+  it("a transient engine error says ask again; an error that repeats does not", async () => {
+    const store = await fixture.open();
+    const w = await writer(store);
+    await w.append([fact("x", 1)]);
+    // The engine's codes, raised from the test side by the statement that begins a write.
+    const probe = new Database(":memory:");
+    const statement = Object.getPrototypeOf(probe.prepare("SELECT 1")) as {
+      run: (this: Database.Statement, ...args: unknown[]) => unknown;
+    };
+    probe.close();
+    const run = statement.run;
+    const told: Record<string, boolean> = {};
+    try {
+      for (const code of [
+        "SQLITE_BUSY",
+        "SQLITE_LOCKED_SHAREDCACHE",
+        "SQLITE_PROTOCOL",
+        "SQLITE_IOERR_LOCK",
+        "SQLITE_INTERRUPT",
+        "SQLITE_NOMEM",
+        "SQLITE_FULL",
+        "SQLITE_CORRUPT",
+        "SQLITE_IOERR_WRITE",
+        "SQLITE_READONLY",
+      ]) {
+        statement.run = function (this: Database.Statement, ...args: unknown[]) {
+          if (this.source === "BEGIN IMMEDIATE") throw new Database.SqliteError("probe", code);
+          return run.apply(this, args);
+        };
+        const error = (await w.append([fact("x", 2)]).catch((e: unknown) => e)) as StoreError;
+        statement.run = run;
+        expect(error.code).toBe("store-unavailable");
+        told[code] = error.message.includes("ask again");
+      }
+    } finally {
+      statement.run = run;
+    }
+    expect(told).toEqual({
+      SQLITE_BUSY: true,
+      SQLITE_LOCKED_SHAREDCACHE: true,
+      SQLITE_PROTOCOL: true,
+      SQLITE_IOERR_LOCK: true,
+      SQLITE_INTERRUPT: true,
+      SQLITE_NOMEM: true,
+      SQLITE_FULL: false,
+      SQLITE_CORRUPT: false,
+      SQLITE_IOERR_WRITE: false,
+      SQLITE_READONLY: false,
+    });
+    expect((await w.peer.read()).count).toBe(1);
+  });
+
   it("a read refuses, and never answers empty, when the engine cannot read the file", async () => {
     const path = fixture.path();
     const store = await openSqliteStore(path);
@@ -508,8 +580,8 @@ describe("an engine error that is not a lock does not invite a retry", () => {
   });
 });
 
-describe("the purge report in step 4a", () => {
-  it("removes, keeps bytes another peer holds, settles the debt, and always says unproven", async () => {
+describe("the purge report of a peer of posture unproven", () => {
+  it("removes, keeps bytes another peer holds, settles the debt, says unproven, and owes every file surface", async () => {
     const store = await fixture.audited();
     const a = await writer(store, "peer:a");
     const b = await writer(store, "peer:b");
@@ -527,12 +599,18 @@ describe("the purge report in step 4a", () => {
         { id: shared.id, outcome: "held-by-other-peer" },
         { id: x.id, outcome: "removed" },
       ].sort((p, q) => (p.id < q.id ? -1 : 1)),
+      // The peer asks for no proof: no rebuild runs, and the residue is owed (decision S4-16).
       surfaces: [
-        { surface: "rows", state: "absent" },
-        { surface: "index-entries", state: "absent" },
-        { surface: "page-free-space", state: "unprovable" },
-        { surface: "freed-pages", state: "unprovable" },
-        { surface: "write-ahead-log", state: "unprovable" },
+        "rows",
+        "index-entries",
+        "page-free-space",
+        "freed-pages",
+        "write-ahead-log",
+        "temp-files",
+      ].map((surface) => ({ surface, state: "owed" })),
+      retains: [
+        { surface: "change-feed", holds: "id" },
+        { surface: "purge-debt", holds: "id" },
       ],
     });
     // The rows: the target is gone at the bytes and the indexes; the bystander and the shared

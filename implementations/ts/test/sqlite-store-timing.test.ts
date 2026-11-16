@@ -222,3 +222,52 @@ describe("the time of a feed read does not grow with the size of the records bes
     await withinBound("changes beside large records", await feed(1), await feed(NEIGHBOUR));
   }, 600_000);
 });
+
+describe("the time of a read does not grow with the size of the arrival records beside it", () => {
+  // An arrival record has no size bound. A table that keys whole rows (WITHOUT ROWID) reads every
+  // cell a seek passes, and an arrival that overflows its page is read whole. A `get` of one small
+  // holding beside holdings with senders of 1 MB then costs the size of those neighbours. The same
+  // read beside senders of one character is the reference.
+  const NEIGHBOURS = 40;
+  const SENDER = 1_000_000;
+
+  async function beside(sender: string) {
+    const store = await fixture.open();
+    const peer = await store.createPeer("peer:senders", { erasure: "unproven" });
+    const deltas = Array.from({ length: NEIGHBOURS + 1 }, (_, n) =>
+      makeDelta({
+        timestamp: n,
+        validFrom: 0,
+        author: AUTHOR,
+        pointers: [{ role: "about", target: { kind: "entity", entity: { id: `s:${n}` } } }],
+      }),
+    );
+    const [small] = deltas.splice(NEIGHBOURS / 2, 1);
+    let sequence = 0;
+    const entry = (delta: Delta, from: string): VerifiedDelta => ({
+      delta,
+      arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: 1, sender: from },
+    });
+    const result = await peer.append({
+      expectedHead: null,
+      nextHead: "h",
+      frame: null,
+      added: [entry(small!, "s"), ...deltas.map((delta) => entry(delta, sender))],
+    });
+    if (result.status !== "committed") throw new Error(result.status);
+    return async () => {
+      for (let i = 0; i < CALLS; i++) {
+        const snapshot = await peer.read();
+        await snapshot.get([small!.id]);
+      }
+    };
+  }
+
+  it(`get beside senders of ${SENDER} characters: at most ${BOUND} times the time beside senders of one`, async () => {
+    await withinBound(
+      "get beside large senders",
+      await beside("s"),
+      await beside("s".repeat(SENDER)),
+    );
+  }, 600_000);
+});

@@ -1,20 +1,29 @@
 {
   "schemaSize": ["SCAN sqlite_master"],
+  "files": [],
   "metaGet": ["SEARCH meta USING INDEX sqlite_autoindex_meta_1 (key=?)"],
   "metaPut": [],
+  "residueRead": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "residueDirty": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "residueClean": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
   "historyFind": ["SEARCH history USING COVERING INDEX sqlite_autoindex_history_1 (value=?)"],
   "historyAdd": [],
   "peerRead": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
   "peerAdd": [],
   "peerAdvance": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
-  "holdingFind": ["SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)"],
+  "holdingFind": [
+    "SEARCH holding USING COVERING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)"
+  ],
   "heldElsewhere": ["SEARCH holding USING COVERING INDEX holding_by_delta (delta=?)"],
   "deltaFind": ["SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id=?)"],
   "debtFind": ["SEARCH debt USING PRIMARY KEY (peer=? AND delta=?)"],
+  "debtNames": ["SEARCH debt USING COVERING INDEX debt_by_delta (delta=?)"],
+  "surfaceDebtFind": ["SEARCH surface_debt USING PRIMARY KEY (peer=? AND delta=?)"],
+  "surfaceDebtNames": ["SEARCH surface_debt USING COVERING INDEX surface_debt_by_delta (delta=?)"],
   "indexLeft": [
     "SCAN CONSTANT ROW",
     "SCALAR SUBQUERY 1",
-    "  SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)",
+    "  SEARCH holding USING COVERING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "SCALAR SUBQUERY 2",
     "  SEARCH target USING COVERING INDEX target_by_delta (peer=? AND delta=?)",
     "SCALAR SUBQUERY 3",
@@ -29,23 +38,28 @@
   "debtAdd": [],
   "debtDrop": ["SEARCH debt USING PRIMARY KEY (peer=? AND delta=?)"],
   "holdingDrop": [
-    "SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)",
+    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "SEARCH reference USING COVERING INDEX reference_by_delta (peer=? AND delta=?)",
     "SEARCH target USING COVERING INDEX target_by_delta (peer=? AND delta=?)"
   ],
   "deltaDrop": [
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
-    "SEARCH holding USING INDEX holding_by_delta (delta=?)"
+    "SEARCH holding USING COVERING INDEX holding_by_delta (delta=?)"
   ],
+  "surfaceDebtAdd": [],
+  "surfaceDebtDrop": ["SEARCH surface_debt USING PRIMARY KEY (peer=? AND delta=?)"],
+  "surfaceDebtClose": ["SEARCH surface_debt USING COVERING INDEX surface_debt_by_delta (delta=?)"],
+  "vacuum": [],
+  "checkpoint": [],
   "get": [
     "SCAN asked VIRTUAL TABLE INDEX 1:",
-    "SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)",
+    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
     "USE TEMP B-TREE FOR ORDER BY"
   ],
   "arrivals": [
     "SCAN asked VIRTUAL TABLE INDEX 1:",
-    "SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)",
+    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "USE TEMP B-TREE FOR ORDER BY"
   ],
   "targets": [
@@ -66,7 +80,7 @@
     "    LIST SUBQUERY 1",
     "      SCAN json_each VIRTUAL TABLE INDEX 1:",
     "      CREATE BLOOM FILTER",
-    "    SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)",
+    "    SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "    SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
     "  RECURSIVE STEP",
     "    SCAN member",
@@ -74,13 +88,13 @@
     "    LIST SUBQUERY 3",
     "      SCAN json_each VIRTUAL TABLE INDEX 1:",
     "      CREATE BLOOM FILTER",
-    "    SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)",
+    "    SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "    SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
     "SCAN member",
     "LIST SUBQUERY 5",
     "  SCAN json_each VIRTUAL TABLE INDEX 1:",
     "  CREATE BLOOM FILTER",
-    "SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)",
+    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
     "USE TEMP B-TREE FOR ORDER BY"
   ],
@@ -88,10 +102,20 @@
     "SEARCH change USING INDEX sqlite_autoindex_change_1 (peer=? AND revision>? AND revision<?)"
   ],
   "exportPeers": ["SEARCH peer USING COVERING INDEX sqlite_autoindex_peer_1 (id>?)"],
-  "exportIds": ["SEARCH holding USING PRIMARY KEY (peer=? AND delta>?)"],
+  "exportIds": [
+    "SEARCH holding USING COVERING INDEX sqlite_autoindex_holding_1 (peer=? AND delta>?)"
+  ],
   "exportDeltas": [
-    "SEARCH holding USING PRIMARY KEY (peer=? AND delta>?)",
+    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta>?)",
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)"
   ],
-  "exportStored": ["SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id>?)"]
+  "exportStored": ["SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id>?)"],
+  "trigger holding_delete_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger holding_update_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger delta_delete_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger delta_update_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger target_delete_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger target_update_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger reference_delete_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger reference_update_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"]
 }
