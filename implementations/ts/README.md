@@ -51,6 +51,24 @@ See the [spec](https://github.com/bombadil-labs/rhizomatic/tree/main/spec) for w
 The implementation is organized into [internal source packages](../../docs/package-graph.md);
 the `@bombadil/rhizomatic` import remains the public API.
 
+## The SQLite store
+
+`@bombadil/rhizomatic/store/sqlite` is a store in one file. It needs `better-sqlite3`, an
+optional peer dependency. The package root never loads it.
+
+```ts
+import { openSqliteStore } from "@bombadil/rhizomatic/store/sqlite";
+
+const store = await openSqliteStore("/var/lib/app/store.db");
+```
+
+- Importing the subpath registers the `sqlite` scheme of `openStore`. Then
+  `openStore("sqlite:///var/lib/app/store.db")` opens the same store.
+- A host can register its own `sqlite` factory before the import. The host's factory then keeps
+  the scheme, and the import does not replace it and does not fail. `openStore("sqlite:…")` then
+  calls the host's factory.
+- `openSqliteStore` always opens this store, whoever holds the scheme.
+
 ## License
 
 Dual-licensed under either of [MIT](https://github.com/bombadil-labs/rhizomatic/blob/main/LICENSE-MIT)

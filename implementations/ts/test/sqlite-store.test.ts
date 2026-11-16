@@ -201,7 +201,7 @@ describe("the SQLite store's profile and scheme", () => {
       writers: "one-process",
       atRest: "trusted",
       changeRetention: { revisions: 1024 },
-      formatVersion: "rhizomatic-store-sqlite/1",
+      formatVersion: "rhizomatic-store-sqlite/2",
     });
     expect(Object.isFrozen(store.profile)).toBe(true);
     expect(await refusal(store.createPeer("p", { erasure: "proven" }))).toBe("posture-refused");
@@ -249,6 +249,19 @@ describe("the SQLite store's profile and scheme", () => {
     foreign.exec("CREATE TABLE t (x)");
     foreign.close();
     expect(await refusal(openSqliteStore(other))).toBe("open-failed");
+  });
+
+  it("refuses a file of format /1, which step 4a wrote, naming both formats; no migration ships", async () => {
+    const path = fixture.path();
+    await (await openSqliteStore(path)).close();
+    const db = new Database(path);
+    db.prepare("UPDATE meta SET value = 'rhizomatic-store-sqlite/1' WHERE key = 'format'").run();
+    db.close();
+    const error = (await openSqliteStore(path).catch((e: unknown) => e)) as StoreError;
+    expect([error.code, error.message]).toEqual([
+      "open-failed",
+      "sqlite store: the file holds format rhizomatic-store-sqlite/1, and this store reads rhizomatic-store-sqlite/2",
+    ]);
   });
 
   it("keeps the retention it was created with, and refuses another at a later open", async () => {
@@ -448,6 +461,73 @@ describe("store-unavailable: the SQLite store cannot serve the call", () => {
     expect([after.revision, after.count]).toEqual([before.revision, before.count]);
     expect((await w.peer.purge([x.id])).targets).toEqual([{ id: x.id, outcome: "removed" }]);
     await store.close();
+  });
+
+  it("open waits no longer than busyTimeoutMs while another connection holds the file", async () => {
+    const path = fixture.path();
+    await (await openSqliteStore(path)).close();
+    const other = new Database(path);
+    other.pragma("locking_mode = EXCLUSIVE");
+    other.exec("BEGIN EXCLUSIVE");
+    const start = performance.now();
+    const answer = await refusal(openSqliteStore(path, { busyTimeoutMs: 0 }));
+    const waited = performance.now() - start;
+    other.exec("ROLLBACK");
+    other.close();
+    expect([answer, waited < 1000]).toEqual(["open-failed", true]);
+    await (await openSqliteStore(path, { busyTimeoutMs: 0 })).close();
+  });
+
+  it("a transient engine error says ask again; an error that repeats does not", async () => {
+    const store = await fixture.open();
+    const w = await writer(store);
+    await w.append([fact("x", 1)]);
+    // The engine's codes, raised from the test side by the statement that begins a write.
+    const probe = new Database(":memory:");
+    const statement = Object.getPrototypeOf(probe.prepare("SELECT 1")) as {
+      run: (this: Database.Statement, ...args: unknown[]) => unknown;
+    };
+    probe.close();
+    const run = statement.run;
+    const told: Record<string, boolean> = {};
+    try {
+      for (const code of [
+        "SQLITE_BUSY",
+        "SQLITE_LOCKED_SHAREDCACHE",
+        "SQLITE_PROTOCOL",
+        "SQLITE_IOERR_LOCK",
+        "SQLITE_INTERRUPT",
+        "SQLITE_NOMEM",
+        "SQLITE_FULL",
+        "SQLITE_CORRUPT",
+        "SQLITE_IOERR_WRITE",
+        "SQLITE_READONLY",
+      ]) {
+        statement.run = function (this: Database.Statement, ...args: unknown[]) {
+          if (this.source === "BEGIN IMMEDIATE") throw new Database.SqliteError("probe", code);
+          return run.apply(this, args);
+        };
+        const error = (await w.append([fact("x", 2)]).catch((e: unknown) => e)) as StoreError;
+        statement.run = run;
+        expect(error.code).toBe("store-unavailable");
+        told[code] = error.message.includes("ask again");
+      }
+    } finally {
+      statement.run = run;
+    }
+    expect(told).toEqual({
+      SQLITE_BUSY: true,
+      SQLITE_LOCKED_SHAREDCACHE: true,
+      SQLITE_PROTOCOL: true,
+      SQLITE_IOERR_LOCK: true,
+      SQLITE_INTERRUPT: true,
+      SQLITE_NOMEM: true,
+      SQLITE_FULL: false,
+      SQLITE_CORRUPT: false,
+      SQLITE_IOERR_WRITE: false,
+      SQLITE_READONLY: false,
+    });
+    expect((await w.peer.read()).count).toBe(1);
   });
 
   it("a read refuses, and never answers empty, when the engine cannot read the file", async () => {

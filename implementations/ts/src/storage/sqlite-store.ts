@@ -42,7 +42,7 @@ import {
   type StoreProfile,
 } from "./store.js";
 
-export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/1";
+export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/2";
 
 export type SqliteStoreOptions = {
   /** How long a call waits for a lock another connection holds, in ms. Default 5000. */
@@ -94,16 +94,17 @@ export interface SqliteStore extends Store {
   openAdmin(): SqliteExporter;
 }
 
-// The connection rules: each pragma is set, then read back, and open refuses a difference.
+// The connection rules: each pragma is set, then read back, and open refuses a difference. The
+// wait comes first: `journal_mode` reads the file, and must wait only as long as the host asked.
 const RULES = (
   busyTimeoutMs: number,
 ): readonly (readonly [keyof SqliteConnection, string, unknown])[] => [
+  ["busy_timeout", String(busyTimeoutMs), busyTimeoutMs],
   ["foreign_keys", "ON", 1],
   ["secure_delete", "ON", 1],
   ["journal_mode", "WAL", "wal"],
   ["synchronous", "FULL", 2],
   ["temp_store", "FILE", 1],
-  ["busy_timeout", String(busyTimeoutMs), busyTimeoutMs],
 ];
 const MAX_BUSY_TIMEOUT = 2 ** 31 - 1;
 
@@ -123,16 +124,20 @@ type DeltaRow = { id: Id; claims: Uint8Array; sig: string | null };
 const sorted = (ids: Iterable<Id>): Id[] => [...new Set(ids)].sort(compareUtf8);
 
 /**
- * A refusal for an error of the engine (§4.13 reading 105). Only a busy or locked engine invites
- * a retry. Any other error (a constraint, a damaged file, the disk) answers the same until its
- * cause is fixed, so the message says what failed and does not invite one.
+ * A refusal for an error of the engine (§4.13 reading 105). Only a transient error invites a
+ * retry: a busy or locked engine, a lost race for the log's lock (`SQLITE_PROTOCOL`,
+ * `SQLITE_IOERR_LOCK`), an interrupted call and a failed allocation. Any other error (a
+ * constraint, a damaged file, the disk) answers the same until its cause is fixed, so the message
+ * says what failed and does not invite one.
  */
 function unavailable(error: unknown): unknown {
   if (!(error instanceof Database.SqliteError)) return error;
-  const busy = /^SQLITE_(BUSY|LOCKED)/.test(error.code);
+  const transient = /^SQLITE_(BUSY|LOCKED|PROTOCOL$|IOERR_LOCK$|INTERRUPT$|NOMEM$)/.test(
+    error.code,
+  );
   return new StoreError(
     "store-unavailable",
-    busy
+    transient
       ? `the SQLite store cannot serve this call now (${error.code}); ask again`
       : `the SQLite store failed: ${error.message} (${error.code}); this is not a lock, and the same call fails again until the cause is fixed`,
   );
@@ -820,6 +825,10 @@ class SqliteFileStore implements SqliteStore {
  * Opens the SQLite store in the file at `path`, and creates it when the file is new or empty.
  * Refuses `open-failed` for a file that is not a store of this format, and `invalid-request` for
  * options of the wrong type and for a retention other than the file keeps.
+ *
+ * Importing this module registers the `sqlite` scheme of `openStore`. A host that registered its
+ * own `sqlite` factory first keeps the scheme: the import neither replaces it nor fails. This
+ * function always opens this store, whoever holds the scheme.
  */
 export async function openSqliteStore(
   path: string,

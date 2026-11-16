@@ -105,8 +105,10 @@ Each is made here under the store-arc delegation. Each moves to §12 when its st
 
 `peer` leads every per-peer key, so one peer's read never pays for another peer's rows. Every
 table is `STRICT`. Tables with a composite primary key are `WITHOUT ROWID`. Foreign keys are on. A table
-whose rows can overflow a page (`delta`, `change`) is a rowid table, because a seek in a
-`WITHOUT ROWID` table reads whole neighbour cells.
+whose rows can overflow a page (`delta`, `holding`, `change`) is a rowid table, because a seek in a
+`WITHOUT ROWID` table reads whole neighbour cells. A holding's arrival record has no size bound
+(step 4b, after the round 2 review of 4a). Its primary key is then a unique index, which the
+foreign keys of `target` and `reference` reference.
 
 ```sql
 meta      (key TEXT PRIMARY KEY, value TEXT NOT NULL)   -- format; file identity; retention
@@ -275,10 +277,11 @@ Limits, stated in the report's boundary text and in the proposal:
   of the latest such purge. A rebuild clears it only when that generation is older than the one
   the rebuild raised. The mark counts as an `owed` row in the S4-12 rule and in the rule for the
   asking peer's row.
-- *A file that 4a wrote holds residue with no debt row.* 4b raises the format string to
-  `rhizomatic-store-sqlite/2`. Opening a `/1` file runs one rebuild first, then stamps `/2`. When that rebuild or its truncate is
-  busy, open stamps `/2` and sets the file mark, so every report says `owed` until a rebuild
-  succeeds.
+- *A file that 4a wrote is refused.* 4b raises the format string to `rhizomatic-store-sqlite/2`.
+  The tables changed too: `holding` became a rowid table. Open refuses a `/1` file with
+  `open-failed` and names both formats. No rebuild and no migration ships: the work is greenfield,
+  and a `/1` file is test data. (This replaces the earlier rule, which rebuilt a `/1` file at
+  open; that rule assumed the same tables.)
 
 **Rails, each seen red first, each two-sided, on real files in a `mkdtempSync` directory.** A
 target carries a distinct marker in each place the schema copies erasable material: a primitive
@@ -354,7 +357,7 @@ The review listed every place where a builder would have to guess. Each is decid
 16. **`close()`** truncates the log when it can, then closes. Every operation after it refuses as
     the memory store's does.
 17. **Format.** `rhizomatic-store-sqlite/1` in `meta`. Open refuses any other value and names
-    both.
+    both. Step 4b raises it to `/2` and refuses `/1` (§7).
 18. **The timing rail.** 2,000 and 32,000 unrelated deltas in the same peer. The time at the
     larger size is at most four times the time at the smaller. It takes the shared lock and
     measures three times, as the slice 3 timed rails do, on both CI runners.

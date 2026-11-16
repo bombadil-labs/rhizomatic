@@ -1,7 +1,8 @@
 // The SQLite store's schema and every statement it prepares (SPEC-18 slice 4 plan §4, §5). The
 // statements are kept in one list so that a rail can read the plan of each one. A base table is
 // never given an alias, so a plan names the table it reads. A table whose rows can overflow a
-// page (`delta`, `change`) has a rowid: a seek in a WITHOUT ROWID table compares whole cells.
+// page (`delta`, `holding`, `change`) has a rowid: a seek in a WITHOUT ROWID table reads whole
+// cells. A holding's arrival record has no size bound.
 
 export const SQLITE_SCHEMA = `
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
@@ -33,7 +34,7 @@ CREATE TABLE holding (
   author TEXT NOT NULL,
   PRIMARY KEY (peer, delta),
   UNIQUE (peer, seq)
-) STRICT, WITHOUT ROWID;
+) STRICT;
 CREATE INDEX holding_by_delta ON holding (delta);
 CREATE INDEX holding_by_author ON holding (peer, author);
 CREATE TABLE target (

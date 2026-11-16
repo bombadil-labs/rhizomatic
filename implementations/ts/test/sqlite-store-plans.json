@@ -7,14 +7,16 @@
   "peerRead": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
   "peerAdd": [],
   "peerAdvance": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
-  "holdingFind": ["SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)"],
+  "holdingFind": [
+    "SEARCH holding USING COVERING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)"
+  ],
   "heldElsewhere": ["SEARCH holding USING COVERING INDEX holding_by_delta (delta=?)"],
   "deltaFind": ["SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id=?)"],
   "debtFind": ["SEARCH debt USING PRIMARY KEY (peer=? AND delta=?)"],
   "indexLeft": [
     "SCAN CONSTANT ROW",
     "SCALAR SUBQUERY 1",
-    "  SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)",
+    "  SEARCH holding USING COVERING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "SCALAR SUBQUERY 2",
     "  SEARCH target USING COVERING INDEX target_by_delta (peer=? AND delta=?)",
     "SCALAR SUBQUERY 3",
@@ -29,23 +31,23 @@
   "debtAdd": [],
   "debtDrop": ["SEARCH debt USING PRIMARY KEY (peer=? AND delta=?)"],
   "holdingDrop": [
-    "SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)",
+    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "SEARCH reference USING COVERING INDEX reference_by_delta (peer=? AND delta=?)",
     "SEARCH target USING COVERING INDEX target_by_delta (peer=? AND delta=?)"
   ],
   "deltaDrop": [
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
-    "SEARCH holding USING INDEX holding_by_delta (delta=?)"
+    "SEARCH holding USING COVERING INDEX holding_by_delta (delta=?)"
   ],
   "get": [
     "SCAN asked VIRTUAL TABLE INDEX 1:",
-    "SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)",
+    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
     "USE TEMP B-TREE FOR ORDER BY"
   ],
   "arrivals": [
     "SCAN asked VIRTUAL TABLE INDEX 1:",
-    "SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)",
+    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "USE TEMP B-TREE FOR ORDER BY"
   ],
   "targets": [
@@ -66,7 +68,7 @@
     "    LIST SUBQUERY 1",
     "      SCAN json_each VIRTUAL TABLE INDEX 1:",
     "      CREATE BLOOM FILTER",
-    "    SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)",
+    "    SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "    SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
     "  RECURSIVE STEP",
     "    SCAN member",
@@ -74,13 +76,13 @@
     "    LIST SUBQUERY 3",
     "      SCAN json_each VIRTUAL TABLE INDEX 1:",
     "      CREATE BLOOM FILTER",
-    "    SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)",
+    "    SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "    SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
     "SCAN member",
     "LIST SUBQUERY 5",
     "  SCAN json_each VIRTUAL TABLE INDEX 1:",
     "  CREATE BLOOM FILTER",
-    "SEARCH holding USING PRIMARY KEY (peer=? AND delta=?)",
+    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
     "USE TEMP B-TREE FOR ORDER BY"
   ],
@@ -88,9 +90,11 @@
     "SEARCH change USING INDEX sqlite_autoindex_change_1 (peer=? AND revision>? AND revision<?)"
   ],
   "exportPeers": ["SEARCH peer USING COVERING INDEX sqlite_autoindex_peer_1 (id>?)"],
-  "exportIds": ["SEARCH holding USING PRIMARY KEY (peer=? AND delta>?)"],
+  "exportIds": [
+    "SEARCH holding USING COVERING INDEX sqlite_autoindex_holding_1 (peer=? AND delta>?)"
+  ],
   "exportDeltas": [
-    "SEARCH holding USING PRIMARY KEY (peer=? AND delta>?)",
+    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta>?)",
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)"
   ],
   "exportStored": ["SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id>?)"]
