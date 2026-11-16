@@ -899,11 +899,13 @@ erasure report states this boundary. It does not cover:
   a surface, `unprovable`, and never claims `proven`. Without this limit no durable store could
   claim `proven`;
 - swap, hibernation and crash dumps, which can write process memory to disk. They are the host's
-  concern.
+  concern;
 - a log file beside another name of the database file (reading 119). The store reads the one log
   beside the engine's path. A removed hard link, a rename of the file without its log, and a bind
-  mount of the file each leave or make a log that the store cannot see. SQLite names each as
-  misuse that can corrupt a database. They are the operator's concern.
+  mount of the file each leave or make a log that the store cannot see. SQLite names multiple
+  links to one file, and a file moved without its log, as ways to corrupt a database. A bind
+  mount of one file has the same effect: a second name with a log of its own. They are the
+  operator's concern.
 
 **Ids in the change feed lie outside "absent"** (decision O4, 2026-11-12). The change feed (§4.6)
 is a store-controlled surface. It keeps the id of a purged delta. It never keeps the bytes or
@@ -1086,7 +1088,11 @@ writes the record after the nth.
 - `openStore(url)` selects an implementation by URL scheme: `memory:`, `sqlite:///path/file.db`,
   `opfs:name`, `postgres://…`, and so on as implementations land. It returns the store with its
   profile.
-- `registerStoreScheme(scheme, factory)` adds a consumer's own implementation.
+- `registerStoreScheme(scheme, factory)` adds a consumer's own implementation. A factory gets the
+  caller's options, read once and checked: `requires` and `restored` (§4.13 reading 123).
+- `openStore(url, {restored: true})` tells a durable store that its files were restored from a
+  backup since its last open. The store then gives every peer a new history (§4.6, "History";
+  §4.13 readings 122 and 123).
 - `runStoreConformance(factory)` runs the shared store vectors (§8) against any implementation, so
   a consumer's own store is tested exactly as the built-in ones are.
 - A connection string can carry credentials. The opener never logs or echoes it. A scheme is
@@ -2157,7 +2163,8 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `temp-files`. `temp-files` is `unprovable` on a store of class `unprovable`, so such a store
      never claims `proven`. `createPeer` and `peer` refuse `posture-refused` for a peer of posture
      `proven` on a store whose class is not `proven`, also for a peer that a store of class
-     `proven` created in the same file. The format is `rhizomatic-store-sqlite/2`. Open refuses a
+     `proven` created in the same file. The format is `rhizomatic-store-sqlite/2` (`/3` from step
+     4c, reading 124). Open refuses a
      file of format `/1`, which step 4a wrote, with `open-failed`, and names both formats. No
      migration ships.
 113. **What a settled row proves.** Withdrawn: replaced by reading 118. Records have no state.
@@ -2256,6 +2263,85 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        holds a byte that a removal left: a delete of an erasable row would have raised `dirty`;
      - the cost is liveness, never a false report: steady writes by other processes can keep
        frames in the log at every try, and the purge then answers `owed`.
+120. **Many writing processes** (slice 4, step 4c; decision S4-7). The SQLite store's profile says
+     `writers: "many-processes"`: processes that open one file can append to one peer at the same
+     time. Every write runs in `BEGIN IMMEDIATE` and reads each value it builds on in that
+     transaction; every read is one read transaction. What a `Store` object keeps in process
+     memory, and why none of it can answer for a state another process changed:
+     - the peer row (revision, head, count, floor, last arrival): read in the transaction of each
+       call, never kept between calls. A snapshot keeps its history and revision and checks both
+       in the transaction of each call (decision S4-2); its head and count belong to that
+       revision;
+     - the history on a peer handle: read from the file at each ask (reading 121);
+     - the retention, the format and the erasure posture: written once, at the creation of the
+       file or the peer, under the write lock, and never changed. A copy kept in memory equals
+       the file;
+     - the erasure class: read from the platform, not from the file;
+     - the engine's path of the file: read once at open. When another process renames the file,
+       the stat of reading 119 finds no log at the old path, and the purge answers `owed`;
+     - the purge's own state between its transactions (the targets it released, the count `d`):
+       its last transaction reads every fact again (readings 115 and 117);
+     - prepared statements hold no rows between calls, and the store keeps no cache.
+     A write that cannot take the write lock within `busyTimeoutMs` refuses `store-unavailable`
+     (reading 105) before its first write: it never answers `committed` and leaves no row. Records
+     reach a follower in revision order with no gap, because each revision is written under the
+     write lock by the transaction that reads the one before it. The rail is two writing
+     processes, in fixed turns and then in free contention, and a follower in a third.
+121. **A handle reads its history** (slice 4, step 4c). Another process can give a peer a new
+     history while this process holds a handle (reading 122). The SQLite store's
+     `PeerStore.history` therefore reads the peer's row at each ask, in a read transaction, and
+     refuses as a read does: `store-closed` after close, `store-unavailable` when the engine
+     cannot serve it. Every handle of one peer reports the same value, the one in the file now.
+     The memory store's value never changes after creation, so it keeps a plain value.
+122. **File identity** (slice 4, step 4c; decision S4-8, amended). The SQLite store records the
+     identity of its file in `meta` (key `identity`): the device, the file index and the birth
+     time in nanoseconds, as three decimal strings, from a stat of the engine's path. At every
+     open, under the write lock, a different value gives every peer a new history and records the
+     new value; an equal value changes nothing. So:
+     - a copy at a new path has a new file index: it opens under new histories, once. Of two
+       processes that open it at the same time, the second waits for the first's write lock and
+       finds the value the first recorded. The original keeps its histories;
+     - a move of the file to another directory on the same device keeps all three values: no new
+       history. The history stays true, because the file is the same;
+     - a restore that removes the file and copies a backup to its path can get the file index of
+       the removed file: ext4 gave it again in the measurement on step 4c. The birth time
+       differs, so the store mints. This is why the identity has a third value, which the plan's
+       first text did not have. On Windows, NTFS can give a new file the birth time of a
+       file just removed under the same name; the file index then tells them apart, unless it is
+       given again too. A host that restores a file passes `restored` (reading 123) whenever it
+       can;
+     - a bind mount can show another device for the same file. The store then mints at the open
+       through each name in turn. A wrong mint costs a resync and nothing else;
+     - a platform without birth times reports 0, and the identity is the first two values. A
+       restore that reuses the file index is then caught only by `restored` (reading 123). A
+       platform that reports the change time as the birth time makes every open mint: a loss of
+       liveness, never a stale history;
+     - a new file records its identity at its first open, and has no peer to mint for. A path the
+       engine does not open as a file (`:memory:`) is refused by the connection rules (no log).
+       A file whose identity cannot be read refuses `open-failed`.
+     A mint walks the peers in pages of the primary key: O(peers), only at an open that mints.
+     Every history the store issued stays in the `history` table, so a host `mintHistory` that
+     repeats one is refused `invalid-request`, also after a reopen; at a minting open the
+     refusal refuses the open, and nothing changes. After a mint, a snapshot of the old history
+     refuses `snapshot-moved`, a pull answers `resync-required`, and `checkFresh` answers
+     `resync-required` (§4.6, "History").
+123. **`restored`** (slice 4, step 4c). `OpenOptions` gains `restored?: boolean`, and
+     `openSqliteStore` takes the same option. A restore that writes over the same file keeps its
+     identity, so its host passes `restored: true` at the first open after the restore, and every
+     peer gets a new history. Each open with it mints again, so the host passes it once.
+     `openStore` reads the option once with `requires`, refuses a value that is not a boolean
+     `invalid-request`, and hands the factory `{requires, restored}`; before step 4c it handed the
+     factory `requires` only, and the `sqlite` scheme read no option. The memory store ignores
+     `restored`: a new memory store has nothing restored, and gives each peer a new history.
+124. **Format `/3`** (slice 4, step 4c). The tables did not change, but a `/3` file always carries
+     its identity (reading 122), and a `/2` file has none. Open refuses a `/1` or a `/2` file with
+     `open-failed` and names both formats. No migration ships: the work is greenfield.
+125. **Bounded retention with many processes** (slice 4, step 4c; decision S4-6). The default
+     retention of the SQLite store is `{revisions: 1024}`; `unbounded` is opt-in, fixed at the
+     creation of the file. The append that writes a record reads the floor in its transaction
+     and drops the oldest record when the peer keeps more than its retention, so two processes
+     trim one floor. A follower whose position is below the floor gets `resync-required`, never a
+     page with a gap. The rail writes past 1024 revisions from two processes.
 
 ## 5. Architectures
 
@@ -2322,6 +2408,10 @@ schema.
   On these and every other platform the class is `unprovable`. Postgres keeps dead
   rows until `VACUUM`, and even `VACUUM FULL` leaves WAL archives, replicas and backups, so it is
   `unprovable`.
+- **Many processes** (step 4c, §4.13 readings 120 to 125): every write holds the write lock from
+  its start and reads what it builds on in that transaction, so the profile says
+  `many-processes`. The file's identity (device, file index, birth time) is in `meta`, and a
+  new identity gives every peer a new history at open.
 - **Use:** servers and CLIs. SQLite also runs in browsers as WebAssembly over OPFS.
 
 ### 5.3 Ordered key-value (IndexedDB, LMDB, RocksDB, FoundationDB)
@@ -2567,13 +2657,16 @@ Slice 3 leaves these to later slices. Each was owed by the slice 3 build plan, w
 - A durable store persists each peer's history (§4.6, "History"). It gives the peer a new history
   when the store is restored from a backup, or when a peer is deleted and created again. It keeps
   every history it issued across a reopen, so a host mint that repeats is refused there too
-  (§4.13 reading 49).
+  (§4.13 reading 49). Done in step 4c for the SQLite store, except peer delete (step 4d): file
+  identity and `restored` (§4.13 readings 122 and 123).
 - Records appear in revision order (§4.6; §4.13 reading 5). A store open to several writing
-  processes enforces this at commit. Slice 4 adds the rail; a sequential runner cannot test it.
+  processes enforces this at commit. Done in step 4c: two writing processes and a follower in a
+  third (§4.13 reading 120).
 - The purge report names the change feed as a surface that still holds the id of a purged delta
   (§4.7.2). Done in step 4b: `retains` (§4.13 reading 108).
 - A durable store's default retention is bounded. Under `unbounded` retention a purged id stays
-  in the feed for as long as the store lives.
+  in the feed for as long as the store lives. Done in step 4c: `{revisions: 1024}`, trimmed from
+  the floor in the file under two writing processes (§4.13 reading 125).
 - A purge does not report a surface `absent` while an open snapshot can still read the bytes.
   Done in step 4b for the SQLite store: a snapshot holds no transaction (decision S4-2), and a
   reader in another process keeps the log from truncating, so the report says `owed`

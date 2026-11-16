@@ -8,15 +8,26 @@ import { missingRequirements, StoreError, type Store, type StoreRequirement } fr
 export type OpenOptions = {
   /** Capabilities the host needs. Open refuses, naming each one the store lacks. */
   readonly requires?: readonly StoreRequirement[];
+  /**
+   * The store's files were restored from a backup since its last open. A durable store then gives
+   * every peer a new history, once, at this open (§4.6, "History"). Pass it on the first open
+   * after a restore only: each open with it gives new histories again.
+   */
+  readonly restored?: boolean;
 };
 
-/** Builds a store from its URL. It must not put the URL in any error it throws. */
+/**
+ * Builds a store from its URL. It must not put the URL in any error it throws. `options` are the
+ * caller's, read once and checked: `requires` is a list and `restored` a boolean. A store
+ * without files to restore (the memory store) ignores `restored`.
+ */
 export type StoreFactory = (url: string, options: OpenOptions) => Promise<Store>;
 
 // RFC 3986 §3.1. A scheme is case-insensitive; lookups use its lowercase form.
 const SCHEME = /^([A-Za-z][A-Za-z0-9+.-]*):/;
 const UNKNOWN = "no store is registered for this URL's scheme";
-const OPTIONS = "openStore: the options must be an object, and requires a list of names";
+const OPTIONS =
+  "openStore: the options must be an object, requires a list of names, and restored a boolean";
 
 const schemes = new Map<string, StoreFactory>([
   [
@@ -56,19 +67,22 @@ export function registerStoreScheme(name: string, factory: StoreFactory): () => 
  * `requires` mean none. Refuses `invalid-request` for anything else that is not of its type.
  */
 function takeOptions(options: unknown): OpenOptions {
-  if (options === undefined) return Object.freeze({ requires: Object.freeze([]) });
+  if (options === undefined) return Object.freeze({ requires: Object.freeze([]), restored: false });
   try {
     if (!isPlainObject(options)) throw new TypeError("options");
     const requires: unknown = options["requires"];
-    if (requires === undefined) return Object.freeze({ requires: Object.freeze([]) });
-    if (!Array.isArray(requires)) throw new TypeError("requires");
+    const restored: unknown = options["restored"];
+    if (restored !== undefined && typeof restored !== "boolean") throw new TypeError("restored");
     const own: StoreRequirement[] = [];
-    for (let i = 0; i < requires.length; i++) {
-      const name: unknown = requires[i];
-      if (typeof name !== "string") throw new TypeError("a requirement");
-      own.push(name as StoreRequirement);
+    if (requires !== undefined) {
+      if (!Array.isArray(requires)) throw new TypeError("requires");
+      for (let i = 0; i < requires.length; i++) {
+        const name: unknown = requires[i];
+        if (typeof name !== "string") throw new TypeError("a requirement");
+        own.push(name as StoreRequirement);
+      }
     }
-    return Object.freeze({ requires: Object.freeze(own) });
+    return Object.freeze({ requires: Object.freeze(own), restored: restored === true });
   } catch {
     throw new StoreError("invalid-request", OPTIONS);
   }

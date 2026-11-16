@@ -2,7 +2,7 @@
   "schemaSize": ["SCAN sqlite_master"],
   "files": [],
   "metaGet": ["SEARCH meta USING INDEX sqlite_autoindex_meta_1 (key=?)"],
-  "metaPut": [],
+  "metaSet": [],
   "residueRead": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
   "residueDirty": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
   "residueClean": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
@@ -10,6 +10,7 @@
   "historyAdd": [],
   "peerRead": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
   "peerAdd": [],
+  "peerHistory": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
   "peerAdvance": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
   "holdingFind": [
     "SEARCH holding USING COVERING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)"

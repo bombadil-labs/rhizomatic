@@ -52,6 +52,20 @@ is `proven` on Linux only, and `unprovable` on Windows, macOS and elsewhere. Rus
 - The process memory of a store that keeps its data in files lies outside the erasure claim
   (Myk's ruling, 2026-11-15; §4.7.2).
 
+The store, slice 4, step 4c (TypeScript): many processes can write one SQLite store, and a copy
+or a restore of its file opens under new histories (§4.13 readings 120 to 125). Rust follows in
+step 4e.
+
+- The SQLite store's profile says `writers: "many-processes"`. A write that cannot take the lock
+  within `busyTimeoutMs` refuses `store-unavailable` and writes nothing.
+- ⚠️ **The SQLite format is `rhizomatic-store-sqlite/3`.** The file records its identity (device,
+  file index, birth time). Open refuses a `/1` or `/2` file. No migration ships: make a new store.
+- A new file identity at open gives every peer a new history, once. `openStore(url, {restored:
+  true})` and `openSqliteStore(path, {restored: true})` do the same for a restore that writes over
+  the same file. `OpenOptions.restored` is new, and a scheme's factory now gets it.
+- The SQLite store's `PeerStore.history` reads the file at each ask, so a handle sees a new
+  history that another process gave.
+
 - **The change feed.** `PeerStore.changes(from, to?)` answers pages of records, one per revision
   advance, with the head and the ids added and removed; never bytes. A `from` below the
   retention floor, or above the current revision, answers `resync-required`. The memory store

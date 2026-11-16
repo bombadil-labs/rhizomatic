@@ -26,7 +26,7 @@ import type { Claims, Delta, Pointer, Target } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
 import { isPlainObject } from "./copy.js";
 import { LOCAL_HISTORY_PREFIX } from "./freshness.js";
-import { registerStoreScheme } from "./open-store.js";
+import { registerStoreScheme, type OpenOptions } from "./open-store.js";
 import { admit, strings, takeAppend, takeScope, wellFormed, type Admitted } from "./request.js";
 import { SQLITE_SCHEMA, SQLITE_STATEMENTS } from "./sqlite-statements.js";
 import {
@@ -51,7 +51,7 @@ import {
   type StoreProfile,
 } from "./store.js";
 
-export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/2";
+export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/3";
 
 export type SqliteStoreOptions = {
   /** How long a call waits for a lock another connection holds, in ms. Default 5000. */
@@ -68,6 +68,13 @@ export type SqliteStoreOptions = {
    * default is `sqlite:` and 32 hex digits from the system random source.
    */
   readonly mintHistory?: (peer: PeerId) => History;
+  /**
+   * The file was restored from a backup since its last open (§4.6, "History"). Open then gives
+   * every peer a new history, once. A restore that makes a new file is seen without it: the file
+   * has another identity. A restore that writes over the same file keeps the identity, so its
+   * host passes this on the first open after the restore. Default false.
+   */
+  readonly restored?: boolean;
 };
 
 const DEFAULT_RETENTION = { revisions: 1024 } as const;
@@ -226,6 +233,7 @@ type OwnOptions = {
   changeRetention: Retention | undefined;
   pageSize: number;
   mint: ((peer: PeerId) => History) | undefined;
+  restored: boolean;
 };
 
 function takeOptions(options: unknown): OwnOptions {
@@ -233,10 +241,8 @@ function takeOptions(options: unknown): OwnOptions {
     throw new StoreError("invalid-request", `sqlite store: ${what}`);
   };
   if (options !== undefined && !isPlainObject(options)) refuse("the options must be an object");
-  const { busyTimeoutMs, changeRetention, changePageSize, mintHistory } = (options ?? {}) as Record<
-    string,
-    unknown
-  >;
+  const { busyTimeoutMs, changeRetention, changePageSize, mintHistory, restored } = (options ??
+    {}) as Record<string, unknown>;
   const positive = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 1;
   if (
     busyTimeoutMs !== undefined &&
@@ -259,12 +265,31 @@ function takeOptions(options: unknown): OwnOptions {
     refuse("changePageSize is 1 or more");
   if (mintHistory !== undefined && typeof mintHistory !== "function")
     refuse("mintHistory is a function");
+  if (restored !== undefined && typeof restored !== "boolean") refuse("restored is a boolean");
   return {
     busyTimeoutMs: (busyTimeoutMs as number | undefined) ?? 5000,
     changeRetention: retention,
     pageSize: (changePageSize as number | undefined) ?? 256,
     mint: mintHistory as ((peer: PeerId) => History) | undefined,
+    restored: restored === true,
   };
+}
+
+/**
+ * The identity of the file at the engine's path (decision S4-8): device, file index and birth
+ * time, as decimal strings. A copy, and a new file at the old path, have another file index or
+ * another birth time; a rename keeps all three. A file index alone is not enough: a file system
+ * can give a new file the index of a file just removed. A platform without birth times reports
+ * 0, and the identity is then the first two.
+ */
+function identityOf(file: string): string {
+  let stat;
+  try {
+    stat = statSync(file, { bigint: true });
+  } catch {
+    throw new StoreError("open-failed", "sqlite store: the file's identity cannot be read");
+  }
+  return `${stat.dev} ${stat.ino} ${stat.birthtimeNs}`;
 }
 
 // ---- the store --------------------------------------------------------------------------------
@@ -309,6 +334,7 @@ class SqliteFileStore implements SqliteStore {
     this.#keep = retention === "unbounded" ? Number.POSITIVE_INFINITY : retention.revisions;
     this.#pageSize = options.pageSize;
     this.#mint = options.mint;
+    this.#run("write", () => this.#identify(options.restored));
     this.profile = Object.freeze({
       capabilities: Object.freeze({
         values: false,
@@ -321,8 +347,9 @@ class SqliteFileStore implements SqliteStore {
       }),
       indexedValueRoles: Object.freeze([]),
       pushdown: Object.freeze({ timestampAtMost: true, arrivalAtMost: true, excludeIds: true }),
-      // Many processes is step 4c's, with its rail.
-      writers: "one-process" as const,
+      // Each write holds the write lock from its start and reads every value it builds on in
+      // that transaction (decision S4-7).
+      writers: "many-processes" as const,
       atRest: "trusted" as const,
       changeRetention: typeof retention === "string" ? retention : Object.freeze({ ...retention }),
       formatVersion: SQLITE_STORE_FORMAT,
@@ -338,7 +365,7 @@ class SqliteFileStore implements SqliteStore {
     if (size === 0) {
       const retention = asked ?? DEFAULT_RETENTION;
       db.exec(SQLITE_SCHEMA);
-      const put = db.prepare(SQLITE_STATEMENTS.metaPut);
+      const put = db.prepare(SQLITE_STATEMENTS.metaSet);
       put.run("format", SQLITE_STORE_FORMAT);
       put.run("retention", JSON.stringify(retention));
       return retention;
@@ -363,6 +390,31 @@ class SqliteFileStore implements SqliteStore {
         `sqlite store: the file keeps changeRetention ${kept}; open it with that value or without one`,
       );
     return JSON.parse(kept) as Retention;
+  }
+
+  /**
+   * Gives every peer a new history when the file is not the file the store last recorded, or the
+   * host says it was restored (decision S4-8). It runs under the write lock, so of two processes
+   * that open a copy together, the second finds the identity the first recorded and mints
+   * nothing. Every history stays in the `history` table, so none is issued twice. It costs
+   * O(peers), and only when it mints.
+   */
+  #identify(restored: boolean): void {
+    const s = this.#s;
+    const now = identityOf(this.#file);
+    const kept = (s.metaGet.get("identity") as { value: string } | undefined)?.value;
+    if (kept === now && !restored) return;
+    for (let after = "", found = EXPORT_PAGE; found === EXPORT_PAGE; ) {
+      const ids = (s.exportPeers.all(after, EXPORT_PAGE) as { id: PeerId }[]).map((r) => r.id);
+      for (const id of ids) {
+        const history = this.#history(id);
+        s.historyAdd.run(history);
+        s.peerHistory.run(history, id);
+      }
+      found = ids.length;
+      after = ids.at(-1) ?? after;
+    }
+    s.metaSet.run("identity", now);
   }
 
   /**
@@ -498,9 +550,17 @@ class SqliteFileStore implements SqliteStore {
   }
 
   #handle(id: PeerId, row: PeerRow): PeerStore {
+    // Another process can give the peer a new history at its open (decision S4-8), so the handle
+    // reads it from the file at each ask.
+    const history = (): History => {
+      this.#open();
+      return this.#run("read", () => this.#peerRow(id)!.history);
+    };
     return {
       id,
-      history: row.history,
+      get history() {
+        return history();
+      },
       erasure: { posture: row.posture, storeClass: ERASURE_CLASS },
       read: async () => {
         this.#open();
@@ -1016,7 +1076,7 @@ export async function openSqliteStore(
 
 const URL_FORM = 'store scheme "sqlite" takes a file address: sqlite:///path/to/file.db';
 
-const fromUrl = async (url: string): Promise<Store> => {
+const fromUrl = async (url: string, options: OpenOptions): Promise<Store> => {
   let path: string;
   try {
     if (!/^sqlite:\/\//i.test(url)) throw new TypeError("form");
@@ -1027,7 +1087,7 @@ const fromUrl = async (url: string): Promise<Store> => {
   } catch {
     throw new StoreError("invalid-url", URL_FORM);
   }
-  return openSqliteStore(path);
+  return openSqliteStore(path, options.restored === true ? { restored: true } : {});
 };
 
 // Loading this module never fails on the registration. When `sqlite` is taken (by a host's own

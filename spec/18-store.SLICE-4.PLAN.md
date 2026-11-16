@@ -64,9 +64,12 @@ Each is made here under the store-arc delegation. Each moves to §12 when its st
   `BEGIN IMMEDIATE`, reads the peer's revision and writes revision + 1 in the same transaction.
   The profile says `writers: "many-processes"`.
 - **S4-8. A new history when the file has a new identity.** The store records the file's
-  identity (device and file index, as two decimal strings, read as 64-bit integers) in `meta`. At
+  identity (device, file index and birth time in nanoseconds, as three decimal strings, read as
+  64-bit integers) in `meta`. At
   open, inside `BEGIN IMMEDIATE`, a different identity gives every peer a new history, once. This
-  catches a copy at a new path and a restore by rename. **It does not catch a restore that writes
+  catches a copy at a new path and a restore by rename. Step 4c added the birth time: ext4 gave a
+  backup copied to the path of a removed file the removed file's index (proposal §4.13 reading
+  122). **It does not catch a restore that writes
   over the same file**: the identity is unchanged, so that host must pass
   `openStore(url, {restored: true})`. A device number can change on a remount; the wrong mint
   costs a resync and nothing else. Every history a store issued stays in a table, so a repeated
@@ -401,7 +404,7 @@ follows per S4-10.
 |---|---|---|
 | 4a | Schema and constraints; connection rules; peers; append; every read; scope; purge at class `unprovable`; the change feed; the query-plan rail; well-formed strings (S4-15, both witnesses); the subpath export | The four conformance suites pass on `sqlite:`; the query-plan rail, all three parts; the crash-during-append rail; the count and floor rail |
 | 4b | The rebuild experiment; proven erasure and posture gating (§7); `retains` (S4-5), the later proof (S4-13) and the process-memory boundary (S4-14) in both witnesses | The ten rails of §7 |
-| 4c | Many writing processes (S4-7); persisted histories, file identity and `restored` (S4-8); bounded default retention (S4-6) | Two writing processes and one follower in a third: the feed arrives in order with no gap; a copied file opens under new histories |
+| 4c | Many writing processes (S4-7); persisted histories, file identity and `restored` (S4-8); bounded default retention (S4-6). **Done** (proposal §4.13 readings 120 to 125) | Two writing processes and one follower in a third: the feed arrives in order with no gap; a copied file opens under new histories |
 | trial | Publish a `-next`. One Loam read door on the store | A Loam PR; outside this plan |
 | 4d | The journal split (§4.7.3): head chain, small checkpoint, the holdings digest and the whole-peer version address (decisions g, O9), `fsck`, format markers; who builds the frame and head (G11); the fault report (G6); peer delete (G5 f); whether an erasure order and its purge share one commit, and whether a purge is under the head compare-and-set; whether a journal frame carries payload; arrival history after a purge; lost index entries | Open costs O(tail); `fsck` finds a deleted `target` row; a byte rail over the journal tables at scale |
 | 4e | Rust witness of 4a to 4d, from the documents | The same vectors and rails; cost rails in release mode |
@@ -417,9 +420,9 @@ follows per S4-10.
 | No `absent` while a snapshot reads the bytes | 4b (S4-2; rail 3 holds the cross-process case) |
 | Erasure surface proofs on real files | 4b |
 | Refusal of a proven-posture peer on an unprovable store | 4b |
-| Bounded default retention | 4c (S4-6) |
-| Records visible in revision order; a second-process writer seen through the feed | 4c (S4-7) |
-| Persisted history; new history on restore | 4c (S4-8) |
+| Bounded default retention | 4c (S4-6), done |
+| Records visible in revision order; a second-process writer seen through the feed | 4c (S4-7), done |
+| Persisted history; new history on restore | 4c (S4-8), done; a new history at peer delete is 4d (G5 f) |
 | Lost index entries | 4d |
 | Frame and head (G11); fault report (G6); peer delete (G5 f) | 4d |
 | Whole-peer version address | 4d |

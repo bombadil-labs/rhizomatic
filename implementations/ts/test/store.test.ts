@@ -144,7 +144,8 @@ describe("requirements are an allow-list", () => {
   });
 
   it("openStore refuses options that are not of their type, with one fixed message", async () => {
-    const message = "openStore: the options must be an object, and requires a list of names";
+    const message =
+      "openStore: the options must be an object, requires a list of names, and restored a boolean";
     const wrong: unknown[] = [
       null,
       "journal",
@@ -160,6 +161,9 @@ describe("requirements are an allow-list", () => {
       { requires: new Set(["journal"]) },
       { requires: [5] },
       { requires: [new String("journal")] },
+      { restored: "true" },
+      { restored: 1 },
+      { restored: null },
       {
         get requires(): never {
           throw new Error("a getter that throws");
@@ -173,7 +177,14 @@ describe("requirements are an allow-list", () => {
       expect(await code(() => openStore("memory:", options as never))).toBe("invalid-request");
     }
     // Absent options, and absent `requires`, mean none.
-    for (const options of [undefined, {}, { requires: undefined }, Object.create(null) as object])
+    for (const options of [
+      undefined,
+      {},
+      { requires: undefined },
+      { restored: undefined },
+      { restored: true },
+      Object.create(null) as object,
+    ])
       expect((await openStore("memory:", options as never)).profile.formatVersion).toBe(
         MEMORY_STORE_FORMAT,
       );
@@ -198,8 +209,10 @@ describe("requirements are an allow-list", () => {
       const requires: ("arrival" | "journal")[] = ["arrival"];
       await openStore("read-once:", { requires });
       expect(given).toHaveLength(1);
-      expect(given[0]).toEqual({ requires: ["arrival"] });
+      expect(given[0]).toEqual({ requires: ["arrival"], restored: false });
       expect((given[0] as { requires: unknown }).requires).not.toBe(requires);
+      await openStore("read-once:", { restored: true });
+      expect(given[1]).toEqual({ requires: [], restored: true });
     } finally {
       remove();
     }
