@@ -900,6 +900,10 @@ erasure report states this boundary. It does not cover:
   claim `proven`;
 - swap, hibernation and crash dumps, which can write process memory to disk. They are the host's
   concern.
+- a log file beside another name of the database file (reading 119). The store reads the one log
+  beside the engine's path. A removed hard link, a rename of the file without its log, and a bind
+  mount of the file each leave or make a log that the store cannot see. SQLite names each as
+  misuse that can corrupt a database. They are the operator's concern.
 
 **Ids in the change feed lie outside "absent"** (decision O4, 2026-11-12). The change feed (§4.6)
 is a store-controlled surface. It keeps the id of a purged delta. It never keeps the bytes or
@@ -2229,8 +2233,10 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        the database file (`PRAGMA database_list`), not the path of the open call. A size of 0 is
        the second condition of reading 117. A missing file, or a file it cannot read, is not 0. A
        database file with a link count other than 1 is also not 0: a second hard link has a log
-       of its own, under its own name. A log left under a name after that link is removed is
-       outside what the store sees, and a report does not cover it;
+       of its own, under its own name. The store reads one log, beside that path. A log beside
+       any other name of the file is outside what the store sees, and a report does not cover
+       it (§4.7.2). Examples: a hard link that was removed, a rename of the file without its
+       log, a bind mount of the file;
      - when the size is not 0, a peer of posture `proven` rolls back, runs the truncate again and
        takes the lock again. Its third try answers without the proof: no `clean` update, every
        file surface `owed`, and a record for each `removed` target, as for a busy truncate
