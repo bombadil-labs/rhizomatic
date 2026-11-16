@@ -13,11 +13,32 @@ const FEATURE_OFF = 'cargo clippy --lib -- -D warnings';
 const GATED_PUBLIC = '#[cfg(feature = "wrong-holders")]\n#[derive(Debug, Clone, Copy, PartialEq, Eq)]\npub enum ViewQuirk {';
 const PRIVATE = '#[cfg(not(feature = "wrong-holders"))]\n#[derive(Debug, Clone, Copy, PartialEq, Eq)]\n#[allow(dead_code)]\npub(crate) enum ViewQuirk {';
 
+// Every feature the default set turns on, through other features too. A `[features]` entry is
+// `name = [ "a", "b" ]`, on one line or several. `dep:x` names a dependency, and `x/y` turns on
+// feature y of dependency x; only `rhizomatic/y` is a feature of this crate.
+export function defaultFeatures(table) {
+  const features = new Map();
+  for (const m of table.matchAll(/^\s*"?([\w-]+)"?\s*=\s*\[([^\]]*)\]/gm))
+    features.set(m[1], [...m[2].matchAll(/"([^"]*)"/g)].map(([, v]) => v));
+  const on = new Set();
+  const visit = (name) => {
+    if (on.has(name)) return;
+    on.add(name);
+    for (const value of features.get(name) ?? []) {
+      if (value.startsWith('dep:')) continue;
+      const [crate, feature] = value.includes('/') ? value.split('/') : ['rhizomatic', value];
+      if (crate.replace(/\?$/, '') === 'rhizomatic') visit(feature);
+    }
+  };
+  visit('default');
+  return on;
+}
+
 export function checkWrongHolders({ cargo, ci, precheck, views }) {
   const problems = [];
   const sections = Object.fromEntries(cargo.split(/^(?=\[)/m).map(s => [s.split('\n')[0].trim(), s]));
   if (!/^wrong-holders = \[\]$/m.test(sections['[features]'] ?? '')) problems.push('Cargo.toml must declare the feature `wrong-holders = []`');
-  if (/^default\s*=.*wrong-holders/m.test(sections['[features]'] ?? '')) problems.push('the feature wrong-holders must not be a default feature');
+  if (defaultFeatures(sections['[features]'] ?? '').has('wrong-holders')) problems.push('the feature wrong-holders must not be a default feature');
   for (const [name, body] of Object.entries(sections))
     if (name !== '[features]' && name !== '[dev-dependencies]' && body.includes('"wrong-holders"')) problems.push(`${name} turns on wrong-holders; only [dev-dependencies] may`);
   if (!/^rhizomatic = \{ path = "\.", features = \["wrong-holders"\] \}$/m.test(sections['[dev-dependencies]'] ?? '')) problems.push('the tests must turn wrong-holders on through a dev-dependency on the crate');
@@ -45,6 +66,8 @@ test('a default feature, a non-test dependency on it, an ungated ViewQuirk or a 
     return checkWrongHolders({ ...live, [key]: live[key].replace(from, to) }).join('\n');
   };
   assert.match(broken('cargo', 'wrong-holders = []', 'wrong-holders = []\ndefault = ["wrong-holders"]'), /not be a default feature/);
+  assert.match(broken('cargo', 'wrong-holders = []', 'wrong-holders = []\nrails = ["wrong-holders"]\ndefault = ["rails"]'), /not be a default feature/);
+  assert.match(broken('cargo', 'wrong-holders = []', 'wrong-holders = []\ndefault = [\n  "wrong-holders",\n]'), /not be a default feature/);
   assert.match(broken('cargo', 'tempfile = "3"', 'tempfile = "3"\nrhizomatic = { path = ".", features = ["wrong-holders"] }'), /only \[dev-dependencies\] may/);
   assert.match(broken('cargo', 'features = ["wrong-holders"] }', '}'), /through a dev-dependency/);
   assert.match(broken('views', PRIVATE, PRIVATE.replace('pub(crate) enum', 'pub enum')), /pub only under the feature/);
