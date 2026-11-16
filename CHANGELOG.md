@@ -6,6 +6,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+## 0.11.0-next.11 — 2026-11-16
+
+Release D: the store (SPEC-18 proposal), slices 1 to 3 in TypeScript and Rust, and slice 4 steps
+4a to 4c in TypeScript. A host opens a store by URL, creates peers with a declared erasure
+posture, appends and purges, reads anchored programs in rounds on one snapshot, follows the
+change feed, checks freshness and holds views. The memory store is the reference. A durable SQLite
+store ships at the subpath `@bombadil/rhizomatic/store/sqlite`; many processes can write one file,
+and on Linux a purge by a peer of posture `proven` proves erasure. The reactor and Loam do not
+read through the store yet: Loam moves in slice 5. Elixir and Haskell remain Level 0.
+
+### Known limits
+
+- The SQLite store is TypeScript only. The Rust witness gets it in step 4e.
+- The SQLite store's erasure class is `proven` on Linux only. It is `unprovable` on Windows,
+  macOS and elsewhere, and a peer of posture `proven` is refused there.
+- A log beside another name of the database file is outside an erasure report (§4.13 reading
+  119). Examples: a hard link that was removed, a rename of the file without its log, a bind
+  mount of the file. The store reads only the log beside the path the engine reports.
+- The process memory of a store that keeps its data in files is outside the erasure claim
+  (§4.7.2).
+- A purge report covers bytes, not ids. `PurgeReport.retains` names the surfaces that may still
+  hold a target's id.
+- The SQLite store serves no journal, value index, stored view, derived index or digest yet.
+- `better-sqlite3` is an optional peer dependency. Install it to import the subpath; the package
+  root never loads it.
+
 The store, slice 1 (SPEC-18 proposal): one store interface with declared capabilities, and the
 memory reference store, in both witnesses against the same vectors. Nothing existing changes
 behavior, and the reactor does not use the store yet.
@@ -36,8 +62,8 @@ is `proven` on Linux only, and `unprovable` on Windows, macOS and elsewhere. Rus
 
 - ⚠️ **`PurgeReport.retains`** is a new required field in both TypeScript stores: the surfaces that
   may still hold a target's id (decision S4-5). A store written outside this package adds it.
-- ⚠️ **The SQLite format is `rhizomatic-store-sqlite/2`.** Open refuses a `/1` file, which step 4a
-  wrote, and names both formats. No migration ships: make a new store.
+- Step 4b raised the SQLite format from `/1` to `/2`. Step 4c raised it again, to `/3` (below).
+  This release writes and reads `/3` only.
 - The SQLite store declares a sixth surface, `temp-files`. Two counters, kept by triggers, tell
   whether the file is clean (reading 117). Every file surface is `owed` while it is not: after a
   busy checkpoint, a failed rebuild, a crash, or a purge by a peer of posture `unproven`. A later
@@ -121,6 +147,38 @@ step 4e.
   fault `revision-out-of-range` (SPEC-18 §4.13 reading 103).
 
 ### ⚠️ Breaking
+
+The store is new in this release. The first ten items below break only a store, a factory or a
+caller written against an unreleased build. The later items are from slices 1 to 3. Of those, the
+change to `DeltaSource.targets`, `DeltaSource.negators`, `Reactor.targets` and `Reactor.negators`
+(the last item) reaches a consumer of `0.11.0-next.10`.
+
+- ⚠️ **`PurgeReport.retains` is required.** A store written outside this package adds it to every
+  purge report: the surfaces that may still hold a target's id (decision S4-5).
+- ⚠️ **`store-unavailable` is a new refusal code** (§4.13 reading 105). A durable store gives it
+  when a lock is held past the wait or the engine cannot read the file. A `match` over
+  `StoreErrorCode` adds it. A purge refused `store-unavailable` may have committed its delete:
+  purge again.
+- ⚠️ **Strings must be well-formed** (reading 104). A string with a lone surrogate is refused in
+  both stores: `invalid-admission` in an append (`nextHead`, an arrival `sender`), and
+  `invalid-request` in a read key, a purge id, a peer id and a minted history.
+- ⚠️ **-0 answers as +0** (reading 106). Both stores answer every -0 in the claims and in an
+  arrival `at` as +0, the value the id hashes. A caller that tells -0 from +0 stops doing so.
+- ⚠️ **The SQLite format is `rhizomatic-store-sqlite/3`.** Open refuses a `/1` or `/2` file with
+  `open-failed` and names both formats. No migration ships: make a new store.
+- ⚠️ **The SQLite profile says `writers: "many-processes"`.** A write that cannot take the lock
+  within `busyTimeoutMs` refuses `store-unavailable` and writes nothing.
+- ⚠️ **`OpenOptions.restored` is new, and a `StoreFactory` gets it.** A factory with files to
+  restore gives every peer a new history when it is `true`. A factory without files ignores it.
+- ⚠️ **Options and requests are read as own fields only** (reading 126). A field set on
+  `Object.prototype` reads as absent. A caller that passes options through a prototype passes a
+  plain object.
+- ⚠️ **A factory checks `requires` before it changes a file** (reading 126). A registered factory
+  that can create a file or mint histories refuses `capability-absent` first, with
+  `missingRequirements(profile, options.requires ?? [])`. `openStore` still checks the opened
+  profile again.
+- ⚠️ **`storeViewsWithQuirks` is not exported from the package root.** It builds a wrong holder for
+  the rails only, and no release exported it. Use `new StoreViews(peer, options)`.
 
 - A store fault in `checkFresh` and `FeedCursor.pull` throws `StoreFaultError` (with `rule` and
   `values`), where the unreleased step-7 shape threw a plain `Error`. In Rust, `check_fresh`,
