@@ -1,8 +1,12 @@
-// The SQLite store (SPEC-18 proposal §5.2; slice 4 plan, step 4a). Every contract read is one
-// indexed statement, and the engine keeps the consistency it can: foreign keys, uniqueness,
+// The SQLite store (SPEC-18 proposal §5.2; slice 4 plan, steps 4a and 4b). Every contract read is
+// one indexed statement, and the engine keeps the consistency it can: foreign keys, uniqueness,
 // checks and strict types. A snapshot holds a revision, not a transaction: each call is one short
-// read transaction that checks the revision first (decision S4-2). Erasure is `unprovable` until
-// the pages are rebuilt after a purge (step 4b), so every report says `unproven`.
+// read transaction that checks the revision first (decision S4-2).
+//
+// Erasure (plan §7). A deleted row can leave copies of its bytes in the free space of live pages,
+// so a purge by a peer of posture `proven` rebuilds the pages (`VACUUM`) and empties the log
+// (`wal_checkpoint(TRUNCATE)`). The residue belongs to the file: a purge records a `surface_debt`
+// row per removed id, and only a rebuild that started after the delete settles it.
 //
 // Importing this module registers the `sqlite:` scheme of `openStore`. The package root never
 // imports it, so a host without `better-sqlite3` can still load the root.
@@ -62,8 +66,16 @@ export type SqliteStoreOptions = {
 };
 
 const DEFAULT_RETENTION = { revisions: 1024 } as const;
-// Until step 4b rebuilds the pages after a purge, freed space can keep a purged delta's bytes.
-const ERASURE_CLASS: ErasureClass = "unprovable";
+/**
+ * The store's erasure class, read once from the platform. A rebuild writes the live deltas to a
+ * temporary file. On Linux and macOS the engine unlinks that file when it creates it, so a crash
+ * leaves nothing. On Windows the file is deleted at close, and a power loss during a rebuild can
+ * leave a file of live deltas that a later purge does not reach: the class there is
+ * `unprovable`, as on every platform not named here.
+ */
+const ERASURE_CLASS: ErasureClass = ["linux", "darwin"].includes(process.platform)
+  ? "proven"
+  : "unprovable";
 const EXPORT_PAGE = 256;
 
 /**
@@ -318,6 +330,7 @@ class SqliteFileStore implements SqliteStore {
       const put = db.prepare(SQLITE_STATEMENTS.metaPut);
       put.run("format", SQLITE_STORE_FORMAT);
       put.run("retention", JSON.stringify(retention));
+      put.run("generation", "0");
       return retention;
     }
     let format: string | undefined;
@@ -465,6 +478,11 @@ class SqliteFileStore implements SqliteStore {
         ? this.#run("read", () => this.#peerRow(id))
         : undefined;
     if (row === undefined) throw new StoreError("peer-absent", "peer: no such peer");
+    if (row.posture === "proven" && ERASURE_CLASS !== "proven")
+      throw new StoreError(
+        "posture-refused",
+        `peer: the peer promises proven erasure and this store's class is ${ERASURE_CLASS}`,
+      );
     return this.#handle(id, row);
   }
 
@@ -472,7 +490,7 @@ class SqliteFileStore implements SqliteStore {
     return {
       id,
       history: row.history,
-      erasure: { posture: row.posture, storeClass: row.storeClass },
+      erasure: { posture: row.posture, storeClass: ERASURE_CLASS },
       read: async () => {
         this.#open();
         return this.#snapshot(
@@ -697,10 +715,26 @@ class SqliteFileStore implements SqliteStore {
     );
   }
 
+  /**
+   * The purge (plan §6, §7). One transaction removes the holdings, records the surface debt and
+   * writes the change record. Then, for a peer of posture `proven` while any debt is owed, the
+   * rebuild. The report gives the file surfaces `absent` only when this call's own rebuild and
+   * truncate succeeded after its delete, or when nothing is owed at all.
+   */
   #purge(peer: PeerId, ids: readonly Id[]): PurgeReport {
     const s = this.#s;
-    return this.#run("write", () => {
+    const removal = this.#run("write", () => {
       const row = this.#peerRow(peer)!;
+      const proving = ERASURE_CLASS === "proven" && row.posture === "proven";
+      const generation = Number(this.#meta("generation"));
+      const owedNow = (): boolean =>
+        s.surfaceDebtOwed.get() !== undefined || this.#meta("residue") !== undefined;
+      // A removal leaves residue in the file. A peer that asks for proof records it per id; a
+      // peer that does not sets the one file-level mark (decision S4-16).
+      const owe = (id: Id): void => {
+        if (proving) s.surfaceDebtOwe.run(peer, id, generation);
+        else s.markSet.run(String(generation));
+      };
       const targets: { id: Id; outcome: PurgeOutcome }[] = [];
       const released: Id[] = [];
       let rowsOwed = false;
@@ -715,12 +749,25 @@ class SqliteFileStore implements SqliteStore {
           // The report states what a second look finds, not what the removal intended.
           indexesOwed ||= (s.indexLeft.get({ peer, id }) as { found: number }).found === 1;
           outcome = s.deltaFind.get(id) === undefined ? "removed" : "held-by-other-peer";
+          if (outcome === "removed") owe(id);
         } else if (s.debtFind.get(peer, id) !== undefined) {
           if (s.deltaFind.get(id) === undefined) {
             s.debtDrop.run(peer, id);
             outcome = "removed";
+            // Another peer's purge removed the bytes. While the file owes a rebuild, this peer
+            // gets its own row, so that its next ask can be answered with the proof.
+            if (proving && owedNow()) s.surfaceDebtOwe.run(peer, id, generation);
           } else outcome = "held-by-other-peer";
-        } else outcome = "not-held";
+        } else {
+          const debt = s.surfaceDebtFind.get(peer, id) as { state: string } | undefined;
+          if (debt === undefined) outcome = "not-held";
+          else {
+            // The later proof (decision S4-13): an earlier purge removed the id, and this ask is
+            // answered with the present surface states. A settled row has served its purpose.
+            outcome = "removed";
+            if (debt.state === "settled") s.surfaceDebtDrop.run(peer, id);
+          }
+        }
         rowsOwed ||= outcome === "removed" && s.deltaFind.get(id) !== undefined;
         targets.push({ id, outcome });
       }
@@ -735,22 +782,85 @@ class SqliteFileStore implements SqliteStore {
           released,
         );
       }
-      const removed = targets.some((target) => target.outcome === "removed");
-      return {
-        claim: removed ? "unproven" : "nothing-removed",
-        boundary: PURGE_BOUNDARY,
-        revision,
-        targets,
-        surfaces: [
-          { surface: "rows", state: rowsOwed ? "owed" : "absent" },
-          { surface: "index-entries", state: indexesOwed ? "owed" : "absent" },
-          // Freed pages and the log can keep bytes until the pages are rebuilt (step 4b).
-          { surface: "page-free-space", state: "unprovable" },
-          { surface: "freed-pages", state: "unprovable" },
-          { surface: "write-ahead-log", state: "unprovable" },
-        ],
-      };
+      // The surfaces that may still hold the id of a target this peer released or owes. The
+      // list may name one that no longer does; it never omits one that does (decision S4-5).
+      const named = targets.filter((t) => t.outcome !== "not-held").map((t) => t.id);
+      const retains: PurgeReport["retains"][number][] = [{ surface: "change-feed", holds: "id" }];
+      if (named.some((id) => s.debtNames.get(id) !== undefined))
+        retains.push({ surface: "purge-debt", holds: "id" });
+      if (named.some((id) => s.surfaceDebtNames.get(id) !== undefined))
+        retains.push({ surface: "surface-debt", holds: "id" });
+      return { proving, targets, revision, rowsOwed, indexesOwed, retains, owed: owedNow() };
     });
+    // A purge that removes nothing still rebuilds while anything is owed (plan §7, rail 4).
+    const rebuilt = removal.proving && removal.owed && this.#rebuild();
+    const filesAbsent = rebuilt || !removal.owed;
+    const removed = removal.targets.some((target) => target.outcome === "removed");
+    const surfaces: PurgeReport["surfaces"] = filesAbsent
+      ? [
+          { surface: "rows", state: removal.rowsOwed ? "owed" : "absent" },
+          { surface: "index-entries", state: removal.indexesOwed ? "owed" : "absent" },
+          { surface: "page-free-space", state: "absent" },
+          { surface: "freed-pages", state: "absent" },
+          { surface: "write-ahead-log", state: "absent" },
+          { surface: "temp-files", state: ERASURE_CLASS === "proven" ? "absent" : "unprovable" },
+        ]
+      : [
+          ...["rows", "index-entries", "page-free-space", "freed-pages", "write-ahead-log"].map(
+            (surface) => ({ surface, state: "owed" as const }),
+          ),
+          { surface: "temp-files", state: ERASURE_CLASS === "proven" ? "owed" : "unprovable" },
+        ];
+    return {
+      claim: !removed
+        ? "nothing-removed"
+        : removal.proving && surfaces.every((surface) => surface.state === "absent")
+          ? "proven"
+          : "unproven",
+      boundary: PURGE_BOUNDARY,
+      revision: removal.revision,
+      targets: removal.targets,
+      surfaces,
+      retains: removal.retains,
+    };
+  }
+
+  /**
+   * Rebuilds the pages and empties the log. True only when both succeeded. The generation is
+   * raised first, in its own transaction, so the rebuild settles only debts recorded before it
+   * began: a purge that another process commits meanwhile keeps its debt.
+   */
+  #rebuild(): boolean {
+    const s = this.#s;
+    let raised: number;
+    try {
+      raised = this.#run("write", () => {
+        const next = Number(this.#meta("generation")) + 1;
+        s.generationRaise.run(String(next));
+        return next;
+      });
+      s.vacuum.run();
+      // A busy checkpoint answers a row and does not throw. Until it truncates, the old pages
+      // stay in the database file and the log.
+      const { busy, log } = s.checkpoint.get() as { busy: number; log: number };
+      if (busy !== 0 || log !== 0) return false;
+    } catch {
+      return false;
+    }
+    try {
+      this.#run("write", () => {
+        s.surfaceDebtSettle.run(raised);
+        const mark = this.#meta("residue");
+        if (mark !== undefined && Number(mark) < raised) s.markDrop.run();
+      });
+    } catch {
+      // The debts stay owed, and the next rebuild settles them.
+    }
+    return true;
+  }
+
+  #meta(key: string): string | undefined {
+    return (this.#s.metaGet.get(key) as { value: string } | undefined)?.value;
   }
 
   openAdmin(): SqliteExporter {
@@ -813,7 +923,7 @@ class SqliteFileStore implements SqliteStore {
     if (this.#closed) return;
     this.#closed = true;
     try {
-      this.#db.pragma("wal_checkpoint(TRUNCATE)");
+      this.#s.checkpoint.get();
     } catch {
       // Another connection holds the log; it is truncated at a later close.
     }

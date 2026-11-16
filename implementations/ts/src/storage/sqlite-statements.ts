@@ -67,6 +67,16 @@ CREATE TABLE debt (
   delta TEXT NOT NULL,
   PRIMARY KEY (peer, delta)
 ) STRICT, WITHOUT ROWID;
+CREATE INDEX debt_by_delta ON debt (delta);
+CREATE TABLE surface_debt (
+  peer TEXT NOT NULL REFERENCES peer,
+  delta TEXT NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('owed', 'settled')),
+  generation INTEGER NOT NULL CHECK (generation >= 0),
+  PRIMARY KEY (peer, delta)
+) STRICT, WITHOUT ROWID;
+CREATE INDEX surface_debt_by_state ON surface_debt (state, generation);
+CREATE INDEX surface_debt_by_delta ON surface_debt (delta);
 `;
 
 // The pushdown fields of a scope, as nullable parameters: a null bound keeps every delta.
@@ -78,6 +88,10 @@ export const SQLITE_STATEMENTS = {
   schemaSize: "SELECT count(*) AS size FROM sqlite_schema",
   metaGet: "SELECT value FROM meta WHERE key = ?",
   metaPut: "INSERT INTO meta (key, value) VALUES (?, ?)",
+  generationRaise: "UPDATE meta SET value = ? WHERE key = 'generation'",
+  markSet: `INSERT INTO meta (key, value) VALUES ('residue', ?)
+    ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
+  markDrop: "DELETE FROM meta WHERE key = 'residue'",
 
   historyFind: "SELECT 1 FROM history WHERE value = ?",
   historyAdd: "INSERT INTO history (value) VALUES (?)",
@@ -92,6 +106,10 @@ export const SQLITE_STATEMENTS = {
   heldElsewhere: "SELECT 1 FROM holding WHERE delta = ? LIMIT 1",
   deltaFind: "SELECT 1 FROM delta WHERE id = ?",
   debtFind: "SELECT 1 FROM debt WHERE peer = ? AND delta = ?",
+  debtNames: "SELECT 1 FROM debt WHERE delta = ? LIMIT 1",
+  surfaceDebtFind: "SELECT state FROM surface_debt WHERE peer = ? AND delta = ?",
+  surfaceDebtNames: "SELECT 1 FROM surface_debt WHERE delta = ? LIMIT 1",
+  surfaceDebtOwed: "SELECT 1 FROM surface_debt WHERE state = 'owed' LIMIT 1",
   indexLeft: `SELECT EXISTS (SELECT 1 FROM holding WHERE peer = @peer AND delta = @id)
     OR EXISTS (SELECT 1 FROM target WHERE peer = @peer AND delta = @id)
     OR EXISTS (SELECT 1 FROM reference WHERE peer = @peer AND delta = @id) AS found`,
@@ -110,6 +128,14 @@ export const SQLITE_STATEMENTS = {
   debtDrop: "DELETE FROM debt WHERE peer = ? AND delta = ?",
   holdingDrop: "DELETE FROM holding WHERE peer = ? AND delta = ?",
   deltaDrop: "DELETE FROM delta WHERE id = ?",
+  surfaceDebtOwe: `INSERT INTO surface_debt (peer, delta, state, generation) VALUES (?, ?, 'owed', ?)
+    ON CONFLICT (peer, delta) DO UPDATE SET state = 'owed', generation = excluded.generation`,
+  surfaceDebtDrop: "DELETE FROM surface_debt WHERE peer = ? AND delta = ?",
+  surfaceDebtSettle:
+    "UPDATE surface_debt SET state = 'settled' WHERE state = 'owed' AND generation < ?",
+
+  vacuum: "VACUUM",
+  checkpoint: "PRAGMA wal_checkpoint(TRUNCATE)",
 
   get: `SELECT holding.delta AS id, delta.claims, holding.sig
     FROM json_each(@keys) AS asked

@@ -28,6 +28,23 @@ optional peer dependency. Two contract changes reach both stores: the refusal `s
 (§4.13 reading 105), strings must be well-formed (reading 104), and -0 answers as +0
 (reading 106). Rust follows in step 4e.
 
+The store, slice 4, step 4b (TypeScript): the SQLite store proves erasure. A purge by a peer of
+posture `proven` rebuilds the pages (`VACUUM`) and truncates the log, and the report says
+`proven` only when that succeeded after the delete (§4.13 readings 107 to 112). The store's class
+is `proven` on Linux and macOS, and `unprovable` on Windows and elsewhere. Rust follows in step
+4e.
+
+- ⚠️ **`PurgeReport.retains`** is a new required field in both TypeScript stores: the surfaces that
+  may still hold a target's id (decision S4-5). A store written outside this package adds it.
+- ⚠️ **The SQLite format is `rhizomatic-store-sqlite/2`.** Open refuses a `/1` file, which step 4a
+  wrote, and names both formats. No migration ships: make a new store.
+- The SQLite store declares a sixth surface, `temp-files`. Every file surface is `owed` while a
+  debt is owed: after a busy checkpoint, a failed rebuild, a crash, or a purge by a peer of
+  posture `unproven`. A later purge of the same ids answers `removed` with the proof.
+- `peer()` refuses `posture-refused` for a peer of posture `proven` on a store of another class.
+- The process memory of a store that keeps its data in files lies outside the erasure claim
+  (Myk's ruling, 2026-11-15; §4.7.2).
+
 - **The change feed.** `PeerStore.changes(from, to?)` answers pages of records, one per revision
   advance, with the head and the ids added and removed; never bytes. A `from` below the
   retention floor, or above the current revision, answers `resync-required`. The memory store

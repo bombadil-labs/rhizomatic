@@ -2,7 +2,9 @@
 // of every statement the store prepares equals the plan committed in sqlite-store-plans.json, so
 // a changed plan fails until a person reads it. Part 2: no plan scans a base table, builds an
 // automatic index, or searches `holding`, `target` or `reference` by the peer alone. A plan does
-// not show what a foreign-key action costs; the timing rail (part 3) covers that.
+// not show what a foreign-key action costs; the timing rail (part 3) covers that. `VACUUM` has an
+// empty plan and reads every page by definition: it is the rebuild of plan §7, whose cost is
+// O(store) per purge of a peer that asks for proof.
 //
 // To accept a changed plan after reading it, run this file with RHIZOMATIC_WRITE_PLANS=1, then
 // format the JSON file with Prettier.
@@ -38,6 +40,7 @@ const BASE_TABLES = [
   "reference",
   "change",
   "debt",
+  "surface_debt",
 ];
 const PER_PEER = ["holding", "target", "reference"];
 

@@ -165,6 +165,8 @@ class MemoryStore implements Store {
   readonly #meter: StoreMeter;
   readonly #rows: Index<Row>;
   readonly #peers: Index<PeerState>;
+  /** How many peers owe each id: a purge report names `purge-debt` from it (decision S4-5). */
+  readonly #debtors: Index<number>;
   /** The most records a peer keeps; infinite when unbounded. */
   readonly #keep: number;
   readonly #pageSize: number;
@@ -177,6 +179,7 @@ class MemoryStore implements Store {
     this.#meter = options.meter ?? { lookups: 0, visited: 0, scans: 0 };
     this.#rows = new Index(this.#meter);
     this.#peers = new Index(this.#meter);
+    this.#debtors = new Index(this.#meter);
     const positive = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 1;
     let retention: ChangeRetention = "unbounded";
     const asked = options.changeRetention;
@@ -531,7 +534,7 @@ class MemoryStore implements Store {
       else row.holders++;
       state.holdings.set(id, holding);
       state.count++;
-      state.owed.delete(id);
+      this.#settle(state, id);
       const keys = indexKeys(claims);
       for (const entity of keys.entities) this.#file(state.targets, entity, id);
       for (const negated of keys.negated) this.#file(state.negators, negated, id);
@@ -560,6 +563,20 @@ class MemoryStore implements Store {
     if (bucket.size === 0) index.delete(key);
   }
 
+  #owe(state: PeerState, id: Id): void {
+    if (state.owed.get(id) === true) return;
+    state.owed.set(id, true);
+    this.#debtors.set(id, (this.#debtors.get(id) ?? 0) + 1);
+  }
+
+  #settle(state: PeerState, id: Id): void {
+    if (state.owed.get(id) !== true) return;
+    state.owed.delete(id);
+    const left = this.#debtors.get(id)! - 1;
+    if (left === 0) this.#debtors.delete(id);
+    else this.#debtors.set(id, left);
+  }
+
   #purge(state: PeerState, ids: readonly Id[]): PurgeReport {
     const targets: { id: Id; outcome: PurgeOutcome }[] = [];
     // The ids that leave this peer's holdings. A settled debt is not one: the peer stopped
@@ -580,7 +597,7 @@ class MemoryStore implements Store {
         state.count--;
         row.holders--;
         if (row.holders === 0) this.#rows.delete(id);
-        else state.owed.set(id, true);
+        else this.#owe(state, id);
         released.push(id);
         // The report states what a second look finds, not what the removal intended.
         indexesOwed ||=
@@ -592,7 +609,7 @@ class MemoryStore implements Store {
         // An earlier purge left the bytes with another peer. Report whether they are gone
         // now; a peer that never held the id learns nothing here.
         if (this.#rows.get(id) === undefined) {
-          state.owed.delete(id);
+          this.#settle(state, id);
           outcome = "removed";
         } else outcome = "held-by-other-peer";
       } else outcome = "not-held";
@@ -615,6 +632,14 @@ class MemoryStore implements Store {
         { surface: "rows", state: rowsOwed ? "owed" : "absent" },
         { surface: "index-entries", state: indexesOwed ? "owed" : "absent" },
         { surface: "process-memory", state: "unprovable" },
+      ],
+      // The ids the feed or a debt may keep, for the targets this peer released or owes. This
+      // store always keeps a feed.
+      retains: [
+        { surface: "change-feed", holds: "id" },
+        ...(targets.some((t) => t.outcome !== "not-held" && this.#debtors.get(t.id) !== undefined)
+          ? [{ surface: "purge-debt" as const, holds: "id" as const }]
+          : []),
       ],
     };
   }

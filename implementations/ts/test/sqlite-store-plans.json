@@ -2,6 +2,9 @@
   "schemaSize": ["SCAN sqlite_master"],
   "metaGet": ["SEARCH meta USING INDEX sqlite_autoindex_meta_1 (key=?)"],
   "metaPut": [],
+  "generationRaise": ["SEARCH meta USING INDEX sqlite_autoindex_meta_1 (key=?)"],
+  "markSet": [],
+  "markDrop": ["SEARCH meta USING INDEX sqlite_autoindex_meta_1 (key=?)"],
   "historyFind": ["SEARCH history USING COVERING INDEX sqlite_autoindex_history_1 (value=?)"],
   "historyAdd": [],
   "peerRead": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
@@ -13,6 +16,10 @@
   "heldElsewhere": ["SEARCH holding USING COVERING INDEX holding_by_delta (delta=?)"],
   "deltaFind": ["SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id=?)"],
   "debtFind": ["SEARCH debt USING PRIMARY KEY (peer=? AND delta=?)"],
+  "debtNames": ["SEARCH debt USING COVERING INDEX debt_by_delta (delta=?)"],
+  "surfaceDebtFind": ["SEARCH surface_debt USING PRIMARY KEY (peer=? AND delta=?)"],
+  "surfaceDebtNames": ["SEARCH surface_debt USING COVERING INDEX surface_debt_by_delta (delta=?)"],
+  "surfaceDebtOwed": ["SEARCH surface_debt USING COVERING INDEX surface_debt_by_state (state=?)"],
   "indexLeft": [
     "SCAN CONSTANT ROW",
     "SCALAR SUBQUERY 1",
@@ -39,6 +46,13 @@
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
     "SEARCH holding USING COVERING INDEX holding_by_delta (delta=?)"
   ],
+  "surfaceDebtOwe": [],
+  "surfaceDebtDrop": ["SEARCH surface_debt USING PRIMARY KEY (peer=? AND delta=?)"],
+  "surfaceDebtSettle": [
+    "SEARCH surface_debt USING COVERING INDEX surface_debt_by_state (state=? AND generation<?)"
+  ],
+  "vacuum": [],
+  "checkpoint": [],
   "get": [
     "SCAN asked VIRTUAL TABLE INDEX 1:",
     "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",

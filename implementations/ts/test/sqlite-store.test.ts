@@ -184,7 +184,7 @@ async function writer(store: Store, id = "peer:a") {
 // ---- the store's own rules -------------------------------------------------------------------
 
 describe("the SQLite store's profile and scheme", () => {
-  it("declares what step 4a holds, and nothing more", async () => {
+  it("declares what step 4b holds, and nothing more; the class is proven on Linux and macOS only", async () => {
     const store = await fixture.open();
     expect(store.profile).toEqual({
       capabilities: {
@@ -194,7 +194,7 @@ describe("the SQLite store's profile and scheme", () => {
         views: false,
         derivedIndexes: false,
         digest: false,
-        erasure: "unprovable",
+        erasure: ["linux", "darwin"].includes(process.platform) ? "proven" : "unprovable",
       },
       indexedValueRoles: [],
       pushdown: { timestampAtMost: true, arrivalAtMost: true, excludeIds: true },
@@ -204,15 +204,7 @@ describe("the SQLite store's profile and scheme", () => {
       formatVersion: "rhizomatic-store-sqlite/2",
     });
     expect(Object.isFrozen(store.profile)).toBe(true);
-    expect(await refusal(store.createPeer("p", { erasure: "proven" }))).toBe("posture-refused");
-    // A caller that replaces the profile does not switch off the posture gate.
-    Object.assign(store, {
-      profile: {
-        ...store.profile,
-        capabilities: { ...store.profile.capabilities, erasure: "proven" },
-      },
-    });
-    expect(await refusal(store.createPeer("p", { erasure: "proven" }))).toBe("posture-refused");
+    // The posture gate on a store of class unprovable: sqlite-store-erasure.test.ts, rail 6.
   });
 
   it("openStore opens sqlite:///path, and refuses another form without echoing it", async () => {
@@ -588,8 +580,8 @@ describe("an engine error that is not a lock does not invite a retry", () => {
   });
 });
 
-describe("the purge report in step 4a", () => {
-  it("removes, keeps bytes another peer holds, settles the debt, and always says unproven", async () => {
+describe("the purge report of a peer of posture unproven", () => {
+  it("removes, keeps bytes another peer holds, settles the debt, says unproven, and owes every file surface", async () => {
     const store = await fixture.audited();
     const a = await writer(store, "peer:a");
     const b = await writer(store, "peer:b");
@@ -607,12 +599,18 @@ describe("the purge report in step 4a", () => {
         { id: shared.id, outcome: "held-by-other-peer" },
         { id: x.id, outcome: "removed" },
       ].sort((p, q) => (p.id < q.id ? -1 : 1)),
+      // The peer asks for no proof: no rebuild runs, and the residue is owed (decision S4-16).
       surfaces: [
-        { surface: "rows", state: "absent" },
-        { surface: "index-entries", state: "absent" },
-        { surface: "page-free-space", state: "unprovable" },
-        { surface: "freed-pages", state: "unprovable" },
-        { surface: "write-ahead-log", state: "unprovable" },
+        "rows",
+        "index-entries",
+        "page-free-space",
+        "freed-pages",
+        "write-ahead-log",
+        "temp-files",
+      ].map((surface) => ({ surface, state: "owed" })),
+      retains: [
+        { surface: "change-feed", holds: "id" },
+        { surface: "purge-debt", holds: "id" },
       ],
     });
     // The rows: the target is gone at the bytes and the indexes; the bystander and the shared

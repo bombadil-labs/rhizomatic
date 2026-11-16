@@ -95,7 +95,8 @@ Each is made here under the store-arc delegation. Each moves to §12 when its st
   memory store declares `process-memory: unprovable` because memory is its only medium. A durable
   store's page cache and statement memory hold bytes until the process frees them. The boundary
   text of every report says so. Without this, no durable store could claim `proven`. **This states
-  a limit of the erasure promise; it is flagged for Myk in the PR that lands it.**
+  a limit of the erasure promise. Myk ruled it on 2026-11-15; §4.7.2 of the proposal records
+  it.**
 - **S4-15. Strings must be well-formed.** A lone surrogate takes two byte forms in SQLite (a
   direct bind and `json_each` differ), so a stored entity would not be found. Append refuses a
   delta that carries a string that is not well-formed (`invalid-admission`), and a read refuses
@@ -243,14 +244,16 @@ Limits, stated in the report's boundary text and in the proposal:
   the store while it runs.
 - The temporary file holds **live** deltas. On Unix it is unlinked at creation, so a crash leaves
   nothing. On Windows it is deleted at close, so a power loss during a rebuild can leave it in
-  the temp directory, and a later purge of those deltas does not reach it. **On Windows the
-  store's class stays `unprovable` until 4b closes this**, by a temp directory the store controls
-  or by a sweep at open. 4b decides and records it.
+  the temp directory, and a later purge of those deltas does not reach it. **Decided in 4b: the
+  class is `proven` on Linux and macOS only, and `unprovable` on Windows and every other
+  platform.** The gap is named in the proposal (§5.2). A temp directory the store controls, or a
+  sweep at open, could close it later.
 
 **The report.**
 
 - Declared surfaces: `rows`, `index-entries`, `page-free-space`, `freed-pages`,
-  `write-ahead-log`. The experiment adds a surface for whatever side files the method uses.
+  `write-ahead-log`. The experiment adds a surface for whatever side files the method uses: the
+  rebuild's temporary file, `temp-files`. It is `unprovable` on a store of class `unprovable`.
 - After the delete commits and before the rebuild and truncate succeed, **every** surface is
   `owed`. A busy checkpoint leaves the bytes in the database file, not in the log, so no file
   surface can be `absent` then. The checkpoint pragma answers `busy` as a row and does not throw;
