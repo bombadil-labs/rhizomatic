@@ -71,12 +71,21 @@ CREATE INDEX debt_by_delta ON debt (delta);
 CREATE TABLE surface_debt (
   peer TEXT NOT NULL REFERENCES peer,
   delta TEXT NOT NULL,
-  state TEXT NOT NULL CHECK (state IN ('owed', 'settled')),
-  generation INTEGER NOT NULL CHECK (generation >= 0),
   PRIMARY KEY (peer, delta)
 ) STRICT, WITHOUT ROWID;
-CREATE INDEX surface_debt_by_state ON surface_debt (state, generation);
-CREATE INDEX surface_debt_by_delta ON surface_debt (delta, state);
+CREATE INDEX surface_debt_by_delta ON surface_debt (delta);
+CREATE TABLE residue (
+  one INTEGER PRIMARY KEY CHECK (one = 1),
+  dirty INTEGER NOT NULL CHECK (dirty >= 0),
+  clean INTEGER NOT NULL CHECK (clean >= 0 AND clean <= dirty)
+) STRICT;
+INSERT INTO residue (one, dirty, clean) VALUES (1, 0, 0);
+CREATE TRIGGER residue_kept BEFORE DELETE ON residue
+  BEGIN SELECT RAISE(ABORT, 'the residue row is kept'); END;
+CREATE TRIGGER holding_residue AFTER DELETE ON holding
+  BEGIN UPDATE residue SET dirty = dirty + 1 WHERE one = 1; END;
+CREATE TRIGGER delta_residue AFTER DELETE ON delta
+  BEGIN UPDATE residue SET dirty = dirty + 1 WHERE one = 1; END;
 `;
 
 // The pushdown fields of a scope, as nullable parameters: a null bound keeps every delta.
@@ -88,10 +97,9 @@ export const SQLITE_STATEMENTS = {
   schemaSize: "SELECT count(*) AS size FROM sqlite_schema",
   metaGet: "SELECT value FROM meta WHERE key = ?",
   metaPut: "INSERT INTO meta (key, value) VALUES (?, ?)",
-  generationRaise: "UPDATE meta SET value = ? WHERE key = 'generation'",
-  markSet: `INSERT INTO meta (key, value) VALUES ('residue', ?)
-    ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
-  markDrop: "DELETE FROM meta WHERE key = 'residue'",
+  residueRead: "SELECT dirty, clean FROM residue WHERE one = 1",
+  residueDirty: "SELECT dirty FROM residue WHERE one = 1",
+  residueClean: "UPDATE residue SET clean = max(clean, ?) WHERE one = 1",
 
   historyFind: "SELECT 1 FROM history WHERE value = ?",
   historyAdd: "INSERT INTO history (value) VALUES (?)",
@@ -107,9 +115,8 @@ export const SQLITE_STATEMENTS = {
   deltaFind: "SELECT 1 FROM delta WHERE id = ?",
   debtFind: "SELECT 1 FROM debt WHERE peer = ? AND delta = ?",
   debtNames: "SELECT 1 FROM debt WHERE delta = ? LIMIT 1",
-  surfaceDebtFind: "SELECT state FROM surface_debt WHERE peer = ? AND delta = ?",
+  surfaceDebtFind: "SELECT 1 FROM surface_debt WHERE peer = ? AND delta = ?",
   surfaceDebtNames: "SELECT 1 FROM surface_debt WHERE delta = ? LIMIT 1",
-  surfaceDebtOwed: "SELECT 1 FROM surface_debt WHERE state = 'owed' LIMIT 1",
   indexLeft: `SELECT EXISTS (SELECT 1 FROM holding WHERE peer = @peer AND delta = @id)
     OR EXISTS (SELECT 1 FROM target WHERE peer = @peer AND delta = @id)
     OR EXISTS (SELECT 1 FROM reference WHERE peer = @peer AND delta = @id) AS found`,
@@ -128,13 +135,10 @@ export const SQLITE_STATEMENTS = {
   debtDrop: "DELETE FROM debt WHERE peer = ? AND delta = ?",
   holdingDrop: "DELETE FROM holding WHERE peer = ? AND delta = ?",
   deltaDrop: "DELETE FROM delta WHERE id = ?",
-  surfaceDebtOwe: `INSERT INTO surface_debt (peer, delta, state, generation) VALUES (?, ?, 'owed', ?)
-    ON CONFLICT (peer, delta) DO UPDATE SET state = 'owed', generation = excluded.generation`,
+  surfaceDebtAdd: `INSERT INTO surface_debt (peer, delta) VALUES (?, ?)
+    ON CONFLICT (peer, delta) DO NOTHING`,
   surfaceDebtDrop: "DELETE FROM surface_debt WHERE peer = ? AND delta = ?",
-  surfaceDebtClose:
-    "DELETE FROM surface_debt INDEXED BY surface_debt_by_delta WHERE delta = ? AND state = 'settled'",
-  surfaceDebtSettle:
-    "UPDATE surface_debt SET state = 'settled' WHERE state = 'owed' AND generation < ?",
+  surfaceDebtClose: "DELETE FROM surface_debt INDEXED BY surface_debt_by_delta WHERE delta = ?",
 
   vacuum: "VACUUM",
   checkpoint: "PRAGMA wal_checkpoint(TRUNCATE)",

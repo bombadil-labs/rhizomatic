@@ -2,9 +2,9 @@
   "schemaSize": ["SCAN sqlite_master"],
   "metaGet": ["SEARCH meta USING INDEX sqlite_autoindex_meta_1 (key=?)"],
   "metaPut": [],
-  "generationRaise": ["SEARCH meta USING INDEX sqlite_autoindex_meta_1 (key=?)"],
-  "markSet": [],
-  "markDrop": ["SEARCH meta USING INDEX sqlite_autoindex_meta_1 (key=?)"],
+  "residueRead": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "residueDirty": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "residueClean": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
   "historyFind": ["SEARCH history USING COVERING INDEX sqlite_autoindex_history_1 (value=?)"],
   "historyAdd": [],
   "peerRead": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
@@ -19,7 +19,6 @@
   "debtNames": ["SEARCH debt USING COVERING INDEX debt_by_delta (delta=?)"],
   "surfaceDebtFind": ["SEARCH surface_debt USING PRIMARY KEY (peer=? AND delta=?)"],
   "surfaceDebtNames": ["SEARCH surface_debt USING COVERING INDEX surface_debt_by_delta (delta=?)"],
-  "surfaceDebtOwed": ["SEARCH surface_debt USING COVERING INDEX surface_debt_by_state (state=?)"],
   "indexLeft": [
     "SCAN CONSTANT ROW",
     "SCALAR SUBQUERY 1",
@@ -46,14 +45,9 @@
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
     "SEARCH holding USING COVERING INDEX holding_by_delta (delta=?)"
   ],
-  "surfaceDebtOwe": [],
+  "surfaceDebtAdd": [],
   "surfaceDebtDrop": ["SEARCH surface_debt USING PRIMARY KEY (peer=? AND delta=?)"],
-  "surfaceDebtClose": [
-    "SEARCH surface_debt USING INDEX surface_debt_by_delta (delta=? AND state=?)"
-  ],
-  "surfaceDebtSettle": [
-    "SEARCH surface_debt USING COVERING INDEX surface_debt_by_state (state=? AND generation<?)"
-  ],
+  "surfaceDebtClose": ["SEARCH surface_debt USING COVERING INDEX surface_debt_by_delta (delta=?)"],
   "vacuum": [],
   "checkpoint": [],
   "get": [
@@ -114,5 +108,7 @@
     "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta>?)",
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)"
   ],
-  "exportStored": ["SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id>?)"]
+  "exportStored": ["SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id>?)"],
+  "trigger holding_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger delta_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"]
 }

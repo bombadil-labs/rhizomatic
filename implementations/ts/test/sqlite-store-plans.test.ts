@@ -6,6 +6,9 @@
 // empty plan and reads every page by definition: it is the rebuild of plan §7, whose cost is
 // O(store) per purge of a peer that asks for proof.
 //
+// The body of each trigger is planned too, under the name `trigger <name>`: the engine runs it
+// inside the delete that fires it, and no prepared statement shows its plan.
+//
 // To accept a changed plan after reading it, run this file with RHIZOMATIC_WRITE_PLANS=1, then
 // format the JSON file with Prettier.
 
@@ -14,7 +17,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { afterAll, describe, expect, it } from "vitest";
-import { SQLITE_STATEMENTS } from "../src/storage/sqlite-statements.js";
+import { SQLITE_SCHEMA, SQLITE_STATEMENTS } from "../src/storage/sqlite-statements.js";
 import { openSqliteStore } from "../src/storage/sqlite-store.js";
 import { sqliteFixture } from "./support/sqlite-fixture.js";
 
@@ -41,7 +44,17 @@ const BASE_TABLES = [
   "change",
   "debt",
   "surface_debt",
+  "residue",
 ];
+/**
+ * The body of every trigger of the schema that reads a table, by name. A body that only raises an
+ * error reads nothing, and the engine plans `RAISE` only inside a trigger.
+ */
+const TRIGGERS = Object.fromEntries(
+  [...SQLITE_SCHEMA.matchAll(/CREATE TRIGGER (\w+)[^]*?BEGIN ([^]*?); END;/g)]
+    .filter((m) => !m[2]!.startsWith("SELECT RAISE("))
+    .map((m) => [`trigger ${m[1]!}`, m[2]!]),
+);
 const PER_PEER = ["holding", "target", "reference"];
 
 /** The plan of one statement, as lines indented by depth. */
@@ -82,8 +95,12 @@ describe("the query-plan rail", () => {
     await (await openSqliteStore(store)).close();
     const db = new Database(store, { readonly: true });
     plans = Object.fromEntries(
-      Object.entries(SQLITE_STATEMENTS).map(([name, sql]) => [name, planOf(db, sql)]),
+      Object.entries({ ...SQLITE_STATEMENTS, ...TRIGGERS }).map(([name, sql]) => [
+        name,
+        planOf(db, sql),
+      ]),
     );
+    expect(Object.keys(TRIGGERS)).toEqual(["trigger holding_residue", "trigger delta_residue"]);
     db.close();
     if (process.env["RHIZOMATIC_WRITE_PLANS"] === "1")
       writeFileSync(committedPath, `${JSON.stringify(plans, null, 2)}\n`);

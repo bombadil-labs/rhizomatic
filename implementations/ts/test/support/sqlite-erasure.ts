@@ -7,6 +7,7 @@
 import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import Database from "better-sqlite3";
 import { makeDelta } from "../../src/delta/set.js";
 import type { Delta } from "../../src/delta/types.js";
 import type { PeerStore, VerifiedDelta } from "../../src/storage/store.js";
@@ -92,6 +93,46 @@ export function scan(dir: string, markers: readonly string[]): string[] {
 /** The markers of the deltas, every place. */
 export const markersOf = (deltas: readonly Marked[]): string[] =>
   deltas.flatMap((d) => Object.values(d.markers));
+
+/**
+ * The markers of every appearance that is dead in the file now, read by another connection: the
+ * sender and signature of an appearance no holding keeps, and the payload of a delta no row keeps.
+ */
+export function deadMarkers(path: string, appearances: readonly Marked[]): string[] {
+  const db = new Database(path, { readonly: true });
+  try {
+    const senders = new Set(
+      (db.prepare("SELECT arrival FROM holding").all() as { arrival: string }[]).map(
+        (r) => (JSON.parse(r.arrival) as { sender: string }).sender,
+      ),
+    );
+    const deltas = new Set(
+      (db.prepare("SELECT id FROM delta").all() as { id: string }[]).map((r) => r.id),
+    );
+    return [
+      ...new Set(
+        appearances.flatMap((a) => [
+          ...(senders.has(a.sender) ? [] : [a.markers.sender, a.markers.signature]),
+          ...(deltas.has(a.delta.id)
+            ? []
+            : [a.markers.value, a.markers.entity, a.markers.reference, a.markers.author]),
+        ]),
+      ),
+    ];
+  } finally {
+    db.close();
+  }
+}
+
+/** The same delta as `of`, as another holding carries it: its own sender and signature. */
+export const appearance = (tag: string, n: number, of: Marked): Marked => {
+  const own = marked(tag, n);
+  return {
+    delta: { ...of.delta, sig: own.delta.sig! },
+    sender: own.sender,
+    markers: { ...of.markers, sender: own.sender, signature: own.markers.signature },
+  };
+};
 
 /** A new directory under the system temp directory, and its removal. */
 export function space(prefix: string): { dir: string; remove: () => void } {

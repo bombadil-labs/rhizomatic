@@ -1,94 +1,142 @@
 // The child of the erasure rails (sqlite-store-erasure.test.ts). It opens the store at the path it
-// is given and purges ids for one peer. A mode stops it at one point of the purge, from the test
+// is given and purges ids for one peer. A mode stops it at points of the purge, from the test
 // side: it wraps the statements of `better-sqlite3` in this process only, and the store has no
 // hook for it.
 //
-// - `kill-after-delete-commit`: SIGKILL just after the purge's own transaction commits, before
-//   any other statement.
-// - `kill-at-raise`: SIGKILL just before the rebuild raises the generation, after the delete
-//   committed.
-// - `kill-at-vacuum`: SIGKILL after the generation is raised, just before `VACUUM`.
-// - `kill-at-settle`: SIGKILL after the rebuild and the truncate, just before the debts are
-//   marked settled.
-// - `hold-after-checkpoint`: after the rebuild's truncate, print `checkpointed` and wait until the
-//   file `<path>.go` exists; then mark the debts and end.
-// - `hold-at-vacuum`: after the generation is raised and before `VACUUM`, print `vacuum` and
-//   wait until the file `<path>.go` exists.
-// - `hold-after-report`: print the report and wait to be killed.
-// - `plain`: print the report and end.
+// A mode is a list of steps, joined by commas. Each step is `hold-<point>` or `kill-<point>`. A
+// hold prints `held <point>` and waits until the file `<path>.go-<point>` exists. A kill sends
+// SIGKILL to the child. The points, in the order a purge passes them:
 //
-// A child that waits ends itself after a minute.
+// - `delete-commit`: just after the first transaction of the purge commits.
+// - `read`: before the rebuild reads the count of deletes (`residue.dirty`).
+// - `read-done`: just after that read.
+// - `vacuum`: before `VACUUM`.
+// - `in-vacuum`: prints `held in-vacuum` and runs `VACUUM` at once; the test kills it then.
+// - `checkpoint`: before the checkpoint.
+// - `checkpoint-done`: just after the checkpoint.
+// - `last`: before the last transaction begins.
+// - `in-last`: inside the last transaction, after its first statement.
+// - `after-last`: just after the last transaction commits, before the report is made.
+// - `report`: after the report is printed (a hold only).
+//
+// The mode `serve` reads one purge per line from stdin, as JSON `{path, peer, ids, mode}`, and
+// prints `report <json>` or `refused <code>` for each. The mode `plain` purges once and ends.
+//
+// A hold that waits for a minute ends the child, so a failed rail leaves no process behind.
 
+import { createInterface } from "node:readline";
 import { existsSync, writeSync } from "node:fs";
 import Database from "better-sqlite3";
 import { SQLITE_STATEMENTS } from "../../src/storage/sqlite-statements.js";
 import { openSqliteStore } from "../../src/storage/sqlite-store.js";
+import { StoreError } from "../../src/storage/store.js";
 
 const sleep = (ms: number): void => {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 };
-const die = (): never => {
-  process.kill(process.pid, "SIGKILL");
-  for (;;) sleep(1000);
-};
-
-// A child that is never released or killed ends itself after a minute, so a failed rail leaves no
-// process behind.
-const deadline = Date.now() + 60_000;
-const wait = (): void => {
-  if (Date.now() > deadline) process.exit(3);
-  sleep(10);
-};
 
 type Method = (this: Database.Statement, ...args: unknown[]) => unknown;
 
-async function main(path: string, peerId: string, mode: string, ids: string[]): Promise<void> {
-  const probe = new Database(":memory:");
-  const statement = Object.getPrototypeOf(probe.prepare("SELECT 1")) as Record<
-    "run" | "get",
-    Method
-  >;
-  probe.close();
-  const { run, get } = statement;
-  const killAt: Record<string, string> = {
-    "kill-at-raise": SQLITE_STATEMENTS.generationRaise,
-    "kill-at-vacuum": SQLITE_STATEMENTS.vacuum,
-    "kill-at-settle": SQLITE_STATEMENTS.surfaceDebtSettle,
-  };
-  const at = killAt[mode];
-  let dropped = false;
-  statement.run = function (...args) {
-    if (this.source === at) die();
-    if (mode === "hold-at-vacuum" && this.source === SQLITE_STATEMENTS.vacuum) {
-      writeSync(1, "vacuum\n");
-      while (!existsSync(`${path}.go`)) wait();
-    }
-    const result = run.apply(this, args);
-    if (this.source === SQLITE_STATEMENTS.holdingDrop) dropped = true;
-    if (mode === "kill-after-delete-commit" && dropped && this.source === "COMMIT") die();
-    return result;
-  };
-  let held = false;
-  statement.get = function (...args) {
-    const result = get.apply(this, args);
-    if (mode === "hold-after-checkpoint" && !held && this.source === SQLITE_STATEMENTS.checkpoint) {
-      held = true;
-      writeSync(1, "checkpointed\n");
-      while (!existsSync(`${path}.go`)) wait();
-    }
-    return result;
-  };
-  const store = await openSqliteStore(path, { busyTimeoutMs: 100 });
-  const peer = await store.peer(peerId);
-  const report = await peer.purge(ids);
-  writeSync(1, `${JSON.stringify(report)}\n`);
-  if (mode === "hold-after-report") for (;;) wait();
-  await store.close();
+const [firstPath, peerId, startMode, idsText] = process.argv.slice(2) as [
+  string,
+  string,
+  string,
+  string,
+];
+let path = firstPath;
+
+let steps = new Map<string, string>();
+let begun = 0;
+let committed = false;
+
+function at(point: string): void {
+  const step = steps.get(point);
+  if (step === undefined) return;
+  steps.delete(point);
+  if (step === "kill") {
+    process.kill(process.pid, "SIGKILL");
+    for (;;) sleep(1000);
+  }
+  writeSync(1, `held ${point}\n`);
+  if (point === "in-vacuum") return;
+  const deadline = Date.now() + 60_000;
+  while (!existsSync(`${path}.go-${point}`)) {
+    if (Date.now() > deadline) process.exit(3);
+    sleep(5);
+  }
 }
 
-await main(
-  process.argv[2]!,
-  process.argv[3]!,
-  process.argv[4]!,
-  JSON.parse(process.argv[5]!) as string[],
-);
+const probe = new Database(":memory:");
+const statement = Object.getPrototypeOf(probe.prepare("SELECT 1")) as Record<"run" | "get", Method>;
+probe.close();
+const { run, get } = statement;
+statement.run = function (...args) {
+  const source = this.source;
+  if (source === "BEGIN IMMEDIATE" && ++begun === 2) at("last");
+  if (source === SQLITE_STATEMENTS.vacuum) {
+    at("vacuum");
+    at("in-vacuum");
+  }
+  const result = run.apply(this, args);
+  if (source === "COMMIT" && begun === 1 && !committed) {
+    committed = true;
+    at("delete-commit");
+  } else if (source === "COMMIT" && begun === 2) at("after-last");
+  else if (begun === 2 && source !== "BEGIN IMMEDIATE") at("in-last");
+  return result;
+};
+statement.get = function (...args) {
+  const source = this.source;
+  if (source === SQLITE_STATEMENTS.residueDirty) at("read");
+  if (source === SQLITE_STATEMENTS.checkpoint && begun > 0) at("checkpoint");
+  const result = get.apply(this, args);
+  if (source === SQLITE_STATEMENTS.residueDirty) at("read-done");
+  else if (source === SQLITE_STATEMENTS.checkpoint && begun > 0) at("checkpoint-done");
+  else if (begun === 2) at("in-last");
+  return result;
+};
+
+function arm(mode: string): void {
+  steps = new Map(
+    mode
+      .split(",")
+      .filter((step) => step !== "" && step !== "plain")
+      .map((step) => {
+        const [action, ...point] = step.split("-");
+        return [point.join("-"), action!];
+      }),
+  );
+  begun = 0;
+  committed = false;
+}
+
+let store = await openSqliteStore(path, { busyTimeoutMs: 100 });
+
+async function purge(at: string, peer: string, ids: string[], mode: string): Promise<string> {
+  if (at !== path) {
+    await store.close();
+    path = at;
+    store = await openSqliteStore(path, { busyTimeoutMs: 100 });
+  }
+  arm(mode);
+  let line: string;
+  try {
+    line = `report ${JSON.stringify(await (await store.peer(peer)).purge(ids))}`;
+  } catch (error) {
+    if (!(error instanceof StoreError)) throw error;
+    line = `refused ${error.code}`;
+  }
+  begun = 0;
+  return line;
+}
+
+if (startMode === "serve") {
+  for await (const text of createInterface({ input: process.stdin })) {
+    const asked = JSON.parse(text) as { path: string; peer: string; ids: string[]; mode: string };
+    writeSync(1, `${await purge(asked.path, asked.peer, asked.ids, asked.mode)}\n`);
+  }
+} else {
+  writeSync(1, `${await purge(path, peerId, JSON.parse(idsText) as string[], startMode)}\n`);
+  at("report");
+}
+await store.close();

@@ -75,9 +75,15 @@ describe("the statement list", () => {
       SQLITE_SCHEMA,
       SQLITE_STATEMENTS.scope,
       ...(process.platform === "linux"
-        ? [SQLITE_STATEMENTS.vacuum, SQLITE_STATEMENTS.surfaceDebtSettle]
+        ? [
+            SQLITE_STATEMENTS.vacuum,
+            SQLITE_STATEMENTS.residueDirty,
+            SQLITE_STATEMENTS.residueClean,
+            SQLITE_STATEMENTS.surfaceDebtAdd,
+          ]
         : []),
       SQLITE_STATEMENTS.checkpoint,
+      SQLITE_STATEMENTS.residueRead,
       "BEGIN IMMEDIATE",
       "PRAGMA synchronous",
     ])
