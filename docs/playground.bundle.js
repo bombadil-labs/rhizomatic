@@ -1612,7 +1612,8 @@
       ["timestamp", float(claims.timestamp)],
       ["validFrom", float(claims.validFrom)]
     ];
-    if (claims.validUntil !== void 0) entries.push(["validUntil", float(claims.validUntil)]);
+    const validUntil = Object.hasOwn(claims, "validUntil") ? claims.validUntil : void 0;
+    if (validUntil !== void 0) entries.push(["validUntil", float(validUntil)]);
     return map(entries);
   }
   function assertValidClaims(claims) {
@@ -1620,9 +1621,10 @@
     if (claims.author.length === 0) throw new Error("author must be non-empty");
     if (!Number.isFinite(claims.timestamp)) throw new Error("timestamp must be finite");
     if (!Number.isFinite(claims.validFrom)) throw new Error("validFrom must be finite");
-    if (claims.validUntil !== void 0) {
-      if (!Number.isFinite(claims.validUntil)) throw new Error("validUntil must be finite");
-      if (claims.validUntil <= claims.validFrom)
+    const validUntil = Object.hasOwn(claims, "validUntil") ? claims.validUntil : void 0;
+    if (validUntil !== void 0) {
+      if (!Number.isFinite(validUntil)) throw new Error("validUntil must be finite");
+      if (validUntil <= claims.validFrom)
         throw new Error("validUntil must be greater than validFrom");
     }
     if (claims.pointers.length < 1) throw new Error("a delta MUST contain at least one pointer");
