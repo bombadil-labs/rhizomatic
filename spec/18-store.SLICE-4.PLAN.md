@@ -428,6 +428,7 @@ follows per S4-10.
 | Whole-peer version address | 4d |
 | Journal frames and payload; purge and the head compare-and-set; arrival history after a purge | 4d |
 | Release-mode cost rails | 4e |
+| A refused open of a file that is not a store writes nothing: the format check before the journal mode (proposal §4.13 reading 126) | 4e |
 
 ## 11. Risks
 

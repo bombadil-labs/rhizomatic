@@ -295,6 +295,33 @@ function identityOf(file: string): string {
   return `${stat.dev} ${stat.ino} ${stat.birthtimeNs}`;
 }
 
+function metaOf(db: Database.Database, key: string): string | undefined {
+  return (db.prepare(SQLITE_STATEMENTS.metaGet).get(key) as { value: string } | undefined)?.value;
+}
+
+/**
+ * True when the file holds no schema at all, as a new file does. Refuses `open-failed` for a file
+ * that holds a schema but not a store of this format. It only reads.
+ */
+function isEmpty(db: Database.Database): boolean {
+  const { size } = db.prepare(SQLITE_STATEMENTS.schemaSize).get() as { size: number };
+  if (size === 0) return true;
+  let format: string | undefined;
+  try {
+    format = metaOf(db, "format");
+  } catch {
+    format = undefined;
+  }
+  if (format !== SQLITE_STORE_FORMAT)
+    throw new StoreError(
+      "open-failed",
+      format === undefined
+        ? "sqlite store: the file is not a rhizomatic store"
+        : `sqlite store: the file holds format ${format}, and this store reads ${SQLITE_STORE_FORMAT}`,
+    );
+  return false;
+}
+
 /**
  * The profile of a store that keeps `retention`. Every other field is the same for each file, so
  * `openStore` can check a host's requirements before it opens one (§4.13 reading 126).
@@ -341,6 +368,10 @@ class SqliteFileStore implements SqliteStore {
   constructor(db: Database.Database, options: OwnOptions) {
     this.#db = db;
     this.#rules = RULES(options.busyTimeoutMs);
+    // The journal mode pragma writes the file's header and makes the -wal and -shm files. So a
+    // file that is not a store is refused first, by reads only (§4.13 reading 126).
+    db.pragma(`busy_timeout = ${options.busyTimeoutMs}`);
+    isEmpty(db);
     for (const [name, value] of this.#rules) db.pragma(`${name} = ${value}`);
     const now = this.#connection();
     for (const [name, value, expected] of this.#rules)
@@ -370,10 +401,7 @@ class SqliteFileStore implements SqliteStore {
   /** Creates the schema in an empty file, or checks the format and retention of a store. */
   #format(asked: Retention | undefined): Retention {
     const db = this.#db;
-    const meta = (key: string): string | undefined =>
-      (db.prepare(SQLITE_STATEMENTS.metaGet).get(key) as { value: string } | undefined)?.value;
-    const { size } = db.prepare(SQLITE_STATEMENTS.schemaSize).get() as { size: number };
-    if (size === 0) {
+    if (isEmpty(db)) {
       const retention = asked ?? DEFAULT_RETENTION;
       db.exec(SQLITE_SCHEMA);
       const put = db.prepare(SQLITE_STATEMENTS.metaSet);
@@ -381,20 +409,7 @@ class SqliteFileStore implements SqliteStore {
       put.run("retention", JSON.stringify(retention));
       return retention;
     }
-    let format: string | undefined;
-    try {
-      format = meta("format");
-    } catch {
-      format = undefined;
-    }
-    if (format !== SQLITE_STORE_FORMAT)
-      throw new StoreError(
-        "open-failed",
-        format === undefined
-          ? "sqlite store: the file is not a rhizomatic store"
-          : `sqlite store: the file holds format ${format}, and this store reads ${SQLITE_STORE_FORMAT}`,
-      );
-    const kept = meta("retention")!;
+    const kept = metaOf(db, "retention")!;
     if (asked !== undefined && JSON.stringify(asked) !== kept)
       throw new StoreError(
         "invalid-request",
@@ -1099,7 +1114,8 @@ const fromUrl = async (url: string, options: OpenOptions): Promise<Store> => {
     throw new StoreError("invalid-url", URL_FORM);
   }
   // Before the file opens: an open can create the file or give its peers new histories, and a
-  // refused open changes nothing. No requirement reads the retention.
+  // refused open changes nothing. Only `changes` reads the retention, and it fails only for
+  // `none`, which no file of this store keeps (§4.13 reading 126).
   refuseMissing("sqlite", profileOf(DEFAULT_RETENTION), options.requires ?? []);
   return openSqliteStore(path, options.restored === true ? { restored: true } : {});
 };

@@ -4,7 +4,7 @@
 // `finally`, and only then asserts. Every store file lives in this file's own `mkdtempSync`
 // directory.
 
-import { readdirSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import Database from "better-sqlite3";
@@ -254,6 +254,38 @@ describe("a refused openStore changes nothing (reading 126)", () => {
       drop();
     }
   });
+});
+
+describe("a refused open of a file that is not a store leaves the file as it was (reading 126)", () => {
+  const foreign = {
+    "a SQLite file with one unrelated table": (path: string) => {
+      const db = new Database(path);
+      db.exec("CREATE TABLE notes (body TEXT); INSERT INTO notes VALUES ('kept');");
+      db.close();
+    },
+    "a file that is not SQLite": (path: string) =>
+      writeFileSync(path, "not a database\n".repeat(400)),
+  };
+  for (const [what, make] of Object.entries(foreign))
+    it(`${what}: openSqliteStore and openStore refuse open-failed, the bytes are the same and no -wal or -shm file is left`, async () => {
+      const { dir: own, remove: drop } = space("rhizomatic-foreign-file");
+      try {
+        const path = join(own, "other.db");
+        make(path);
+        const before = readFileSync(path);
+        const refused = [
+          await outcome(() => openSqliteStore(path)),
+          await outcome(() => openStore(urlOf(path))),
+        ];
+        expect({
+          refused,
+          same: readFileSync(path).equals(before),
+          files: readdirSync(own),
+        }).toEqual({ refused: ["open-failed", "open-failed"], same: true, files: ["other.db"] });
+      } finally {
+        drop();
+      }
+    });
 });
 
 const PEER = `ed25519:${"7e".repeat(32)}`;
