@@ -22,10 +22,10 @@ export const hostModules = {
     reason: "Explicit file admission adapter delegates durable-state writes.",
   },
   "storage/sqlite-store.ts": {
-    modules: ["better-sqlite3", "node:crypto", "node:url"],
+    modules: ["better-sqlite3", "node:crypto", "node:fs", "node:url"],
     globals: { process: ["platform"] },
     reason:
-      "The SQLite store: its file through better-sqlite3, random histories, file URLs, and the platform that sets its erasure class.",
+      "The SQLite store: its file through better-sqlite3, the size of its log (a proof of erasure needs an empty log), random histories, file URLs, and the platform that sets its erasure class.",
   },
   "federation/http.ts": {
     modules: ["node:http"],

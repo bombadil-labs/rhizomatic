@@ -4,6 +4,15 @@
 // page (`delta`, `holding`, `change`) has a rowid: a seek in a WITHOUT ROWID table reads whole
 // cells. A holding's arrival record has no size bound.
 
+/**
+ * The tables whose rows hold erasable material: claims, an author, an arrival record, a
+ * signature, an entity id or a referenced id. A trigger counts every delete and every update of
+ * one of their rows in `residue.dirty` (plan §7). A cascade from `holding` fires the triggers of
+ * `target` and `reference` too. A `REPLACE` deletes rows and fires no delete trigger while
+ * `recursive_triggers` is off, so no statement of the store uses it (a rail reads the list).
+ */
+export const ERASABLE = ["holding", "delta", "target", "reference"] as const;
+
 export const SQLITE_SCHEMA = `
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
 CREATE TABLE history (value TEXT PRIMARY KEY) STRICT;
@@ -82,10 +91,12 @@ CREATE TABLE residue (
 INSERT INTO residue (one, dirty, clean) VALUES (1, 0, 0);
 CREATE TRIGGER residue_kept BEFORE DELETE ON residue
   BEGIN SELECT RAISE(ABORT, 'the residue row is kept'); END;
-CREATE TRIGGER holding_residue AFTER DELETE ON holding
-  BEGIN UPDATE residue SET dirty = dirty + 1 WHERE one = 1; END;
-CREATE TRIGGER delta_residue AFTER DELETE ON delta
-  BEGIN UPDATE residue SET dirty = dirty + 1 WHERE one = 1; END;
+${ERASABLE.flatMap((table) =>
+  ["DELETE", "UPDATE"].map(
+    (event) => `CREATE TRIGGER ${table}_${event.toLowerCase()}_residue AFTER ${event} ON ${table}
+  BEGIN UPDATE residue SET dirty = dirty + 1 WHERE one = 1; END;`,
+  ),
+).join("\n")}
 `;
 
 // The pushdown fields of a scope, as nullable parameters: a null bound keeps every delta.
@@ -95,6 +106,7 @@ const PASSES = (id: string): string => `(@seq IS NULL OR holding.seq <= @seq)
 
 export const SQLITE_STATEMENTS = {
   schemaSize: "SELECT count(*) AS size FROM sqlite_schema",
+  files: "PRAGMA database_list",
   metaGet: "SELECT value FROM meta WHERE key = ?",
   metaPut: "INSERT INTO meta (key, value) VALUES (?, ?)",
   residueRead: "SELECT dirty, clean FROM residue WHERE one = 1",
