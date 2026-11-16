@@ -74,7 +74,7 @@ describe("the statement list", () => {
     for (const text of [
       SQLITE_SCHEMA,
       SQLITE_STATEMENTS.scope,
-      ...(["linux", "darwin"].includes(process.platform)
+      ...(process.platform === "linux"
         ? [SQLITE_STATEMENTS.vacuum, SQLITE_STATEMENTS.surfaceDebtSettle]
         : []),
       SQLITE_STATEMENTS.checkpoint,

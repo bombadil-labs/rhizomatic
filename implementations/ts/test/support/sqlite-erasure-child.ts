@@ -3,6 +3,8 @@
 // side: it wraps the statements of `better-sqlite3` in this process only, and the store has no
 // hook for it.
 //
+// - `kill-after-delete-commit`: SIGKILL just after the purge's own transaction commits, before
+//   any other statement.
 // - `kill-at-raise`: SIGKILL just before the rebuild raises the generation, after the delete
 //   committed.
 // - `kill-at-vacuum`: SIGKILL after the generation is raised, just before `VACUUM`.
@@ -52,9 +54,13 @@ async function main(path: string, peerId: string, mode: string, ids: string[]): 
     "kill-at-settle": SQLITE_STATEMENTS.surfaceDebtSettle,
   };
   const at = killAt[mode];
+  let dropped = false;
   statement.run = function (...args) {
     if (this.source === at) die();
-    return run.apply(this, args);
+    const result = run.apply(this, args);
+    if (this.source === SQLITE_STATEMENTS.holdingDrop) dropped = true;
+    if (mode === "kill-after-delete-commit" && dropped && this.source === "COMMIT") die();
+    return result;
   };
   let held = false;
   statement.get = function (...args) {

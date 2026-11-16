@@ -245,9 +245,10 @@ Limits, stated in the report's boundary text and in the proposal:
 - The temporary file holds **live** deltas. On Unix it is unlinked at creation, so a crash leaves
   nothing. On Windows it is deleted at close, so a power loss during a rebuild can leave it in
   the temp directory, and a later purge of those deltas does not reach it. **Decided in 4b: the
-  class is `proven` on Linux and macOS only, and `unprovable` on Windows and every other
-  platform.** The gap is named in the proposal (§5.2). A temp directory the store controls, or a
-  sweep at open, could close it later.
+  class is `proven` on Linux only, and `unprovable` on Windows, macOS and every other
+  platform.** On macOS no rail runs, and `fsync` does not flush the drive's cache without
+  `fullfsync`. Both gaps are named in the proposal (§5.2). A temp directory the store controls,
+  or a sweep at open, could close the Windows gap later.
 
 **The report.**
 

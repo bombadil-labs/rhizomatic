@@ -76,7 +76,7 @@ CREATE TABLE surface_debt (
   PRIMARY KEY (peer, delta)
 ) STRICT, WITHOUT ROWID;
 CREATE INDEX surface_debt_by_state ON surface_debt (state, generation);
-CREATE INDEX surface_debt_by_delta ON surface_debt (delta);
+CREATE INDEX surface_debt_by_delta ON surface_debt (delta, state);
 `;
 
 // The pushdown fields of a scope, as nullable parameters: a null bound keeps every delta.
@@ -131,6 +131,8 @@ export const SQLITE_STATEMENTS = {
   surfaceDebtOwe: `INSERT INTO surface_debt (peer, delta, state, generation) VALUES (?, ?, 'owed', ?)
     ON CONFLICT (peer, delta) DO UPDATE SET state = 'owed', generation = excluded.generation`,
   surfaceDebtDrop: "DELETE FROM surface_debt WHERE peer = ? AND delta = ?",
+  surfaceDebtClose:
+    "DELETE FROM surface_debt INDEXED BY surface_debt_by_delta WHERE delta = ? AND state = 'settled'",
   surfaceDebtSettle:
     "UPDATE surface_debt SET state = 'settled' WHERE state = 'owed' AND generation < ?",
 

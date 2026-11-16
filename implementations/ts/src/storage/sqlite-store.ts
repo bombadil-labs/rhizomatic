@@ -68,14 +68,13 @@ export type SqliteStoreOptions = {
 const DEFAULT_RETENTION = { revisions: 1024 } as const;
 /**
  * The store's erasure class, read once from the platform. A rebuild writes the live deltas to a
- * temporary file. On Linux and macOS the engine unlinks that file when it creates it, so a crash
- * leaves nothing. On Windows the file is deleted at close, and a power loss during a rebuild can
- * leave a file of live deltas that a later purge does not reach: the class there is
- * `unprovable`, as on every platform not named here.
+ * temporary file. On Linux the engine unlinks that file when it creates it, so a crash leaves
+ * nothing, and the erasure rails run there. On Windows the file is deleted at close, and a power
+ * loss during a rebuild can leave a file of live deltas that a later purge does not reach. On
+ * macOS no rail has run, and `fsync` does not flush the drive's cache without `fullfsync`. The
+ * class is `unprovable` on every platform but Linux.
  */
-const ERASURE_CLASS: ErasureClass = ["linux", "darwin"].includes(process.platform)
-  ? "proven"
-  : "unprovable";
+const ERASURE_CLASS: ErasureClass = process.platform === "linux" ? "proven" : "unprovable";
 const EXPORT_PAGE = 256;
 
 /**
@@ -694,6 +693,8 @@ class SqliteFileStore implements SqliteStore {
             else if (target.kind === "delta")
               this.#s.referenceAdd.run(peer, target.deltaRef.delta, role, id);
           this.#s.debtDrop.run(peer, id);
+          // A settled row proved absence when it was settled. A holding of the id ends that proof.
+          this.#s.surfaceDebtClose.run(id);
         }
         const ids = sorted(fresh.keys());
         if (ids.length === 0 && row.head === nextHead)
@@ -749,7 +750,10 @@ class SqliteFileStore implements SqliteStore {
           // The report states what a second look finds, not what the removal intended.
           indexesOwed ||= (s.indexLeft.get({ peer, id }) as { found: number }).found === 1;
           outcome = s.deltaFind.get(id) === undefined ? "removed" : "held-by-other-peer";
+          // Any deleted row of this peer (its arrival, its signature, its pointer rows) leaves
+          // residue. A removal records it per id; a release records it in the file-level mark.
           if (outcome === "removed") owe(id);
+          else s.markSet.run(String(generation));
         } else if (s.debtFind.get(peer, id) !== undefined) {
           if (s.deltaFind.get(id) === undefined) {
             s.debtDrop.run(peer, id);
@@ -761,11 +765,20 @@ class SqliteFileStore implements SqliteStore {
         } else {
           const debt = s.surfaceDebtFind.get(peer, id) as { state: string } | undefined;
           if (debt === undefined) outcome = "not-held";
+          else if (s.deltaFind.get(id) !== undefined)
+            // The bytes are in the file again: another peer appended the id after the removal.
+            // The row proves nothing about them, and it is kept.
+            outcome = "held-by-other-peer";
           else {
             // The later proof (decision S4-13): an earlier purge removed the id, and this ask is
-            // answered with the present surface states. A settled row has served its purpose.
+            // answered with the present surface states. A settled row has served its purpose,
+            // unless the file owes a rebuild now: then the row is owed again, so that the next
+            // ask can be answered after that rebuild.
             outcome = "removed";
-            if (debt.state === "settled") s.surfaceDebtDrop.run(peer, id);
+            if (debt.state === "settled") {
+              if (proving && owedNow()) s.surfaceDebtOwe.run(peer, id, generation);
+              else s.surfaceDebtDrop.run(peer, id);
+            }
           }
         }
         rowsOwed ||= outcome === "removed" && s.deltaFind.get(id) !== undefined;

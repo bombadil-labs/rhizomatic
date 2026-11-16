@@ -30,8 +30,8 @@ optional peer dependency. Two contract changes reach both stores: the refusal `s
 
 The store, slice 4, step 4b (TypeScript): the SQLite store proves erasure. A purge by a peer of
 posture `proven` rebuilds the pages (`VACUUM`) and truncates the log, and the report says
-`proven` only when that succeeded after the delete (§4.13 readings 107 to 112). The store's class
-is `proven` on Linux and macOS, and `unprovable` on Windows and elsewhere. Rust follows in step
+`proven` only when that succeeded after the delete (§4.13 readings 107 to 114). The store's class
+is `proven` on Linux only, and `unprovable` on Windows, macOS and elsewhere. Rust follows in step
 4e.
 
 - ⚠️ **`PurgeReport.retains`** is a new required field in both TypeScript stores: the surfaces that
@@ -42,6 +42,9 @@ is `proven` on Linux and macOS, and `unprovable` on Windows and elsewhere. Rust 
   debt is owed: after a busy checkpoint, a failed rebuild, a crash, or a purge by a peer of
   posture `unproven`. A later purge of the same ids answers `removed` with the proof.
 - `peer()` refuses `posture-refused` for a peer of posture `proven` on a store of another class.
+- A settled debt proves absence at its settle only: an append of the id ends it (reading 113).
+  A purge that releases a holding another peer keeps still owes the residue of its own rows
+  (reading 114).
 - The process memory of a store that keeps its data in files lies outside the erasure claim
   (Myk's ruling, 2026-11-15; §4.7.2).
 

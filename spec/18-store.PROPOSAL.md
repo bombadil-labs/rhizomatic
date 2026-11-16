@@ -2080,9 +2080,15 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
 107. **The later proof** (slice 4, step 4b; decision S4-13). A store that records the residue of
      a removal per id answers a later purge of that id `removed`, with the surface states of that
      call. The id need not be held or owed by the peer. The record of the residue is the peer's
-     own (reading 109), so the answer tells the peer nothing about another peer. The record ends
-     at the first ask that finds it `settled`. A peer that never removed the id gets `not-held`,
-     as before.
+     own (reading 109), so the answer tells the peer nothing about another peer. A peer that
+     never removed the id gets `not-held`, as before. Three cases differ (reading 113):
+     - the delta's bytes are in the file again, because another peer appended the id after the
+       removal: the answer is `held-by-other-peer`, and the record stays as it is;
+     - the record is `settled` and the file owes a rebuild now: the answer is `removed`, every
+       file surface is `owed`, and the record is set back to `owed` under the present
+       generation, so that the next ask is answered after that rebuild;
+     - the record is `settled` and nothing is owed: the answer is `removed`, and the record ends
+       in that transaction.
 108. **`retains`** (slice 4, step 4b; decision S4-5). Every purge report carries `retains`, the
      surfaces that may still hold the id of a target whose outcome is `removed` or
      `held-by-other-peer`. A target that is `not-held` never adds to it: a purge does not tell a
@@ -2098,6 +2104,10 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      - writes a `surface_debt` row `(peer, delta, state 'owed', generation)` for each id that a
        peer of posture `proven` removes, in the purge's own transaction. A second removal of an
        id the peer held again sets the row back to `owed` under the present generation;
+     - sets the file-level mark (reading 110), in the same transaction, when the purge deletes a
+       row of the peer and removes no bytes: a target that is `held-by-other-peer` loses the
+       peer's holding row (its arrival record, its signature) and its pointer rows. A peer of
+       posture `proven` then rebuilds as for a removal (reading 114);
      - then rebuilds: it raises `meta.generation` in its own transaction, runs `VACUUM`, runs
        `wal_checkpoint(TRUNCATE)`, and, when both succeeded, marks `settled` every `owed` row of
        an older generation than the one it raised. A purge that another process commits while
@@ -2112,10 +2122,19 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      A crash at any point leaves the rows `owed`; a reopened store reports `owed` until a rebuild
      succeeds.
 110. **A peer that asks for no proof** (slice 4, step 4b; decision S4-16). A purge by a peer of
-     posture `unproven` runs no rebuild and writes no row per id. When it removes bytes it sets
-     one file-level mark, `meta.residue`, to the present generation. It reports every file surface
-     `owed` and claims `unproven`. A rebuild clears the mark when the mark's generation is older
-     than the generation the rebuild raised. The mark counts as an `owed` row in reading 109.
+     posture `unproven` runs no rebuild and writes no row per id. When it deletes any row of the
+     peer (it removes bytes, or it releases a holding another peer keeps) it sets one file-level
+     mark, `meta.residue`, to the present generation. A rebuild clears the mark only when the
+     mark's generation is older than the generation the rebuild raised; a purge that sets the
+     mark while a rebuild runs, after its raise, keeps it. The mark counts as an `owed` row in
+     reading 109. What such a purge reports:
+     - it deleted a row of the peer, or the file owes a rebuild (an `owed` row of any peer, or the
+       mark): every file surface `owed`;
+     - it deleted nothing and nothing is owed, for example on a clean file with every target
+       `not-held`: every file surface `absent`, `rows` and `index-entries` from the second look,
+       and the claim `nothing-removed`;
+     - the claim is `unproven` when a target is `removed`, and `nothing-removed` when none is. It
+       is never `proven`.
 111. **A busy log** (slice 4, step 4b). `wal_checkpoint(TRUNCATE)` answers a row and does not
      throw. The store reads it: anything but `busy = 0` and `log = 0` is a failed truncate. Then
      the old pages are still in the database file, not only in the log, so every file surface is
@@ -2124,8 +2143,8 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      throws (busy, locked, a full disk, an error of the disk) is `owed` too, and the purge still
      answers its report: its delete has committed.
 112. **The SQLite store's class and surfaces** (slice 4, step 4b). The class is `proven` on Linux
-     and macOS and `unprovable` on every other platform, read once from the platform and never
-     from the profile or from a row (§5.2 names the Windows gap). The declared surfaces are, in
+     and `unprovable` on every other platform, read once from the platform and never from the
+     profile or from a row (§5.2 names the Windows and macOS gaps). The declared surfaces are, in
      order: `rows`, `index-entries`, `page-free-space`, `freed-pages`, `write-ahead-log` and
      `temp-files`. `temp-files` is `unprovable` on a store of class `unprovable`, so such a store
      never claims `proven`. `createPeer` and `peer` refuse `posture-refused` for a peer of posture
@@ -2133,6 +2152,25 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `proven` created in the same file. The format is `rhizomatic-store-sqlite/2`. Open refuses a
      file of format `/1`, which step 4a wrote, with `open-failed`, and names both formats. No
      migration ships.
+113. **What a settled row proves** (slice 4, step 4b, after review). A `surface_debt` row marked
+     `settled` proves one thing: a rebuild that began after the peer's removal of the id
+     completed, so the file held no residue of that removal when the row was settled. It proves
+     nothing about the file after a later append of the same id by any peer. So:
+     - an append of an id deletes every peer's `settled` row for that id, in the append's
+       transaction. A peer whose row is gone then answers `not-held` for the id: it owes nothing
+       and learns nothing about the new holder;
+     - an `owed` row survives an append. Its residue is still owed. A rebuild can settle it while
+       another peer holds the bytes; the next ask then answers `held-by-other-peer` (reading 107)
+       and keeps the row;
+     - a peer can reach `removed` and `proven` for that id again only after a rebuild that began
+       after the bytes left the file.
+114. **Any deleted row of a peer leaves residue** (slice 4, step 4b, after review). A purge
+     transaction that deletes at least one row of the purging peer records the residue in the
+     same transaction: a `surface_debt` row per removed id for a peer of posture `proven`, and
+     the file-level mark otherwise, a release of a holding that another peer keeps included.
+     The surface states then follow reading 109: `absent` only after this call's own rebuild and
+     truncate succeeded, or when nothing is owed. The claim stays `nothing-removed` when no
+     target is `removed`. The other peer's copy keeps its own arrival record and signature.
 
 
 ## 5. Architectures
@@ -2186,11 +2224,17 @@ schema.
   rebalances a page, it leaves old copies of live cells in unused space, and a later purge does
   not reach them (slice 4 plan §2). The SQLite store rebuilds its pages after a purge (`VACUUM`
   in place with `temp_store = FILE`, then `wal_checkpoint(TRUNCATE)`; step 4b, §4.13 readings
-  107 to 112). Its class is `proven` on Linux and macOS. On Windows, and on every other platform,
-  its class is `unprovable`: there the rebuild's temporary file of live deltas is deleted at
-  close, not unlinked at creation, so a power loss during a rebuild can leave it in the temp
-  directory, and a later purge of those deltas does not reach it. **This is a named gap.** A
-  temp directory the store controls, or a sweep at open, could close it. Postgres keeps dead
+  107 to 114). Its class is `proven` on Linux only, where the erasure rails run. Two named gaps:
+  - **Windows.** The rebuild's temporary file of live deltas is deleted at close, not unlinked
+    at creation. A power loss during a rebuild can leave it in the temp directory, and a later
+    purge of those deltas does not reach it. A temp directory the store controls, or a sweep at
+    open, could close it.
+  - **macOS.** No CI job runs the erasure rails there. `fsync` on macOS does not flush the
+    drive's cache without `PRAGMA fullfsync`, so a power loss after a `proven` report could leave
+    the old pages on the disk. The class stays `unprovable` until a macOS job runs the rails and
+    the durability question is settled.
+
+  On these and every other platform the class is `unprovable`. Postgres keeps dead
   rows until `VACUUM`, and even `VACUUM FULL` leaves WAL archives, replicas and backups, so it is
   `unprovable`.
 - **Use:** servers and CLIs. SQLite also runs in browsers as WebAssembly over OPFS.
@@ -2613,8 +2657,15 @@ changes what the system promises):
   claim. Myk's ruling, 2026-11-15 (§4.7.2, "The boundary of absent").
 - **S4-16.** A peer of posture `unproven` does not pay for a rebuild. It sets one file-level mark
   (reading 110).
-- **⚑ The SQLite store claims `proven` on Linux and macOS** and is `unprovable` elsewhere, Windows
-  included (reading 112; the gap is named in §5.2).
+- **⚑ The SQLite store claims `proven` on Linux only** and is `unprovable` elsewhere (reading
+  112). Windows and macOS are named gaps in §5.2. macOS waits for a CI job that runs the erasure
+  rails and for a decision on `fullfsync`.
+- **⚑ A settled row proves absence at its settle only** (reading 113). An append of the id deletes
+  every peer's `settled` row for it. A later ask finds the bytes in the file and answers
+  `held-by-other-peer`, and a settled row asked while the file owes a rebuild is owed again.
+- **⚑ Any purge that deletes a row of the peer leaves residue** (reading 114). A release of a
+  holding that another peer keeps sets the file-level mark, and a peer of posture `proven`
+  rebuilds.
 - **A file of format `/1` is refused.** Step 4b changed the tables (`holding` is a rowid table) and
   raised the format to `/2`. The work is greenfield, so no rebuild or migration of a `/1` file
   ships.

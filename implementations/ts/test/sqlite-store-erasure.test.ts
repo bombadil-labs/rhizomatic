@@ -10,7 +10,7 @@
 // The store has no hook, switch or quirk for it.
 
 import { spawn, type ChildProcess } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
@@ -31,7 +31,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const pkg = resolve(here, "..");
 const childScript = resolve(here, "support/sqlite-erasure-child.ts");
 
-const PROVEN_HERE = ["linux", "darwin"].includes(process.platform);
+const PROVEN_HERE = process.platform === "linux";
 const FILE_SURFACES = [
   "rows",
   "index-entries",
@@ -528,6 +528,7 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
   }, 60_000);
 
   for (const [mode, point] of [
+    ["kill-after-delete-commit", "just after the delete commits"],
     ["kill-at-raise", "between the delete and the rebuild"],
     ["kill-at-vacuum", "between raising the generation and the rebuild"],
     ["kill-at-settle", "between the rebuild and the marking"],
@@ -543,7 +544,8 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
       const run = child(path, "peer:a", mode, ids(x));
       expect(await run.ended).toBe("SIGKILL");
       expect(ledger(path)).toEqual({
-        generation: mode === "kill-at-raise" ? start : start + 1,
+        generation:
+          mode === "kill-at-raise" || mode === "kill-after-delete-commit" ? start : start + 1,
         residue: undefined,
         debts: Object.fromEntries(ids(x).map((id) => [`peer:a ${id}`, `owed ${start}`])),
       });
@@ -647,6 +649,209 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
       });
   });
 
+  it("a settled row proves absence at its settle only: an append of the id closes it, and a row settled while another peer holds the id is no proof", async () => {
+    const { dir, path } = place();
+    const [x, w, v, bystanders] = [group("XS", 2), group("WS", 2), group("VS", 2), group("BS", 2)];
+    const { peers } = await filled(path, {
+      "peer:a": { posture: "proven", deltas: bystanders },
+      "peer:b": { posture: "proven", deltas: [...x, ...w, ...v] },
+    });
+    const [a, b] = [peers["peer:a"]!, peers["peer:b"]!];
+    // (d) A settled row, and nobody appended the id again: the later proof is proven.
+    expect((await b.purge(ids(w))).claim).toBe("proven");
+    const later = await b.purge(ids(w));
+    expect([later.claim, states(later), outcomes(later)]).toEqual([
+      "proven",
+      every("absent"),
+      removedAll(w),
+    ]);
+    // An append of the id by another peer closes B's settled row in the same transaction.
+    expect((await b.purge(ids(x))).claim).toBe("proven");
+    await (
+      await writerOf(a)
+    )(x);
+    expect(ledger(path).debts).toEqual({});
+    // (a) B asks while A holds the bytes: B owes nothing and learns nothing.
+    const asked = await b.purge(ids(x));
+    expect([asked.claim, outcomes(asked)]).toEqual([
+      "nothing-removed",
+      Object.fromEntries(ids(x).map((id) => [id, "not-held"])),
+    ]);
+    // An owed row survives an append, and a rebuild can settle it while A holds the bytes.
+    const held = reader(path);
+    expect(states(await b.purge(ids(v)))).toEqual(every("owed"));
+    await (
+      await writerOf(a)
+    )(v);
+    held.release();
+    expect(states(await a.purge([]))).toEqual(every("absent"));
+    expect(ledger(path).debts).toEqual(
+      Object.fromEntries(ids(v).map((id) => [`peer:b ${id}`, expect.stringMatching(/^settled/)])),
+    );
+    // B's row was settled while A holds v: it proves nothing about the bytes in the file now.
+    const meanwhile = await b.purge(ids(v));
+    expect([meanwhile.claim, outcomes(meanwhile)]).toEqual([
+      "nothing-removed",
+      Object.fromEntries(ids(v).map((id) => [id, "held-by-other-peer"])),
+    ]);
+    expect(scan(dir, markersOf(v)).length).toBeGreaterThan(0);
+    // (b) A removes the bytes under a busy log. B's ask is owed, and its row is owed again.
+    const busy = reader(path);
+    expect(outcomes(await a.purge(ids(v)))).toEqual(removedAll(v));
+    const owedAsk = await b.purge(ids(v));
+    expect([owedAsk.claim, states(owedAsk), outcomes(owedAsk)]).toEqual([
+      "unproven",
+      every("owed"),
+      removedAll(v),
+    ]);
+    busy.release();
+    // Only a rebuild after the real removal gives B its proof.
+    const proof = await b.purge(ids(v));
+    expect([proof.claim, states(proof), outcomes(proof)]).toEqual([
+      "proven",
+      every("absent"),
+      removedAll(v),
+    ]);
+    expect(scan(dir, markersOf([...v, ...w]))).toEqual([]);
+    await bystandersHold(dir, a, bystanders);
+  });
+
+  it("(c) a peer that appends an id again after its proof closes its own settled row, and its next purge proves anew", async () => {
+    const { dir, path } = place();
+    const [x, bystanders] = [group("XO", 2), group("BO", 2)];
+    const { peers } = await filled(path, {
+      "peer:b": { posture: "proven", deltas: [...x, ...bystanders] },
+    });
+    const b = peers["peer:b"]!;
+    expect((await b.purge(ids(x))).claim).toBe("proven");
+    await (
+      await writerOf(b)
+    )(x);
+    expect(ledger(path).debts).toEqual({});
+    const again = await b.purge(ids(x));
+    expect([again.claim, states(again), outcomes(again)]).toEqual([
+      "proven",
+      every("absent"),
+      removedAll(x),
+    ]);
+    expect(scan(dir, markersOf(x))).toEqual([]);
+    await bystandersHold(dir, b, bystanders);
+  });
+
+  it("a release that leaves the bytes to another peer still owes the residue of the peer's own rows", async () => {
+    const { dir, path } = place();
+    // The same deltas, held by A and by B under their own senders and signatures.
+    const appearance = (n: number, of: Marked): Marked => {
+      const own = marked("ZH", n);
+      return {
+        delta: { ...of.delta, sig: own.delta.sig! },
+        sender: own.sender,
+        markers: { ...of.markers, sender: own.sender, signature: own.markers.signature },
+      };
+    };
+    const [xa, ya] = [group("XH", 2), group("YH", 2)];
+    const xb = xa.map((d, i) => appearance(i, d));
+    const yb = ya.map((d, i) => appearance(10 + i, d));
+    const own = (deltas: readonly Marked[]) =>
+      deltas.flatMap((d) => [d.markers.sender, d.markers.signature]);
+    const { peers } = await filled(path, {
+      "peer:a": { posture: "proven", deltas: [...xa, ...ya] },
+      "peer:b": { posture: "proven", deltas: [...xb, ...yb] },
+    });
+    const [a, b] = [peers["peer:a"]!, peers["peer:b"]!];
+    const released = Object.fromEntries(ids(xa).map((id) => [id, "held-by-other-peer"]));
+    // Under a busy log: nothing removed, and every file surface owed.
+    const held = reader(path);
+    const busy = await a.purge(ids(xa));
+    expect([busy.claim, states(busy), outcomes(busy)]).toEqual([
+      "nothing-removed",
+      every("owed"),
+      released,
+    ]);
+    expect(scan(dir, own(xa)).length).toBeGreaterThan(0);
+    held.release();
+    expect(states(await a.purge([]))).toEqual(every("absent"));
+    expect(scan(dir, own(xa))).toEqual([]);
+    // Without a busy log the release rebuilds at once.
+    const now = await a.purge(ids(ya));
+    expect([now.claim, states(now)]).toEqual(["nothing-removed", every("absent")]);
+    expect(scan(dir, own(ya))).toEqual([]);
+    // B's copies stay, with B's senders and signatures.
+    await bystandersHold(dir, b, [...xb, ...yb]);
+  });
+
+  it("the rebuild runs before the truncate: after a proven report the log is far smaller than the file", async () => {
+    const { path } = place();
+    const [x, rest] = [group("XL", 10), group("RL", 3000)];
+    const { peers } = await filled(path, {
+      "peer:a": { posture: "proven", deltas: [...x, ...rest] },
+    });
+    expect((await peers["peer:a"]!.purge(ids(x))).claim).toBe("proven");
+    const [log, file] = [statSync(`${path}-wal`).size, statSync(path).size];
+    expect(file).toBeGreaterThan(1_000_000);
+    expect(log).toBeLessThan(file / 4);
+  });
+
+  it("an unproven purge between another process's raise and its settle keeps the mark: the rebuild clears only an older mark", async () => {
+    const { dir, path } = place();
+    const [x, y, bystanders] = [group("XM", 2), group("YM", 2), group("BM", 2)];
+    const { store } = await filled(path, {
+      "peer:p": { posture: "proven", deltas: [...x, ...bystanders] },
+      "peer:u": { posture: "unproven", deltas: y },
+    });
+    await store.close();
+    const start = ledger(path).generation;
+    const first = child(path, "peer:p", "hold-after-checkpoint", ids(x));
+    await first.printed("checkpointed");
+    const again = await open(path);
+    const byU = await (await again.peer("peer:u")).purge(ids(y));
+    expect([byU.claim, states(byU)]).toEqual(["unproven", every("owed")]);
+    expect(ledger(path).residue).toBe(String(start + 1));
+    writeFileSync(`${path}.go`, "");
+    expect(await first.ended).toBe("0");
+    expect(first.report().claim).toBe("proven");
+    // The mark has the generation that rebuild raised, so that rebuild leaves it.
+    expect(ledger(path).residue).toBe(String(start + 1));
+    const p = await again.peer("peer:p");
+    const held = reader(path);
+    expect(states(await p.purge([]))).toEqual(every("owed"));
+    held.release();
+    expect(states(await p.purge([]))).toEqual(every("absent"));
+    expect(ledger(path).residue).toBe(undefined);
+    expect(scan(dir, markersOf(y))).toEqual([]);
+    await bystandersHold(dir, p, bystanders);
+  }, 60_000);
+
+  it("the asking peer's row counts the mark: a proven peer whose debt an unproven peer's removal answered can reach proven", async () => {
+    const { dir, path } = place();
+    const [x, bystanders] = [group("XK", 2), group("BK", 2)];
+    const { peers } = await filled(path, {
+      "peer:a": { posture: "proven", deltas: [...x, ...bystanders] },
+      "peer:u": { posture: "unproven", deltas: x },
+    });
+    const [a, u] = [peers["peer:a"]!, peers["peer:u"]!];
+    expect(Object.values(outcomes(await a.purge(ids(x))))).toEqual(
+      x.map(() => "held-by-other-peer"),
+    );
+    expect(outcomes(await u.purge(ids(x)))).toEqual(removedAll(x));
+    const held = reader(path);
+    const ask = await a.purge(ids(x));
+    expect([ask.claim, states(ask), outcomes(ask)]).toEqual([
+      "unproven",
+      every("owed"),
+      removedAll(x),
+    ]);
+    held.release();
+    const proof = await a.purge(ids(x));
+    expect([proof.claim, states(proof), outcomes(proof)]).toEqual([
+      "proven",
+      every("absent"),
+      removedAll(x),
+    ]);
+    expect(scan(dir, markersOf(x))).toEqual([]);
+    await bystandersHold(dir, a, bystanders);
+  });
+
   it("a re-held and re-purged id is owed again under the present generation", async () => {
     const { dir, path } = place();
     const [x, bystanders] = [group("XR", 2), group("BR", 2)];
@@ -654,14 +859,18 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
       "peer:a": { posture: "proven", deltas: [...x, ...bystanders] },
     });
     const a = peers["peer:a"]!;
-    expect((await a.purge(ids(x))).claim).toBe("proven");
-    const settled = ledger(path).generation;
+    const first = ledger(path).generation;
+    const held = reader(path);
+    expect(states(await a.purge(ids(x)))).toEqual(every("owed"));
+    expect(Object.values(ledger(path).debts)).toEqual(x.map(() => `owed ${first}`));
+    // The owed row survives the append. The failed rebuild raised the generation.
     await (
       await writerOf(a)
     )(x);
-    const held = reader(path);
+    const present = ledger(path).generation;
+    expect(present).toBe(first + 1);
     expect(states(await a.purge(ids(x)))).toEqual(every("owed"));
-    expect(Object.values(ledger(path).debts)).toEqual(x.map(() => `owed ${settled}`));
+    expect(Object.values(ledger(path).debts)).toEqual(x.map(() => `owed ${present}`));
     held.release();
     expect((await a.purge(ids(x))).claim).toBe("proven");
     expect(scan(dir, markersOf(x))).toEqual([]);
@@ -669,61 +878,62 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
   });
 });
 
-describe("the erasure class on Windows is unprovable, and its reports never say proven", () => {
+describe("the erasure class on Windows and macOS is unprovable, and its reports never say proven", () => {
   type Module = typeof import("../src/storage/sqlite-store.js");
   const SUBPATH = "../src/storage/sqlite-store.js";
-  /** The store module evaluated anew while the platform reads `win32`. */
-  async function onWindows(): Promise<Module> {
+  /** The store module evaluated anew while the platform reads `name`. */
+  async function on(name: string): Promise<Module> {
     const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
-    Object.defineProperty(process, "platform", { ...platform, value: "win32" });
+    Object.defineProperty(process, "platform", { ...platform, value: name });
     try {
-      return (await import(/* @vite-ignore */ `${SUBPATH}?platform=win32`)) as Module;
+      return (await import(/* @vite-ignore */ `${SUBPATH}?platform=${name}`)) as Module;
     } finally {
       Object.defineProperty(process, "platform", platform);
     }
   }
 
-  it("rail 6: proven is refused at create and at open, also after a caller replaces the profile; an unproven peer's purge says unproven with temp files unprovable", async () => {
-    const windows = await onWindows();
-    expect(process.platform).not.toBe("win32");
-    const { dir, path } = place();
-    if (PROVEN_HERE) {
-      const here = await open(path);
-      await here.createPeer("peer:p", { erasure: "proven" });
-      await here.close();
-    }
-    const store = await windows.openSqliteStore(path, { busyTimeoutMs: 100 });
-    opened.push(store);
-    expect(store.profile.capabilities.erasure).toBe("unprovable");
-    expect(await refusal(store.createPeer("peer:q", { erasure: "proven" }))).toBe(
-      "posture-refused",
-    );
-    if (PROVEN_HERE) expect(await refusal(store.peer("peer:p"))).toBe("posture-refused");
-    Object.assign(store, {
-      profile: {
-        ...store.profile,
-        capabilities: { ...store.profile.capabilities, erasure: "proven" },
-      },
+  for (const name of ["win32", "darwin"])
+    it(`rail 6, ${name}: proven is refused at create and at open, also after a caller replaces the profile; an unproven peer's purge says unproven with temp files unprovable`, async () => {
+      const windows = await on(name);
+      expect(process.platform).not.toBe(name);
+      const { dir, path } = place();
+      if (PROVEN_HERE) {
+        const here = await open(path);
+        await here.createPeer("peer:p", { erasure: "proven" });
+        await here.close();
+      }
+      const store = await windows.openSqliteStore(path, { busyTimeoutMs: 100 });
+      opened.push(store);
+      expect(store.profile.capabilities.erasure).toBe("unprovable");
+      expect(await refusal(store.createPeer("peer:q", { erasure: "proven" }))).toBe(
+        "posture-refused",
+      );
+      if (PROVEN_HERE) expect(await refusal(store.peer("peer:p"))).toBe("posture-refused");
+      Object.assign(store, {
+        profile: {
+          ...store.profile,
+          capabilities: { ...store.profile.capabilities, erasure: "proven" },
+        },
+      });
+      expect(await refusal(store.createPeer("peer:q", { erasure: "proven" }))).toBe(
+        "posture-refused",
+      );
+      const [x, bystanders] = [group("XW", 2), group("BW", 2)];
+      const u = await store.createPeer("peer:u", { erasure: "unproven" });
+      expect(u.erasure).toEqual({ posture: "unproven", storeClass: "unprovable" });
+      await (
+        await writerOf(u)
+      )([...x, ...bystanders]);
+      const before = ledger(path).generation;
+      const seen = [await u.purge(ids(x)), await u.purge(ids(x)), await u.purge([])];
+      for (const report of seen) {
+        expect(report.claim).not.toBe("proven");
+        expect(states(report)).toEqual({ ...every("owed"), "temp-files": "unprovable" });
+      }
+      expect(seen.map((r) => r.claim)).toEqual(["unproven", "nothing-removed", "nothing-removed"]);
+      expect(ledger(path).generation).toBe(before);
+      await bystandersHold(dir, u, bystanders);
     });
-    expect(await refusal(store.createPeer("peer:q", { erasure: "proven" }))).toBe(
-      "posture-refused",
-    );
-    const [x, bystanders] = [group("XW", 2), group("BW", 2)];
-    const u = await store.createPeer("peer:u", { erasure: "unproven" });
-    expect(u.erasure).toEqual({ posture: "unproven", storeClass: "unprovable" });
-    await (
-      await writerOf(u)
-    )([...x, ...bystanders]);
-    const before = ledger(path).generation;
-    const seen = [await u.purge(ids(x)), await u.purge(ids(x)), await u.purge([])];
-    for (const report of seen) {
-      expect(report.claim).not.toBe("proven");
-      expect(states(report)).toEqual({ ...every("owed"), "temp-files": "unprovable" });
-    }
-    expect(seen.map((r) => r.claim)).toEqual(["unproven", "nothing-removed", "nothing-removed"]);
-    expect(ledger(path).generation).toBe(before);
-    await bystandersHold(dir, u, bystanders);
-  });
 });
 
 describe("retains: the surfaces that may still hold a target's id (decision S4-5), in both stores", () => {

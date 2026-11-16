@@ -184,7 +184,7 @@ async function writer(store: Store, id = "peer:a") {
 // ---- the store's own rules -------------------------------------------------------------------
 
 describe("the SQLite store's profile and scheme", () => {
-  it("declares what step 4b holds, and nothing more; the class is proven on Linux and macOS only", async () => {
+  it("declares what step 4b holds, and nothing more; the class is proven on Linux only", async () => {
     const store = await fixture.open();
     expect(store.profile).toEqual({
       capabilities: {
@@ -194,7 +194,7 @@ describe("the SQLite store's profile and scheme", () => {
         views: false,
         derivedIndexes: false,
         digest: false,
-        erasure: ["linux", "darwin"].includes(process.platform) ? "proven" : "unprovable",
+        erasure: process.platform === "linux" ? "proven" : "unprovable",
       },
       indexedValueRoles: [],
       pushdown: { timestampAtMost: true, arrivalAtMost: true, excludeIds: true },
