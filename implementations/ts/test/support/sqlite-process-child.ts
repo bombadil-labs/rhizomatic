@@ -21,7 +21,8 @@
 //   child appends only at a revision r with r mod `turn.of` = `turn.mine`, so two children
 //   take turns in a fixed order. Prints `done {committed, conflicts}`.
 // - `follow`: follows the peer's feed from revision 0 until revision `until`, with the
-//   contract's `followFeed`. Prints `followed {revisions, added, delivered, pulls}`.
+//   contract's `followFeed`. A pull that throws `snapshot-moved` is asked again. Prints
+//   `followed {revisions, added, delivered, pulls, moved}`.
 // - `open`: opens the store (with `restored` when asked) and prints `histories {peer: history}`.
 // - `read`: takes a snapshot, then gets `ids` on it, holding at `checked`. Prints
 //   `got {revision, ids}` or `refused <code>`.
@@ -179,8 +180,18 @@ try {
       const added: string[][] = [];
       let delivered = 0;
       let pulls = 0;
+      let moved = 0;
       while (cursor.position.revision < job.until!) {
-        const pull = await cursor.pull();
+        // Under steady writes a pull can meet snapshot-moved on each of its tries and throw
+        // (plan §11). A pull that fails does not move the cursor, so the follower pulls again.
+        let pull;
+        try {
+          pull = await cursor.pull();
+        } catch (error) {
+          if (!(error instanceof StoreError && error.code === "snapshot-moved")) throw error;
+          moved++;
+          continue;
+        }
         pulls++;
         if (pull.status !== "ok") {
           print("resync", pull.current);
@@ -193,7 +204,7 @@ try {
         delivered += pull.deltas.length;
         if (pull.records.length === 0) sleep(1);
       }
-      print("followed", { revisions, added, delivered, pulls });
+      print("followed", { revisions, added, delivered, pulls, moved });
       break;
     }
     case "read": {

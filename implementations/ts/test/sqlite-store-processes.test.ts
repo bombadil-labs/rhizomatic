@@ -139,7 +139,13 @@ function histories(path: string): { peers: Record<string, string>; issued: strin
 }
 
 type Written = { committed: { revision: number; added: string[] }[]; conflicts: number };
-type Followed = { revisions: number[]; added: string[][]; delivered: number; pulls: number };
+type Followed = {
+  revisions: number[];
+  added: string[][];
+  delivered: number;
+  pulls: number;
+  moved: number;
+};
 
 /** Every committed revision of the writers, with the ids each added, by revision. */
 function byRevision(...written: Written[]): Map<number, string[]> {
@@ -216,7 +222,7 @@ describe("the gate of step 4c: two writing processes and a follower in a third",
     expect(followed.added).toEqual(followed.revisions.map((r) => committed.get(r)));
     expect(followed.delivered).toBe(2 * total);
     console.log(
-      `gate: ${total} revisions, ${followed.pulls} pulls, conflicts in free contention ${wa2.conflicts + wb2.conflicts}`,
+      `gate: ${total} revisions, ${followed.pulls} pulls, ${followed.moved} pulls moved, conflicts in free contention ${wa2.conflicts + wb2.conflicts}`,
     );
     audit(path);
 
