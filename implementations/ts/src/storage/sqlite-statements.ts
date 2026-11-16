@@ -11,7 +11,7 @@
  * `target` and `reference` too. A `REPLACE` deletes rows and fires no delete trigger while
  * `recursive_triggers` is off, so no statement of the store uses it (a rail reads the list).
  */
-export const ERASABLE = ["holding", "delta", "target", "reference"] as const;
+const ERASABLE = ["holding", "delta", "target", "reference"] as const;
 
 export const SQLITE_SCHEMA = `
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
