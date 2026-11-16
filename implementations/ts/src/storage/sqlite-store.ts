@@ -17,8 +17,9 @@
 
 import { randomBytes } from "node:crypto";
 import { statSync } from "node:fs";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import Database from "better-sqlite3";
+import type BetterSqlite3 from "better-sqlite3";
 import { compareUtf8, decode, type CborValue } from "../delta/cbor.js";
 import { canonicalBytes } from "../delta/delta.js";
 import { contentAddress } from "../delta/hash.js";
@@ -50,6 +51,28 @@ import {
   type Store,
   type StoreProfile,
 } from "./store.js";
+
+/** The package that this module needs, named in the error when a host has not installed it. */
+const DRIVER = "better-sqlite3";
+
+/**
+ * The driver, loaded when this module loads. When Node cannot find it, or a module it needs, the
+ * error names the package to install and keeps Node's error as its cause. A static import would
+ * fail with Node's message alone, which names neither this module nor the remedy. Any other
+ * error passes up unchanged.
+ */
+function loadDriver(): typeof BetterSqlite3 {
+  try {
+    return createRequire(import.meta.url)(DRIVER) as typeof BetterSqlite3;
+  } catch (cause) {
+    if ((cause as { code?: unknown } | null)?.code !== "MODULE_NOT_FOUND") throw cause;
+    throw new Error(
+      `@bombadil/rhizomatic/store/sqlite needs the package ${DRIVER}, an optional peer dependency, and Node could not find it or a module it needs. Install it: npm install ${DRIVER}`,
+      { cause },
+    );
+  }
+}
+const Database = loadDriver();
 
 export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/3";
 
@@ -134,7 +157,7 @@ const RULES = (
 ];
 const MAX_BUSY_TIMEOUT = 2 ** 31 - 1;
 
-type Statements = { readonly [K in keyof typeof SQLITE_STATEMENTS]: Database.Statement };
+type Statements = { readonly [K in keyof typeof SQLITE_STATEMENTS]: BetterSqlite3.Statement };
 type PeerRow = {
   posture: ErasurePosture;
   storeClass: ErasureClass;
@@ -295,7 +318,7 @@ function identityOf(file: string): string {
   return `${stat.dev} ${stat.ino} ${stat.birthtimeNs}`;
 }
 
-function metaOf(db: Database.Database, key: string): string | undefined {
+function metaOf(db: BetterSqlite3.Database, key: string): string | undefined {
   return (db.prepare(SQLITE_STATEMENTS.metaGet).get(key) as { value: string } | undefined)?.value;
 }
 
@@ -303,7 +326,7 @@ function metaOf(db: Database.Database, key: string): string | undefined {
  * True when the file holds no schema at all, as a new file does. Refuses `open-failed` for a file
  * that holds a schema but not a store of this format. It only reads.
  */
-function isEmpty(db: Database.Database): boolean {
+function isEmpty(db: BetterSqlite3.Database): boolean {
   const { size } = db.prepare(SQLITE_STATEMENTS.schemaSize).get() as { size: number };
   if (size === 0) return true;
   let format: string | undefined;
@@ -352,12 +375,12 @@ function profileOf(retention: Retention): StoreProfile {
 
 class SqliteFileStore implements SqliteStore {
   readonly profile: StoreProfile;
-  readonly #db: Database.Database;
+  readonly #db: BetterSqlite3.Database;
   readonly #s: Statements;
-  readonly #begin: Database.Statement;
-  readonly #beginWrite: Database.Statement;
-  readonly #commit: Database.Statement;
-  readonly #rollback: Database.Statement;
+  readonly #begin: BetterSqlite3.Statement;
+  readonly #beginWrite: BetterSqlite3.Statement;
+  readonly #commit: BetterSqlite3.Statement;
+  readonly #rollback: BetterSqlite3.Statement;
   readonly #keep: number;
   readonly #pageSize: number;
   readonly #mint: ((peer: PeerId) => History) | undefined;
@@ -365,7 +388,7 @@ class SqliteFileStore implements SqliteStore {
   readonly #file: string;
   #closed = false;
 
-  constructor(db: Database.Database, options: OwnOptions) {
+  constructor(db: BetterSqlite3.Database, options: OwnOptions) {
     this.#db = db;
     this.#rules = RULES(options.busyTimeoutMs);
     // The journal mode pragma writes the file's header and makes the -wal and -shm files. So a
@@ -1020,7 +1043,7 @@ class SqliteFileStore implements SqliteStore {
       }
     }
     const ids =
-      (statement: Database.Statement, ...args: unknown[]) =>
+      (statement: BetterSqlite3.Statement, ...args: unknown[]) =>
       (after: string) =>
         read(() => statement.all(...args, after, EXPORT_PAGE) as Record<string, string>[]).map(
           (r) => {
@@ -1082,7 +1105,7 @@ export async function openSqliteStore(
       "invalid-request",
       "sqlite store: the path is a non-empty string without U+0000",
     );
-  let db: Database.Database;
+  let db: BetterSqlite3.Database;
   try {
     db = new Database(path);
   } catch {

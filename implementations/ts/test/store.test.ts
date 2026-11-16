@@ -261,6 +261,15 @@ describe("openStore", () => {
     expect(await code(() => openStore(undefined as unknown as string))).toBe("unknown-scheme");
   });
 
+  it("a sqlite URL before the subpath import refuses unknown-scheme with the one fixed message, which names the import @bombadil/rhizomatic/store/sqlite", async () => {
+    const sqlite = (await openStore("sqlite:///tmp/never.db").catch(
+      (e: unknown) => e,
+    )) as StoreError;
+    const other = (await openStore(`${SECRET}:x`).catch((e: unknown) => e)) as StoreError;
+    expect([sqlite.code, sqlite.message]).toEqual(["unknown-scheme", other.message]);
+    expect(sqlite.message).toContain("imports @bombadil/rhizomatic/store/sqlite");
+  });
+
   it("a registered scheme may be named; its address is not echoed", async () => {
     const error = (await openStore(`memory:${SECRET}`).catch((e: unknown) => e)) as StoreError;
     expect(error.code).toBe("invalid-url");

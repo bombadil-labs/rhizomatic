@@ -22,10 +22,11 @@ export const hostModules = {
     reason: "Explicit file admission adapter delegates durable-state writes.",
   },
   "storage/sqlite-store.ts": {
-    modules: ["better-sqlite3", "node:crypto", "node:fs", "node:url"],
+    modules: ["better-sqlite3", "node:crypto", "node:fs", "node:module", "node:url"],
     globals: { process: ["platform"] },
+    location: true,
     reason:
-      "The SQLite store: its file through better-sqlite3, the size of its log (a proof of erasure needs an empty log), random histories, file URLs, and the platform that sets its erasure class.",
+      "The SQLite store: its file through better-sqlite3 (loaded by createRequire from import.meta.url, so a host without it gets an error that names it), the size of its log (a proof of erasure needs an empty log), random histories, file URLs, and the platform that sets its erasure class.",
   },
   "federation/http.ts": {
     modules: ["node:http"],
@@ -229,7 +230,8 @@ export function scanBoundarySource(ts, ast, file, owner) {
     {
       if (
         ts.isMetaProperty(node) &&
-        node.keywordToken === ts.SyntaxKind.ImportKeyword
+        node.keywordToken === ts.SyntaxKind.ImportKeyword &&
+        host?.location !== true
       )
         fail("undeclared module location observation");
       if (
