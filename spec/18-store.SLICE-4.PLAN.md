@@ -118,7 +118,7 @@ peer      (id TEXT PRIMARY KEY,
            app_format TEXT)
 
 delta     (id TEXT PRIMARY KEY, claims BLOB NOT NULL,   -- the canonical bytes the id hashes
-           author TEXT NOT NULL, timestamp INTEGER NOT NULL)   -- copied out for pushdown
+           author TEXT NOT NULL, timestamp REAL NOT NULL)      -- copied out for pushdown
 
 holding   (peer TEXT NOT NULL REFERENCES peer, delta TEXT NOT NULL REFERENCES delta(id),
            seq INTEGER NOT NULL, arrival TEXT NOT NULL, sig TEXT, author TEXT NOT NULL,
@@ -157,6 +157,8 @@ surface_debt (peer TEXT NOT NULL, delta TEXT NOT NULL,
   whole and never searched by id.
 - `surface_debt` names a peer only so that its owner can ask again (S4-13). The debt itself is
   the file's: one `owed` row of any peer keeps every report from `absent` (S4-12).
+- `delta.timestamp` is `REAL`: a signed creation time is any finite number, and the memory store
+  accepts one that is not whole.
 - `peer.count` and `peer.floor` are written in the same transaction as the rows they summarize. A
   rail compares each with a count over the rows after every step of the conformance scripts.
 
@@ -254,6 +256,23 @@ Limits, stated in the report's boundary text and in the proposal:
 - A later purge of the same ids runs the rebuild again and answers `removed` with the present
   states (S4-13). That is the path to the later proof.
 
+**Settled for 4b by the third review round.** The 4b builder implements these; they are not open.
+
+- *A rebuild settles only older debts.* `meta` holds a generation number. A purge stamps its
+  `surface_debt` rows with the present generation. A rebuild raises the generation first, in its
+  own transaction, then runs, and settles only rows of an older generation. A purge that another
+  process commits during the rebuild keeps its debt. `surface_debt` gains a `generation` column,
+  and a rail runs the two processes.
+- *The asking peer gets its own debt row.* When a settled purge debt answers `removed` while any
+  row is `owed`, the store writes a `surface_debt` row for the asking peer in that transaction.
+  Its next ask can then be answered `proven` (rail 9).
+- *A second purge of a re-held id* upserts the row to `owed` under the present generation.
+- *A store of `unproven` peers keeps one mark, not a row per id.* An `unproven` peer's purge sets
+  one file-level mark, "residue owed since generation g", in `meta`. A rebuild clears it. S4-16
+  reads that way; no id is kept for a peer that asked for no proof.
+- *A file that 4a wrote holds residue with no debt row.* 4b raises the format string to
+  `rhizomatic-store-sqlite/2`. Opening a `/1` file runs one rebuild first, then stamps `/2`.
+
 **Rails, each seen red first, each two-sided, on real files in a `mkdtempSync` directory.** A
 target carries a distinct marker in each place the schema copies erasable material: a primitive
 value, an entity id, a referenced id, the author, the arrival record and the signature. A named
@@ -288,16 +307,20 @@ The review listed every place where a builder would have to guess. Each is decid
 
 1. **Types and byte forms.** As in §4. `claims` is the canonical encoding from which the id is
    computed. `added` and `removed` are JSON arrays of ids in ascending byte order.
-2. **Errors.** An SQLite error before the first write of an append or purge changes nothing; the
-   store reports it with the refusal it already has for a store that cannot serve, and adds no
-   new code without a line in the PR. An error at or after `COMMIT` is `uncertain`. A read that
-   fails is a thrown store error, never an empty answer.
+2. **Errors.** One new refusal code, `store-unavailable`, in both witnesses; the memory store
+   never gives it. It is a recorded contract change. The store gives it when SQLite cannot serve
+   the call, of which a lock held past `busy_timeout` is the main case:
+   - an append, before its first write: nothing changed;
+   - a read: nothing was answered, and never an empty answer in its place;
+   - a purge, at any point: the caller asks again. A purge is safe to repeat, and the second
+     answer reports the present state.
+   An append that fails at or after `COMMIT` answers `uncertain`, as §4.5 says.
 3. **Connection.** One connection per `Store`. `busy_timeout = 5000`. `synchronous = FULL`: an
    append answered `committed` must survive a power loss, because the head compare-and-set builds
    on it.
 4. **Temp store.** `FILE`, set and read back, from 4a.
 5. **The purge report in 4a.** `rows` and `index-entries` come from the second look.
-   `page-free-space` and `write-ahead-log` are `unprovable`. The claim is `unproven`. No
+   `page-free-space`, `freed-pages` and `write-ahead-log` are `unprovable`. The claim is `unproven`. No
    `surface_debt` row is written and no truncate runs until 4b.
 6. **History.** Minted at `createPeer`: `sqlite:` plus 32 hex digits from the system random
    source. The `mintHistory` option works as in the memory store. The `history` table is in use
