@@ -164,6 +164,34 @@ export interface ViewQuirks {
   readonly readEvicted?: boolean;
 }
 
+const EVERY_QUIRK: { readonly [K in keyof Required<ViewQuirks>]: true } = {
+  neverReread: true,
+  rereadAll: true,
+  ignoreRemoved: true,
+  ignoreNegators: true,
+  keepOldIndex: true,
+  keepIndexOnDrop: true,
+  ignoreSince: true,
+  ignoreExpiresAt: true,
+  ignoreEpoch: true,
+  newerSnapshot: true,
+  advanceOnFailure: true,
+  mergeOnResync: true,
+  feedPerView: true,
+  staleBoundary: true,
+  scanEveryView: true,
+  keepPurgedBaseline: true,
+  keepEvicted: true,
+  readWhenNew: true,
+  omitEvicted: true,
+  evictedKeepsDropped: true,
+  evictedKeepsReheld: true,
+  readEvicted: true,
+};
+
+/** The name of every rule in `ViewQuirks`, for the rails. The package root does not export it. */
+export const VIEW_QUIRK_NAMES = Object.keys(EVERY_QUIRK) as readonly (keyof ViewQuirks)[];
+
 const DEFAULT_MAX_VIEWS = 1024;
 
 /** A heap over keys with O(log n) insert, update and delete, and a pruned walk of its top. */
@@ -370,11 +398,12 @@ export class StoreViews {
   private queue: Promise<unknown> = Promise.resolve();
   private readonly maxViews: number;
   private readonly rounds: RoundPolicy;
-  #quirks: ViewQuirks = {};
+  /** A null-prototype object, so a rule set on `Object.prototype` reads as unset. */
+  #quirks: ViewQuirks = Object.create(null) as ViewQuirks;
 
   static {
     breakRules = (views, quirks) => {
-      views.#quirks = quirks;
+      views.#quirks = Object.assign(Object.create(null) as ViewQuirks, quirks);
     };
   }
 

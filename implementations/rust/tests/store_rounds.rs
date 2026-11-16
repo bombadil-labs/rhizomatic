@@ -1845,39 +1845,45 @@ impl Snapshot for Restamped {
     }
 }
 
-/// `StoreReactor::read` and `fetch` check a snapshot's revision before they use it (SPEC-18
-/// §4.13 reading 103): 2^53 is the store fault `revision-out-of-range`, and 2^53 − 1 answers.
+/// A reactor over the loaded fixture whose snapshots report `revision`.
+fn at_revision(fx: &Fixture, store: &MemoryStore, revision: u64) -> StoreReactor {
+    StoreReactor::open(Box::new(AtRevision {
+        inner: fx.load(store),
+        revision: Revision(revision),
+    }))
+}
+
+/// `StoreReactor::read` checks a snapshot's revision before it uses it (SPEC-18 §4.13 reading
+/// 103): 2^53 is the store fault `revision-out-of-range`, and 2^53 − 1 answers.
 #[test]
-fn a_snapshot_at_revision_2_pow_53_is_refused_revision_out_of_range_by_read_and_fetch() {
+fn read_refuses_a_snapshot_at_revision_2_pow_53_revision_out_of_range() {
     let fx = fixture();
     let case = &fx.cases("cases")[0];
-    for (revision, refused) in [(MAX_REVISION + 1, true), (MAX_REVISION, false)] {
-        let store = MemoryStore::new();
-        let reactor = StoreReactor::open(Box::new(AtRevision {
-            inner: fx.load(&store),
-            revision: Revision(revision),
-        }));
-        let read = reactor.read(request(&fx, case, FetchCache::On));
-        let fetched = reactor.fetch(&["garden:1".to_string()], Selection::default());
-        match refused {
-            true => {
-                let read = read.expect_err("read answered");
-                let fetched = fetched.expect_err("fetch answered");
-                assert!(
-                    matches!(&read, StoreReadError::Fault(f) if f.rule() == "revision-out-of-range"),
-                    "{read:?}"
-                );
-                assert!(
-                    matches!(&fetched, FeedError::Fault(f) if f.rule() == "revision-out-of-range"),
-                    "{fetched:?}"
-                );
-            }
-            false => {
-                assert_eq!(read.map(|r| r.revision), Ok(Revision(revision)));
-                assert_eq!(fetched.map(|f| f.revision), Ok(Revision(revision)));
-            }
-        }
-    }
+    let store = MemoryStore::new();
+    let read = at_revision(&fx, &store, MAX_REVISION + 1).read(request(&fx, case, FetchCache::On));
+    assert!(
+        matches!(&read, Err(StoreReadError::Fault(f)) if f.rule() == "revision-out-of-range"),
+        "{read:?}"
+    );
+    let store = MemoryStore::new();
+    let read = at_revision(&fx, &store, MAX_REVISION).read(request(&fx, case, FetchCache::On));
+    assert_eq!(read.map(|r| r.revision), Ok(Revision(MAX_REVISION)));
+}
+
+/// `StoreReactor::fetch` checks a snapshot's revision before it uses it (reading 103).
+#[test]
+fn fetch_refuses_a_snapshot_at_revision_2_pow_53_revision_out_of_range() {
+    let fx = fixture();
+    let entities = ["garden:1".to_string()];
+    let store = MemoryStore::new();
+    let fetched = at_revision(&fx, &store, MAX_REVISION + 1).fetch(&entities, Selection::default());
+    assert!(
+        matches!(&fetched, Err(FeedError::Fault(f)) if f.rule() == "revision-out-of-range"),
+        "{fetched:?}"
+    );
+    let store = MemoryStore::new();
+    let fetched = at_revision(&fx, &store, MAX_REVISION).fetch(&entities, Selection::default());
+    assert_eq!(fetched.map(|f| f.revision), Ok(Revision(MAX_REVISION)));
 }
 
 /// A peer whose `read` itself answers `snapshot-moved` while `left` is above 0.

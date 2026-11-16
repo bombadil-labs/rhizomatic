@@ -676,20 +676,20 @@ describe("round vectors: a change between two rounds", () => {
     }
   });
 
-  it("a snapshot at revision 2^53 is refused revision-out-of-range by read and fetch; 2^53 - 1 is accepted", async () => {
-    const loaded = await load();
-    for (const [revision, refused] of [
-      [2 ** 53, true],
-      [2 ** 53 - 1, false],
-    ] as const) {
-      const peer: PeerStore = {
-        ...loaded.peer,
-        read: async () => ({ ...(await loaded.peer.read()), revision }),
-      };
-      for (const run of [
-        (reactor: StoreReactor) => reactor.read(requestOf(pick("a-subtree"))),
-        (reactor: StoreReactor) => reactor.fetch(["cutting:2"]),
-      ]) {
+  for (const [call, run] of [
+    ["read", (reactor: StoreReactor) => reactor.read(requestOf(pick("a-subtree")))],
+    ["fetch", (reactor: StoreReactor) => reactor.fetch(["cutting:2"])],
+  ] as const)
+    it(`${call}: a snapshot at revision 2^53 is refused revision-out-of-range; 2^53 - 1 is accepted`, async () => {
+      const loaded = await load();
+      for (const [revision, refused] of [
+        [2 ** 53, true],
+        [2 ** 53 - 1, false],
+      ] as const) {
+        const peer: PeerStore = {
+          ...loaded.peer,
+          read: async () => ({ ...(await loaded.peer.read()), revision }),
+        };
         const outcome = await run(StoreReactor.open(peer)).then(
           (answer) => answer,
           (error: unknown) => error,
@@ -699,8 +699,7 @@ describe("round vectors: a change between two rounds", () => {
           expect((outcome as StoreFaultError).rule).toBe("revision-out-of-range");
         } else expect((outcome as { revision: number }).revision).toBe(revision);
       }
-    }
-  });
+    });
 
   for (const code of ["snapshot-released", "capability-absent"] as const)
     it(`a ${code} refusal passes up after one attempt`, async () => {
