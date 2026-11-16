@@ -108,7 +108,8 @@ export const SQLITE_STATEMENTS = {
   schemaSize: "SELECT count(*) AS size FROM sqlite_schema",
   files: "PRAGMA database_list",
   metaGet: "SELECT value FROM meta WHERE key = ?",
-  metaPut: "INSERT INTO meta (key, value) VALUES (?, ?)",
+  metaSet: `INSERT INTO meta (key, value) VALUES (?, ?)
+    ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
   residueRead: "SELECT dirty, clean FROM residue WHERE one = 1",
   residueDirty: "SELECT dirty FROM residue WHERE one = 1",
   residueClean: "UPDATE residue SET clean = max(clean, ?) WHERE one = 1",
@@ -119,6 +120,7 @@ export const SQLITE_STATEMENTS = {
     max_seq AS maxSeq FROM peer WHERE id = ?`,
   peerAdd: `INSERT INTO peer (id, posture, store_class, history, revision, floor, head, count, max_seq)
     VALUES (?, ?, ?, ?, 0, 0, NULL, 0, 0)`,
+  peerHistory: "UPDATE peer SET history = ? WHERE id = ?",
   peerAdvance: `UPDATE peer SET revision = @revision, floor = @floor, head = @head, count = @count,
     max_seq = @maxSeq WHERE id = @peer`,
 

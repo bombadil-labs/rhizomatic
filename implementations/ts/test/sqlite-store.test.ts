@@ -184,7 +184,7 @@ async function writer(store: Store, id = "peer:a") {
 // ---- the store's own rules -------------------------------------------------------------------
 
 describe("the SQLite store's profile and scheme", () => {
-  it("declares what step 4b holds, and nothing more; the class is proven on Linux only", async () => {
+  it("declares what step 4c holds, and nothing more; the class is proven on Linux only", async () => {
     const store = await fixture.open();
     expect(store.profile).toEqual({
       capabilities: {
@@ -198,10 +198,10 @@ describe("the SQLite store's profile and scheme", () => {
       },
       indexedValueRoles: [],
       pushdown: { timestampAtMost: true, arrivalAtMost: true, excludeIds: true },
-      writers: "one-process",
+      writers: "many-processes",
       atRest: "trusted",
       changeRetention: { revisions: 1024 },
-      formatVersion: "rhizomatic-store-sqlite/2",
+      formatVersion: "rhizomatic-store-sqlite/3",
     });
     expect(Object.isFrozen(store.profile)).toBe(true);
     // The posture gate on a store of class unprovable: sqlite-store-erasure.test.ts, rail 6.
@@ -243,17 +243,19 @@ describe("the SQLite store's profile and scheme", () => {
     expect(await refusal(openSqliteStore(other))).toBe("open-failed");
   });
 
-  it("refuses a file of format /1, which step 4a wrote, naming both formats; no migration ships", async () => {
-    const path = fixture.path();
-    await (await openSqliteStore(path)).close();
-    const db = new Database(path);
-    db.prepare("UPDATE meta SET value = 'rhizomatic-store-sqlite/1' WHERE key = 'format'").run();
-    db.close();
-    const error = (await openSqliteStore(path).catch((e: unknown) => e)) as StoreError;
-    expect([error.code, error.message]).toEqual([
-      "open-failed",
-      "sqlite store: the file holds format rhizomatic-store-sqlite/1, and this store reads rhizomatic-store-sqlite/2",
-    ]);
+  it("refuses a file of format /1 or /2, which steps 4a and 4b wrote, naming both formats; no migration ships", async () => {
+    for (const old of ["rhizomatic-store-sqlite/1", "rhizomatic-store-sqlite/2"]) {
+      const path = fixture.path();
+      await (await openSqliteStore(path)).close();
+      const db = new Database(path);
+      db.prepare("UPDATE meta SET value = ? WHERE key = 'format'").run(old);
+      db.close();
+      const error = (await openSqliteStore(path).catch((e: unknown) => e)) as StoreError;
+      expect([error.code, error.message]).toEqual([
+        "open-failed",
+        `sqlite store: the file holds format ${old}, and this store reads rhizomatic-store-sqlite/3`,
+      ]);
+    }
   });
 
   it("keeps the retention it was created with, and refuses another at a later open", async () => {
@@ -278,6 +280,7 @@ describe("the SQLite store's profile and scheme", () => {
       { changeRetention: { revisions: 0 } },
       { changeRetention: "none" },
       { mintHistory: "x" },
+      { restored: "yes" },
     ])
       expect(await refusal(openSqliteStore(fixture.path(), options as never))).toBe(
         "invalid-request",
