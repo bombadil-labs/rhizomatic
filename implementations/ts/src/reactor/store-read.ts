@@ -23,6 +23,7 @@ import { createReadCache, type HeldMembers } from "../storage/fetch-cache.js";
 import {
   makeCapture,
   rawScope,
+  revisionInRange,
   validityWindow,
   type Capture,
   type ValidityWindow,
@@ -594,9 +595,12 @@ const moved = (error: unknown): boolean =>
 /** How many times `StoreReactor` starts a read again after `snapshot-moved`. */
 export const SNAPSHOT_RETRIES = 3;
 
-/** A `StoreReactor` read: the read, and how many snapshots it took. */
+/** A `StoreReactor` read: the read, and how many attempts it took. */
 export interface StoreReactorRead extends StoreRead {
-  /** 1 when the first snapshot held still. */
+  /**
+   * How many attempts the read took, a `read()` that the peer refused included. 1 when the first
+   * snapshot held still.
+   */
   readonly attempts: number;
 }
 
@@ -616,7 +620,8 @@ export class StoreReactor {
   /**
    * `readAnchored` on a new snapshot. When the peer moves under the read, also under `read()`
    * itself, the whole read starts again on a new snapshot, up to `SNAPSHOT_RETRIES` times; then
-   * `snapshot-moved` passes up.
+   * `snapshot-moved` passes up. A snapshot whose revision is not an integer from 0 to 2^53 − 1 is
+   * the store fault `revision-out-of-range` (`StoreFaultError`), before anything reads it.
    * Nothing fetched from one snapshot is used with another.
    */
   async read(request: StoreReadRequest): Promise<StoreReactorRead> {
@@ -656,6 +661,7 @@ export class StoreReactor {
         throw error;
       }
       try {
+        revisionInRange(snapshot.revision);
         return { value: await run(snapshot, attempts), attempts };
       } catch (error) {
         if (!moved(error) || attempts > SNAPSHOT_RETRIES) throw error;

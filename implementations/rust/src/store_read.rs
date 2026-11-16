@@ -41,8 +41,8 @@ use crate::store::{
 use crate::store_conformance::FreshnessReader;
 use crate::store_follow::{follow_feed, position_of, FeedCursor, Position};
 use crate::store_fresh::{
-    check_fresh, make_capture, raw_scope, touching, validity_boundaries, validity_window,
-    window_at, Capture, FeedError, Freshness, Touch, ValidityWindow,
+    check_fresh, make_capture, raw_scope, revision_in_range, touching, validity_boundaries,
+    validity_window, window_at, Capture, FeedError, Freshness, StoreFault, Touch, ValidityWindow,
 };
 use crate::types::{Delta, Primitive};
 
@@ -251,8 +251,8 @@ pub struct StoreRead {
     /// reading 66).
     pub position: Position,
     pub rounds: Vec<RoundReport>,
-    /// How many snapshots the read took: 1 for `read_anchored`, up to `SNAPSHOT_RETRIES + 1`
-    /// for `StoreReactor::read`.
+    /// How many attempts the read took, a `read` that the peer refused included: 1 for
+    /// `read_anchored`, up to `SNAPSHOT_RETRIES + 1` for `StoreReactor::read`.
     pub snapshots: usize,
     /// How many child evaluations the read's memo held when the read ended: 0 with the memo
     /// off, and the number of keys stored with it on (SPEC-18 §4.12 reading 27). The memo
@@ -276,6 +276,8 @@ pub enum StoreReadError {
     Store(StoreError),
     /// The evaluator refused the term.
     Eval(String),
+    /// The store broke its contract (`revision-out-of-range`, from `StoreReactor::read`).
+    Fault(StoreFault),
 }
 
 impl StoreReadError {
@@ -296,6 +298,9 @@ impl fmt::Display for StoreReadError {
             }
             Self::Store(e) => f.write_str(&e.to_string()),
             Self::Eval(message) => f.write_str(message),
+            Self::Fault(fault) => {
+                f.write_str(&format!("the store broke {}: {fault}", fault.rule()))
+            }
         }
     }
 }
@@ -305,6 +310,12 @@ impl std::error::Error for StoreReadError {}
 impl From<StoreError> for StoreReadError {
     fn from(e: StoreError) -> Self {
         Self::Store(e)
+    }
+}
+
+impl From<StoreFault> for StoreReadError {
+    fn from(fault: StoreFault) -> Self {
+        Self::Fault(fault)
     }
 }
 
@@ -789,9 +800,10 @@ impl StoreReactor {
 
     /// Runs `body` on a new snapshot, released on every path. On `snapshot-moved`, from `read`
     /// itself or from `body`, it starts again on a new snapshot, at most `SNAPSHOT_RETRIES` more
-    /// times; any other refusal passes up at once. `body` receives the attempt, counted from 1.
-    /// Returns the answer and how many snapshots it took.
-    fn on_snapshots<T, E: From<StoreError>>(
+    /// times; any other refusal passes up at once. A snapshot whose revision is out of range is
+    /// the store fault `revision-out-of-range`, before `body` runs. `body` receives the attempt,
+    /// counted from 1. Returns the answer and how many attempts it took.
+    fn on_snapshots<T, E: From<StoreError> + From<StoreFault>>(
         &self,
         mut body: impl FnMut(&dyn Snapshot, usize) -> Result<T, E>,
         moved: impl Fn(&E) -> bool,
@@ -806,6 +818,7 @@ impl StoreReactor {
                 }
                 Err(e) => return Err(e.into()),
             };
+            revision_in_range(snapshot.0.revision())?;
             match body(snapshot.0.as_ref(), taken) {
                 Err(e) if moved(&e) && taken <= SNAPSHOT_RETRIES => continue,
                 other => return other.map(|answer| (answer, taken)),
@@ -855,15 +868,16 @@ impl StoreReactor {
         follow_feed(self.peer.as_ref(), from)
     }
 
-    /// `fetch_scope` on a new snapshot, started again on `snapshot-moved`.
+    /// `fetch_scope` on a new snapshot, started again on `snapshot-moved`. A snapshot whose
+    /// revision is out of range is the store fault `revision-out-of-range` (`FeedError::Fault`).
     pub fn fetch(
         &self,
         entities: &[String],
         selection: Selection<'_>,
-    ) -> Result<FetchedScope, StoreError> {
+    ) -> Result<FetchedScope, FeedError> {
         self.on_snapshots(
-            |snapshot, _| fetch_scope(snapshot, entities, selection),
-            |e: &StoreError| e.code == StoreErrorCode::SnapshotMoved,
+            |snapshot, _| fetch_scope(snapshot, entities, selection).map_err(FeedError::from),
+            |e: &FeedError| matches!(e, FeedError::Refused(e) if e.code == StoreErrorCode::SnapshotMoved),
         )
         .map(|(fetched, _)| fetched)
     }

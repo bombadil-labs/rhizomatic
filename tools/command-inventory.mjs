@@ -26,7 +26,7 @@ for(const file of files){
    const members=ts.isTypeAliasDeclaration(declaration)?[...new Map(properties(type).map(m=>[m.name,m])).values()]:type.getProperties();
    for(const member of members){
     const memberDeclaration=member.declarations?.find(d=>d.getSourceFile().fileName.startsWith(src));
-    if(!memberDeclaration || memberDeclaration.modifiers?.some(m=>[ts.SyntaxKind.PrivateKeyword,ts.SyntaxKind.ProtectedKeyword].includes(m.kind)))continue;
+    if(!memberDeclaration || (memberDeclaration.name && ts.isPrivateIdentifier(memberDeclaration.name)) || memberDeclaration.modifiers?.some(m=>[ts.SyntaxKind.PrivateKeyword,ts.SyntaxKind.ProtectedKeyword].includes(m.kind)))continue;
     const name=memberDeclaration.name&&ts.isComputedPropertyName(memberDeclaration.name)?memberDeclaration.name.getText():member.name;
     actual.push({id:`ts:${relative(src,file)}:${symbol.name}#${name}`,owner:ownerFile.includes('/')?owner:'aggregate',symbol:`${symbol.name}.${name}`,source:relative(root,file),definition:relative(root,memberDeclaration.getSourceFile().fileName)});
    }

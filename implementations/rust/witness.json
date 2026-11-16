@@ -7,6 +7,7 @@
   "checks": [
     { "label": "fmt", "command": "cargo fmt --check" },
     { "label": "clippy", "command": "cargo clippy --all-targets --quiet -- -D warnings" },
+    { "label": "clippy, feature off", "command": "cargo clippy --lib --quiet -- -D warnings" },
     { "label": "tests", "command": "cargo test --quiet" }
   ]
 }
