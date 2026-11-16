@@ -63,6 +63,13 @@ freshness, a feed cursor and held views, in both witnesses against the same vect
   mode in CI.
 - The slice 2 and slice 3 build plans are deleted. Their decisions are in the proposal's §12,
   and what later slices owe is in its §10.2.
+- **The wrong-holder switches leave the public surface.** The TypeScript `StoreViews`
+  constructor takes `(peer, options)` only. The rails build a wrong holder with
+  `storeViewsWithQuirks`, which the package root does not export. In Rust, `ViewQuirk`,
+  `StoreViews::with_quirk` and `StoreViewsReader::quirk` exist only with the feature
+  `wrong-holders`, which only the tests turn on.
+- `StoreReactor.read` and `fetch` refuse a snapshot whose revision is out of range with the store
+  fault `revision-out-of-range` (SPEC-18 §4.13 reading 103).
 
 ### ⚠️ Breaking
 
@@ -73,6 +80,11 @@ freshness, a feed cursor and held views, in both witnesses against the same vect
   shape returned `StoreError` and panicked on a fault. This breaks only the unreleased step-7
   and step-8 API.
 
+- A third argument to the TypeScript `StoreViews` constructor has no effect. In Rust,
+  `StoreViews::with_quirk`, `ViewQuirk` and `StoreViewsReader::quirk` need the feature
+  `wrong-holders`. Rust `StoreReactor::fetch` returns `Result<_, FeedError>`, and
+  `StoreReadError` has the variant `Fault(StoreFault)`. This breaks only the unreleased slice 3
+  API.
 - `StoreFaultRule` has a fifth rule, `revision-out-of-range`. In Rust, `StoreFault` has the
   variant `RevisionOutOfRange { revision }`, and `FeedError` has `Read(String)`: the message of
   an error of a read in a pass of held views that is not a store refusal. It was

@@ -1284,6 +1284,9 @@ The JSON cannot express these; each witness builds them over this fixture.
     answers `before` at the later revision.
   - A reader that asks for every anchor in every round with the cache on. Its answers are right;
     it fails `expect.rounds`.
+- **A revision out of range.** A wrapper whose snapshot reports revision 2^53 fails
+  `StoreReactor.read` and `StoreReactor.fetch` with the store fault `revision-out-of-range`
+  (SPEC-18 §4.13 reading 103). The same wrapper at 2^53 − 1 answers, at that revision.
 - **A sticky residual.** No vector pins it, because a memory profile is the same in every round.
   Each witness reads every case against a store double that leaves one field
   (`timestampAtMost`) to the host in the odd rounds only, and again in the even rounds only. The
@@ -2638,7 +2641,9 @@ times 2, keeping two records. Every run passes and skips nothing.
 The JSON cannot express these; each witness builds them.
 
 - **Wrong holders.** Each must fail. Assert the case and the message. The table's holder is the
-  witness's own holder with one rule broken (TypeScript: `new StoreViews(peer, options, quirks)`).
+  witness's own holder with one rule broken (TypeScript: `storeViewsWithQuirks(peer, options,
+  quirks)`, which the package root does not export; Rust: `StoreViewsReader { quirk }`, which
+  exists only with the feature `wrong-holders`). The public holder takes no quirk.
   With no rule broken it passes every run of §11.5; each witness asserts that first.
 
   | Holder | Fails | Message starts |

@@ -1524,10 +1524,10 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
 | The feed: records, pages, the floor, retention, shape | 1 to 23 |
 | Freshness: the window, captures, histories, `checkFresh` | 24 to 54 |
 | The feed cursor, followers and full mirrors | 55 to 72 |
-| Store faults (error values with a named rule) | 46, 63, 68, 73, 74, 89, 97 |
+| Store faults (error values with a named rule) | 46, 63, 68, 73, 74, 89, 97, 103 |
 | Held views (`StoreViews`), with their cost rails | 75 to 96, 98, 99, 101 |
 | The runners' words and order | 53, 54, 67, 100 |
-| `StoreReactor` and a moved `read()` | 102 |
+| `StoreReactor`: a moved `read()`, and the revision it checks | 102, 103 |
 
 1. **Revisions are integers.** A revision is an integer from 0 to 2^53 − 1 in every witness. The
    vectors need this to name a revision past the current one (`ahead`, README §3.9).
@@ -2021,6 +2021,14 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      call on the snapshot. A `read()` that itself answers `snapshot-moved` passed up at once,
      though `checkFresh`, a pull and a pass retried it. `StoreReactor.read` and `fetch` now start
      again on it too, within the same four snapshots.
+103. **`StoreReactor` checks the revision of each snapshot.** Reading 97 listed the readers that
+     check a snapshot's revision first, and `StoreReactor` was not one of them. Its `read` and
+     `fetch` published a position at revision 2^53. Both now check the revision of each snapshot
+     they take, before anything reads it. A revision outside 0 to 2^53 − 1 is the store fault
+     `revision-out-of-range`. TypeScript throws `StoreFaultError`. Rust returns
+     `StoreReadError::Fault` from `read` and `FeedError::Fault` from `fetch`. The count of
+     attempts of a read (TypeScript `attempts`, Rust `snapshots`) includes a `read()` that the
+     peer refused.
 
 
 ## 5. Architectures
