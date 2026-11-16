@@ -35,7 +35,13 @@ export type StoreErrorCode =
   | "invalid-admission"
   | "invalid-request"
   | "snapshot-moved"
-  | "snapshot-released";
+  | "snapshot-released"
+  /**
+   * A durable store cannot serve the call now, for example while another connection holds a
+   * lock past the wait. A read answered nothing; an append changed nothing; a purge may be
+   * asked again. The memory store never gives it.
+   */
+  | "store-unavailable";
 
 /** Every refusal a store raises. `code` is shared vocabulary; the message is for a person. */
 export class StoreError extends Error {
