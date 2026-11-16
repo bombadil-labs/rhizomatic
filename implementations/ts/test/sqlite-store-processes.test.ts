@@ -464,11 +464,15 @@ describe("file identity: a copy, or a restore, opens under new histories", () =>
     const original = await opened(path);
     const copy = join(dirname(path), "copy.db");
     copyFileSync(path, copy);
+    // The second process opens the file and stops before the write lock of its identity check.
+    const two = child({ op: "open", path: copy, hold: "lock" });
+    await two.held("lock");
+    // The first takes that lock and stops after it reads the identity, before it mints.
     const one = child({ op: "open", path: copy, hold: "identity" });
     await one.held("identity");
-    const two = child({ op: "open", path: copy });
-    // The second process is now at the write lock, or past it.
-    await new Promise((done) => setTimeout(done, 500));
+    // The second asks for the lock that the first holds: its next statement is BEGIN IMMEDIATE.
+    two.go("lock");
+    expect(await two.printed("locking")).toBe("lock");
     one.go("identity");
     const [h1, h2] = await Promise.all([
       one.json<Record<string, string>>("histories"),
@@ -477,6 +481,36 @@ describe("file identity: a copy, or a restore, opens under new histories", () =>
     expect(h2).toEqual(h1);
     for (const id of ["peer:a", "peer:b"]) expect(h1[id]).not.toBe(original[id]);
     expect(histories(copy).issued).toHaveLength(4);
+  }, 60_000);
+
+  it("a copy with more peers than one page of 256 gives every peer a new history, the last page too", async () => {
+    const ids = Array.from({ length: 600 }, (_, i) => `peer:${String(i).padStart(3, "0")}`);
+    const path = await made({}, ids);
+    const original = await opened(path);
+    const copy = join(dirname(path), "copy.db");
+    copyFileSync(path, copy);
+    const first = await opened(copy);
+    expect(Object.keys(first)).toHaveLength(600);
+    const kept = ids.filter((id) => first[id] === original[id]);
+    expect(kept).toEqual([]);
+    expect(await opened(copy)).toEqual(first);
+    expect(histories(copy).issued).toHaveLength(1200);
+  }, 120_000);
+
+  it("a file whose identity row is missing gives every peer a new history at its open, and records the identity", async () => {
+    const path = await made({}, ["peer:a", "peer:b"]);
+    const original = await opened(path);
+    const db = new Database(path);
+    db.prepare("DELETE FROM meta WHERE key = 'identity'").run();
+    db.close();
+    const first = await opened(path);
+    for (const id of ["peer:a", "peer:b"]) expect(first[id]).not.toBe(original[id]);
+    expect(await opened(path)).toEqual(first);
+    const check = new Database(path, { readonly: true });
+    const row = check.prepare("SELECT value FROM meta WHERE key = 'identity'").get();
+    check.close();
+    expect(row).toBeDefined();
+    expect(histories(path).issued).toHaveLength(4);
   }, 60_000);
 
   it("a move to another directory keeps the file's identity: no new history", async () => {

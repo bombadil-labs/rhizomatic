@@ -31,6 +31,7 @@ import {
 } from "./signed-loose-admission.js";
 import type { ArrivalOrigin, PeerImageWrite, SinglePeerTransferInput } from "./single-peer.js";
 import type { ArrivalRecord } from "./arrival.js";
+import { ownFields } from "../storage/copy.js";
 
 export type OrdinaryJournalRead =
   | { readonly status: "empty" }
@@ -273,8 +274,9 @@ export class OrdinaryJournalPeer {
   static async open(
     store: DurableOrdinaryJournalStore,
     peerId: string,
-    options: { readonly allowDegraded?: boolean; readonly requireExisting?: boolean } = {},
+    given: { readonly allowDegraded?: boolean; readonly requireExisting?: boolean } = {},
   ): Promise<OrdinaryJournalOpenResult> {
+    const options = ownFields(given);
     if (!isCanonicalPeerId(peerId)) throw new Error("ordinary journal: invalid peer id");
     const current = await store.readJournal(peerId);
     if (current.status === "rows-without-journal") return current;

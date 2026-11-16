@@ -5,14 +5,8 @@
 import { computeId } from "../delta/delta.js";
 import type { Claims } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
-import { copyMember, isPlainObject } from "./copy.js";
-import {
-  StoreError,
-  type Id,
-  type Pushdown,
-  type ScopeRequest,
-  type VerifiedDelta,
-} from "./store.js";
+import { copyMember, isPlainObject, ownFields } from "./copy.js";
+import { StoreError, type Id, type ScopeRequest, type VerifiedDelta } from "./store.js";
 
 // A lone surrogate: a UTF-16 code unit that is not half of a pair. Such a string has no UTF-8
 // form, so two of them can be stored as one (§4.13 reading 104).
@@ -123,7 +117,8 @@ export function takeAppend(batch: unknown): {
 } {
   let call: { expectedHead: unknown; nextHead: unknown; frame: unknown; added: unknown };
   try {
-    const { expectedHead, nextHead, frame, added } = batch as Record<string, unknown>;
+    if (batch === null || batch === undefined) throw new TypeError("batch");
+    const { expectedHead, nextHead, frame, added } = ownFields(batch as Record<string, unknown>);
     call = { expectedHead, nextHead, frame, added };
   } catch {
     throw new StoreError("invalid-admission", "append: the call is malformed");
@@ -162,16 +157,16 @@ export function takeScope(request: ScopeRequest): OwnScope {
   let bounds: { timestampAtMost: unknown; arrivalAtMost: unknown; excludeIds: unknown };
   const anchors: { kind: unknown; entity: unknown }[] = [];
   try {
-    const { anchors: list, pushdown, exclude: omit } = request;
+    const { anchors: list, pushdown, exclude: omit } = ownFields(request);
     exclude = omit;
     // Absent means no pushdown. Anything else that is not a plain object is refused, never
     // read as an empty one.
     if (pushdown !== undefined && !isPlainObject(pushdown)) throw new TypeError("pushdown");
-    const { timestampAtMost, arrivalAtMost, excludeIds } = (pushdown ?? {}) as Pushdown;
+    const { timestampAtMost, arrivalAtMost, excludeIds } = ownFields(pushdown);
     bounds = { timestampAtMost, arrivalAtMost, excludeIds };
     if (!Array.isArray(list)) throw new TypeError("anchors");
     for (let i = 0; i < list.length; i++) {
-      const { kind, entity } = list[i] as { kind: unknown; entity: unknown };
+      const { kind, entity } = ownFields(list[i] as { kind: unknown; entity: unknown });
       if (typeof kind !== "string") throw new TypeError("kind");
       if (kind === "entity" && typeof entity !== "string") throw new TypeError("entity");
       anchors.push({ kind, entity });
@@ -191,11 +186,11 @@ export function takeScope(request: ScopeRequest): OwnScope {
     refuse("arrivalAtMost must be an integer, 0 or more");
   return {
     anchors,
-    asked: {
+    asked: ownFields({
       ...(timestampAtMost === undefined ? {} : { timestampAtMost: timestampAtMost as number }),
       ...(arrivalAtMost === undefined ? {} : { arrivalAtMost: arrivalAtMost as number }),
       ...(excludeIds === undefined ? {} : { excludeIds: strings(excludeIds, "scope: excludeIds") }),
-    },
+    }),
     exclude: exclude === undefined ? [] : strings(exclude, "scope: exclude"),
   };
 }

@@ -7,7 +7,7 @@ import { computeId } from "../delta/delta.js";
 import type { DeltaSource } from "../delta/source.js";
 import type { Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
-import { copyArrival, copyDelta, copyMember } from "./copy.js";
+import { copyArrival, copyDelta, copyMember, ownFields } from "./copy.js";
 import { StoreError, type Entity, type Id, type VerifiedDelta } from "./store.js";
 
 /**
@@ -48,14 +48,15 @@ export function scopeSource(members: Iterable<VerifiedDelta>): ScopeSource {
     // The source keeps its own copy. The claims that are hashed are the claims it files.
     let own: VerifiedDelta | undefined;
     try {
-      // Each field is read once. A repeated id is skipped before anything else of the member
-      // is read.
-      const delta: unknown = (member as { delta: unknown }).delta;
-      const id: unknown = (delta as { id: unknown }).id;
+      // Each own field is read once, into copies. A repeated id is skipped before anything
+      // else of the member is checked.
+      const from = ownFields(member as { delta: unknown; arrival: unknown });
+      const delta = ownFields(from.delta as { id: unknown } | undefined);
+      const id: unknown = delta.id;
       if (typeof id === "string" && held.has(id)) continue;
       own = {
         delta: copyDelta(delta, id),
-        arrival: copyArrival((member as { arrival: VerifiedDelta["arrival"] }).arrival),
+        arrival: copyArrival(from.arrival as VerifiedDelta["arrival"]),
       };
       if (computeId(own.delta.claims) !== own.delta.id) own = undefined;
     } catch {

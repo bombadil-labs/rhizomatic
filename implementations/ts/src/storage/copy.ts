@@ -22,8 +22,17 @@ function number(value: unknown, what: string): number {
 }
 function record(value: unknown, what: string): Record<string, unknown> {
   return typeof value === "object" && value !== null
-    ? (value as Record<string, unknown>)
+    ? ownFields(value as Record<string, unknown>)
     : malformed(`${what} is not an object`);
+}
+
+/**
+ * The own enumerable fields of a caller's object, read once into an object with no prototype.
+ * A field that only a prototype holds, also one set on `Object.prototype`, reads as absent.
+ * Every option, request and member a store or a read takes from a caller is read through this.
+ */
+export function ownFields<T extends object>(given: T | undefined): T {
+  return Object.assign(Object.create(null) as T, given);
 }
 /**
  * A plain object: not null, not a list, not a function, and made by an object literal or with a
@@ -147,9 +156,11 @@ export function copyArrival(given: ArrivalRecord): ArrivalRecord {
  */
 export function copyMember(given: VerifiedDelta): VerifiedDelta {
   const from = record(given, "a member");
-  const delta: unknown = from["delta"];
-  const id: unknown = record(delta, "a delta")["id"];
-  return { delta: copyDelta(delta, id), arrival: copyArrival(from["arrival"] as ArrivalRecord) };
+  const delta = record(from["delta"], "a delta");
+  return {
+    delta: copyDelta(delta, delta["id"]),
+    arrival: copyArrival(from["arrival"] as ArrivalRecord),
+  };
 }
 
 /**

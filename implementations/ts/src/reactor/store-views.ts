@@ -34,6 +34,7 @@ import {
   touching,
   type Capture,
 } from "../storage/freshness.js";
+import { ownFields } from "../storage/copy.js";
 import { positionOf, type Position } from "../storage/follow.js";
 import {
   StoreError,
@@ -413,8 +414,9 @@ export class StoreViews {
    */
   constructor(
     private readonly peer: PeerStore,
-    options: StoreViewsOptions = {},
+    given: StoreViewsOptions = {},
   ) {
+    const options = ownFields(given);
     const max = options.maxViews ?? DEFAULT_MAX_VIEWS;
     if (!Number.isSafeInteger(max) || max < 1)
       throw new StoreError("invalid-request", "views: maxViews must be an integer of 1 or more");
@@ -427,9 +429,10 @@ export class StoreViews {
    * before it reads the term; then throws `UnanchoredTermError` for a term that is not anchored,
    * as a read does (a full-surface program cannot be held). Makes no store call.
    */
-  register(name: string, program: ViewProgram): void {
+  register(name: string, given: ViewProgram): void {
     if (this.programs.has(name))
       throw new StoreError("invalid-request", `views: program ${name} is already registered`);
+    const program = ownFields(given);
     const analysis = anchorAnalysis(program.term, program.registry);
     if (!analysis.anchored) throw new UnanchoredTermError(analysis.reason);
     this.programs.set(name, {
