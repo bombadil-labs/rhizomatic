@@ -58,6 +58,7 @@ import {
 } from "../src/storage/store-vector-format.js";
 import {
   StoreError,
+  StoreFaultError,
   collectDeltaSet,
   type PeerExporter,
   type PeerStore,
@@ -671,6 +672,32 @@ describe("round vectors: a change between two rounds", () => {
         expect(reads).toBe(4);
         if (answers) expect(outcome).not.toBeInstanceOf(StoreError);
         else expect((outcome as StoreError).code).toBe("snapshot-moved");
+      }
+    }
+  });
+
+  it("a snapshot at revision 2^53 is refused revision-out-of-range by read and fetch; 2^53 - 1 is accepted", async () => {
+    const loaded = await load();
+    for (const [revision, refused] of [
+      [2 ** 53, true],
+      [2 ** 53 - 1, false],
+    ] as const) {
+      const peer: PeerStore = {
+        ...loaded.peer,
+        read: async () => ({ ...(await loaded.peer.read()), revision }),
+      };
+      for (const run of [
+        (reactor: StoreReactor) => reactor.read(requestOf(pick("a-subtree"))),
+        (reactor: StoreReactor) => reactor.fetch(["cutting:2"]),
+      ]) {
+        const outcome = await run(StoreReactor.open(peer)).then(
+          (answer) => answer,
+          (error: unknown) => error,
+        );
+        if (refused) {
+          expect(outcome).toBeInstanceOf(StoreFaultError);
+          expect((outcome as StoreFaultError).rule).toBe("revision-out-of-range");
+        } else expect((outcome as { revision: number }).revision).toBe(revision);
       }
     }
   });

@@ -447,7 +447,7 @@ const moved = (error: unknown): boolean =>
  * A snapshot's revision checked before anything uses it: an integer from 0 to 2^53 − 1, else the
  * store fault `revision-out-of-range`.
  */
-function revisionInRange(revision: Revision): void {
+export function revisionInRange(revision: Revision): void {
   if (!Number.isSafeInteger(revision) || revision < 0)
     throw new StoreFaultError(
       "revision-out-of-range",

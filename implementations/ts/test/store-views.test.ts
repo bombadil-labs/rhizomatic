@@ -15,7 +15,7 @@ import { parseClaims } from "../src/delta/json-profile.js";
 import { DeltaSet, makeDelta } from "../src/delta/set.js";
 import type { Delta, Pointer } from "../src/delta/types.js";
 import { UnanchoredTermError, readAnchored } from "../src/reactor/store-read.js";
-import { StoreViews, type ViewQuirks } from "../src/reactor/store-views.js";
+import { StoreViews, storeViewsWithQuirks, type ViewQuirks } from "../src/reactor/store-views.js";
 import {
   runViewsConformance,
   type StoreViewsDocument,
@@ -51,7 +51,7 @@ const document = JSON.parse(committed) as StoreViewsDocument;
 
 const WITNESS: ViewWitness = { create: (peer, options) => new StoreViews(peer, options) };
 const quirky = (quirks: ViewQuirks): ViewWitness => ({
-  create: (peer, options) => new StoreViews(peer, options, quirks),
+  create: (peer, options) => storeViewsWithQuirks(peer, options, quirks),
 });
 
 const factoryOf =
@@ -836,7 +836,7 @@ describe("StoreViews", () => {
           return { status: "ok", records: [], through: from };
         },
       };
-      const views = new StoreViews(peer, {}, quirk);
+      const views = storeViewsWithQuirks(peer, {}, quirk);
       views.register("leaf", { term: LEAF });
       const before = (await views.hold("leaf", "a", 10)).bytes;
       await w.append([fact("a", 2)]);
@@ -1183,7 +1183,7 @@ describe("StoreViews", () => {
         };
       },
     };
-    const views = new StoreViews(peer, {}, ERASURE_QUIRKS);
+    const views = storeViewsWithQuirks(peer, {}, ERASURE_QUIRKS);
     views.register("leaf", { term: LEAF });
     views.register("by", { term: LEAF });
     await views.hold("leaf", "t", 10);
@@ -1758,7 +1758,7 @@ describe("cost rail: a refresh costs its records and its reads", () => {
     };
 
   async function holder(w: Awaited<ReturnType<typeof writer>>, roots: readonly string[]) {
-    const views = new StoreViews(w.peer, { maxViews: roots.length + 1 }, RAIL_QUIRKS);
+    const views = storeViewsWithQuirks(w.peer, { maxViews: roots.length + 1 }, RAIL_QUIRKS);
     views.register("leaf", { term: LEAF });
     await views.hold("leaf", "hot", 10);
     for (const root of roots) await views.hold("leaf", root, 10);
@@ -1787,7 +1787,7 @@ describe("cost rail: a refresh costs its records and its reads", () => {
         Array.from({ length: 8 }, (_, k) => fact(root, 8 * i + k + 2)),
       );
       await w.append(members.flat());
-      const views = new StoreViews(w.peer, { maxViews: n }, RAIL_QUIRKS);
+      const views = storeViewsWithQuirks(w.peer, { maxViews: n }, RAIL_QUIRKS);
       views.register("leaf", { term: LEAF });
       for (const root of roots) await views.hold("leaf", root, 10);
       let run = 0;

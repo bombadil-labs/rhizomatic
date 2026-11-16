@@ -128,7 +128,8 @@ export interface StoreViewsOptions {
 
 /**
  * Rules a holder breaks on purpose. Not part of the package surface: the rails build the wrong
- * holders of `vectors/store/README.md` §11 with it.
+ * holders of `vectors/store/README.md` §11 with `storeViewsWithQuirks`. The package root exports
+ * neither, and the public constructor takes no quirks.
  */
 export interface ViewQuirks {
   readonly neverReread?: boolean;
@@ -312,6 +313,22 @@ function holds(sorted: readonly string[], wanted: string): boolean {
   return false;
 }
 
+let breakRules: (views: StoreViews, quirks: ViewQuirks) => void;
+
+/**
+ * A holder with the rules in `quirks` broken, for the rails only (`vectors/store/README.md`
+ * §11.6). The package root does not export it.
+ */
+export function storeViewsWithQuirks(
+  peer: PeerStore,
+  options: StoreViewsOptions,
+  quirks: ViewQuirks,
+): StoreViews {
+  const views = new StoreViews(peer, options);
+  breakRules(views, quirks);
+  return views;
+}
+
 /**
  * Memory-held views over one peer of a store, kept current through its change feed (SPEC-18
  * §4.6, "Held views"). The store-backed counterpart of the memory `Reactor`'s materializations.
@@ -353,6 +370,13 @@ export class StoreViews {
   private queue: Promise<unknown> = Promise.resolve();
   private readonly maxViews: number;
   private readonly rounds: RoundPolicy;
+  #quirks: ViewQuirks = {};
+
+  static {
+    breakRules = (views, quirks) => {
+      views.#quirks = quirks;
+    };
+  }
 
   /**
    * Refuses `invalid-request` for a `maxViews` that is not an integer of 1 or more. Makes no
@@ -361,7 +385,6 @@ export class StoreViews {
   constructor(
     private readonly peer: PeerStore,
     options: StoreViewsOptions = {},
-    private readonly quirks: ViewQuirks = {},
   ) {
     const max = options.maxViews ?? DEFAULT_MAX_VIEWS;
     if (!Number.isSafeInteger(max) || max < 1)
@@ -419,7 +442,8 @@ export class StoreViews {
       const was = this.views.has(key);
       const plan = await this.pass(now, { name, root });
       // Everything that can refuse runs before the pass is applied.
-      const restored = this.quirks.keepEvicted === true && !was ? this.evicted.get(key) : undefined;
+      const restored =
+        this.#quirks.keepEvicted === true && !was ? this.evicted.get(key) : undefined;
       const source =
         restored?.capture ?? plan.reads.get(key)?.capture ?? this.views.get(key)!.capture;
       const capture = advanceCapture(source, plan.position.history, plan.position.revision);
@@ -432,7 +456,7 @@ export class StoreViews {
         position: plan.position,
         expiresAt: view.capture.expiresAt,
         from: !was
-          ? this.quirks.readWhenNew === true
+          ? this.#quirks.readWhenNew === true
             ? "read"
             : "new"
           : plan.reads.has(key)
@@ -471,7 +495,7 @@ export class StoreViews {
             return { name, root };
           })
           .sort(byKey);
-      const evicted = this.quirks.omitEvicted === true ? [] : keys(this.evictions);
+      const evicted = this.#quirks.omitEvicted === true ? [] : keys(this.evictions);
       this.evictions.clear();
       return Object.freeze({
         position: plan.position,
@@ -492,7 +516,7 @@ export class StoreViews {
       this.program(name);
       const key = keyOf(name, root);
       this.forget(key);
-      if (this.quirks.evictedKeepsDropped !== true) this.evictions.delete(key);
+      if (this.#quirks.evictedKeepsDropped !== true) this.evictions.delete(key);
     });
   }
 
@@ -554,7 +578,7 @@ export class StoreViews {
         return this.passOn(snapshot, now, want);
       });
     } catch (error) {
-      if (this.quirks.advanceOnFailure === true && last !== undefined)
+      if (this.#quirks.advanceOnFailure === true && last !== undefined)
         this.processed = positionOf(last);
       throw error;
     }
@@ -570,30 +594,30 @@ export class StoreViews {
       if (snapshot.history !== at.history || snapshot.revision < at.revision) resynced = true;
       else if (snapshot.revision > at.revision)
         resynced =
-          this.quirks.feedPerView === true
+          this.#quirks.feedPerView === true
             ? await this.feedPerView(snapshot, at.revision, reread, released)
             : !(await this.feed(snapshot, at.revision, undefined, reread, released));
     }
     if (resynced) {
       // The records the holder missed may remove anything: every baseline goes.
-      if (this.quirks.mergeOnResync !== true)
+      if (this.#quirks.mergeOnResync !== true)
         for (const key of this.views.keys()) {
           reread.add(key);
           released.add(key);
         }
     } else {
       // Time: a view whose window does not hold `now`.
-      if (this.quirks.ignoreExpiresAt !== true) this.expiries.walk((t) => t <= now, reread);
-      if (this.quirks.ignoreSince !== true) this.starts.walk((t) => t > now, reread);
+      if (this.#quirks.ignoreExpiresAt !== true) this.expiries.walk((t) => t <= now, reread);
+      if (this.#quirks.ignoreSince !== true) this.starts.walk((t) => t > now, reread);
       // The host's state: a view read under an epoch its program has left.
-      if (this.quirks.ignoreEpoch !== true)
+      if (this.#quirks.ignoreEpoch !== true)
         for (const name of this.newEpochs)
           for (const key of this.byProgram.get(name) ?? [])
             if (this.views.get(key)?.epoch !== this.programs.get(name)!.epoch) reread.add(key);
-      if (this.quirks.rereadAll === true) for (const key of this.views.keys()) reread.add(key);
+      if (this.#quirks.rereadAll === true) for (const key of this.views.keys()) reread.add(key);
     }
-    if (this.quirks.neverReread === true) reread.clear();
-    if (this.quirks.keepPurgedBaseline === true) released.clear();
+    if (this.#quirks.neverReread === true) reread.clear();
+    if (this.#quirks.keepPurgedBaseline === true) released.clear();
     // A hold of a new view into a full set forgets the least recently held view: it is not read.
     const wanted = want === undefined ? undefined : keyOf(want.name, want.root);
     const evicts =
@@ -601,13 +625,13 @@ export class StoreViews {
         ? this.views.keys().next().value!
         : undefined;
     if (evicts !== undefined) {
-      if (this.quirks.readEvicted !== true) reread.delete(evicts);
+      if (this.#quirks.readEvicted !== true) reread.delete(evicts);
       released.delete(evicts);
     }
     const reads = new Map<string, Fresh>();
     // Every read runs on the pass's snapshot. Their order is not part of the contract.
     let on = snapshot;
-    if (this.quirks.newerSnapshot === true && reread.size > 0) on = await this.peer.read();
+    if (this.#quirks.newerSnapshot === true && reread.size > 0) on = await this.peer.read();
     try {
       for (const key of reread) {
         const [name, root] = unkey(key);
@@ -653,7 +677,7 @@ export class StoreViews {
         );
         for (const delta of got) added.set(delta.id, delta);
       }
-      if (this.quirks.scanEveryView === true) this.scan(page.records, added, touched);
+      if (this.#quirks.scanEveryView === true) this.scan(page.records, added, touched);
       else this.touch(page.records, added, only, touched);
       this.release(page.records, only, released);
       at = page.through;
@@ -672,7 +696,7 @@ export class StoreViews {
       for (const key of keys ?? []) if (only === undefined || only.includes(key)) touched.add(key);
     };
     for (const record of records) {
-      if (this.quirks.ignoreRemoved !== true)
+      if (this.#quirks.ignoreRemoved !== true)
         for (const id of record.removed) hit(this.memberIndex.get(id));
       for (const id of record.added) {
         const delta = added.get(id);
@@ -682,7 +706,7 @@ export class StoreViews {
           else if (
             role === "negates" &&
             target.kind === "delta" &&
-            this.quirks.ignoreNegators !== true
+            this.#quirks.ignoreNegators !== true
           )
             hit(this.memberIndex.get(target.deltaRef.delta));
         }
@@ -750,7 +774,7 @@ export class StoreViews {
   private commit(plan: Plan, want: string | undefined): void {
     if (plan.evicts !== undefined) this.forget(plan.evicts, true);
     let restored = false;
-    if (want !== undefined && this.quirks.keepEvicted === true && !this.views.has(want)) {
+    if (want !== undefined && this.#quirks.keepEvicted === true && !this.views.has(want)) {
       const kept = this.evicted.get(want);
       if (kept !== undefined) {
         restored = true;
@@ -790,11 +814,11 @@ export class StoreViews {
         // The baseline outlives this capture: its members go into the baseline index.
         if (view.baseCapture === view.capture)
           for (const id of view.capture.members) addTo(this.baseIndex, id, key);
-        if (this.quirks.keepOldIndex !== true) {
+        if (this.#quirks.keepOldIndex !== true) {
           this.unindex(key, view.capture);
           this.index(key, fresh.capture);
         }
-        if (this.quirks.staleBoundary !== true) this.time(key, fresh.capture);
+        if (this.#quirks.staleBoundary !== true) this.time(key, fresh.capture);
         view.bytes = fresh.bytes;
         view.capture = fresh.capture;
         view.epoch = fresh.epoch;
@@ -802,7 +826,7 @@ export class StoreViews {
       this.dirty.add(key);
     }
     if (want !== undefined) {
-      if (this.quirks.evictedKeepsReheld !== true) this.evictions.delete(want);
+      if (this.#quirks.evictedKeepsReheld !== true) this.evictions.delete(want);
       // The most recently held view goes last.
       const view = this.views.get(want)!;
       this.views.delete(want);
@@ -845,8 +869,8 @@ export class StoreViews {
     this.views.delete(key);
     this.dirty.delete(key);
     if (evicted) this.evictions.add(key);
-    if (evicted && this.quirks.keepEvicted === true) this.evicted.set(key, view);
-    if (this.quirks.keepIndexOnDrop === true) return;
+    if (evicted && this.#quirks.keepEvicted === true) this.evicted.set(key, view);
+    if (this.#quirks.keepIndexOnDrop === true) return;
     this.unbase(view);
     this.unindex(key, view.capture);
     this.expiries.delete(key);
