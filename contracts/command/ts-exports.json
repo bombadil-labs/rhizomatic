@@ -40281,6 +40281,186 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API SqliteStoreOptions.mintHistory implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/sqlite-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteConnection",
+      "owner": "storage",
+      "symbol": "SqliteConnection",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/sqlite-store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API SqliteConnection implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/sqlite-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteConnection#foreign_keys",
+      "owner": "storage",
+      "symbol": "SqliteConnection.foreign_keys",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/sqlite-store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API SqliteConnection.foreign_keys implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/sqlite-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteConnection#secure_delete",
+      "owner": "storage",
+      "symbol": "SqliteConnection.secure_delete",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/sqlite-store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API SqliteConnection.secure_delete implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/sqlite-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteConnection#journal_mode",
+      "owner": "storage",
+      "symbol": "SqliteConnection.journal_mode",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/sqlite-store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API SqliteConnection.journal_mode implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/sqlite-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteConnection#synchronous",
+      "owner": "storage",
+      "symbol": "SqliteConnection.synchronous",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/sqlite-store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API SqliteConnection.synchronous implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/sqlite-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteConnection#temp_store",
+      "owner": "storage",
+      "symbol": "SqliteConnection.temp_store",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/sqlite-store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API SqliteConnection.temp_store implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/sqlite-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteConnection#busy_timeout",
+      "owner": "storage",
+      "symbol": "SqliteConnection.busy_timeout",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/sqlite-store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API SqliteConnection.busy_timeout implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/sqlite-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteExporter",
+      "owner": "storage",
+      "symbol": "SqliteExporter",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/sqlite-store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API SqliteExporter implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/sqlite-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteExporter#connection",
+      "owner": "storage",
+      "symbol": "SqliteExporter.connection",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/sqlite-store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API SqliteExporter.connection implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/sqlite-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteExporter#peers",
+      "owner": "storage",
+      "symbol": "SqliteExporter.peers",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API SqliteExporter.peers implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteExporter#peer",
+      "owner": "storage",
+      "symbol": "SqliteExporter.peer",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API SqliteExporter.peer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteExporter#storedIds",
+      "owner": "storage",
+      "symbol": "SqliteExporter.storedIds",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API SqliteExporter.storedIds implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteStore",
+      "owner": "storage",
+      "symbol": "SqliteStore",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/sqlite-store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API SqliteStore implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/sqlite-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteStore#openAdmin",
+      "owner": "storage",
+      "symbol": "SqliteStore.openAdmin",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/sqlite-store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API SqliteStore.openAdmin implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/sqlite-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteStore#profile",
+      "owner": "storage",
+      "symbol": "SqliteStore.profile",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API SqliteStore.profile implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteStore#createPeer",
+      "owner": "storage",
+      "symbol": "SqliteStore.createPeer",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API SqliteStore.createPeer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteStore#peer",
+      "owner": "storage",
+      "symbol": "SqliteStore.peer",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API SqliteStore.peer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteStore#close",
+      "owner": "storage",
+      "symbol": "SqliteStore.close",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API SqliteStore.close implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     }
   ]
 }
