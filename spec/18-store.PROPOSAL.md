@@ -2029,6 +2029,32 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `StoreReadError::Fault` from `read` and `FeedError::Fault` from `fetch`. The count of
      attempts of a read (TypeScript `attempts`, Rust `snapshots`) includes a `read()` that the
      peer refused.
+104. **Strings are well-formed** (slice 4, step 4a). A string with a lone surrogate (a UTF-16 code
+     unit that is not half of a pair) has no UTF-8 form. SQLite stores it as U+FFFD when it is
+     bound directly, and keeps the raw code unit when it comes through `json_each`. So one key
+     could find the rows of another key. Every store refuses such a string:
+     - An append refuses `invalid-admission` for a batch with one in `nextHead` or in an arrival
+       record's `sender`. The canonical encoding already refuses one in the claims, so such an
+       entry is refused `invalid-admission` as malformed.
+     - A read refuses `invalid-request` for a key with one: the ids of `get`, `arrivals`,
+       `negators` and `purge`, the entities of `targets`, the entity of an anchor, and the
+       `excludeIds` and `exclude` of a scope. It is a check of the request's shape, so it comes
+       before the snapshot's own checks.
+     - `createPeer` refuses `invalid-request` for a peer id with one, and for a minted history
+       with one. `peer` and an export of such a peer answer `peer-absent`: no peer has that id.
+     - This joins the closed list of §4.11 reading 21. A Rust string is well-formed by type, so
+       the Rust witness meets the rule by construction. The TypeScript rail runs the memory store
+       and the SQLite store.
+105. **`store-unavailable`** (slice 4, step 4a). A durable store can fail to serve a call for a
+     reason outside the contract: another connection holds a lock past the wait, or the engine
+     cannot read the file. The store then refuses `store-unavailable`. The code joins the list of
+     §4.11 reading 2. The memory store never gives it. This is a change to the contract of both
+     witnesses: TypeScript adds the code with its SQLite store, and Rust adds it in step 4e.
+     - A read refused this way answered nothing. It never answers an empty list in its place.
+     - An append refused this way changed nothing. An append that fails at or after its commit
+       answers `uncertain` (§4.5).
+     - A purge is one transaction. The caller of a refused purge asks again; the second answer
+       reports the present state.
 
 
 ## 5. Architectures
@@ -2049,21 +2075,28 @@ derived-index sets, `peer → holdings and arrivals`, and a change array.
 ### 5.2 Relational (SQLite, Postgres)
 
 ```sql
-delta   (rowid INTEGER PRIMARY KEY, id BLOB UNIQUE, bytes BLOB, refs INTEGER)  -- shared bytes
-pointer (peer, delta, role, entity, context, ref, num, str, bool)              -- one row per pointer
-        INDEX (peer, entity, delta)                   -- targets
-        INDEX (peer, ref, delta) WHERE role='negates' -- negators
-        INDEX (peer, role, num, delta), (peer, role, str, delta)  -- values, lazily per role
-holding (peer, delta, seq, transfer, arrived_at, sender)  PRIMARY KEY (peer, delta)
-        INDEX (peer, seq)                             -- as-of on arrival
+delta     (id PRIMARY KEY, claims BLOB, author, timestamp)    -- shared canonical bytes, once per id
+holding   (peer, delta REFERENCES delta, seq, arrival, sig, author)
+          PRIMARY KEY (peer, delta), UNIQUE (peer, seq)       -- as-of on arrival
+          INDEX (delta)                                       -- "held by another peer"
+target    (peer, entity, delta)  PRIMARY KEY (peer, entity, delta)       -- targets
+reference (peer, ref, role, delta)  PRIMARY KEY (peer, ref, role, delta) -- negators at 'negates'
+          -- both cascade from their holding, through an index on (peer, delta)
+value     (peer, role, num, str, delta)                       -- slice 6
+          INDEX (peer, role, num, delta), (peer, role, str, delta)  -- values, lazily per role
 digest  (peer, prefix, count, hash)                   -- holdings Merkle tree
 derived (peer, index_key, delta)  INDEX (peer, index_key, delta)
-change  (peer, revision, added BLOB, removed BLOB)    PRIMARY KEY (peer, revision)
+change  (peer, revision, head, added, removed)        PRIMARY KEY (peer, revision)
 view    (peer, key, hview, members, revision, expires_at)
 view_anchor (peer, anchor, key)  INDEX (peer, anchor)  -- ViewStore.affected
 meta    (key, value)                                   -- format version
 journal tables (head, frames, small checkpoint, debts)
 ```
+
+Step 4a of slice 4 built the `delta`, `holding`, `target`, `reference`, `change` and `meta`
+tables, with a `peer` row per peer, a `history` table and a `debt` table. A delta's bytes are
+counted by its `holding` rows, not by a counter. `spec/18-store.SLICE-4.PLAN.md` §4 has the full
+schema.
 
 - **Scope in one statement:** a recursive common table expression selects pointer rows at the
   anchors, then follows `negates` rows. Pushdown is a `JOIN holding … WHERE seq <= ?`.
@@ -2071,11 +2104,13 @@ journal tables (head, frames, small checkpoint, debts)
 - **Per-peer index rows:** `peer` leads every index, so one peer's reads never pay for another
   peer's rows. A container that is a fence inside a peer, not its own peer, scans that peer's
   indexes and filters; its cost is the peer's, not the container's.
-- **Erasure:** SQLite with `secure_delete = ON` and a truncated WAL is `proven` (Loam does this
-  today). Postgres keeps dead rows until `VACUUM`, and even `VACUUM FULL` leaves WAL archives,
-  replicas and backups, so it is `unprovable`.
-- **Use:** servers and CLIs. SQLite also runs in browsers as WebAssembly over OPFS, where
-  `secure_delete` works the same way; that is the browser path to `proven`.
+- **Erasure:** `secure_delete = ON` and a truncated WAL are not enough for `proven`. When SQLite
+  rebalances a page, it leaves old copies of live cells in unused space, and a later purge does
+  not reach them (slice 4 plan §2). A SQLite store is `proven` only when it rebuilds its pages
+  after a purge (step 4b). Until then its class is `unprovable`. Postgres keeps dead rows until
+  `VACUUM`, and even `VACUUM FULL` leaves WAL archives, replicas and backups, so it is
+  `unprovable`.
+- **Use:** servers and CLIs. SQLite also runs in browsers as WebAssembly over OPFS.
 
 ### 5.3 Ordered key-value (IndexedDB, LMDB, RocksDB, FoundationDB)
 
@@ -2235,9 +2270,11 @@ cache.
 
 - **TypeScript:** one npm package, `@bombadil/rhizomatic`, as today. The store interface, the
   memory store, compositions, `openStore` and the conformance runner live in the `storage`
-  package boundary, which depends only on `delta`. Each implementation is a subpath export, for
-  example `@bombadil/rhizomatic/store/sqlite`. Native and platform dependencies (`better-sqlite3`,
-  and later others) are optional peer dependencies, so a browser bundle never pulls SQLite.
+  package boundary, which depends only on `delta`. Each implementation is a subpath export. The
+  SQLite store is `@bombadil/rhizomatic/store/sqlite`: importing it registers the `sqlite:`
+  scheme of `openStore`, and its `openSqliteStore(path, options)` takes the store's own options.
+  Native and platform dependencies (`better-sqlite3`, and later others) are optional peer
+  dependencies. The package root never imports them, so a browser bundle never pulls SQLite.
 - **Rust:** the store traits in the core crate; each implementation behind a cargo feature
   (`sqlite` pulls `rusqlite`).
 - **The `reactor` boundary** gains a dependency on `storage`.

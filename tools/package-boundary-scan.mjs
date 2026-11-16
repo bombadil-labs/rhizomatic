@@ -21,6 +21,11 @@ export const hostModules = {
     modules: [],
     reason: "Explicit file admission adapter delegates durable-state writes.",
   },
+  "storage/sqlite-store.ts": {
+    modules: ["better-sqlite3", "node:crypto", "node:url"],
+    reason:
+      "The SQLite store: its file through better-sqlite3, random histories, and file URLs.",
+  },
   "federation/http.ts": {
     modules: ["node:http"],
     globals: { fetch: true },

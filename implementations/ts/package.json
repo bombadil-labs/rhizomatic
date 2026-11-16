@@ -34,6 +34,10 @@
     "./node": {
       "types": "./dist/federation/file-single-peer.d.ts",
       "default": "./dist/federation/file-single-peer.js"
+    },
+    "./store/sqlite": {
+      "types": "./dist/storage/sqlite-store.d.ts",
+      "default": "./dist/storage/sqlite-store.js"
     }
   },
   "files": [
@@ -72,6 +76,14 @@
   "dependencies": {
     "@noble/curves": "^1.6.0",
     "@noble/hashes": "^1.5.0"
+  },
+  "peerDependencies": {
+    "better-sqlite3": "^12.0.0"
+  },
+  "peerDependenciesMeta": {
+    "better-sqlite3": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
