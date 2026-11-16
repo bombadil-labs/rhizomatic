@@ -105,28 +105,35 @@ for (const [name, open] of Object.entries(stores))
       expect([snapshot.revision, snapshot.count, snapshot.head]).toEqual([0, 0, null]);
     });
 
-    it("a read refuses a key with a lone surrogate, before it looks at the snapshot", async () => {
+    it("a read refuses a key with a lone surrogate, on a current and on a moved snapshot", async () => {
       const { handle, member, batch } = await peer();
+      const moved = await handle.read();
+      // Stored as U+FFFD by a direct bind, the key's other byte form: a read must not find it.
+      const replaced = makeDelta(claims(entity("x\uFFFD")));
       const pair = makeDelta(claims(entity("x\u{1F331}")));
-      const snapshot = await handle.read();
-      await handle.append(batch([member(pair)]));
+      await handle.append(batch([member(replaced), member(pair)]));
+      const current = await handle.read();
       const key = `x${LONE}`;
-      const calls: Record<string, () => Promise<unknown>> = {
-        get: () => snapshot.get([key]),
-        arrivals: () => snapshot.arrivals([key]),
-        targets: () => snapshot.targets([key]),
-        negators: () => snapshot.negators([key]),
-        "scope anchor": () => snapshot.scope({ anchors: [{ kind: "entity", entity: key }] }),
-        "scope excludeIds": () => snapshot.scope({ anchors: [], pushdown: { excludeIds: [key] } }),
-        "scope exclude": () => snapshot.scope({ anchors: [], exclude: [key] }),
-        purge: () => handle.purge([key]),
-      };
-      for (const [what, call] of Object.entries(calls))
-        expect([what, await refusal(call())]).toEqual([what, "invalid-request"]);
-      // A surrogate pair is well-formed: it is stored and found with the same bytes.
-      const now = await handle.read();
-      expect(await now.targets(["x\u{1F331}"])).toEqual([pair.id]);
-      expect(await now.get([pair.id])).toEqual([pair]);
+      for (const [at, snapshot] of Object.entries({ current, moved })) {
+        const calls: Record<string, () => Promise<unknown>> = {
+          get: () => snapshot.get([key]),
+          arrivals: () => snapshot.arrivals([key]),
+          targets: () => snapshot.targets([key]),
+          negators: () => snapshot.negators([key]),
+          "scope anchor": () => snapshot.scope({ anchors: [{ kind: "entity", entity: key }] }),
+          "scope excludeIds": () =>
+            snapshot.scope({ anchors: [], pushdown: { excludeIds: [key] } }),
+          "scope exclude": () => snapshot.scope({ anchors: [], exclude: [key] }),
+        };
+        for (const [what, call] of Object.entries(calls))
+          expect([at, what, await refusal(call())]).toEqual([at, what, "invalid-request"]);
+      }
+      expect(await refusal(handle.purge([key]))).toBe("invalid-request");
+      // U+FFFD and a surrogate pair are well-formed: each is stored and found with its bytes.
+      expect(await current.targets(["x\uFFFD", "x\u{1F331}"])).toEqual(
+        [replaced.id, pair.id].sort(),
+      );
+      expect(await current.get([pair.id])).toEqual([pair]);
     });
 
     it("a peer id or a minted history with a lone surrogate is refused", async () => {

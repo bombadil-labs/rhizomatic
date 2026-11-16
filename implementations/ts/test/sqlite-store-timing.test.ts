@@ -31,16 +31,19 @@ const RUNS = 3;
 const AUTHOR = `ed25519:${"0d".repeat(32)}`;
 const fake = (n: number): string => `1e20${n.toString(16).padStart(64, "0")}`;
 
-/** A delta with one entity pointer and one `negates` pointer: a row in `target` and `reference`. */
+/**
+ * A delta with four entity pointers and four `negates` pointers: four rows in `target` and four
+ * in `reference`, so a statement that reads the peer's rows reads many.
+ */
 const linked = (entity: string, n: number): Delta =>
   makeDelta({
     timestamp: n,
     validFrom: 0,
     author: AUTHOR,
-    pointers: [
-      { role: "about", target: { kind: "entity", entity: { id: entity } } },
-      { role: "negates", target: { kind: "delta", deltaRef: { delta: fake(n) } } },
-    ],
+    pointers: [0, 1, 2, 3].flatMap((k) => [
+      { role: "about", target: { kind: "entity", entity: { id: `${entity}/${k}` } } },
+      { role: "negates", target: { kind: "delta", deltaRef: { delta: fake(4 * n + k) } } },
+    ]),
   });
 
 type Sized = {
@@ -122,14 +125,14 @@ describe("the query-plan rail, part 3: the time of each operation does not grow 
     read: calls(async (s) => (await at(s)).release()),
     get: calls(async (s) => (await at(s)).get(s.hot.map((d) => d.id))),
     arrivals: calls(async (s) => (await at(s)).arrivals(s.hot.map((d) => d.id))),
-    targets: calls(async (s) => (await at(s)).targets(["hot"])),
+    targets: calls(async (s) => (await at(s)).targets(["hot/0"])),
     negators: calls(async (s) => (await at(s)).negators([s.hot[0]!.id])),
     scope: calls(async (s) =>
-      (await at(s)).scope({ anchors: [{ kind: "entity", entity: "hot" }] }),
+      (await at(s)).scope({ anchors: [{ kind: "entity", entity: "hot/0" }] }),
     ),
     "scope with every pushdown": calls(async (s) =>
       (await at(s)).scope({
-        anchors: [{ kind: "entity", entity: "hot" }],
+        anchors: [{ kind: "entity", entity: "hot/0" }],
         pushdown: {
           arrivalAtMost: 3,
           timestampAtMost: 20_000_000,
