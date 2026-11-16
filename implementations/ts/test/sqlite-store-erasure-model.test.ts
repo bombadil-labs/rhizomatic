@@ -39,7 +39,8 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const childScript = resolve(here, "support/sqlite-erasure-child.ts");
 
-const SEED = 20261116;
+/** Two seeds: each runs in about 85 s on Linux, so the pair stays under three minutes. */
+const SEEDS = [20261116, 4_041_977];
 const SEQUENCES = 450;
 const WINDOWS = ["read", "vacuum", "checkpoint", "last", "none"] as const;
 const POINTS = ["read", "vacuum", "checkpoint", "last", "after-last"];
@@ -100,173 +101,177 @@ function server() {
   };
 }
 
-it("seeded model check: a report that says absent, proven or removed is true at its last commit, with another process acting in each window", async () => {
-  const random = generator(SEED);
-  const child = server();
-  const scans = scanner();
-  const tally = {
-    sequences: 0,
-    purges: 0,
-    windows: 0,
-    checks: 0,
-    absent: 0,
-    proven: 0,
-    refused: 0,
-    unfinished: 0,
-    inLog: 0,
-  };
-  const violations: string[] = [];
-  try {
-    for (let sequence = 0; sequence < SEQUENCES; sequence++) {
-      tally.sequences++;
-      const { dir, remove } = space("rhizomatic-sqlite-model");
-      spaces.push(remove);
-      const path = join(dir, "store.db");
-      const store: SqliteStore = await openSqliteStore(path, { busyTimeoutMs: 100 });
-      const names = Array.from({ length: 2 + random.below(2) }, (_, i) => `peer:${i}`);
-      const peers = new Map<string, PeerStore>();
-      for (const name of names)
-        peers.set(
-          name,
-          await store.createPeer(name, { erasure: random.chance(0.6) ? "proven" : "unproven" }),
+it.each(SEEDS)(
+  "seeded model check, seed %i: a report that says absent, proven or removed is true at its last commit, with another process acting in each window",
+  async (SEED) => {
+    const random = generator(SEED);
+    const child = server();
+    const scans = scanner();
+    const tally = {
+      sequences: 0,
+      purges: 0,
+      windows: 0,
+      checks: 0,
+      absent: 0,
+      proven: 0,
+      refused: 0,
+      unfinished: 0,
+      inLog: 0,
+    };
+    const violations: string[] = [];
+    try {
+      for (let sequence = 0; sequence < SEQUENCES; sequence++) {
+        tally.sequences++;
+        const { dir, remove } = space("rhizomatic-sqlite-model");
+        spaces.push(remove);
+        const path = join(dir, "store.db");
+        const store: SqliteStore = await openSqliteStore(path, { busyTimeoutMs: 100 });
+        const names = Array.from({ length: 2 + random.below(2) }, (_, i) => `peer:${i}`);
+        const peers = new Map<string, PeerStore>();
+        for (const name of names)
+          peers.set(
+            name,
+            await store.createPeer(name, { erasure: random.chance(0.6) ? "proven" : "unproven" }),
+          );
+        const writers = new Map(
+          await Promise.all(names.map(async (n) => [n, await writerOf(peers.get(n)!)] as const)),
         );
-      const writers = new Map(
-        await Promise.all(names.map(async (n) => [n, await writerOf(peers.get(n)!)] as const)),
-      );
-      const bases = Array.from({ length: 1 + random.below(3) }, (_, i) =>
-        marked(`Q${sequence}x`, i),
-      );
-      const appearances: Marked[] = [];
-      let readerDb: Database.Database | undefined;
-      const someIds = () => bases.filter(() => random.chance(0.6)).map((b) => b.delta.id);
+        const bases = Array.from({ length: 1 + random.below(3) }, (_, i) =>
+          marked(`Q${sequence}x`, i),
+        );
+        const appearances: Marked[] = [];
+        let readerDb: Database.Database | undefined;
+        const someIds = () => bases.filter(() => random.chance(0.6)).map((b) => b.delta.id);
 
-      const check = (report: PurgeReport, found: string[], live: Set<string>, how: string) => {
-        tally.checks++;
-        const absent = report.surfaces.some((s) => s.state === "absent");
-        if (absent) tally.absent++;
-        if (report.claim === "proven") tally.proven++;
-        if ((absent || report.claim === "proven") && found.length > 0)
-          violations.push(`${sequence} ${how}: ${report.claim} with ${found.join(", ")}`);
-        for (const t of report.targets)
-          if (t.outcome === "removed" && live.has(t.id))
-            violations.push(`${sequence} ${how}: removed ${t.id} while its row is in the file`);
-      };
-      const look = async () => {
-        const dead = deadMarkers(path, appearances);
-        const db = new Database(path, { readonly: true });
-        const live = new Set(
-          (db.prepare("SELECT id FROM delta").all() as { id: string }[]).map((r) => r.id),
-        );
-        db.close();
-        return { found: await scans.scan(dir, dead), live };
-      };
-      const act = async () => {
-        const roll = random.below(11);
-        if (roll < 4) {
-          const name = random.pick(names);
-          const base = random.pick(bases);
-          const now = await peers.get(name)!.read();
-          const holds = (await now.get([base.delta.id])).length > 0;
-          now.release();
-          if (holds) return;
-          const shown = appearance(`Q${sequence}a`, appearances.length, base);
-          appearances.push(shown);
-          await writers.get(name)!([shown]);
-        } else if (roll < 8) {
-          const report = await peers.get(random.pick(names))!.purge(someIds());
-          tally.purges++;
-          const { found, live } = await look();
-          check(report, found, live, "local");
-        } else if (roll < 9) {
-          tally.unfinished++;
-          const shown = marked(`Q${sequence}d`, appearances.length);
-          appearances.push(shown);
-          const bulk = "~".repeat(20_000);
-          const db = new Database(path);
-          db.pragma("cache_size = 2");
-          db.exec("BEGIN IMMEDIATE");
-          db.prepare("INSERT INTO delta (id, claims, author, timestamp) VALUES (?, ?, ?, 0)").run(
-            shown.delta.id,
-            Buffer.from(`${Object.values(shown.markers).join(" ")}${bulk}`),
-            shown.markers.author,
+        const check = (report: PurgeReport, found: string[], live: Set<string>, how: string) => {
+          tally.checks++;
+          const absent = report.surfaces.some((s) => s.state === "absent");
+          if (absent) tally.absent++;
+          if (report.claim === "proven") tally.proven++;
+          if ((absent || report.claim === "proven") && found.length > 0)
+            violations.push(`${sequence} ${how}: ${report.claim} with ${found.join(", ")}`);
+          for (const t of report.targets)
+            if (t.outcome === "removed" && live.has(t.id))
+              violations.push(`${sequence} ${how}: removed ${t.id} while its row is in the file`);
+        };
+        const look = async () => {
+          const dead = deadMarkers(path, appearances);
+          const db = new Database(path, { readonly: true });
+          const live = new Set(
+            (db.prepare("SELECT id FROM delta").all() as { id: string }[]).map((r) => r.id),
           );
-          db.prepare(
-            "INSERT INTO holding (peer, delta, seq, arrival, sig, author) VALUES (?, ?, ?, ?, ?, ?)",
-          ).run(
-            random.pick(names),
-            shown.delta.id,
-            1_000_000 + appearances.length,
-            JSON.stringify({ sender: shown.sender, bulk }),
-            shown.delta.sig!,
-            shown.markers.author,
-          );
-          db.exec("ROLLBACK");
           db.close();
-          // The rolled-back pages are in the log: the action is not void.
-          if ((await scans.scan(dir, [shown.markers.sender])).length > 0) tally.inLog++;
-        } else if (readerDb === undefined) {
-          readerDb = new Database(path);
-          readerDb.exec("BEGIN");
-          readerDb.prepare("SELECT count(*) FROM meta").get();
-        } else {
+          return { found: await scans.scan(dir, dead), live };
+        };
+        const act = async () => {
+          const roll = random.below(11);
+          if (roll < 4) {
+            const name = random.pick(names);
+            const base = random.pick(bases);
+            const now = await peers.get(name)!.read();
+            const holds = (await now.get([base.delta.id])).length > 0;
+            now.release();
+            if (holds) return;
+            const shown = appearance(`Q${sequence}a`, appearances.length, base);
+            appearances.push(shown);
+            await writers.get(name)!([shown]);
+          } else if (roll < 8) {
+            const report = await peers.get(random.pick(names))!.purge(someIds());
+            tally.purges++;
+            const { found, live } = await look();
+            check(report, found, live, "local");
+          } else if (roll < 9) {
+            tally.unfinished++;
+            const shown = marked(`Q${sequence}d`, appearances.length);
+            appearances.push(shown);
+            const bulk = "~".repeat(20_000);
+            const db = new Database(path);
+            db.pragma("cache_size = 2");
+            db.exec("BEGIN IMMEDIATE");
+            db.prepare("INSERT INTO delta (id, claims, author, timestamp) VALUES (?, ?, ?, 0)").run(
+              shown.delta.id,
+              Buffer.from(`${Object.values(shown.markers).join(" ")}${bulk}`),
+              shown.markers.author,
+            );
+            db.prepare(
+              "INSERT INTO holding (peer, delta, seq, arrival, sig, author) VALUES (?, ?, ?, ?, ?, ?)",
+            ).run(
+              random.pick(names),
+              shown.delta.id,
+              1_000_000 + appearances.length,
+              JSON.stringify({ sender: shown.sender, bulk }),
+              shown.delta.sig!,
+              shown.markers.author,
+            );
+            db.exec("ROLLBACK");
+            db.close();
+            // The rolled-back pages are in the log: the action is not void.
+            if ((await scans.scan(dir, [shown.markers.sender])).length > 0) tally.inLog++;
+          } else if (readerDb === undefined) {
+            readerDb = new Database(path);
+            readerDb.exec("BEGIN");
+            readerDb.prepare("SELECT count(*) FROM meta").get();
+          } else {
+            readerDb.exec("COMMIT");
+            readerDb.close();
+            readerDb = undefined;
+          }
+        };
+
+        for (let step = 0, steps = 5 + random.below(10); step < steps; step++) {
+          if (!random.chance(0.5)) {
+            await act();
+            continue;
+          }
+          const window = random.pick(WINDOWS);
+          for (const point of POINTS) rmSync(`${path}.go-${point}`, { force: true });
+          child.send({
+            path,
+            peer: random.pick(names),
+            ids: someIds(),
+            mode: `${window === "none" ? "" : `hold-${window},`}hold-after-last`,
+          });
+          tally.purges++;
+          let seen: { found: string[]; live: Set<string> } | undefined;
+          for (;;) {
+            const line = await child.line();
+            if (line === `held ${window}`) {
+              tally.windows++;
+              for (let n = random.below(3); n > 0; n--) await act();
+              writeFileSync(`${path}.go-${window}`, "");
+            } else if (line === "held after-last") {
+              seen = await look();
+              writeFileSync(`${path}.go-after-last`, "");
+            } else if (line.startsWith("report ")) {
+              check(
+                JSON.parse(line.slice("report ".length)) as PurgeReport,
+                seen!.found,
+                seen!.live,
+                `child at ${window}`,
+              );
+              break;
+            } else if (line.startsWith("refused ")) {
+              tally.refused++;
+              break;
+            } else throw new Error(`the child said ${line}`);
+          }
+        }
+        if (readerDb !== undefined) {
           readerDb.exec("COMMIT");
           readerDb.close();
-          readerDb = undefined;
         }
-      };
-
-      for (let step = 0, steps = 5 + random.below(10); step < steps; step++) {
-        if (!random.chance(0.5)) {
-          await act();
-          continue;
-        }
-        const window = random.pick(WINDOWS);
-        for (const point of POINTS) rmSync(`${path}.go-${point}`, { force: true });
-        child.send({
-          path,
-          peer: random.pick(names),
-          ids: someIds(),
-          mode: `${window === "none" ? "" : `hold-${window},`}hold-after-last`,
-        });
-        tally.purges++;
-        let seen: { found: string[]; live: Set<string> } | undefined;
-        for (;;) {
-          const line = await child.line();
-          if (line === `held ${window}`) {
-            tally.windows++;
-            for (let n = random.below(3); n > 0; n--) await act();
-            writeFileSync(`${path}.go-${window}`, "");
-          } else if (line === "held after-last") {
-            seen = await look();
-            writeFileSync(`${path}.go-after-last`, "");
-          } else if (line.startsWith("report ")) {
-            check(
-              JSON.parse(line.slice("report ".length)) as PurgeReport,
-              seen!.found,
-              seen!.live,
-              `child at ${window}`,
-            );
-            break;
-          } else if (line.startsWith("refused ")) {
-            tally.refused++;
-            break;
-          } else throw new Error(`the child said ${line}`);
-        }
+        await store.close();
+        remove();
       }
-      if (readerDb !== undefined) {
-        readerDb.exec("COMMIT");
-        readerDb.close();
-      }
-      await store.close();
-      remove();
+    } finally {
+      child.end();
+      scans.end();
     }
-  } finally {
-    child.end();
-    scans.end();
-  }
-  console.log(`model check, seed ${SEED}: ${JSON.stringify(tally)}`);
-  expect(violations).toEqual([]);
-  expect(tally.absent).toBeGreaterThan(0);
-  expect(tally.windows).toBeGreaterThan(0);
-  expect(tally.inLog).toBe(tally.unfinished);
-}, 300_000);
+    console.log(`model check, seed ${SEED}: ${JSON.stringify(tally)}`);
+    expect(violations).toEqual([]);
+    expect(tally.absent).toBeGreaterThan(0);
+    expect(tally.windows).toBeGreaterThan(0);
+    expect(tally.inLog).toBe(tally.unfinished);
+  },
+  300_000,
+);

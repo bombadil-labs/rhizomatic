@@ -899,11 +899,13 @@ erasure report states this boundary. It does not cover:
   a surface, `unprovable`, and never claims `proven`. Without this limit no durable store could
   claim `proven`;
 - swap, hibernation and crash dumps, which can write process memory to disk. They are the host's
-  concern.
+  concern;
 - a log file beside another name of the database file (reading 119). The store reads the one log
   beside the engine's path. A removed hard link, a rename of the file without its log, and a bind
-  mount of the file each leave or make a log that the store cannot see. SQLite names each as
-  misuse that can corrupt a database. They are the operator's concern.
+  mount of the file each leave or make a log that the store cannot see. SQLite names multiple
+  links to one file, and a file moved without its log, as ways to corrupt a database. A bind
+  mount of one file has the same effect: a second name with a log of its own. They are the
+  operator's concern.
 
 **Ids in the change feed lie outside "absent"** (decision O4, 2026-11-12). The change feed (§4.6)
 is a store-controlled surface. It keeps the id of a purged delta. It never keeps the bytes or
