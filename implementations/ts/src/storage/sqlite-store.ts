@@ -281,7 +281,7 @@ class SqliteFileStore implements SqliteStore {
   readonly #pageSize: number;
   readonly #mint: ((peer: PeerId) => History) | undefined;
   readonly #rules: ReturnType<typeof RULES>;
-  readonly #log: string;
+  readonly #file: string;
   #closed = false;
 
   constructor(db: Database.Database, options: OwnOptions) {
@@ -297,7 +297,7 @@ class SqliteFileStore implements SqliteStore {
         );
     // The engine's own full path of the file, so that a later change of directory moves nothing.
     const files = db.prepare(SQLITE_STATEMENTS.files).all() as { name: string; file: string }[];
-    this.#log = `${files.find((f) => f.name === "main")!.file}-wal`;
+    this.#file = files.find((f) => f.name === "main")!.file;
     this.#begin = db.prepare("BEGIN");
     this.#beginWrite = db.prepare("BEGIN IMMEDIATE");
     this.#commit = db.prepare("COMMIT");
@@ -863,10 +863,14 @@ class SqliteFileStore implements SqliteStore {
     return clean === dirty;
   }
 
-  /** The log file is there and empty. A path stat opens no descriptor, so it drops no lock. */
+  /**
+   * The log file is there and empty, and the database file has one name only: a second hard link
+   * has a log of its own, which this stat cannot see. A path stat opens no descriptor, so it drops
+   * no lock.
+   */
   #logEmpty(): boolean {
     try {
-      return statSync(this.#log).size === 0;
+      return statSync(this.#file).nlink === 1 && statSync(`${this.#file}-wal`).size === 0;
     } catch {
       return false;
     }

@@ -2221,16 +2221,22 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      write spills the page cache. A write that fails (an error of the disk, a full disk) or dies
      leaves those pages in `store.db-wal`, past the last commit. It deletes no row, so no counter
      sees it. The rule:
-     - a peer of posture `proven` always runs `wal_checkpoint(TRUNCATE)` before its last
-       transaction, also on a clean file;
+     - a peer of posture `proven` runs `wal_checkpoint(TRUNCATE)` before its last transaction,
+       also on a clean file. When its `VACUUM` throws, it runs no truncate and has no proof. The
+       file is then not clean, so the report is `owed`, unless another process rebuilt it since;
      - the last transaction starts with `BEGIN IMMEDIATE`. Under the write lock, before its first
-       write, it reads the size of the log file from its path. A size of 0 is the second condition
-       of reading 117. A missing file, or a file it cannot read, is not 0;
+       write, it reads the size of the log file from its path. The path is the engine's own path of
+       the database file (`PRAGMA database_list`), not the path of the open call. A size of 0 is
+       the second condition of reading 117. A missing file, or a file it cannot read, is not 0. A
+       database file with a link count other than 1 is also not 0: a second hard link has a log
+       of its own, under its own name. A log left under a name after that link is removed is
+       outside what the store sees, and a report does not cover it;
      - when the size is not 0, a peer of posture `proven` rolls back, runs the truncate again and
        takes the lock again. Its third try answers without the proof: no `clean` update, every
        file surface `owed`, and a record for each `removed` target, as for a busy truncate
-       (reading 111). When a truncate fails, the next try answers the same way. A peer of
-       posture `unproven` takes the lock once;
+       (reading 111). When a truncate fails, the next try answers at once without the proof: no
+       `clean` update, and `absent` only when the log is empty under the lock and the file is
+       clean (reading 117). A peer of posture `unproven` takes the lock once;
      - why it holds: only the holder of the write lock writes frames, and a writer that fails or
        dies never shrinks the log. A writer that starts again from the first frame writes over the
        old frames and leaves the file at its size. So an empty log at the lock holds no frame of

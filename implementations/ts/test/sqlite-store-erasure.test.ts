@@ -13,8 +13,16 @@
 // wraps the statements of `better-sqlite3` in its own process (test/support/sqlite-erasure-child.ts).
 // The store has no hook, switch or quirk for it.
 
-import { spawn, type ChildProcess } from "node:child_process";
-import { statSync, writeFileSync } from "node:fs";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import {
+  linkSync,
+  mkdirSync,
+  renameSync,
+  statSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
@@ -1381,6 +1389,79 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
       }
       expect([begun, states(report)]).toEqual([2, every("absent")]);
     });
+
+    it("the log is read beside the file the engine opened: a store opened through a symbolic link proves a purge, and no marker is in any file", async () => {
+      const { dir, path } = place();
+      const link = join(dir, "link.db");
+      const [x, bystanders] = [group("XS1", 1), group("BS1", 2)];
+      await (await filled(path, { "peer:a": { posture: "proven", deltas: [] } })).store.close();
+      symlinkSync(path, link);
+      const a = await (await open(link)).peer("peer:a");
+      await (
+        await writerOf(a)
+      )([...x, ...bystanders]);
+      expect(shape(await a.purge(ids(x)))).toEqual(["proven", every("absent"), removedAll(x)]);
+      expect(scan(dir, markersOf(x))).toEqual([]);
+      await bystandersHold(dir, a, bystanders);
+    });
+
+    it("a log the store cannot stat is not empty: with its directory renamed while open, a purge answers owed and keeps its record; renamed back, the next ask proves", async () => {
+      const { dir } = place();
+      const [at, moved] = [join(dir, "at"), join(dir, "moved")];
+      mkdirSync(at);
+      const [x, bystanders] = [group("XR1", 1), group("BR1", 2)];
+      const { peers } = await filled(join(at, "store.db"), {
+        "peer:a": { posture: "proven", deltas: [...x, ...bystanders] },
+      });
+      const a = peers["peer:a"]!;
+      renameSync(at, moved);
+      expect(shape(await a.purge(ids(x)))).toEqual(["unproven", every("owed"), removedAll(x)]);
+      expect(ledger(join(moved, "store.db")).records).toEqual(recordsOf("peer:a", x));
+      renameSync(moved, at);
+      expect(shape(await a.purge(ids(x)))).toEqual(["proven", every("absent"), removedAll(x)]);
+      expect(scan(at, markersOf(x))).toEqual([]);
+      await bystandersHold(at, a, bystanders);
+    });
+
+    it("a second hard link to the file has a log of its own: while the link exists a purge answers owed, never proven; after the link is removed the store's own files hold no marker [gap: a log left under the removed name keeps its frames, and the store cannot see it]", async () => {
+      const { dir, path } = place();
+      const hard = join(dir, "hard.db");
+      const bystanders = group("BH1", 2);
+      await (
+        await filled(path, { "peer:a": { posture: "proven", deltas: bystanders } })
+      ).store.close();
+      linkSync(path, hard);
+      const batch: BatchSpec = { tag: "XH1", of: [], fill: 1 };
+      const x = batchOf(batch);
+      const append = child(hard, "peer:a", "append,kill-appended", { batch, after: 1_000_000 });
+      expect(await append.ended).toBe("SIGKILL");
+      expect((await append.printedLine("appended ", "refused ")).trim()).toBe("appended committed");
+      // Another process copies the frames into the file and dies: hard.db-wal keeps them.
+      const checkpoint = spawnSync(
+        process.execPath,
+        [
+          "-e",
+          `const db = new (require("better-sqlite3"))(process.argv[1]);
+           process.stdout.write(JSON.stringify(db.pragma("wal_checkpoint(PASSIVE)")[0]));
+           process.kill(process.pid, "SIGKILL");`,
+          hard,
+        ],
+        { cwd: pkg },
+      );
+      expect(checkpoint.signal).toBe("SIGKILL");
+      const copied = JSON.parse(checkpoint.stdout.toString()) as Record<string, number>;
+      expect([copied.busy, copied.log! > 0, copied.checkpointed]).toEqual([0, true, copied.log]);
+      expect(scan(dir, markersOf(x)).some((f) => f.startsWith("hard.db-wal: "))).toBe(true);
+      const a = await (await open(path)).peer("peer:a");
+      expect(shape(await a.purge(ids(x)))).toEqual(["unproven", every("owed"), removedAll(x)]);
+      expect(ledger(path).records).toEqual(recordsOf("peer:a", x));
+      unlinkSync(hard);
+      expect(shape(await a.purge(ids(x)))).toEqual(["proven", every("absent"), removedAll(x)]);
+      const found = scan(dir, markersOf(x));
+      expect(found.filter((f) => !f.startsWith("hard.db-wal: "))).toEqual([]);
+      expect(found.length).toBeGreaterThan(0);
+      await bystandersHold(dir, a, bystanders);
+    }, 120_000);
   });
 
   it("another process appends X for A while A's purge of X is held before the rebuild reads the count: X answers held-by-other-peer, index-entries owed, and the report carries the peer's revision at its last commit", async () => {
