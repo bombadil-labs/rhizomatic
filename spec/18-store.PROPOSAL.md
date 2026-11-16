@@ -1089,7 +1089,9 @@ writes the record after the nth.
   `opfs:name`, `postgres://…`, and so on as implementations land. It returns the store with its
   profile.
 - `registerStoreScheme(scheme, factory)` adds a consumer's own implementation. A factory gets the
-  caller's options, read once and checked: `requires` and `restored` (§4.13 reading 123).
+  caller's options, read once and checked: `requires` and `restored` (§4.13 reading 123). A
+  factory that can change its files at open checks `requires` before the first change, so a
+  refused open changes nothing (§4.13 reading 126).
 - `openStore(url, {restored: true})` tells a durable store that its files were restored from a
   backup since its last open. The store then gives every peer a new history (§4.6, "History";
   §4.13 readings 122 and 123).
@@ -2342,6 +2344,19 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      and drops the oldest record when the peer keeps more than its retention, so two processes
      trim one floor. A follower whose position is below the floor gets `resync-required`, never a
      page with a gap. The rail writes past 1024 revisions from two processes.
+126. **A refused open changes nothing; options are own fields** (slice 4, step 4c follow-up).
+     `openStore(url, {requires, restored: true})` used to call the factory first and check
+     `requires` after. The SQLite factory had then already created a new file or given every peer
+     a new history, and the open still refused `capability-absent`. Now a factory that can change
+     its files at open checks `requires` before the first change, and `openStore` checks the
+     opened profile again. The SQLite factory checks against its fixed profile: no requirement
+     reads the retention, which is the one field a file sets. Two other shapes were set aside. A
+     profile declared at `registerStoreScheme` changes a public signature. A mint after the check
+     does not stop the creation of a new file. A store, a read, a held view and
+     `OrdinaryJournalPeer.open` read each option and request object of a caller as own fields
+     only. A field that only a prototype holds, also one set on `Object.prototype`, reads as
+     absent. So an options object made by a class with fields on its prototype gives none of
+     them.
 
 ## 5. Architectures
 

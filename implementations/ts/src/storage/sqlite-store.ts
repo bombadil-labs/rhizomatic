@@ -24,9 +24,9 @@ import { canonicalBytes } from "../delta/delta.js";
 import { contentAddress } from "../delta/hash.js";
 import type { Claims, Delta, Pointer, Target } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
-import { isPlainObject } from "./copy.js";
+import { isPlainObject, ownFields } from "./copy.js";
 import { LOCAL_HISTORY_PREFIX } from "./freshness.js";
-import { registerStoreScheme, type OpenOptions } from "./open-store.js";
+import { refuseMissing, registerStoreScheme, type OpenOptions } from "./open-store.js";
 import { admit, strings, takeAppend, takeScope, wellFormed, type Admitted } from "./request.js";
 import { SQLITE_SCHEMA, SQLITE_STATEMENTS } from "./sqlite-statements.js";
 import {
@@ -241,8 +241,9 @@ function takeOptions(options: unknown): OwnOptions {
     throw new StoreError("invalid-request", `sqlite store: ${what}`);
   };
   if (options !== undefined && !isPlainObject(options)) refuse("the options must be an object");
-  const { busyTimeoutMs, changeRetention, changePageSize, mintHistory, restored } = (options ??
-    {}) as Record<string, unknown>;
+  const { busyTimeoutMs, changeRetention, changePageSize, mintHistory, restored } = ownFields(
+    options as Record<string, unknown> | undefined,
+  );
   const positive = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 1;
   if (
     busyTimeoutMs !== undefined &&
@@ -256,7 +257,9 @@ function takeOptions(options: unknown): OwnOptions {
   let retention: Retention | undefined;
   if (changeRetention === "unbounded") retention = "unbounded";
   else if (changeRetention !== undefined) {
-    const revisions = isPlainObject(changeRetention) ? changeRetention["revisions"] : undefined;
+    const revisions = isPlainObject(changeRetention)
+      ? ownFields(changeRetention)["revisions"]
+      : undefined;
     if (!positive(revisions))
       refuse("changeRetention is unbounded or {revisions: n} with n of 1 or more");
     retention = { revisions: revisions as number };
@@ -290,6 +293,32 @@ function identityOf(file: string): string {
     throw new StoreError("open-failed", "sqlite store: the file's identity cannot be read");
   }
   return `${stat.dev} ${stat.ino} ${stat.birthtimeNs}`;
+}
+
+/**
+ * The profile of a store that keeps `retention`. Every other field is the same for each file, so
+ * `openStore` can check a host's requirements before it opens one (§4.13 reading 126).
+ */
+function profileOf(retention: Retention): StoreProfile {
+  return Object.freeze({
+    capabilities: Object.freeze({
+      values: false,
+      arrival: true,
+      journal: false,
+      views: false,
+      derivedIndexes: false,
+      digest: false,
+      erasure: ERASURE_CLASS,
+    }),
+    indexedValueRoles: Object.freeze([]),
+    pushdown: Object.freeze({ timestampAtMost: true, arrivalAtMost: true, excludeIds: true }),
+    // Each write holds the write lock from its start and reads every value it builds on in
+    // that transaction (decision S4-7).
+    writers: "many-processes" as const,
+    atRest: "trusted" as const,
+    changeRetention: typeof retention === "string" ? retention : Object.freeze({ ...retention }),
+    formatVersion: SQLITE_STORE_FORMAT,
+  });
 }
 
 // ---- the store --------------------------------------------------------------------------------
@@ -335,25 +364,7 @@ class SqliteFileStore implements SqliteStore {
     this.#pageSize = options.pageSize;
     this.#mint = options.mint;
     this.#run("write", () => this.#identify(options.restored));
-    this.profile = Object.freeze({
-      capabilities: Object.freeze({
-        values: false,
-        arrival: true,
-        journal: false,
-        views: false,
-        derivedIndexes: false,
-        digest: false,
-        erasure: ERASURE_CLASS,
-      }),
-      indexedValueRoles: Object.freeze([]),
-      pushdown: Object.freeze({ timestampAtMost: true, arrivalAtMost: true, excludeIds: true }),
-      // Each write holds the write lock from its start and reads every value it builds on in
-      // that transaction (decision S4-7).
-      writers: "many-processes" as const,
-      atRest: "trusted" as const,
-      changeRetention: typeof retention === "string" ? retention : Object.freeze({ ...retention }),
-      formatVersion: SQLITE_STORE_FORMAT,
-    });
+    this.profile = profileOf(retention);
   }
 
   /** Creates the schema in an empty file, or checks the format and retention of a store. */
@@ -487,7 +498,7 @@ class SqliteFileStore implements SqliteStore {
       );
     let posture: unknown;
     try {
-      if (isPlainObject(options)) posture = options["erasure"];
+      if (isPlainObject(options)) posture = ownFields(options)["erasure"];
     } catch {
       posture = undefined;
     }
@@ -1087,6 +1098,9 @@ const fromUrl = async (url: string, options: OpenOptions): Promise<Store> => {
   } catch {
     throw new StoreError("invalid-url", URL_FORM);
   }
+  // Before the file opens: an open can create the file or give its peers new histories, and a
+  // refused open changes nothing. No requirement reads the retention.
+  refuseMissing("sqlite", profileOf(DEFAULT_RETENTION), options.requires ?? []);
   return openSqliteStore(path, options.restored === true ? { restored: true } : {});
 };
 

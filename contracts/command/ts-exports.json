@@ -40511,6 +40511,26 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API SqliteStoreOptions.restored implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/sqlite-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/copy.ts:ownFields",
+      "owner": "storage",
+      "symbol": "ownFields",
+      "source": "implementations/ts/src/storage/copy.ts",
+      "definition": "implementations/ts/src/storage/copy.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API ownFields implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/copy.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/open-store.ts:refuseMissing",
+      "owner": "storage",
+      "symbol": "refuseMissing",
+      "source": "implementations/ts/src/storage/open-store.ts",
+      "definition": "implementations/ts/src/storage/open-store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API refuseMissing implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/open-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }

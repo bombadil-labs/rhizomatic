@@ -5,7 +5,7 @@
 import { compareUtf8 } from "../delta/cbor.js";
 import type { Claims, Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
-import { copyArrival, copyClaims, isPlainObject } from "./copy.js";
+import { copyArrival, copyClaims, isPlainObject, ownFields } from "./copy.js";
 import { LOCAL_HISTORY_PREFIX } from "./freshness.js";
 import { admit, strings, takeAppend, takeScope, wellFormed, type OwnScope } from "./request.js";
 import {
@@ -184,7 +184,7 @@ class MemoryStore implements Store {
     let retention: ChangeRetention = "unbounded";
     const asked = options.changeRetention;
     if (asked !== undefined && asked !== "unbounded") {
-      const revisions: unknown = isPlainObject(asked) ? asked.revisions : undefined;
+      const revisions: unknown = isPlainObject(asked) ? ownFields(asked).revisions : undefined;
       if (!positive(revisions))
         throw new StoreError(
           "invalid-request",
@@ -220,6 +220,7 @@ class MemoryStore implements Store {
       this.#issued.add(history);
       return history;
     };
+    const pushdown = ownFields(options.pushdown);
     this.#own = {
       capabilities: {
         values: false,
@@ -232,9 +233,9 @@ class MemoryStore implements Store {
       },
       indexedValueRoles: [],
       pushdown: {
-        timestampAtMost: options.pushdown?.timestampAtMost !== false,
-        arrivalAtMost: options.pushdown?.arrivalAtMost !== false,
-        excludeIds: options.pushdown?.excludeIds !== false,
+        timestampAtMost: pushdown.timestampAtMost !== false,
+        arrivalAtMost: pushdown.arrivalAtMost !== false,
+        excludeIds: pushdown.excludeIds !== false,
       },
       writers: "one-process",
       atRest: "trusted",
@@ -265,7 +266,7 @@ class MemoryStore implements Store {
     // declared, as is anything that is not a plain object (a list included).
     let posture: unknown;
     try {
-      if (isPlainObject(options)) posture = options["erasure"];
+      if (isPlainObject(options)) posture = ownFields(options)["erasure"];
     } catch {
       posture = undefined;
     }
@@ -683,5 +684,5 @@ class MemoryStore implements Store {
 
 /** A new, empty memory store. Its contents end with the process. */
 export function createMemoryStore(options: MemoryStoreOptions = {}): Store {
-  return new MemoryStore(options);
+  return new MemoryStore(ownFields(options));
 }

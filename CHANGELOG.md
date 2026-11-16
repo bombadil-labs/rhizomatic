@@ -65,6 +65,10 @@ step 4e.
   the same file. `OpenOptions.restored` is new, and a scheme's factory now gets it.
 - The SQLite store's `PeerStore.history` reads the file at each ask, so a handle sees a new
   history that another process gave.
+- An `openStore` call that refuses `capability-absent` changes nothing: the SQLite factory checks
+  `requires` before it creates a file or mints (reading 126).
+- Stores, reads, held views and `OrdinaryJournalPeer.open` read options and requests as own
+  fields only. A field set on `Object.prototype` reads as absent (reading 126).
 
 - **The change feed.** `PeerStore.changes(from, to?)` answers pages of records, one per revision
   advance, with the head and the ids added and removed; never bytes. A `from` below the

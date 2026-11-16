@@ -19,6 +19,7 @@ import type { SchemaRegistry } from "../schema/schema.js";
 import type { SchemaRefT, Term } from "../syntax/model.js";
 import type { Bindings } from "../syntax/pred.js";
 import type { ArrivalRecord } from "../storage/arrival-record.js";
+import { isPlainObject, ownFields } from "../storage/copy.js";
 import { createReadCache, type HeldMembers } from "../storage/fetch-cache.js";
 import {
   makeCapture,
@@ -59,6 +60,16 @@ export class UnanchoredTermError extends Error {
  * arrival record at this peer and host state the read does not change.
  */
 export type StoreAdmits = (delta: Delta, arrival: ArrivalRecord) => boolean;
+
+/**
+ * A caller's request or selection, own fields only, and its pushdown when it is a plain object.
+ * A pushdown of another type stays as given, so the store refuses it.
+ */
+function own<T extends StoreSelection>(given: T): T {
+  const fields = ownFields(given) as { -readonly [K in keyof T]: T[K] };
+  if (isPlainObject(fields.pushdown)) fields.pushdown = ownFields(fields.pushdown);
+  return fields;
+}
 
 /** The selection of a store read: what the store may apply, and what only the host can. */
 export interface StoreSelection {
@@ -322,6 +333,7 @@ export async function readAnchoredWith(
   policy: RoundPolicy,
   attempt = 1,
 ): Promise<StoreRead> {
+  request = own(request);
   const { term, root, registry, bindings } = request;
   const analysis = anchorAnalysis(term, registry, bindings);
   if (!analysis.anchored) throw new UnanchoredTermError(analysis.reason);
@@ -337,12 +349,14 @@ export async function readAnchoredWith(
   let fresh = [...new Set([root, ...analysis.anchors])].sort(compareUtf8);
   for (;;) {
     for (const entity of fresh) anchors.add(entity);
-    const asked = policy.request({
-      fresh,
-      anchors: [...anchors].sort(compareUtf8),
-      held: cache.ids(),
-      pushdown: request.pushdown,
-    });
+    const asked = ownFields(
+      policy.request({
+        fresh,
+        anchors: [...anchors].sort(compareUtf8),
+        held: cache.ids(),
+        pushdown: request.pushdown,
+      }),
+    );
     const answer = await snapshot.scope(asked);
     // The cache keeps members that fail the residual, so `exclude` names them next round.
     cache.add(answer.deltas);
@@ -461,6 +475,7 @@ export async function readFullSurface(
   peer: PeerExporter,
   request: FullSurfaceRequest,
 ): Promise<FullSurfaceRead> {
+  request = own(request as FullSurfaceRequest & StoreSelection);
   const untyped = request as FullSurfaceRequest & { pushdown?: Pushdown; admits?: unknown };
   if (untyped.pushdown?.arrivalAtMost !== undefined || untyped.admits !== undefined)
     throw new StoreError(
@@ -468,7 +483,7 @@ export async function readFullSurface(
       "a full-surface read cannot select by arrival: a peer listing carries no arrival record",
     );
   const whole = await collectDeltaSet(peer);
-  const { timestampAtMost, excludeIds } = request.pushdown ?? {};
+  const { timestampAtMost, excludeIds } = ownFields(request.pushdown);
   const dropped = new Set(excludeIds);
   const admitted =
     timestampAtMost === undefined && dropped.size === 0
@@ -532,11 +547,12 @@ export async function fetchScope(
   entities: Iterable<Entity>,
   selection: StoreSelection = {},
 ): Promise<FetchedScope> {
+  selection = own(selection);
   const anchors = [...new Set(entities)].sort(compareUtf8);
-  const asked: ScopeRequest = {
+  const asked: ScopeRequest = ownFields({
     anchors: entityAnchors(anchors),
     ...(selection.pushdown === undefined ? {} : { pushdown: selection.pushdown }),
-  };
+  });
   const answer = await snapshot.scope(asked);
   const { cache, held } = createReadCache();
   cache.add(answer.deltas);
@@ -574,6 +590,7 @@ export async function captureScope(
   now: number,
   selection: StoreSelection = {},
 ): Promise<Capture> {
+  selection = own(selection);
   if (!Number.isFinite(now)) throw new StoreError("invalid-request", "now must be a finite number");
   const anchors = entityAnchors([...new Set(entities)].sort(compareUtf8));
   const fetched = await fetchScope(
@@ -625,6 +642,7 @@ export class StoreReactor {
    * Nothing fetched from one snapshot is used with another.
    */
   async read(request: StoreReadRequest): Promise<StoreReactorRead> {
+    request = own(request);
     // An unanchored term is refused before the first store call; opening a snapshot is one.
     const analysis = anchorAnalysis(request.term, request.registry, request.bindings);
     if (!analysis.anchored) throw new UnanchoredTermError(analysis.reason);

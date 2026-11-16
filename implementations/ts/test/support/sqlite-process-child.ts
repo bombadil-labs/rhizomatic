@@ -8,6 +8,9 @@
 // `held <point>` and waits until the file `<path>.go-<point>` exists. The points:
 //
 // - `identity`: just after open reads the identity it recorded, under the write lock.
+// - `lock`: just before open asks for the write lock of its identity check (its second
+//   `BEGIN IMMEDIATE`), outside any transaction. After the go file the child prints
+//   `locking lock`, and its next statement is that `BEGIN IMMEDIATE`.
 // - `checked`: just after a snapshot's call reads the peer's revision, inside its read
 //   transaction, before the data statement.
 // - `locked`: just after an append reads the peer row, under the write lock.
@@ -82,9 +85,17 @@ function at(point: string): void {
 
 type Method = (this: Database.Statement, ...args: unknown[]) => unknown;
 const probe = new Database(":memory:");
-const statement = Object.getPrototypeOf(probe.prepare("SELECT 1")) as Record<"get", Method>;
+const statement = Object.getPrototypeOf(probe.prepare("SELECT 1")) as Record<"get" | "run", Method>;
 probe.close();
-const { get } = statement;
+const { get, run } = statement;
+let writeLocks = 0;
+statement.run = function (...args) {
+  if (this.source === "BEGIN IMMEDIATE" && armed && job.hold === "lock" && ++writeLocks === 2) {
+    at("lock");
+    print("locking", "lock");
+  }
+  return run.apply(this, args);
+};
 statement.get = function (...args) {
   const result = get.apply(this, args);
   if (this.source === SQLITE_STATEMENTS.metaGet && args[0] === "identity") at("identity");
@@ -113,7 +124,7 @@ const refused = (error: unknown): string => {
 };
 
 if (job.go !== undefined) waitFor(job.go);
-armed = job.hold === "identity";
+armed = job.hold === "identity" || job.hold === "lock";
 const store = await openSqliteStore(job.path, {
   ...(job.restored === true ? { restored: true } : {}),
   ...(job.mint === undefined ? {} : { mintHistory: () => job.mint! }),

@@ -1,9 +1,15 @@
 // Opening a store by URL (SPEC-18 proposal §4.10). A connection string can carry credentials,
 // so nothing here logs it, and every error names the scheme only.
 
-import { isPlainObject } from "./copy.js";
+import { isPlainObject, ownFields } from "./copy.js";
 import { createMemoryStore } from "./memory-store.js";
-import { missingRequirements, StoreError, type Store, type StoreRequirement } from "./store.js";
+import {
+  missingRequirements,
+  StoreError,
+  type Store,
+  type StoreProfile,
+  type StoreRequirement,
+} from "./store.js";
 
 export type OpenOptions = {
   /** Capabilities the host needs. Open refuses, naming each one the store lacks. */
@@ -19,7 +25,9 @@ export type OpenOptions = {
 /**
  * Builds a store from its URL. It must not put the URL in any error it throws. `options` are the
  * caller's, read once and checked: `requires` is a list and `restored` a boolean. A store
- * without files to restore (the memory store) ignores `restored`.
+ * without files to restore (the memory store) ignores `restored`. A factory that can change its
+ * files at open (create them, or give peers new histories) refuses with `refuseMissing` before
+ * the first change (§4.13 reading 126); `openStore` checks the opened profile again.
  */
 export type StoreFactory = (url: string, options: OpenOptions) => Promise<Store>;
 
@@ -70,8 +78,7 @@ function takeOptions(options: unknown): OpenOptions {
   if (options === undefined) return Object.freeze({ requires: Object.freeze([]), restored: false });
   try {
     if (!isPlainObject(options)) throw new TypeError("options");
-    const requires: unknown = options["requires"];
-    const restored: unknown = options["restored"];
+    const { requires, restored } = ownFields<Record<string, unknown>>(options);
     if (restored !== undefined && typeof restored !== "boolean") throw new TypeError("restored");
     const own: StoreRequirement[] = [];
     if (requires !== undefined) {
@@ -86,6 +93,23 @@ function takeOptions(options: unknown): OpenOptions {
   } catch {
     throw new StoreError("invalid-request", OPTIONS);
   }
+}
+
+/**
+ * Refuses `capability-absent`, naming each requirement the profile does not meet, and
+ * `invalid-request` for a name that is not a requirement. Not part of the package surface.
+ */
+export function refuseMissing(
+  scheme: string,
+  profile: StoreProfile,
+  requires: readonly StoreRequirement[],
+): void {
+  const missing = missingRequirements(profile, requires);
+  if (missing.length > 0)
+    throw new StoreError(
+      "capability-absent",
+      `store scheme "${scheme}" lacks required capabilities: ${missing.join(", ")}`,
+    );
 }
 
 export async function openStore(url: string, options?: OpenOptions): Promise<Store> {
@@ -105,20 +129,12 @@ export async function openStore(url: string, options?: OpenOptions): Promise<Sto
     // A driver's own error text may quote the connection string. It stops here.
     throw new StoreError("open-failed", `store scheme "${scheme}": the store did not open`);
   }
-  let missing: readonly string[];
   try {
-    missing = missingRequirements(store.profile, own.requires ?? []);
+    refuseMissing(scheme, store.profile, own.requires ?? []);
   } catch (error) {
-    await store.close().catch(() => undefined);
-    throw error;
-  }
-  if (missing.length > 0) {
     // A failing close must not replace this refusal with a driver's own text.
     await store.close().catch(() => undefined);
-    throw new StoreError(
-      "capability-absent",
-      `store scheme "${scheme}" lacks required capabilities: ${missing.join(", ")}`,
-    );
+    throw error;
   }
   return store;
 }

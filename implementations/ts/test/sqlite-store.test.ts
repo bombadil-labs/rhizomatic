@@ -355,7 +355,7 @@ describe("the SQLite store's profile and scheme", () => {
     await third.close();
   });
 
-  it("refuses every operation after close, and close truncates the log", async () => {
+  it("refuses every operation after close, the history getter too, and close truncates the log", async () => {
     const path = fixture.path();
     const store = await openSqliteStore(path);
     const w = await writer(store);
@@ -380,6 +380,13 @@ describe("the SQLite store's profile and scheme", () => {
     ])
       expect(await refusal(call)).toBe("store-closed");
     expect(() => store.openAdmin()).toThrow(StoreError);
+    let history: unknown;
+    try {
+      history = w.peer.history;
+    } catch (error) {
+      history = error instanceof StoreError ? error.code : error;
+    }
+    expect(history).toBe("store-closed");
   });
 });
 

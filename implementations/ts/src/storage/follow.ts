@@ -10,6 +10,7 @@
 // current revision. A follower that keeps only a scope uses `checkFresh` instead.
 
 import { compareUtf8 } from "../delta/cbor.js";
+import { ownFields } from "./copy.js";
 import { LOCAL_HISTORY_PREFIX, answeredOnly, checkedThrough, onSnapshots } from "./freshness.js";
 import {
   StoreError,
@@ -80,7 +81,7 @@ function checked(value: unknown, refuseLocal: boolean): Position {
   };
   if (typeof value !== "object" || value === null || Array.isArray(value))
     return refuse("not an object");
-  const { history, revision } = value as { history?: unknown; revision?: unknown };
+  const { history, revision } = ownFields(value as { history?: unknown; revision?: unknown });
   if (typeof history !== "string" || history === "") refuse("history is not a non-empty string");
   if (refuseLocal && (history as string).startsWith(LOCAL_HISTORY_PREFIX))
     refuse(
