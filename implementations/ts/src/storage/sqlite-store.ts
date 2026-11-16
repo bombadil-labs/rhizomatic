@@ -26,7 +26,7 @@ import {
   type AppendResult,
   type ChangePage,
   type ChangeRecord,
-    type CreatePeerOptions,
+  type CreatePeerOptions,
   type ErasureClass,
   type ErasurePosture,
   type Exporter,
@@ -118,7 +118,8 @@ function targetOf(value: CborValue | undefined): Target {
     return { kind: "primitive", value: value.v };
   const fields = fieldsOf(value);
   const context = fields.has("context") ? { context: textOf(fields.get("context")) } : {};
-  if (fields.has("id")) return { kind: "entity", entity: { id: textOf(fields.get("id")), ...context } };
+  if (fields.has("id"))
+    return { kind: "entity", entity: { id: textOf(fields.get("id")), ...context } };
   if (fields.has("delta"))
     return { kind: "delta", deltaRef: { delta: textOf(fields.get("delta")), ...context } };
   const bytes = fields.get("value");
@@ -168,8 +169,10 @@ function takeOptions(options: unknown): OwnOptions {
     throw new StoreError("invalid-request", `sqlite store: ${what}`);
   };
   if (options !== undefined && !isPlainObject(options)) refuse("the options must be an object");
-  const { busyTimeoutMs, changeRetention, changePageSize, mintHistory } = (options ??
-    {}) as Record<string, unknown>;
+  const { busyTimeoutMs, changeRetention, changePageSize, mintHistory } = (options ?? {}) as Record<
+    string,
+    unknown
+  >;
   const positive = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 1;
   if (
     busyTimeoutMs !== undefined &&
@@ -217,7 +220,10 @@ class SqliteStore implements Store {
     for (const [name, value, expected] of PRAGMAS) {
       db.pragma(`${name} = ${value}`);
       if (db.pragma(name, { simple: true }) !== expected)
-        throw new StoreError("open-failed", `sqlite store: the connection refused ${name} = ${value}`);
+        throw new StoreError(
+          "open-failed",
+          `sqlite store: the connection refused ${name} = ${value}`,
+        );
     }
     this.#begin = db.prepare("BEGIN");
     this.#beginWrite = db.prepare("BEGIN IMMEDIATE");
@@ -411,7 +417,10 @@ class SqliteStore implements Store {
       erasure: { posture: row.posture, storeClass: row.storeClass },
       read: async () => {
         this.#open();
-        return this.#snapshot(id, this.#run("read", () => this.#peerRow(id)!));
+        return this.#snapshot(
+          id,
+          this.#run("read", () => this.#peerRow(id)!),
+        );
       },
       append: async (batch) => {
         this.#open();
@@ -467,9 +476,7 @@ class SqliteStore implements Store {
       },
       negators: async (ids) => {
         const asked = sorted(strings(ids, "negators: ids"));
-        return at(() =>
-          (this.#s.negators.all(keys(asked)) as { delta: Id }[]).map((r) => r.delta),
-        );
+        return at(() => (this.#s.negators.all(keys(asked)) as { delta: Id }[]).map((r) => r.delta));
       },
       scope: async (request) => {
         const { anchors, asked, exclude } = takeScope(request);
@@ -583,7 +590,8 @@ class SqliteStore implements Store {
         const fresh = new Map<Id, Admitted>();
         const sequences = new Set<number>();
         for (const entry of entries) {
-          if (fresh.has(entry.id) || this.#s.holdingFind.get(peer, entry.id) !== undefined) continue;
+          if (fresh.has(entry.id) || this.#s.holdingFind.get(peer, entry.id) !== undefined)
+            continue;
           const sequence = entry.arrival.sequence;
           if (sequence <= row.maxSeq || sequences.has(sequence))
             throw new StoreError(
@@ -595,7 +603,14 @@ class SqliteStore implements Store {
         }
         for (const { id, claims, sig, arrival } of fresh.values()) {
           this.#s.deltaAdd.run(id, canonicalBytes(claims), claims.author, claims.timestamp);
-          this.#s.holdingAdd.run(peer, id, arrival.sequence, arrivalText(arrival), sig ?? null, claims.author);
+          this.#s.holdingAdd.run(
+            peer,
+            id,
+            arrival.sequence,
+            arrivalText(arrival),
+            sig ?? null,
+            claims.author,
+          );
           for (const { role, target } of claims.pointers)
             if (target.kind === "entity") this.#s.targetAdd.run(peer, target.entity.id, id);
             else if (target.kind === "delta")
@@ -652,7 +667,13 @@ class SqliteStore implements Store {
       let revision = row.revision;
       if (released.length > 0) {
         revision++;
-        this.#advance(peer, row, { ...row, revision, count: row.count - released.length }, [], released);
+        this.#advance(
+          peer,
+          row,
+          { ...row, revision, count: row.count - released.length },
+          [],
+          released,
+        );
       }
       const removed = targets.some((target) => target.outcome === "removed");
       return {
@@ -684,8 +705,12 @@ class SqliteStore implements Store {
         throw new StoreError("peer-absent", "export: no such peer");
     };
     // Each page is one short statement after the last key of the page before it, so a listing
-    // never holds a transaction open between pages.
-    async function* pages<T>(page: (after: string) => { key: string; value: T }[]) {
+    // never holds a transaction open between pages. `first` runs when the listing is first read.
+    async function* pages<T>(
+      page: (after: string) => { key: string; value: T }[],
+      first = (): void => undefined,
+    ) {
+      first();
       for (let after = ""; ; ) {
         const found = page(after);
         for (const { value } of found) yield value;
@@ -693,29 +718,28 @@ class SqliteStore implements Store {
         after = found.at(-1)!.key;
       }
     }
-    const ids = (statement: Database.Statement, ...args: unknown[]) => (after: string) =>
-      read(() => statement.all(...args, after, EXPORT_PAGE) as Record<string, string>[]).map(
-        (r) => {
-          const key = Object.values(r)[0]!;
-          return { key, value: key };
-        },
-      );
+    const ids =
+      (statement: Database.Statement, ...args: unknown[]) =>
+      (after: string) =>
+        read(() => statement.all(...args, after, EXPORT_PAGE) as Record<string, string>[]).map(
+          (r) => {
+            const key = Object.values(r)[0]!;
+            return { key, value: key };
+          },
+        );
     return {
       peers: () => pages(ids(s.exportPeers)),
       peer: (peer) => ({
-        ids() {
-          held(peer);
-          return pages(ids(s.exportIds, peer));
-        },
-        deltas: () => {
-          held(peer);
-          return pages((after) =>
-            read(() => s.exportDeltas.all(peer, after, EXPORT_PAGE) as DeltaRow[]).map((r) => ({
-              key: r.id,
-              value: this.#delta(r),
-            })),
-          );
-        },
+        ids: () => pages(ids(s.exportIds, peer), () => held(peer)),
+        deltas: () =>
+          pages(
+            (after) =>
+              read(() => s.exportDeltas.all(peer, after, EXPORT_PAGE) as DeltaRow[]).map((r) => ({
+                key: r.id,
+                value: this.#delta(r),
+              })),
+            () => held(peer),
+          ),
       }),
       storedIds: () => pages(ids(s.exportStored)),
     };
@@ -738,10 +762,7 @@ class SqliteStore implements Store {
  * Refuses `open-failed` for a file that is not a store of this format, and `invalid-request` for
  * options of the wrong type and for a retention other than the file keeps.
  */
-export async function openSqliteStore(
-  path: string,
-  options?: SqliteStoreOptions,
-): Promise<Store> {
+export async function openSqliteStore(path: string, options?: SqliteStoreOptions): Promise<Store> {
   const own = takeOptions(options);
   if (typeof path !== "string" || path === "")
     throw new StoreError("invalid-request", "sqlite store: the path is a non-empty string");

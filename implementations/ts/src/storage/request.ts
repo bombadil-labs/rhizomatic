@@ -6,7 +6,13 @@ import { computeId } from "../delta/delta.js";
 import type { Claims } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
 import { copyMember, isPlainObject } from "./copy.js";
-import { StoreError, type Id, type Pushdown, type ScopeRequest, type VerifiedDelta } from "./store.js";
+import {
+  StoreError,
+  type Id,
+  type Pushdown,
+  type ScopeRequest,
+  type VerifiedDelta,
+} from "./store.js";
 
 // A lone surrogate: a UTF-16 code unit that is not half of a pair. Such a string has no UTF-8
 // form, so two of them can be stored as one (§4.13 reading 104).
