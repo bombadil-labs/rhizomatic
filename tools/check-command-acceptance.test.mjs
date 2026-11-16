@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { requiredCheckerCases, requireCheckerCases, nativeScenarioEvidence, validateConformance, validateReview, passedTapNames, checkTowerEvidence, assembleAcceptance } from './check-command-acceptance.mjs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { requiredCheckerCases, requireCheckerCases, nativeScenarioEvidence, rustIgnoredTests, validateConformance, validateReview, passedTapNames, checkTowerEvidence, assembleAcceptance } from './check-command-acceptance.mjs';
 import { fingerprint } from './command-tower-plan.mjs';
 const commit = '1'.repeat(40), tree = '2'.repeat(40);
 const conformance = { format: 'rhizomatic-existing-conformance/1', commit, runUrl: 'https://github.com/bombadil-labs/rhizomatic/actions/runs/123', witnesses: ['ts','rust','elixir','haskell'].map(id => ({ id, status: 'passed', job: id })) };
@@ -10,7 +10,7 @@ const scenarios = JSON.parse(readFileSync(new URL('../contracts/command/ACCEPTAN
 const descriptions = JSON.parse(readFileSync(new URL('../vectors/command/descriptions.json', import.meta.url)));
 function nativeInput() {
   const titles = descriptions.cases.map(c => `${c.scenario}:${c.id}`).concat(scenarios.filter(s => ['M2','M3'].includes(s.milestone)).map(s => `${s.milestone}:${s.id}`));
-  return { scenarios, descriptions, ts: { success: true, numFailedTests: 0, numPendingTests: 0, numTodoTests: 0, testResults: [{ assertionResults: titles.map(title => ({ title, status: 'passed' })) }] }, rust: 'test result: ok. 1 passed; 0 failed; 0 ignored;\n' + descriptions.cases.map(c => `command-case:${c.scenario}:${c.id}\n`).join('') + scenarios.filter(s => ['M2','M3'].includes(s.milestone)).map(s => `command-case:${s.id}:group::${s.id}\n`).join('') };
+  return { scenarios, descriptions, ts: { success: true, numFailedTests: 0, numPendingTests: 0, numTodoTests: 0, testResults: [{ assertionResults: titles.map(title => ({ title, status: 'passed' })) }] }, rust: Object.keys(rustIgnoredTests).map(name => `test ${name} ... ignored\n`).join('') + 'test result: ok. 1 passed; 0 failed; 4 ignored;\n' + descriptions.cases.map(c => `command-case:${c.scenario}:${c.id}\n`).join('') + scenarios.filter(s => ['M2','M3'].includes(s.milestone)).map(s => `command-case:${s.id}:group::${s.id}\n`).join('') };
 }
 test('native evidence requires every executed fixture and scenario in both witnesses', () => {
   const input = nativeInput(), evidence = nativeScenarioEvidence(input);
@@ -22,8 +22,21 @@ test('native evidence requires every executed fixture and scenario in both witne
     v => { v.rust = v.rust.replace(/command-case:[^\n]+\n/, ''); },
     v => { v.rust += 'command-case:invented:proof\n'; },
     v => { v.rust = v.rust.replace(/command-case:definition_closure:[^\n]+/, 'command-case:definition_closure: '); },
-    v => { v.rust = v.rust.replace('0 ignored', '1 ignored'); },
+    v => { v.rust = v.rust.replace('4 ignored', '5 ignored'); },
+    v => { v.rust = v.rust.replace('4 ignored', '5 ignored') + 'test store_views::another_long_run ... ignored\n'; },
+    v => { v.rust = v.rust.replace(/test store_views::a_per_view_scan_turns[^\n]+\n/, '').replace('4 ignored', '3 ignored'); },
+    v => { v.rust = v.rust.replace(/test store_views::a_per_view_scan_turns[^\n]+\n/, ''); },
+    v => { v.rust += 'test result: ok. 1 passed; 0 failed; 1 ignored;\n'; },
+    v => { v.rust += 'test result: FAILED. 0 passed; 1 failed; 0 ignored;\n'; },
   ]) { const altered = structuredClone(input); mutate(altered); assert.throws(() => nativeScenarioEvidence(altered)); }
+});
+test('the Rust tests that carry #[ignore] are exactly the ones the native run may skip', () => {
+  const rust = new URL('../implementations/rust/', import.meta.url), found = [];
+  for (const dir of ['src', 'tests', 'examples']) for (const file of readdirSync(new URL(dir, rust), { recursive: true }).filter(f => f.endsWith('.rs'))) {
+    const source = readFileSync(new URL(`${dir}/${file}`, rust), 'utf8');
+    for (const m of source.matchAll(/#\[ignore\b[^\]]*\]\s*(?:#\[[^\]]*\]\s*)*fn (\w+)/g)) found.push(dir === 'tests' && !/[\\/]/.test(file) ? `${file.slice(0, -3)}::${m[1]}` : `${dir}/${file}::${m[1]}`);
+  }
+  assert.deepEqual(found.sort(), Object.keys(rustIgnoredTests).sort(), 'name each #[ignore] test in rustIgnoredTests (tools/check-command-acceptance.mjs) with the place that runs it');
 });
 test('existing CI and independent review must cover exact source and complete scope', () => {
   validateConformance(conformance, commit, tree); validateReview(review, commit);

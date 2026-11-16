@@ -150,12 +150,27 @@ export function requireCheckerCases(gate, observed) {
   for (const name of requiredCheckerCases[gate]) assert(observed.has(name), `unexecuted ${gate} checker case: ${name}`);
 }
 
+// The Rust tests that carry #[ignore]. The native run skips exactly these and no other; each runs
+// where its doc comment says. A new #[ignore] fails here and in check-command-acceptance.test.mjs
+// until it is named in this list with the place that runs it.
+export const rustIgnoredTests = {
+  'store_follow::twenty_thousand_sequences_agree_with_brute_force': 'the long fuzz, by hand in release mode',
+  'store_views::twenty_thousand_sequences_agree_with_brute_force': 'the long fuzz, by hand in release mode',
+  'store_views::a_per_view_scan_in_the_release_turns_rail_four_red': 'the Rust witness job, in release mode',
+  'store_views::a_per_view_scan_turns_the_held_views_rail_red': 'the Rust witness job, in release mode',
+};
+export function rustRunPassed(rust) {
+  const ignored = [...rust.matchAll(/^test (\S+) \.\.\. ignored\b/gm)].map(m => m[1]).sort();
+  const counted = [...rust.matchAll(/\b(\d+) ignored;/g)].reduce((sum, m) => sum + Number(m[1]), 0);
+  return /test result: ok\./.test(rust) && !/test result: FAILED/.test(rust) && counted === ignored.length &&
+    ignored.join('\n') === Object.keys(rustIgnoredTests).sort().join('\n');
+}
 export function nativeScenarioEvidence({ scenarios, descriptions, ts, rust }) {
   assert(ts.success === true && ts.numFailedTests === 0 && ts.numPendingTests === 0 && ts.numTodoTests === 0, 'TS native run failed or skipped tests');
   const assertions = ts.testResults.flatMap(s => s.assertionResults);
   assert(assertions.length > 0 && assertions.every(t => t.status === 'passed'), 'TS native assertions not all passed');
   const titles = new Set(assertions.map(t => t.title));
-  assert(/test result: ok\./.test(rust) && !/test result: FAILED/.test(rust) && !/\b[1-9]\d* ignored;/.test(rust), 'Rust native run failed or skipped tests');
+  assert(rustRunPassed(rust), 'Rust native run failed or skipped tests');
   const markers = new Map();
   for (const match of rust.matchAll(/command-case:([^:\s]+):([^\r\n]+)/g)) {
     const [_, id, proof] = match;
