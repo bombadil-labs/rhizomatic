@@ -2344,19 +2344,31 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      and drops the oldest record when the peer keeps more than its retention, so two processes
      trim one floor. A follower whose position is below the floor gets `resync-required`, never a
      page with a gap. The rail writes past 1024 revisions from two processes.
-126. **A refused open changes nothing; options are own fields** (slice 4, step 4c follow-up).
-     `openStore(url, {requires, restored: true})` used to call the factory first and check
-     `requires` after. The SQLite factory had then already created a new file or given every peer
-     a new history, and the open still refused `capability-absent`. Now a factory that can change
-     its files at open checks `requires` before the first change, and `openStore` checks the
-     opened profile again. The SQLite factory checks against its fixed profile: no requirement
-     reads the retention, which is the one field a file sets. Two other shapes were set aside. A
-     profile declared at `registerStoreScheme` changes a public signature. A mint after the check
-     does not stop the creation of a new file. A store, a read, a held view and
-     `OrdinaryJournalPeer.open` read each option and request object of a caller as own fields
-     only. A field that only a prototype holds, also one set on `Object.prototype`, reads as
-     absent. So an options object made by a class with fields on its prototype gives none of
-     them.
+126. **A refused open checks `requires` first; options are own fields** (slice 4, step 4c
+     follow-up). `openStore(url, {requires, restored: true})` used to call the factory first and
+     check `requires` after. The SQLite factory had then already created a new file or given every
+     peer a new history, and the open still refused `capability-absent`. Now a factory that can
+     change its files at open checks `requires` before the first change, and `openStore` checks
+     the opened profile again. The SQLite factory checks against its fixed profile with the
+     default retention. Only the `changes` requirement reads the retention, and it fails only for
+     the retention `none`. No SQLite file that this store writes keeps `none`, so for each such
+     file the check before open and the check after open agree. A file whose `retention` row was
+     edited to `none` by hand passes the first check and fails the second; its open can then
+     already have given each peer a new history. Two other shapes were set aside. A profile
+     declared at `registerStoreScheme` changes a public signature. A mint after the check does not
+     stop the creation of a new file. A store, a read, a held view and `OrdinaryJournalPeer.open`
+     read each option and request object of a caller as own fields only. A field that only a
+     prototype holds, also one set on `Object.prototype`, reads as absent. So an options object
+     made by a class with fields on its prototype gives none of them. The store reads a delta's
+     `sig` and `validUntil` as own fields too, and so do the canonical encoding and the claims
+     check: an absent `sig` is stored as absent, and an id hashes only the fields the claims hold.
+     The SQLite store refuses a file that is not a store before any statement that can write.
+     The open reads the schema and the `format` row first, and only then sets the journal mode,
+     which writes the file's header and makes the `-wal` and `-shm` files. So a refused open of a
+     SQLite file made by another tool, or of a file that is not SQLite, changes no byte and leaves
+     no `-wal` or `-shm` file. One case remains. A SQLite file with no schema object at all, such as
+     an empty file or a file with only a header, cannot be told from a new file without a write.
+     The open makes it a store.
 
 ## 5. Architectures
 
