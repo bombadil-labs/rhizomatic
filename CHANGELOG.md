@@ -21,6 +21,13 @@ is complete; the Rust witness follows the same documents.
 The store, slice 3 (SPEC-18 proposal §4.6, §4.13 readings 1 to 102): revisions, the change feed,
 freshness, a feed cursor and held views, in both witnesses against the same vectors.
 
+The store, slice 4, step 4a (TypeScript): a SQLite store at `@bombadil/rhizomatic/store/sqlite`
+(`openSqliteStore`, and `openStore("sqlite:///path")` once the subpath is imported). It passes
+the four shared suites. Its erasure class is `unprovable` until step 4b. `better-sqlite3` is an
+optional peer dependency. Two contract changes reach both stores: the refusal `store-unavailable`
+(§4.13 reading 105), strings must be well-formed (reading 104), and -0 answers as +0
+(reading 106). Rust follows in step 4e.
+
 - **The change feed.** `PeerStore.changes(from, to?)` answers pages of records, one per revision
   advance, with the head and the ids added and removed; never bytes. A `from` below the
   retention floor, or above the current revision, answers `resync-required`. The memory store

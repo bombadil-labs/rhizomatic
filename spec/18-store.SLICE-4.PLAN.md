@@ -104,7 +104,9 @@ Each is made here under the store-arc delegation. Each moves to §12 when its st
 ## 4. Schema
 
 `peer` leads every per-peer key, so one peer's read never pays for another peer's rows. Every
-table is `STRICT`. Tables with a composite primary key are `WITHOUT ROWID`. Foreign keys are on.
+table is `STRICT`. Tables with a composite primary key are `WITHOUT ROWID`. Foreign keys are on. A table
+whose rows can overflow a page (`delta`, `change`) is a rowid table, because a seek in a
+`WITHOUT ROWID` table reads whole neighbour cells.
 
 ```sql
 meta      (key TEXT PRIMARY KEY, value TEXT NOT NULL)   -- format; file identity; retention
@@ -137,7 +139,7 @@ reference (peer TEXT NOT NULL, ref TEXT NOT NULL, role TEXT NOT NULL, delta TEXT
 
 change    (peer TEXT NOT NULL, revision INTEGER NOT NULL, head TEXT,
            added TEXT NOT NULL, removed TEXT NOT NULL,         -- sorted JSON arrays of ids
-           PRIMARY KEY (peer, revision))
+           PRIMARY KEY (peer, revision))                       -- a rowid table
 debt         (peer TEXT NOT NULL, delta TEXT NOT NULL, PRIMARY KEY (peer, delta))
 surface_debt (peer TEXT NOT NULL, delta TEXT NOT NULL,
               state TEXT NOT NULL CHECK (state IN ('owed','settled')),

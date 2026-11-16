@@ -29,6 +29,10 @@ does not hold a store to the exact upper bound of a scope (§1.4.1); only `scope
 runner's default is both. `rounds.json` is run by each witness's own tests against its
 store-backed read (§5).
 
+The TypeScript witness runs `scripts.json`, `scope.json`, `freshness.json`, `follow.json` and
+`views.json` against its SQLite store too (`@bombadil/rhizomatic/store/sqlite`), with the store
+built as asked by each case and in the runs of the paged and bounded feed.
+
 ## 1. What a witness must provide
 
 A witness runs the vectors against a **store**. The operations below are SPEC-18 §4 in neutral

@@ -3,11 +3,11 @@
 // arrivals, signatures, head and revision are per peer.
 
 import { compareUtf8 } from "../delta/cbor.js";
-import { computeId } from "../delta/delta.js";
 import type { Claims, Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
-import { copyArrival, copyClaims, copyMember, isPlainObject } from "./copy.js";
+import { copyArrival, copyClaims, isPlainObject } from "./copy.js";
 import { LOCAL_HISTORY_PREFIX } from "./freshness.js";
+import { admit, strings, takeAppend, takeScope, wellFormed, type OwnScope } from "./request.js";
 import {
   PURGE_BOUNDARY,
   StoreError,
@@ -30,8 +30,6 @@ import {
   type PurgeOutcome,
   type PurgeReport,
   type Revision,
-  type Pushdown,
-  type ScopeRequest,
   type ScopeResult,
   type Snapshot,
   type Store,
@@ -146,22 +144,6 @@ const mintMemoryHistory = (): History => `${LOCAL_HISTORY_PREFIX}${++minted}`;
 
 const sorted = (ids: Iterable<Id>): Id[] => [...new Set(ids)].sort(compareUtf8);
 
-/**
- * A caller's list of ids or entities, read once into a list the store owns. Refuses
- * `invalid-request` for anything that is not a list of strings.
- */
-function strings(given: unknown, what: string): string[] {
-  if (!Array.isArray(given)) throw new StoreError("invalid-request", `${what} must be a list`);
-  const own: string[] = [];
-  for (let i = 0; i < given.length; i++) {
-    const item: unknown = given[i];
-    if (typeof item !== "string")
-      throw new StoreError("invalid-request", `${what} must hold strings only`);
-    own.push(item);
-  }
-  return own;
-}
-
 function indexKeys(claims: Claims): { entities: Entity[]; negated: Id[] } {
   const entities: Entity[] = [];
   const negated: Id[] = [];
@@ -171,102 +153,6 @@ function indexKeys(claims: Claims): { entities: Entity[]; negated: Id[] } {
       negated.push(pointer.target.deltaRef.delta);
   }
   return { entities, negated };
-}
-
-const SIG = /^[0-9a-f]{128}$/;
-
-/**
- * A checked copy of one admitted entry. Refuses `invalid-admission`. The entry is copied
- * first, by a copy that converts nothing and throws for a value of the wrong type; every check
- * after that reads the copy. Checking the caller's object and then copying it would leave a
- * moment in which the object can change.
- */
-function admit(entry: unknown): { id: Id; claims: Claims; holding: Holding } {
-  const refuse = (what: string): never => {
-    throw new StoreError("invalid-admission", `append: ${what}`);
-  };
-  let own: VerifiedDelta;
-  let id: string;
-  try {
-    own = copyMember(entry as VerifiedDelta);
-    id = computeId(own.delta.claims);
-  } catch {
-    return refuse("an entry is malformed");
-  }
-  // Claims are shared across peers by id. An id that does not recompute would let one peer's
-  // append change what another peer reads.
-  if (id !== own.delta.id) refuse("a delta id does not match its claims");
-  const sig = own.delta.sig;
-  if (sig !== undefined && !SIG.test(sig))
-    refuse("a signature is not 128 lowercase hex characters");
-  const { at, sequence, transfer, sender } = own.arrival;
-  const count = (n: number): boolean => Number.isSafeInteger(n) && n >= 1;
-  if (
-    own.arrival.id !== id ||
-    !count(sequence) ||
-    !count(transfer) ||
-    !Number.isFinite(at) ||
-    sender.length === 0
-  )
-    refuse("an arrival record is malformed");
-  return { id, claims: own.delta.claims, holding: { sig, arrival: own.arrival } };
-}
-
-/** A scope request in values the store owns, each read from the caller once. */
-type OwnScope = {
-  /** An anchor of kind `entity` holds a string. Another kind is refused when the scope runs. */
-  readonly anchors: readonly { readonly kind: unknown; readonly entity: unknown }[];
-  readonly asked: {
-    readonly timestampAtMost?: number;
-    readonly arrivalAtMost?: number;
-    readonly excludeIds?: readonly Id[];
-  };
-  readonly exclude: readonly Id[];
-};
-
-/** Refuses `invalid-request` for a request that is malformed or has a bound outside its values. */
-function takeScope(request: ScopeRequest): OwnScope {
-  const refuse = (what: string): never => {
-    throw new StoreError("invalid-request", `scope: ${what}`);
-  };
-  let exclude: unknown;
-  let bounds: { timestampAtMost: unknown; arrivalAtMost: unknown; excludeIds: unknown };
-  const anchors: { kind: unknown; entity: unknown }[] = [];
-  try {
-    const { anchors: list, pushdown, exclude: omit } = request;
-    exclude = omit;
-    // Absent means no pushdown. Anything else that is not a plain object is refused, never
-    // read as an empty one.
-    if (pushdown !== undefined && !isPlainObject(pushdown)) throw new TypeError("pushdown");
-    const { timestampAtMost, arrivalAtMost, excludeIds } = (pushdown ?? {}) as Pushdown;
-    bounds = { timestampAtMost, arrivalAtMost, excludeIds };
-    if (!Array.isArray(list)) throw new TypeError("anchors");
-    for (let i = 0; i < list.length; i++) {
-      const { kind, entity } = list[i] as { kind: unknown; entity: unknown };
-      if (typeof kind !== "string") throw new TypeError("kind");
-      if (kind === "entity" && typeof entity !== "string") throw new TypeError("entity");
-      anchors.push({ kind, entity });
-    }
-  } catch {
-    return refuse("the request is malformed");
-  }
-  const { timestampAtMost, arrivalAtMost, excludeIds } = bounds;
-  if (timestampAtMost !== undefined && !Number.isFinite(timestampAtMost))
-    refuse("timestampAtMost must be a finite number");
-  if (
-    arrivalAtMost !== undefined &&
-    !(Number.isSafeInteger(arrivalAtMost) && (arrivalAtMost as number) >= 0)
-  )
-    refuse("arrivalAtMost must be an integer, 0 or more");
-  return {
-    anchors,
-    asked: {
-      ...(timestampAtMost === undefined ? {} : { timestampAtMost: timestampAtMost as number }),
-      ...(arrivalAtMost === undefined ? {} : { arrivalAtMost: arrivalAtMost as number }),
-      ...(excludeIds === undefined ? {} : { excludeIds: strings(excludeIds, "scope: excludeIds") }),
-    },
-    exclude: exclude === undefined ? [] : strings(exclude, "scope: exclude"),
-  };
 }
 
 class MemoryStore implements Store {
@@ -313,8 +199,11 @@ class MemoryStore implements Store {
       throw new StoreError("invalid-request", "memory store: mintHistory is a function");
     this.#mint = (peer) => {
       const history: unknown = mint === undefined ? mintMemoryHistory() : mint(peer);
-      if (typeof history !== "string" || history === "")
-        throw new StoreError("invalid-request", "memory store: a history is a non-empty string");
+      if (typeof history !== "string" || history === "" || !wellFormed(history))
+        throw new StoreError(
+          "invalid-request",
+          "memory store: a history is a non-empty, well-formed string",
+        );
       if (mint !== undefined && history.startsWith(LOCAL_HISTORY_PREFIX))
         throw new StoreError(
           "invalid-request",
@@ -364,8 +253,11 @@ class MemoryStore implements Store {
 
   async createPeer(id: PeerId, options: CreatePeerOptions): Promise<PeerStore> {
     this.#open();
-    if (typeof id !== "string" || id.length === 0)
-      throw new StoreError("invalid-request", "createPeer: the peer id must not be empty");
+    if (typeof id !== "string" || id.length === 0 || !wellFormed(id))
+      throw new StoreError(
+        "invalid-request",
+        "createPeer: the peer id must be a non-empty, well-formed string",
+      );
     // The options are a plain object, read once. A getter that throws is a posture not
     // declared, as is anything that is not a plain object (a list included).
     let posture: unknown;
@@ -610,21 +502,7 @@ class MemoryStore implements Store {
 
   #append(state: PeerState, batch: Admission): AppendResult {
     // Each field of the call is read once. A second read could give another value.
-    let call: { expectedHead: unknown; nextHead: unknown; frame: unknown; added: unknown };
-    try {
-      const { expectedHead, nextHead, frame, added } = batch;
-      call = { expectedHead, nextHead, frame, added };
-    } catch {
-      throw new StoreError("invalid-admission", "append: the call is malformed");
-    }
-    const { expectedHead, nextHead, frame, added } = call;
-    if (typeof nextHead !== "string" || nextHead.length === 0)
-      throw new StoreError("invalid-admission", "append: the next head must not be empty");
-    if (frame !== null)
-      throw new StoreError(
-        "capability-absent",
-        "append: this store has no journal capability and cannot keep a frame",
-      );
+    const { expectedHead, nextHead, added } = takeAppend(batch);
     if (state.head !== expectedHead) return { status: "conflict" };
 
     // Validate the whole batch before the first write, so a refusal leaves nothing behind.
@@ -634,7 +512,8 @@ class MemoryStore implements Store {
     const fresh = new Map<Id, { claims: Claims; holding: Holding }>();
     const sequences = new Set<number>();
     for (let i = 0; i < added.length; i++) {
-      const { id, claims, holding } = admit(added[i]);
+      const { id, claims, sig, arrival } = admit(added[i]);
+      const holding: Holding = { sig, arrival };
       if (fresh.has(id) || state.holdings.get(id) !== undefined) continue;
       const sequence = holding.arrival.sequence;
       if (sequence <= state.lastSequence || sequences.has(sequence))
