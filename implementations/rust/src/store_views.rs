@@ -104,49 +104,75 @@ impl Default for StoreViewsOptions {
     }
 }
 
-// `ViewQuirk`: one rule a holder written for the rails breaks (`vectors/store/README.md` §11.6).
-// The right holder has none. It exists so that the rails can prove each rule is load-bearing. It
-// is public only with the feature `wrong-holders`, which the tests turn on. Without it the type is
-// crate-private, so a public item that accepted it would fail the lint `private_interfaces`.
-macro_rules! view_quirk {
-    ($vis:vis) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-        #[cfg_attr(not(feature = "wrong-holders"), allow(dead_code))]
-        $vis enum ViewQuirk {
-            NeverRereads,
-            RereadsEverything,
-            IgnoresRemoved,
-            IgnoresNegators,
-            KeepsFirstIndex,
-            KeepsForgottenIndex,
-            IgnoresSince,
-            IgnoresExpiry,
-            IgnoresEpoch,
-            ReadsOnNewerSnapshot,
-            MergesOnResync,
-            FeedPerView,
-            StaticBoundary,
-            KeepsPurgedBaseline,
-            ServesEvictedBytes,
-            MovesOnFailure,
-            TouchingPerView,
-            ReleasePerView,
-            AnswersReadForNew,
-            AnswersNewAlways,
-            EvictedEmpty,
-            EvictedKeepsDropped,
-            EvictedKeepsReheld,
-            ReadsEvicted,
-            UnorderedReread,
-            ReadsOnSetEpoch,
-            OtherHistory,
-        }
-    };
-}
+/// One rule a holder written for the rails breaks (`vectors/store/README.md` §11.6). The right
+/// holder has none. It exists so that the rails can prove each rule is load-bearing. It is public
+/// only with the feature `wrong-holders`, which the tests turn on.
 #[cfg(feature = "wrong-holders")]
-view_quirk!(pub);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ViewQuirk {
+    NeverRereads,
+    RereadsEverything,
+    IgnoresRemoved,
+    IgnoresNegators,
+    KeepsFirstIndex,
+    KeepsForgottenIndex,
+    IgnoresSince,
+    IgnoresExpiry,
+    IgnoresEpoch,
+    ReadsOnNewerSnapshot,
+    MergesOnResync,
+    FeedPerView,
+    StaticBoundary,
+    KeepsPurgedBaseline,
+    ServesEvictedBytes,
+    MovesOnFailure,
+    TouchingPerView,
+    ReleasePerView,
+    AnswersReadForNew,
+    AnswersNewAlways,
+    EvictedEmpty,
+    EvictedKeepsDropped,
+    EvictedKeepsReheld,
+    ReadsEvicted,
+    UnorderedReread,
+    ReadsOnSetEpoch,
+    OtherHistory,
+}
+
+// Without the feature the same rules are crate-private, so a public item that accepted one fails
+// the lint `private_interfaces`. A rule the holder checks and one list lacks fails to build.
 #[cfg(not(feature = "wrong-holders"))]
-view_quirk!(pub(crate));
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub(crate) enum ViewQuirk {
+    NeverRereads,
+    RereadsEverything,
+    IgnoresRemoved,
+    IgnoresNegators,
+    KeepsFirstIndex,
+    KeepsForgottenIndex,
+    IgnoresSince,
+    IgnoresExpiry,
+    IgnoresEpoch,
+    ReadsOnNewerSnapshot,
+    MergesOnResync,
+    FeedPerView,
+    StaticBoundary,
+    KeepsPurgedBaseline,
+    ServesEvictedBytes,
+    MovesOnFailure,
+    TouchingPerView,
+    ReleasePerView,
+    AnswersReadForNew,
+    AnswersNewAlways,
+    EvictedEmpty,
+    EvictedKeepsDropped,
+    EvictedKeepsReheld,
+    ReadsEvicted,
+    UnorderedReread,
+    ReadsOnSetEpoch,
+    OtherHistory,
+}
 
 /// The sizes of a holder's indexes and orderings, for the rails of forgetting.
 #[doc(hidden)]

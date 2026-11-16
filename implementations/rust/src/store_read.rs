@@ -298,7 +298,9 @@ impl fmt::Display for StoreReadError {
             }
             Self::Store(e) => f.write_str(&e.to_string()),
             Self::Eval(message) => f.write_str(message),
-            Self::Fault(fault) => write!(f, "the store broke {}: {fault}", fault.rule()),
+            Self::Fault(fault) => {
+                f.write_str(&format!("the store broke {}: {fault}", fault.rule()))
+            }
         }
     }
 }

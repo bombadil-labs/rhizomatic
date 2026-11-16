@@ -87953,17 +87953,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::store::StoreError",
-      "resolvedTarget": "crate::store::StoreError",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "StoreReactor::fetch",
-      "target": "crate::store::StoreError",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
       "rawTarget": "crate::store::StoreErrorCode::SnapshotMoved",
       "resolvedTarget": "crate::store::StoreErrorCode::SnapshotMoved",
       "source": "implementations/rust/src/store_read.rs",
@@ -105057,28 +105046,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store::MAX_REVISION",
-      "resolvedTarget": "crate::store::MAX_REVISION",
-      "source": "implementations/rust/src/store_fresh.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "on_snapshots",
-      "target": "crate::store::MAX_REVISION",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store_fresh::StoreFault::RevisionOutOfRange",
-      "resolvedTarget": "crate::store_fresh::StoreFault::RevisionOutOfRange",
-      "source": "implementations/rust/src/store_fresh.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "on_snapshots",
-      "target": "crate::store_fresh::StoreFault::RevisionOutOfRange",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
       "rawTarget": "crate::store::Snapshot",
       "resolvedTarget": "crate::store::Snapshot",
       "source": "implementations/rust/src/store_fresh.rs",
@@ -112867,17 +112834,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::store_views::StoreViews::with_quirk",
-      "resolvedTarget": "crate::store_views::StoreViews::with_quirk",
-      "source": "implementations/rust/src/store_views.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "StoreViewsReader::holder",
-      "target": "crate::store_views::StoreViews::with_quirk",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
       "rawTarget": "crate::store_views::StoreViewsOptions",
       "resolvedTarget": "crate::store_views::StoreViewsOptions",
       "source": "implementations/rust/src/store_views.rs",
@@ -113321,6 +113277,269 @@
       "sourceRegion": "semantic-owner",
       "symbol": "StoreViews::plan",
       "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::MAX_REVISION",
+      "resolvedTarget": "crate::store::MAX_REVISION",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "revision_in_range",
+      "target": "crate::store::MAX_REVISION",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Revision",
+      "resolvedTarget": "crate::store::Revision",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "revision_in_range",
+      "target": "crate::store::Revision",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::StoreFault",
+      "resolvedTarget": "crate::store_fresh::StoreFault",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "revision_in_range",
+      "target": "crate::store_fresh::StoreFault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::StoreFault::RevisionOutOfRange",
+      "resolvedTarget": "crate::store_fresh::StoreFault::RevisionOutOfRange",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "revision_in_range",
+      "target": "crate::store_fresh::StoreFault::RevisionOutOfRange",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::revision_in_range",
+      "resolvedTarget": "crate::store_fresh::revision_in_range",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "on_snapshots",
+      "target": "crate::store_fresh::revision_in_range",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::StoreFault",
+      "resolvedTarget": "crate::store_fresh::StoreFault",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_fresh::StoreFault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::revision_in_range",
+      "resolvedTarget": "crate::store_fresh::revision_in_range",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_fresh::revision_in_range",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::StoreFault",
+      "resolvedTarget": "crate::store_fresh::StoreFault",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError",
+      "target": "crate::store_fresh::StoreFault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError",
+      "resolvedTarget": "crate::store_read::StoreReadError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError",
+      "target": "crate::store_read::StoreReadError",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError::Fault",
+      "resolvedTarget": "crate::store_read::StoreReadError::Fault",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::fmt",
+      "target": "crate::store_read::StoreReadError::Fault",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError",
+      "resolvedTarget": "crate::store_read::StoreReadError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_read::StoreReadError",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::StoreFault",
+      "resolvedTarget": "crate::store_fresh::StoreFault",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError",
+      "target": "crate::store_fresh::StoreFault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::StoreFault",
+      "resolvedTarget": "crate::store_fresh::StoreFault",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_fresh::StoreFault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError::Fault",
+      "resolvedTarget": "crate::store_read::StoreReadError::Fault",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_read::StoreReadError::Fault",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::FeedError",
+      "resolvedTarget": "crate::store_fresh::FeedError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReactor::fetch",
+      "target": "crate::store_fresh::FeedError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::FeedError::Refused",
+      "resolvedTarget": "crate::store_fresh::FeedError::Refused",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReactor::fetch",
+      "target": "crate::store_fresh::FeedError::Refused",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::FeedError::from",
+      "resolvedTarget": "crate::store_fresh::FeedError::from",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReactor::fetch",
+      "target": "crate::store_fresh::FeedError::from",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::StoreFault",
+      "resolvedTarget": "crate::store_fresh::StoreFault",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReactor::on_snapshots",
+      "target": "crate::store_fresh::StoreFault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::revision_in_range",
+      "resolvedTarget": "crate::store_fresh::revision_in_range",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReactor::on_snapshots",
+      "target": "crate::store_fresh::revision_in_range",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "matches"
+      ],
+      "owner": "reactor",
+      "source": "implementations/rust/src/store_read.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "StoreReactor::fetch"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_views::StoreViewsReader",
+      "resolvedTarget": "crate::store_views::StoreViewsReader",
+      "source": "implementations/rust/src/store_views.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreViewsReader",
+      "target": "crate::store_views::StoreViewsReader",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_views::StoreViewsReader",
+      "resolvedTarget": "crate::store_views::StoreViewsReader",
+      "source": "implementations/rust/src/store_views.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreViewsReader::quirk",
+      "target": "crate::store_views::StoreViewsReader",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_views::ViewQuirk",
+      "resolvedTarget": "crate::store_views::ViewQuirk",
+      "source": "implementations/rust/src/store_views.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreViewsReader::quirk",
+      "target": "crate::store_views::ViewQuirk",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_views::StoreViews::made",
+      "resolvedTarget": "crate::store_views::StoreViews::made",
+      "source": "implementations/rust/src/store_views.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreViewsReader::holder",
+      "target": "crate::store_views::StoreViews::made",
+      "targetOwner": "reactor"
     }
   ],
   "exports": [
@@ -126292,7 +126511,9 @@
       "symbol": "StoreViews::sizes"
     },
     {
-      "cfg": [],
+      "cfg": [
+        "Meta::List { path: Path { leading_colon: None, segments: [PathSegment { ident: Ident(cfg), arguments: PathArguments::None }] }, delimiter: MacroDelimiter::Paren(Paren), tokens: TokenStream [Ident { sym: feature }, Punct { char: '=', spacing: Alone }, Literal { lit: \"wrong-holders\" }] }"
+      ],
       "classification": "native_extension",
       "contract": "rhizomatic.reactor/native-api/1",
       "definition": "method",
@@ -126358,7 +126579,9 @@
       "symbol": "ViewProgram::new"
     },
     {
-      "cfg": [],
+      "cfg": [
+        "Meta::List { path: Path { leading_colon: None, segments: [PathSegment { ident: Ident(cfg), arguments: PathArguments::None }] }, delimiter: MacroDelimiter::Paren(Paren), tokens: TokenStream [Ident { sym: feature }, Punct { char: '=', spacing: Alone }, Literal { lit: \"wrong-holders\" }] }"
+      ],
       "classification": "implementation_helper",
       "contract": "rhizomatic.reactor/native-api/1",
       "definition": "enum",

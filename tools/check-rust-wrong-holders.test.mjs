@@ -1,8 +1,8 @@
 // The Rust wrong holders of the views rails (`ViewQuirk`, `StoreViews::with_quirk`,
 // `StoreViewsReader::quirk`) are public only with the feature `wrong-holders`. Without it,
-// `ViewQuirk` is crate-private, so `cargo clippy --lib -- -D warnings` fails (`private_interfaces`)
+// `ViewQuirk` is `pub(crate)`, so `cargo clippy --lib -- -D warnings` fails (`private_interfaces`)
 // on any public item that accepts one. This guard keeps the parts that make that true: the feature
-// is off by default, only the dev-dependency turns it on, `ViewQuirk` is public only under the
+// is off by default, only the dev-dependency turns it on, `ViewQuirk` is `pub` only under the
 // feature, and CI and precheck run the feature-off clippy.
 //   node --test tools/check-rust-wrong-holders.test.mjs
 import test from 'node:test';
@@ -10,8 +10,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const FEATURE_OFF = 'cargo clippy --lib -- -D warnings';
-const GATED_PUBLIC = '#[cfg(feature = "wrong-holders")]\nview_quirk!(pub);';
-const PRIVATE = '#[cfg(not(feature = "wrong-holders"))]\nview_quirk!(pub(crate));';
+const GATED_PUBLIC = '#[cfg(feature = "wrong-holders")]\n#[derive(Debug, Clone, Copy, PartialEq, Eq)]\npub enum ViewQuirk {';
+const PRIVATE = '#[cfg(not(feature = "wrong-holders"))]\n#[derive(Debug, Clone, Copy, PartialEq, Eq)]\n#[allow(dead_code)]\npub(crate) enum ViewQuirk {';
 
 export function checkWrongHolders({ cargo, ci, precheck, views }) {
   const problems = [];
@@ -23,7 +23,7 @@ export function checkWrongHolders({ cargo, ci, precheck, views }) {
   if (!/^rhizomatic = \{ path = "\.", features = \["wrong-holders"\] \}$/m.test(sections['[dev-dependencies]'] ?? '')) problems.push('the tests must turn wrong-holders on through a dev-dependency on the crate');
   if (!ci.includes(`run: ${FEATURE_OFF}`)) problems.push(`CI must run \`${FEATURE_OFF}\` with the feature off`);
   if (!precheck.includes('cargo clippy -q --lib -- -D warnings')) problems.push('precheck must run the feature-off clippy');
-  if (!views.includes(GATED_PUBLIC) || !views.includes(PRIVATE) || views.split('view_quirk!(').length !== 3) problems.push('ViewQuirk must be public only under the feature and crate-private without it');
+  if (!views.includes(GATED_PUBLIC) || !views.includes(PRIVATE) || views.match(/enum ViewQuirk\b|use [\w:]*ViewQuirk\b/g).length !== 2) problems.push('ViewQuirk must be pub only under the feature and pub(crate) without it');
   return problems;
 }
 
@@ -47,8 +47,9 @@ test('a default feature, a non-test dependency on it, an ungated ViewQuirk or a 
   assert.match(broken('cargo', 'wrong-holders = []', 'wrong-holders = []\ndefault = ["wrong-holders"]'), /not be a default feature/);
   assert.match(broken('cargo', 'tempfile = "3"', 'tempfile = "3"\nrhizomatic = { path = ".", features = ["wrong-holders"] }'), /only \[dev-dependencies\] may/);
   assert.match(broken('cargo', 'features = ["wrong-holders"] }', '}'), /through a dev-dependency/);
-  assert.match(broken('views', PRIVATE, '#[cfg(not(feature = "wrong-holders"))]\nview_quirk!(pub);'), /public only under the feature/);
-  assert.match(broken('views', GATED_PUBLIC, 'view_quirk!(pub);'), /public only under the feature/);
+  assert.match(broken('views', PRIVATE, PRIVATE.replace('pub(crate) enum', 'pub enum')), /pub only under the feature/);
+  assert.match(broken('views', GATED_PUBLIC, GATED_PUBLIC.replace('#[cfg(feature = "wrong-holders")]\n', '')), /pub only under the feature/);
+  assert.match(broken('views', '/// The sizes of', 'pub use self::ViewQuirk as Quirk;\n/// The sizes of'), /pub only under the feature/);
   assert.match(broken('ci', `run: ${FEATURE_OFF}`, 'run: true'), /CI must run/);
   assert.match(broken('precheck', 'cargo clippy -q --lib -- -D warnings', 'true'), /precheck must run/);
 });
