@@ -80,12 +80,15 @@ Each is made here under the store-arc delegation. Each moves to §12 when its st
 - **S4-11. Value indexes stay in slice 6.**
 - **S4-12. `proven` needs a rebuild of the pages** (§2), and the residue belongs to the file, not
   to a peer. Two counters keep it, in a one-row table `residue`. A trigger raises `dirty` in the
-  transaction of every delete of a `holding` or `delta` row. A rebuild reads `dirty` as `d` before
-  `VACUUM`. When `VACUUM` and `wal_checkpoint(TRUNCATE)` both succeed, the purge's last
-  transaction sets `clean = max(clean, d)`. The file is clean iff `clean = dirty` in that
-  transaction. Only then is a file surface `absent`; otherwise every file surface is `owed` and
-  the claim is not `proven`. A peer of posture `proven` rebuilds whenever the file is not clean
-  after its first transaction, also when it removed nothing.
+  transaction of every delete and every update of a `holding`, `delta`, `target` or `reference`
+  row. A rebuild reads `dirty` as `d` before `VACUUM`. When `VACUUM` and
+  `wal_checkpoint(TRUNCATE)` both succeed and the log is empty at the last transaction's lock,
+  that transaction sets `clean = max(clean, d)`. The file is clean iff `clean = dirty` in that
+  transaction. A file surface is `absent` only when the file is clean and the log was empty when
+  the last transaction took the write lock (§4.13 reading 119); otherwise every file surface is
+  `owed` and the claim is not `proven`. A peer of posture `proven` rebuilds whenever the file is
+  not clean after its first transaction, also when it removed nothing, and it always truncates the
+  log before its last transaction.
 - **S4-13. A later purge gives the later proof.** A peer of posture `proven` that removes an id
   writes a `surface_debt` row `(peer, delta)` in the delete's transaction. A later purge of that id
   by that peer answers `removed`. The row ends when that answer finds the file clean, and stays
@@ -153,7 +156,8 @@ surface_debt (peer TEXT NOT NULL, delta TEXT NOT NULL,
               PRIMARY KEY (peer, delta))                       -- step 4b
 residue   (one INTEGER PRIMARY KEY CHECK (one = 1),            -- step 4b: exactly one row
            dirty INTEGER NOT NULL, clean INTEGER NOT NULL CHECK (clean <= dirty))
-          -- AFTER DELETE triggers on holding and delta: dirty = dirty + 1
+          -- AFTER DELETE and AFTER UPDATE triggers on holding, delta, target and
+          -- reference: dirty = dirty + 1
 ```
 
 - **A signature belongs to a holding.** Two peers can hold one id under different appearances
@@ -169,8 +173,9 @@ residue   (one INTEGER PRIMARY KEY CHECK (one = 1),            -- step 4b: exact
   whole and never searched by id.
 - `surface_debt` names a peer only so that its owner can ask again (S4-13). It decides no surface
   state: the residue is the file's, and `residue` counts it (S4-12). Pointer rows cascade from
-  `holding`, so the `holding` trigger counts them. `change`, `debt` and `surface_debt` hold ids
-  only (decision O4), and no trigger counts them.
+  `holding`, and the cascade fires their own triggers. `change`, `debt` and `surface_debt` hold
+  ids only (decision O4), and no trigger counts them. No statement uses `REPLACE`: it deletes
+  rows without a delete trigger while `recursive_triggers` is off.
 - `delta.timestamp` is `REAL`: a signed creation time is any finite number, and the memory store
   accepts one that is not whole.
 - `peer.count` and `peer.floor` are written in the same transaction as the rows they summarize. A
@@ -289,6 +294,15 @@ it.
   does not depend on the other ids of the call.
 - *The asking peer gets its own record.* When a purge debt answers `removed` while the file is not
   clean, a peer of posture `proven` gets a `surface_debt` row in that transaction.
+- *A proof needs an empty log under the write lock* (after the fourth review; §4.13 reading
+  119). A write that fails or dies leaves its pages in the log, and deletes no row. A peer of
+  posture `proven` always truncates the log before its last transaction. That transaction reads
+  the size of `store.db-wal` just after `BEGIN IMMEDIATE`. A size other than 0 sends it back to
+  truncate again, at most three tries in all; the third answers `owed` without the proof. Every
+  peer's `absent` needs the empty log, a peer of posture `unproven` included.
+- *The format stays `rhizomatic-store-sqlite/2`* after the fourth review added triggers. No
+  release and no `main` commit ever wrote a `/2` file without them: `/2` exists only on the
+  branch of PR #87. A file of an earlier head of this branch is test data.
 - *A file that 4a wrote is refused.* 4b raises the format string to `rhizomatic-store-sqlite/2`.
   The tables changed too: `holding` became a rowid table. Open refuses a `/1` file with
   `open-failed` and names both formats. No rebuild and no migration ships: the work is greenfield,
@@ -318,6 +332,10 @@ bystander delta reads back with the same bytes after every case.
    `absent`. After a rebuild, both are answered `proven`.
 10. A peer with posture `unproven` purges: no rebuild runs, the report says `owed` and `unproven`,
     and a later rebuild by another peer cleans the file.
+11. **A write that does not commit** (after the fourth review). Another process's append dies
+    after its pages reach the log, or an append fails on a file-size limit, or such an append
+    dies in the window before the last transaction. The next proof of the asking peer empties the
+    log first; a report that says `absent` finds no marker in any file.
 
 **This step adds purge code to rhizomatic. It does not widen what Loam purges, because Loam does
 not use this store yet.** The Loam change that adopts it is Myk's merge. The same finding applies
