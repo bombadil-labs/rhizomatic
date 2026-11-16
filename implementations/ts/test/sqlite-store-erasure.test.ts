@@ -194,6 +194,19 @@ function child(path: string, peer: string, mode: string, purge: readonly string[
 const group = (tag: string, count: number, from = 0): Marked[] =>
   Array.from({ length: count }, (_, i) => marked(tag, from + i));
 
+/** The same delta as `of`, as another peer holds it: its own sender and signature. */
+const appearance = (tag: string, n: number, of: Marked): Marked => {
+  const own = marked(tag, n);
+  return {
+    delta: { ...of.delta, sig: own.delta.sig! },
+    sender: own.sender,
+    markers: { ...of.markers, sender: own.sender, signature: own.markers.signature },
+  };
+};
+/** The markers only this holding carries: its sender and its signature. */
+const ownMarkers = (deltas: readonly Marked[]): string[] =>
+  deltas.flatMap((d) => [d.markers.sender, d.markers.signature]);
+
 describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", () => {
   /**
    * 25 batches of 1,000 marked deltas on one peer. After each, 700 random deltas other than the
@@ -695,6 +708,10 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
       Object.fromEntries(ids(v).map((id) => [id, "held-by-other-peer"])),
     ]);
     expect(scan(dir, markersOf(v)).length).toBeGreaterThan(0);
+    // The ask changes nothing: the row stays as it was.
+    expect(ledger(path).debts).toEqual(
+      Object.fromEntries(ids(v).map((id) => [`peer:b ${id}`, expect.stringMatching(/^settled/)])),
+    );
     // (b) A removes the bytes under a busy log. B's ask is owed, and its row is owed again.
     const busy = reader(path);
     expect(outcomes(await a.purge(ids(v)))).toEqual(removedAll(v));
@@ -741,17 +758,9 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
   it("a release that leaves the bytes to another peer still owes the residue of the peer's own rows", async () => {
     const { dir, path } = place();
     // The same deltas, held by A and by B under their own senders and signatures.
-    const appearance = (n: number, of: Marked): Marked => {
-      const own = marked("ZH", n);
-      return {
-        delta: { ...of.delta, sig: own.delta.sig! },
-        sender: own.sender,
-        markers: { ...of.markers, sender: own.sender, signature: own.markers.signature },
-      };
-    };
     const [xa, ya] = [group("XH", 2), group("YH", 2)];
-    const xb = xa.map((d, i) => appearance(i, d));
-    const yb = ya.map((d, i) => appearance(10 + i, d));
+    const xb = xa.map((d, i) => appearance("ZH", i, d));
+    const yb = ya.map((d, i) => appearance("ZH", 10 + i, d));
     const own = (deltas: readonly Marked[]) =>
       deltas.flatMap((d) => [d.markers.sender, d.markers.signature]);
     const { peers } = await filled(path, {
@@ -842,6 +851,158 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
       removedAll(x),
     ]);
     held.release();
+    const proof = await a.purge(ids(x));
+    expect([proof.claim, states(proof), outcomes(proof)]).toEqual([
+      "proven",
+      every("absent"),
+      removedAll(x),
+    ]);
+    expect(scan(dir, markersOf(x))).toEqual([]);
+    await bystandersHold(dir, a, bystanders);
+  });
+
+  for (const [mode, window] of [
+    ["hold-after-checkpoint", "after the rebuild and before the settle"],
+    ["hold-at-vacuum", "after the delete commits and before VACUUM"],
+  ] as const)
+    it(`a report speaks for the state at its settle commit: another process appends the removed id ${window}`, async () => {
+      const { dir, path } = place();
+      const [xb, bystanders] = [group("XW1", 2), group("BW1", 2)];
+      const xa = xb.map((d, i) => appearance("AW1", i, d));
+      const { store } = await filled(path, {
+        "peer:a": { posture: "proven", deltas: bystanders },
+        "peer:b": { posture: "proven", deltas: xb },
+      });
+      await store.close();
+      const run = child(path, "peer:b", mode, ids(xb));
+      await run.printed(mode === "hold-at-vacuum" ? "vacuum" : "checkpointed");
+      // A appends the same deltas in this process while B waits.
+      const again = await open(path);
+      const a = await again.peer("peer:a");
+      await (
+        await writerOf(a)
+      )(xa);
+      writeFileSync(`${path}.go`, "");
+      expect(await run.ended).toBe("0");
+      const report = run.report();
+      expect([report.claim, states(report), outcomes(report)]).toEqual([
+        "nothing-removed",
+        every("owed"),
+        Object.fromEntries(ids(xb).map((id) => [id, "held-by-other-peer"])),
+      ]);
+      // B's own holding left the file; A's copy is there, with A's sender and signature.
+      expect(scan(dir, ownMarkers(xb))).toEqual([]);
+      await bystandersHold(dir, a, [...xa, ...bystanders]);
+    }, 60_000);
+
+  it("a release by a peer of posture unproven sets the mark: its own rows are owed until a rebuild", async () => {
+    const { dir, path } = place();
+    const [xa, bystanders] = [group("XU2", 2), group("BU2", 2)];
+    const xu = xa.map((d, i) => appearance("UU2", i, d));
+    const { peers } = await filled(path, {
+      "peer:a": { posture: "proven", deltas: [...xa, ...bystanders] },
+      "peer:u": { posture: "unproven", deltas: xu },
+    });
+    const report = await peers["peer:u"]!.purge(ids(xu));
+    expect([report.claim, states(report), outcomes(report)]).toEqual([
+      "nothing-removed",
+      every("owed"),
+      Object.fromEntries(ids(xu).map((id) => [id, "held-by-other-peer"])),
+    ]);
+    expect(scan(dir, ownMarkers(xu)).length).toBeGreaterThan(0);
+    expect(states(await peers["peer:a"]!.purge([]))).toEqual(every("absent"));
+    expect(scan(dir, ownMarkers(xu))).toEqual([]);
+    await bystandersHold(dir, peers["peer:a"]!, [...xa, ...bystanders]);
+  });
+
+  it("a settled record asked in one call with an id the peer holds, under a busy log, is owed again and gives the proof later", async () => {
+    const { dir, path } = place();
+    const [pool, bystanders] = [group("OR3", 8), group("BR3", 2)];
+    const [settledFirst, heldLater] = [...pool].sort((p, q) => (p.delta.id < q.delta.id ? -1 : 1));
+    const { peers } = await filled(path, {
+      "peer:b": { posture: "proven", deltas: [settledFirst!, heldLater!, ...bystanders] },
+    });
+    const b = peers["peer:b"]!;
+    expect((await b.purge(ids([settledFirst!]))).claim).toBe("proven");
+    const held = reader(path);
+    const both = await b.purge(ids([settledFirst!, heldLater!]));
+    expect([both.claim, states(both), outcomes(both)]).toEqual([
+      "unproven",
+      every("owed"),
+      removedAll([settledFirst!, heldLater!]),
+    ]);
+    held.release();
+    const proof = await b.purge(ids([settledFirst!]));
+    expect([proof.claim, states(proof), outcomes(proof)]).toEqual([
+      "proven",
+      every("absent"),
+      removedAll([settledFirst!]),
+    ]);
+    expect(scan(dir, markersOf([settledFirst!, heldLater!]))).toEqual([]);
+    await bystandersHold(dir, b, bystanders);
+  });
+
+  for (const [name, holders] of [
+    ["an unproven removal", { "peer:u": "unproven" }],
+    ["a release", { "peer:u": "proven", "peer:a": "proven" }],
+  ] as const)
+    it(`a crash just after the delete commits keeps the mark of ${name}: a proven ask after a reopen is owed`, async () => {
+      const { dir, path } = place();
+      const [x, bystanders] = [group("XK5", 2), group("BK5", 2)];
+      const { store } = await filled(path, {
+        "peer:p": { posture: "proven", deltas: bystanders },
+        ...Object.fromEntries(
+          Object.entries(holders).map(([peer, posture], k) => [
+            peer,
+            { posture, deltas: k === 0 ? x : x.map((d, i) => appearance("AK5", i, d)) },
+          ]),
+        ),
+      });
+      await store.close();
+      const start = ledger(path).generation;
+      const run = child(path, "peer:u", "kill-after-delete-commit", ids(x));
+      expect(await run.ended).toBe("SIGKILL");
+      expect(ledger(path)).toEqual({ generation: start, residue: String(start), debts: {} });
+      const again = await open(path);
+      const p = await again.peer("peer:p");
+      const held = reader(path);
+      expect(states(await p.purge([]))).toEqual(every("owed"));
+      held.release();
+      expect(states(await p.purge([]))).toEqual(every("absent"));
+      expect(ledger(path).residue).toBe(undefined);
+      expect(scan(dir, ownMarkers(x))).toEqual([]);
+      await bystandersHold(dir, p, bystanders);
+    }, 60_000);
+
+  it("a purge whose last transaction cannot commit refuses store-unavailable, and the next ask gives the proof", async () => {
+    const { dir, path } = place();
+    const [x, bystanders] = [group("XT6", 2), group("BT6", 2)];
+    const { peers } = await filled(path, {
+      "peer:a": { posture: "proven", deltas: [...x, ...bystanders] },
+    });
+    const a = peers["peer:a"]!;
+    const probe = new Database(":memory:");
+    const statement = Object.getPrototypeOf(probe.prepare("SELECT 1")) as {
+      run: (this: Database.Statement, ...args: unknown[]) => unknown;
+    };
+    probe.close();
+    const run = statement.run;
+    statement.run = function (...args) {
+      if (this.source === SQLITE_STATEMENTS.surfaceDebtSettle)
+        throw new Database.SqliteError("probe", "SQLITE_BUSY");
+      return run.apply(this, args);
+    };
+    let error: unknown;
+    try {
+      error = await a.purge(ids(x)).catch((e: unknown) => e);
+    } finally {
+      statement.run = run;
+    }
+    expect([(error as StoreError).code, (error as StoreError).message]).toEqual([
+      "store-unavailable",
+      expect.stringContaining("ask again"),
+    ]);
+    expect(Object.values(ledger(path).debts).every((d) => d.startsWith("owed"))).toBe(true);
     const proof = await a.purge(ids(x));
     expect([proof.claim, states(proof), outcomes(proof)]).toEqual([
       "proven",

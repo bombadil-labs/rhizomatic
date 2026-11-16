@@ -719,17 +719,19 @@ class SqliteFileStore implements SqliteStore {
   /**
    * The purge (plan §6, §7). One transaction removes the holdings, records the surface debt and
    * writes the change record. Then, for a peer of posture `proven` while any debt is owed, the
-   * rebuild. The report gives the file surfaces `absent` only when this call's own rebuild and
-   * truncate succeeded after its delete, or when nothing is owed at all.
+   * rebuild. A last transaction marks the debts the rebuild settled, takes a second look at
+   * every removed target, and decides the report: the report speaks for the state at that
+   * commit (§4.13 reading 115). The file surfaces are `absent` only when this call's own rebuild
+   * and truncate succeeded after its delete, or when nothing is owed at all.
    */
   #purge(peer: PeerId, ids: readonly Id[]): PurgeReport {
     const s = this.#s;
+    const owedNow = (): boolean =>
+      s.surfaceDebtOwed.get() !== undefined || this.#meta("residue") !== undefined;
     const removal = this.#run("write", () => {
       const row = this.#peerRow(peer)!;
       const proving = ERASURE_CLASS === "proven" && row.posture === "proven";
       const generation = Number(this.#meta("generation"));
-      const owedNow = (): boolean =>
-        s.surfaceDebtOwed.get() !== undefined || this.#meta("residue") !== undefined;
       // A removal leaves residue in the file. A peer that asks for proof records it per id; a
       // peer that does not sets the one file-level mark (decision S4-16).
       const owe = (id: Id): void => {
@@ -738,7 +740,9 @@ class SqliteFileStore implements SqliteStore {
       };
       const targets: { id: Id; outcome: PurgeOutcome }[] = [];
       const released: Id[] = [];
-      let rowsOwed = false;
+      // The ids answered from a record of residue: its row is consumed in the last transaction,
+      // once the call knows whether the file owes a rebuild.
+      const asked: Id[] = [];
       let indexesOwed = false;
       for (const id of sorted(ids)) {
         let outcome: PurgeOutcome;
@@ -771,17 +775,11 @@ class SqliteFileStore implements SqliteStore {
             outcome = "held-by-other-peer";
           else {
             // The later proof (decision S4-13): an earlier purge removed the id, and this ask is
-            // answered with the present surface states. A settled row has served its purpose,
-            // unless the file owes a rebuild now: then the row is owed again, so that the next
-            // ask can be answered after that rebuild.
+            // answered with the present surface states.
             outcome = "removed";
-            if (debt.state === "settled") {
-              if (proving && owedNow()) s.surfaceDebtOwe.run(peer, id, generation);
-              else s.surfaceDebtDrop.run(peer, id);
-            }
+            asked.push(id);
           }
         }
-        rowsOwed ||= outcome === "removed" && s.deltaFind.get(id) !== undefined;
         targets.push({ id, outcome });
       }
       let revision = row.revision;
@@ -795,6 +793,34 @@ class SqliteFileStore implements SqliteStore {
           released,
         );
       }
+      return { proving, targets, revision, indexesOwed, asked, owed: owedNow() };
+    });
+    // A purge that removes nothing still rebuilds while anything is owed (plan §7, rail 4).
+    const raised = removal.proving && removal.owed ? this.#rebuild() : undefined;
+    const answer = this.#run("write", () => {
+      if (raised !== undefined) {
+        s.surfaceDebtSettle.run(raised);
+        const mark = this.#meta("residue");
+        if (mark !== undefined && Number(mark) < raised) s.markDrop.run();
+      }
+      const generation = Number(this.#meta("generation"));
+      // The second look, under the write lock: another process may have appended a removed id
+      // since the delete. Its bytes are then in the file, and no rebuild proves them absent.
+      let present = false;
+      const targets = removal.targets.map((target) => {
+        if (target.outcome !== "removed" || s.deltaFind.get(target.id) === undefined) return target;
+        present = true;
+        if (removal.proving) s.surfaceDebtOwe.run(peer, target.id, generation);
+        return { id: target.id, outcome: "held-by-other-peer" as const };
+      });
+      // A settled record of residue has served its purpose, unless the file owes a rebuild now:
+      // then it is owed again, so that the next ask is answered after that rebuild.
+      for (const id of removal.asked) {
+        const debt = s.surfaceDebtFind.get(peer, id) as { state: string } | undefined;
+        if (debt?.state !== "settled" || s.deltaFind.get(id) !== undefined) continue;
+        if (removal.proving && owedNow()) s.surfaceDebtOwe.run(peer, id, generation);
+        else s.surfaceDebtDrop.run(peer, id);
+      }
       // The surfaces that may still hold the id of a target this peer released or owes. The
       // list may name one that no longer does; it never omits one that does (decision S4-5).
       const named = targets.filter((t) => t.outcome !== "not-held").map((t) => t.id);
@@ -803,15 +829,13 @@ class SqliteFileStore implements SqliteStore {
         retains.push({ surface: "purge-debt", holds: "id" });
       if (named.some((id) => s.surfaceDebtNames.get(id) !== undefined))
         retains.push({ surface: "surface-debt", holds: "id" });
-      return { proving, targets, revision, rowsOwed, indexesOwed, retains, owed: owedNow() };
+      return { targets, retains, present, owed: owedNow() };
     });
-    // A purge that removes nothing still rebuilds while anything is owed (plan §7, rail 4).
-    const rebuilt = removal.proving && removal.owed && this.#rebuild();
-    const filesAbsent = rebuilt || !removal.owed;
-    const removed = removal.targets.some((target) => target.outcome === "removed");
+    const filesAbsent = !answer.present && (raised !== undefined || !answer.owed);
+    const removed = answer.targets.some((target) => target.outcome === "removed");
     const surfaces: PurgeReport["surfaces"] = filesAbsent
       ? [
-          { surface: "rows", state: removal.rowsOwed ? "owed" : "absent" },
+          { surface: "rows", state: "absent" },
           { surface: "index-entries", state: removal.indexesOwed ? "owed" : "absent" },
           { surface: "page-free-space", state: "absent" },
           { surface: "freed-pages", state: "absent" },
@@ -832,22 +856,22 @@ class SqliteFileStore implements SqliteStore {
           : "unproven",
       boundary: PURGE_BOUNDARY,
       revision: removal.revision,
-      targets: removal.targets,
+      targets: answer.targets,
       surfaces,
-      retains: removal.retains,
+      retains: answer.retains,
     };
   }
 
   /**
-   * Rebuilds the pages and empties the log. True only when both succeeded. The generation is
-   * raised first, in its own transaction, so the rebuild settles only debts recorded before it
-   * began: a purge that another process commits meanwhile keeps its debt.
+   * Rebuilds the pages and empties the log. Answers the generation it raised when both
+   * succeeded, and `undefined` otherwise. The generation is raised first, in its own
+   * transaction, so the rebuild settles only debts recorded before it began: a purge that
+   * another process commits meanwhile keeps its debt. The caller marks the debts settled.
    */
-  #rebuild(): boolean {
+  #rebuild(): number | undefined {
     const s = this.#s;
-    let raised: number;
     try {
-      raised = this.#run("write", () => {
+      const raised = this.#run("write", () => {
         const next = Number(this.#meta("generation")) + 1;
         s.generationRaise.run(String(next));
         return next;
@@ -856,20 +880,10 @@ class SqliteFileStore implements SqliteStore {
       // A busy checkpoint answers a row and does not throw. Until it truncates, the old pages
       // stay in the database file and the log.
       const { busy, log } = s.checkpoint.get() as { busy: number; log: number };
-      if (busy !== 0 || log !== 0) return false;
+      return busy === 0 && log === 0 ? raised : undefined;
     } catch {
-      return false;
+      return undefined;
     }
-    try {
-      this.#run("write", () => {
-        s.surfaceDebtSettle.run(raised);
-        const mark = this.#meta("residue");
-        if (mark !== undefined && Number(mark) < raised) s.markDrop.run();
-      });
-    } catch {
-      // The debts stay owed, and the next rebuild settles them.
-    }
-    return true;
   }
 
   #meta(key: string): string | undefined {

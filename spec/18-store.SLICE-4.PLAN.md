@@ -87,7 +87,9 @@ Each is made here under the store-arc delegation. Each moves to §12 when its st
   nothing still runs the rebuild when any row is `owed`.
 - **S4-13. A later purge gives the later proof.** A purge of an id whose `surface_debt` row is
   this peer's answers `removed` with the present surface states, and deletes the row once it is
-  `settled`. It is a new reading. `retains` names `surface-debt` while such a row exists.
+  `settled`. It is a new reading. `retains` names `surface-debt` while such a row exists. The
+  proof is available until another peer adds the id again; after that the bytes are live and no
+  proof of absence exists (proposal §4.13 reading 113).
 - **S4-16. A peer with posture `unproven` does not pay for a rebuild.** Its purge writes the
   debts, reports every file surface `owed` and claims `unproven`. The next rebuild by any peer
   settles them.
@@ -262,7 +264,7 @@ Limits, stated in the report's boundary text and in the proposal:
 - The debt is written in the purge transaction, so a crash between the delete and the rebuild
   keeps it. A reopened store still reports `owed` for those ids.
 - A later purge of the same ids runs the rebuild again and answers `removed` with the present
-  states (S4-13). That is the path to the later proof.
+  states (S4-13). That is the path to the later proof, until another peer adds the id again.
 
 **Settled for 4b by the third review round.** The 4b builder implements these; they are not open.
 

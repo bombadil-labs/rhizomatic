@@ -30,7 +30,7 @@ optional peer dependency. Two contract changes reach both stores: the refusal `s
 
 The store, slice 4, step 4b (TypeScript): the SQLite store proves erasure. A purge by a peer of
 posture `proven` rebuilds the pages (`VACUUM`) and truncates the log, and the report says
-`proven` only when that succeeded after the delete (§4.13 readings 107 to 114). The store's class
+`proven` only when that succeeded after the delete (§4.13 readings 107 to 116). The store's class
 is `proven` on Linux only, and `unprovable` on Windows, macOS and elsewhere. Rust follows in step
 4e.
 
@@ -40,7 +40,11 @@ is `proven` on Linux only, and `unprovable` on Windows, macOS and elsewhere. Rus
   wrote, and names both formats. No migration ships: make a new store.
 - The SQLite store declares a sixth surface, `temp-files`. Every file surface is `owed` while a
   debt is owed: after a busy checkpoint, a failed rebuild, a crash, or a purge by a peer of
-  posture `unproven`. A later purge of the same ids answers `removed` with the proof.
+  posture `unproven`. A later purge of the same ids answers `removed` with the proof, until
+  another peer adds the id again; after that the bytes are live and no proof of absence exists.
+- A purge report speaks for the state at the last transaction of the call, which looks again at
+  every removed target (reading 115). If that transaction cannot commit, the purge refuses
+  `store-unavailable`.
 - `peer()` refuses `posture-refused` for a peer of posture `proven` on a store of another class.
 - A settled debt proves absence at its settle only: an append of the id ends it (reading 113).
   A purge that releases a holding another peer keeps still owes the residue of its own rows

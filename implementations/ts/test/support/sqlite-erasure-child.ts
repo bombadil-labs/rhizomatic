@@ -12,6 +12,8 @@
 //   marked settled.
 // - `hold-after-checkpoint`: after the rebuild's truncate, print `checkpointed` and wait until the
 //   file `<path>.go` exists; then mark the debts and end.
+// - `hold-at-vacuum`: after the generation is raised and before `VACUUM`, print `vacuum` and
+//   wait until the file `<path>.go` exists.
 // - `hold-after-report`: print the report and wait to be killed.
 // - `plain`: print the report and end.
 //
@@ -57,6 +59,10 @@ async function main(path: string, peerId: string, mode: string, ids: string[]): 
   let dropped = false;
   statement.run = function (...args) {
     if (this.source === at) die();
+    if (mode === "hold-at-vacuum" && this.source === SQLITE_STATEMENTS.vacuum) {
+      writeSync(1, "vacuum\n");
+      while (!existsSync(`${path}.go`)) wait();
+    }
     const result = run.apply(this, args);
     if (this.source === SQLITE_STATEMENTS.holdingDrop) dropped = true;
     if (mode === "kill-after-delete-commit" && dropped && this.source === "COMMIT") die();
