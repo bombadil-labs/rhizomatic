@@ -79,20 +79,23 @@ Each is made here under the store-arc delegation. Each moves to §12 when its st
   this plan, the proposal and the vectors only.
 - **S4-11. Value indexes stay in slice 6.**
 - **S4-12. `proven` needs a rebuild of the pages** (§2), and the residue belongs to the file, not
-  to a peer. A purge writes a `surface_debt` row, state `owed`, for each id it removes, inside its
-  own transaction. Then it rebuilds and truncates. A rebuild and truncate that both succeed mark
-  **every** `owed` row of the store `settled`. A report gives a file surface `absent` only when
-  its own call rebuilt and truncated after its delete, or when no row of any peer is `owed`.
-  Otherwise every file surface is `owed` and the claim is not `proven`. A purge that removes
-  nothing still runs the rebuild when any row is `owed`.
-- **S4-13. A later purge gives the later proof.** A purge of an id whose `surface_debt` row is
-  this peer's answers `removed` with the present surface states, and deletes the row once it is
-  `settled`. It is a new reading. `retains` names `surface-debt` while such a row exists. The
-  proof is available until another peer adds the id again; after that the bytes are live and no
-  proof of absence exists (proposal §4.13 reading 113).
-- **S4-16. A peer with posture `unproven` does not pay for a rebuild.** Its purge writes the
-  debts, reports every file surface `owed` and claims `unproven`. The next rebuild by any peer
-  settles them.
+  to a peer. Two counters keep it, in a one-row table `residue`. A trigger raises `dirty` in the
+  transaction of every delete of a `holding` or `delta` row. A rebuild reads `dirty` as `d` before
+  `VACUUM`. When `VACUUM` and `wal_checkpoint(TRUNCATE)` both succeed, the purge's last
+  transaction sets `clean = max(clean, d)`. The file is clean iff `clean = dirty` in that
+  transaction. Only then is a file surface `absent`; otherwise every file surface is `owed` and
+  the claim is not `proven`. A peer of posture `proven` rebuilds whenever the file is not clean
+  after its first transaction, also when it removed nothing.
+- **S4-13. A later purge gives the later proof.** A peer of posture `proven` that removes an id
+  writes a `surface_debt` row `(peer, delta)` in the delete's transaction. A later purge of that id
+  by that peer answers `removed`. The row ends when that answer finds the file clean, and stays
+  while it does not. An append of the id ends every peer's row for it: the bytes are live again,
+  and no proof of absence exists. `retains` names `surface-debt` while such a row exists. It is a
+  new reading.
+- **S4-16. A peer with posture `unproven` does not pay for a rebuild.** Its purge runs none and
+  keeps no row per id: the counter is its record. It reports every file surface `owed` while the
+  file is not clean, and never claims `proven`. The next rebuild by a peer of posture `proven`
+  cleans the file.
 - **S4-14. Process memory is outside the claim of a store that keeps its data in files.** The
   memory store declares `process-memory: unprovable` because memory is its only medium. A durable
   store's page cache and statement memory hold bytes until the process frees them. The boundary
@@ -147,8 +150,10 @@ change    (peer TEXT NOT NULL, revision INTEGER NOT NULL, head TEXT,
            PRIMARY KEY (peer, revision))                       -- a rowid table
 debt         (peer TEXT NOT NULL, delta TEXT NOT NULL, PRIMARY KEY (peer, delta))
 surface_debt (peer TEXT NOT NULL, delta TEXT NOT NULL,
-              state TEXT NOT NULL CHECK (state IN ('owed','settled')),
               PRIMARY KEY (peer, delta))                       -- step 4b
+residue   (one INTEGER PRIMARY KEY CHECK (one = 1),            -- step 4b: exactly one row
+           dirty INTEGER NOT NULL, clean INTEGER NOT NULL CHECK (clean <= dirty))
+          -- AFTER DELETE triggers on holding and delta: dirty = dirty + 1
 ```
 
 - **A signature belongs to a holding.** Two peers can hold one id under different appearances
@@ -162,8 +167,10 @@ surface_debt (peer TEXT NOT NULL, delta TEXT NOT NULL,
   requires.
 - `change.added` and `change.removed` are sorted id lists in one value each. A record is read
   whole and never searched by id.
-- `surface_debt` names a peer only so that its owner can ask again (S4-13). The debt itself is
-  the file's: one `owed` row of any peer keeps every report from `absent` (S4-12).
+- `surface_debt` names a peer only so that its owner can ask again (S4-13). It decides no surface
+  state: the residue is the file's, and `residue` counts it (S4-12). Pointer rows cascade from
+  `holding`, so the `holding` trigger counts them. `change`, `debt` and `surface_debt` hold ids
+  only (decision O4), and no trigger counts them.
 - `delta.timestamp` is `REAL`: a signed creation time is any finite number, and the memory store
   accepts one that is not whole.
 - `peer.count` and `peer.floor` are written in the same transaction as the rows they summarize. A
@@ -216,9 +223,11 @@ showed it hollow: a `SEARCH … (peer=?)` reads a whole peer and passes. The rai
   `delta` rows for claims not yet stored, `holding`, `target`, `reference`, the `peer` row and one
   `change` row. A refused batch therefore writes no page at all. A crash rail kills the process
   inside the transaction and finds all of the batch or none of it.
-- **Purge** is one transaction: record a `surface_debt` row per removed id, delete this peer's
-  `holding` rows (the pointer rows cascade), write the `change` row, then delete each `delta` row
-  that no `holding` row names. Then, outside it, the rebuild and the truncate (§7), from step 4b.
+- **Purge** runs a first transaction: delete this peer's `holding` rows (the pointer rows
+  cascade), delete each `delta` row that no `holding` row names, write a `surface_debt` row per
+  removed id for a peer of posture `proven`, and write the `change` row. The triggers count the
+  deletes in that transaction. Then the rebuild and the truncate (§7), and a last transaction
+  that decides the report.
 - **Retention** drops old `change` rows in the transaction that writes the record after the nth.
 
 ## 7. Proven erasure (step 4b)
@@ -261,28 +270,25 @@ Limits, stated in the report's boundary text and in the proposal:
   `owed`. A busy checkpoint leaves the bytes in the database file, not in the log, so no file
   surface can be `absent` then. The checkpoint pragma answers `busy` as a row and does not throw;
   the store reads it.
-- The debt is written in the purge transaction, so a crash between the delete and the rebuild
-  keeps it. A reopened store still reports `owed` for those ids.
+- The count is raised in the delete's transaction, so a crash at any later point leaves the file
+  not clean. A reopened store reports `owed` until a rebuild succeeds.
 - A later purge of the same ids runs the rebuild again and answers `removed` with the present
   states (S4-13). That is the path to the later proof, until another peer adds the id again.
 
-**Settled for 4b by the third review round.** The 4b builder implements these; they are not open.
+**Settled for 4b after the third review of PR #87.** Three review rounds each found a state that
+a per-id mechanism (states, generations, a file-level mark) did not list. One invariant replaces
+it.
 
-- *A rebuild settles only older debts.* `meta` holds a generation number. A purge stamps its
-  `surface_debt` rows with the present generation. A rebuild raises the generation first, in its
-  own transaction, then runs, and settles only rows of an older generation. A purge that another
-  process commits during the rebuild keeps its debt. `surface_debt` gains a `generation` column,
-  and a rail runs the two processes.
-- *The asking peer gets its own debt row.* When a settled purge debt answers `removed` while any
-  row is `owed`, the store writes a `surface_debt` row for the asking peer in that transaction.
-  Its next ask can then be answered `proven` (rail 9).
-- *A second purge of a re-held id* upserts the row to `owed` under the present generation.
-- *A store of `unproven` peers keeps one mark, not a row per id.* An `unproven` peer's purge sets
-  one file-level mark, "residue owed since generation g", in `meta`. A rebuild clears it. S4-16
-  reads that way; no id is kept for a peer that asked for no proof. The mark holds the generation
-  of the latest such purge. A rebuild clears it only when that generation is older than the one
-  the rebuild raised. The mark counts as an `owed` row in the S4-12 rule and in the rule for the
-  asking peer's row.
+- *The file is clean iff `clean = dirty`, kept by triggers* (S4-12). A delete that commits after a
+  rebuild read `d` raises `dirty` past `d`, whichever step of the rebuild it falls between. That
+  rebuild then sets `clean` to `d`, and the file stays not clean. No other path gives `absent`.
+- *The last transaction decides the report.* It looks again at the delta row of every target the
+  call released and of every id it answers from a record or a purge debt. A present row gives
+  `held-by-other-peer`, and the peer gets the purge debt it would have had. It consumes the
+  records and purge debts it answers from; no earlier transaction does. The answer of each id
+  does not depend on the other ids of the call.
+- *The asking peer gets its own record.* When a purge debt answers `removed` while the file is not
+  clean, a peer of posture `proven` gets a `surface_debt` row in that transaction.
 - *A file that 4a wrote is refused.* 4b raises the format string to `rhizomatic-store-sqlite/2`.
   The tables changed too: `holding` became a rowid table. Open refuses a `/1` file with
   `open-failed` and names both formats. No rebuild and no migration ships: the work is greenfield,
@@ -311,7 +317,7 @@ bystander delta reads back with the same bytes after every case.
    busy log: `removed`, `owed`. A asks again: `removed`, and every file surface is `owed`, not
    `absent`. After a rebuild, both are answered `proven`.
 10. A peer with posture `unproven` purges: no rebuild runs, the report says `owed` and `unproven`,
-    and a later rebuild by another peer settles its debts.
+    and a later rebuild by another peer cleans the file.
 
 **This step adds purge code to rhizomatic. It does not widen what Loam purges, because Loam does
 not use this store yet.** The Loam change that adopts it is Myk's merge. The same finding applies

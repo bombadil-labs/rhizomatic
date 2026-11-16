@@ -68,6 +68,10 @@ const store = await openSqliteStore("/var/lib/app/store.db");
   the scheme, and the import does not replace it and does not fail. `openStore("sqlite:…")` then
   calls the host's factory.
 - `openSqliteStore` always opens this store, whoever holds the scheme.
+- On Linux a peer created with `{erasure: "proven"}` gets purge reports that can say `proven`.
+  Such a purge rebuilds the file (`VACUUM`, then a truncate of the log), and needs free disk of
+  about three times the store. A report says `absent` only when the file is clean: no row was
+  deleted after the last rebuild began. On other platforms the class is `unprovable`.
 
 ## License
 

@@ -38,17 +38,17 @@ is `proven` on Linux only, and `unprovable` on Windows, macOS and elsewhere. Rus
   may still hold a target's id (decision S4-5). A store written outside this package adds it.
 - ⚠️ **The SQLite format is `rhizomatic-store-sqlite/2`.** Open refuses a `/1` file, which step 4a
   wrote, and names both formats. No migration ships: make a new store.
-- The SQLite store declares a sixth surface, `temp-files`. Every file surface is `owed` while a
-  debt is owed: after a busy checkpoint, a failed rebuild, a crash, or a purge by a peer of
-  posture `unproven`. A later purge of the same ids answers `removed` with the proof, until
-  another peer adds the id again; after that the bytes are live and no proof of absence exists.
+- The SQLite store declares a sixth surface, `temp-files`. Two counters, kept by triggers, tell
+  whether the file is clean (reading 117). Every file surface is `owed` while it is not: after a
+  busy checkpoint, a failed rebuild, a crash, or a purge by a peer of posture `unproven`. A later
+  purge of the same ids answers `removed` with the proof, until an append of the id ends the
+  record (reading 118).
 - A purge report speaks for the state at the last transaction of the call, which looks again at
-  every removed target (reading 115). If that transaction cannot commit, the purge refuses
-  `store-unavailable`.
+  every target it released or answers from a record (reading 115). If that transaction cannot
+  commit, the purge refuses `store-unavailable`; its delete may have committed (reading 105).
 - `peer()` refuses `posture-refused` for a peer of posture `proven` on a store of another class.
-- A settled debt proves absence at its settle only: an append of the id ends it (reading 113).
-  A purge that releases a holding another peer keeps still owes the residue of its own rows
-  (reading 114).
+- A purge that releases a holding another peer keeps still leaves the residue of its own rows,
+  and the file is not clean until a rebuild (reading 114).
 - The process memory of a store that keeps its data in files lies outside the erasure claim
   (Myk's ruling, 2026-11-15; §4.7.2).
 

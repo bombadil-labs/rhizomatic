@@ -28,7 +28,7 @@ import { createInterface } from "node:readline";
 import { existsSync, writeSync } from "node:fs";
 import Database from "better-sqlite3";
 import { SQLITE_STATEMENTS } from "../../src/storage/sqlite-statements.js";
-import { openSqliteStore } from "../../src/storage/sqlite-store.js";
+import { openSqliteStore, type SqliteStore } from "../../src/storage/sqlite-store.js";
 import { StoreError } from "../../src/storage/store.js";
 
 const sleep = (ms: number): void => {
@@ -110,11 +110,11 @@ function arm(mode: string): void {
   committed = false;
 }
 
-let store = await openSqliteStore(path, { busyTimeoutMs: 100 });
+let store: SqliteStore | undefined;
 
 async function purge(at: string, peer: string, ids: string[], mode: string): Promise<string> {
-  if (at !== path) {
-    await store.close();
+  if (store === undefined || at !== path) {
+    await store?.close();
     path = at;
     store = await openSqliteStore(path, { busyTimeoutMs: 100 });
   }
@@ -139,4 +139,4 @@ if (startMode === "serve") {
   writeSync(1, `${await purge(path, peerId, JSON.parse(idsText) as string[], startMode)}\n`);
   at("report");
 }
-await store.close();
+await store?.close();

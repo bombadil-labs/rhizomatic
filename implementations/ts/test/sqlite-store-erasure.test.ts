@@ -702,6 +702,61 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
       }, 60_000);
   });
 
+  it("a later ask answers from the state at its last commit: another process appends a recorded id and an owed id just before it", async () => {
+    const { dir, path } = place();
+    const [k, d, bystanders] = [group("KL", 2), group("DL", 2), group("BL", 2)];
+    const [ka, da] = [
+      k.map((x, i) => appearance("KA", i, x)),
+      d.map((x, i) => appearance("DA", i, x)),
+    ];
+    const { store, peers } = await filled(path, {
+      "peer:a": { posture: "proven", deltas: bystanders },
+      "peer:b": { posture: "proven", deltas: [...k, ...d] },
+      "peer:c": { posture: "proven", deltas: d.map((x, i) => appearance("DC", i, x)) },
+    });
+    const [b, c] = [peers["peer:b"]!, peers["peer:c"]!];
+    expect((await b.purge(ids(k))).claim).toBe("proven");
+    expect(outcomes(await b.purge(ids(d)))).toEqual(all(d, "held-by-other-peer"));
+    expect((await c.purge(ids(d))).claim).toBe("proven");
+    expect([ledger(path).records, ledger(path).debts]).toEqual([
+      [...recordsOf("peer:b", k), ...recordsOf("peer:c", d)].sort(),
+      recordsOf("peer:b", d),
+    ]);
+    await store.close();
+    const run = child(path, "peer:b", "hold-last,hold-after-last", ids([...k, ...d]));
+    await run.held("last");
+    const again = await open(path);
+    const a = await again.peer("peer:a");
+    await (
+      await writerOf(a)
+    )([...ka, ...da]);
+    run.go("last");
+    await run.held("after-last");
+    const found = scan(dir, deadMarkers(path, [...k, ...d, ...ka, ...da]));
+    run.go("after-last");
+    expect(await run.ended).toBe("0");
+    // The append ended B's record of k; B's purge debt of d stays while A holds d.
+    expect(shape(run.report())).toEqual([
+      "nothing-removed",
+      every("absent"),
+      { ...all(k, "not-held"), ...all(d, "held-by-other-peer") },
+    ]);
+    expect(found).toEqual([]);
+    const later = await again.peer("peer:b");
+    expect(outcomes(await later.purge(ids([...k, ...d])))).toEqual({
+      ...all(k, "not-held"),
+      ...all(d, "held-by-other-peer"),
+    });
+    expect((await a.purge(ids([...ka, ...da]))).claim).toBe("proven");
+    expect(shape(await later.purge(ids([...k, ...d])))).toEqual([
+      "proven",
+      every("absent"),
+      { ...all(k, "not-held"), ...removedAll(d) },
+    ]);
+    expect(scan(dir, markersOf([...k, ...d, ...ka, ...da]))).toEqual([]);
+    await bystandersHold(dir, a, bystanders);
+  }, 60_000);
+
   it("an unproven peer's later ask of a removed id answers not-held: the counter is its record", async () => {
     const { dir, path } = place();
     const [x, bystanders] = [group("XN", 2), group("BN", 2)];
