@@ -309,10 +309,18 @@ describe.skipIf(!PROVEN_HERE)("peer delete removes the bytes (Linux)", () => {
     const store = await open(path);
     const name = "peer:Qdel7Empty";
     const a = await store.createPeer(name, { erasure: "proven" });
+    const b = await store.createPeer("peer:b", { erasure: "proven" });
+    const gone = marked("EmG", 1);
+    await put(b, [gone], "HdB0Z");
+    // B's proven purge rebuilds the file, so it is clean. An append deletes and updates no
+    // erasable row, so the file stays clean while A writes its heads and the records that
+    // retention trims, and B's appends between them split the pages that hold A's rows.
+    expect((await b.purge([gone.delta.id])).claim).toBe("proven");
     const heads: string[] = [];
+    const bystander: Marked[] = [];
     let head: string | null = null;
     for (let i = 0; i < 1500; i++) {
-      heads.push(`HdEmpty${i}Z${"~".repeat(200)}`);
+      heads.push(`HdEmpty${i}Z${"~".repeat(60)}`);
       const result = await a.append({
         expectedHead: head,
         nextHead: heads.at(-1)!,
@@ -321,21 +329,23 @@ describe.skipIf(!PROVEN_HERE)("peer delete removes the bytes (Linux)", () => {
       });
       expect(result.status).toBe("committed");
       head = heads.at(-1)!;
+      if (i % 3 === 0) {
+        bystander.push(marked("EmY", i));
+        await put(b, bystander.slice(-1), `HdB${i + 1}Z`);
+      }
     }
-    const b = await store.createPeer("peer:b", { erasure: "proven" });
-    const [y, gone] = [marked("EmY", 1), marked("EmG", 1)];
-    await put(b, [y, gone], "HdBZ");
-    // B's proven purge rebuilds the file: it is clean when the delete begins.
-    expect((await b.purge([gone.delta.id])).claim).toBe("proven");
     const clean = read(path, (db) =>
       db.prepare("SELECT dirty = clean AS c FROM residue").pluck().get(),
     );
     expect(clean).toBe(1);
-    expect(scan(dir, [name, heads.at(-1)!.slice(0, 16)]).length).toBe(2);
+    const control = [name, heads.at(-1)!.slice(0, 16)];
+    expect(new Set(scan(dir, control).map((found) => found.split(": ")[1]))).toEqual(
+      new Set(control),
+    );
 
     expect(await store.deletePeer(name)).toEqual(proven(0, 0));
     expect(scan(dir, [name, ...heads.map((h) => h.slice(0, 16))])).toEqual([]);
-    await bystanderHolds(store, b, [y]);
+    await bystanderHolds(store, b, bystander);
   }, 120_000);
 });
 
@@ -413,7 +423,7 @@ describe("a delete that dies, and other processes", () => {
     const store = await open(path);
     const a = await store.createPeer("peer:a", { erasure: "unproven" });
     const b = await store.createPeer("peer:b", { erasure: "unproven" });
-    const own = group("Race", 300);
+    const own = group("Race", 3000);
     const y = marked("RaceY", 1);
     await put(a, own, "HdRaceZ");
     await put(b, [y], "HdRaceBZ");
@@ -427,7 +437,7 @@ describe("a delete that dies, and other processes", () => {
     expect(done.refused).toBe("peer-absent");
     expect([report.claim, report.released, report.keptByOtherPeers]).toEqual([
       "unproven",
-      300 + done.committed,
+      3000 + done.committed,
       0,
     ]);
     expect(
@@ -439,6 +449,49 @@ describe("a delete that dies, and other processes", () => {
     expect(await listed(store.openAdmin().storedIds())).toEqual([y.delta.id]);
     await bystanderHolds(store, b, [y]);
   }, 120_000);
+});
+
+describe("a purge that a delete overtakes", () => {
+  it("a delete that marks the peer between a purge's first and last transactions makes the purge refuse peer-absent; the next delete finishes and counts only what it released", async () => {
+    const { path } = place();
+    const store = await open(path);
+    const a = await store.createPeer("peer:a", { erasure: "unproven" });
+    const b = await store.createPeer("peer:b", { erasure: "unproven" });
+    const own = group("Over", 5);
+    const y = marked("OverY", 1);
+    await put(a, own, "HdOverZ");
+    await put(b, [y], "HdOverBZ");
+    // Another connection marks the peer as soon as the purge's first transaction commits, as a
+    // delete in another process would. The watch is on this process's statements only.
+    const other = new Database(path);
+    const probe = new Database(":memory:");
+    const statement = Object.getPrototypeOf(probe.prepare("SELECT 1")) as {
+      run: (this: Database.Statement, ...args: unknown[]) => unknown;
+    };
+    probe.close();
+    const run = statement.run;
+    let mark = false;
+    statement.run = function (...args) {
+      const result = run.apply(this, args);
+      if (this.source === "COMMIT" && !mark) {
+        mark = true;
+        other.prepare("UPDATE peer SET state = 'deleting' WHERE id = 'peer:a'").run();
+      }
+      return result;
+    };
+    let refused: string;
+    try {
+      refused = await code(() => a.purge([own[0]!.delta.id]));
+    } finally {
+      statement.run = run;
+      other.close();
+    }
+    expect([mark, refused]).toEqual([true, "peer-absent"]);
+    const report = await store.deletePeer("peer:a");
+    expect([report.claim, report.released, report.keptByOtherPeers]).toEqual(["unproven", 4, 0]);
+    expect(await listed(store.openAdmin().storedIds())).toEqual([y.delta.id]);
+    await bystanderHolds(store, b, [y]);
+  });
 });
 
 describe("the statements that read a peer", () => {
