@@ -279,10 +279,15 @@ function waiting<T>(deadline: number, body: () => T): T {
         throw error;
       const left = deadline - performance.now();
       if (left <= 0) throw unavailable(error);
-      pause ??= new Int32Array(new SharedArrayBuffer(4));
-      Atomics.wait(pause, 0, 0, Math.min(BUSY_PAUSE_MS, left));
+      rest(left);
     }
   }
+}
+
+/** Blocks for `BUSY_PAUSE_MS`, or for `left` ms when that is shorter. */
+function rest(left: number): void {
+  pause ??= new Int32Array(new SharedArrayBuffer(4));
+  Atomics.wait(pause, 0, 0, Math.min(BUSY_PAUSE_MS, left));
 }
 
 // ---- claims from their canonical bytes ----------------------------------------------------------
@@ -632,12 +637,14 @@ class SqliteFileStore implements SqliteStore {
   readonly #pageSize: number;
   readonly #mint: ((peer: PeerId) => History) | undefined;
   readonly #rules: ReturnType<typeof RULES>;
+  readonly #busyTimeoutMs: number;
   readonly #file: string;
   #closed = false;
 
   constructor(db: BetterSqlite3.Database, options: OwnOptions) {
     this.#db = db;
     this.#rules = RULES(options.busyTimeoutMs);
+    this.#busyTimeoutMs = options.busyTimeoutMs;
     // Before each statement of the open, the engine waits only for the time left of one
     // `busyTimeoutMs`, so a holder that takes the lock again before each statement cannot make the
     // open wait longer. The host's value is set again before the rules are checked, and at the end.
@@ -797,7 +804,7 @@ class SqliteFileStore implements SqliteStore {
   /**
    * The row of the peer a handle names: the live peer of the id that `createPeer` made under
    * `origin`. Refuses `peer-absent` once a delete marked that peer, and for a peer created later
-   * under the same id (§4.13 reading 143). Every call of a handle reads its row through this.
+   * under the same id (§4.13 reading 144). Every call of a handle reads its row through this.
    */
   #live(id: PeerId, origin: History): PeerRow {
     const row = this.#peerRow(id);
@@ -1323,7 +1330,7 @@ class SqliteFileStore implements SqliteStore {
   }
 
   /**
-   * The peer delete (§4.13 reading 143). The first transaction marks the peer, and from its
+   * The peer delete (§4.13 reading 144). The first transaction marks the peer, and from its
    * commit every call on the peer refuses. Then the peer's holdings are released, and its change
    * records, debts, records and digest rows removed, a page of one table per write transaction,
    * by the peer's own key: no other peer's listing is read. A last transaction removes the peer
@@ -1565,13 +1572,20 @@ class SqliteFileStore implements SqliteStore {
   }
 
   /**
-   * Empties the log. A busy checkpoint answers a row and does not throw. Until it truncates,
-   * the old pages stay in the database file and the log.
+   * Empties the log. A busy checkpoint answers a row and does not throw. While another
+   * connection is in a checkpoint, the engine answers busy with `log = -1` at once, without the
+   * busy handler; the truncate tries again until one `busyTimeoutMs` has passed (§4.13 reading
+   * 143). Until it truncates, the old pages stay in the database file and the log.
    */
   #truncate(): boolean {
+    const deadline = performance.now() + this.#busyTimeoutMs;
     try {
-      const { busy, log } = this.#s.checkpoint.get() as { busy: number; log: number };
-      return busy === 0 && log === 0;
+      for (;;) {
+        const { busy, log } = this.#s.checkpoint.get() as { busy: number; log: number };
+        const left = deadline - performance.now();
+        if (busy === 0 || log !== -1 || left <= 0) return busy === 0 && log === 0;
+        rest(left);
+      }
     } catch {
       return false;
     }
@@ -1601,7 +1615,7 @@ class SqliteFileStore implements SqliteStore {
     // A listing of one peer names the peer that its first read found, by its `origin`. Each page
     // reads the peer row in its own transaction, so a delete that marked the peer since the
     // listing began, or a peer created again under the id, ends it with `peer-absent` (reading
-    // 143).
+    // 144).
     const listing = <T>(peer: PeerId, page: (after: string) => { key: string; value: T }[]) => {
       const absent = (): StoreError => new StoreError("peer-absent", "export: no such peer");
       let origin: History | undefined;
@@ -1706,7 +1720,7 @@ class SqliteFileStore implements SqliteStore {
         );
         const peers = rows.map((r) => r.id);
         // A peer a delete marked has rows the delete has not reached yet, and none of them is
-        // checked: the one fault names the delete that did not end (reading 143).
+        // checked: the one fault names the delete that did not end (reading 144).
         for (const { id: peer, state } of rows) {
           if (state === "deleting") {
             faults.push({

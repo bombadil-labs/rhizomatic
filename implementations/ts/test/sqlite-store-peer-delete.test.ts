@@ -1,4 +1,4 @@
-// Peer delete on the SQLite store (SPEC-18 proposal §4.13 reading 143): the bytes, the mark, a
+// Peer delete on the SQLite store (SPEC-18 proposal §4.13 reading 144): the bytes, the mark, a
 // delete that dies, other processes, and the statements. Every rail runs on real files in its own
 // `mkdtempSync` directory and removes it. A rail that claims bytes are gone scans every file of
 // the directory (the database, `-wal`, `-shm`, anything else) in another process, and a named

@@ -86,7 +86,7 @@ interface Store {
   readonly profile: StoreProfile;          // §4.8
   createPeer(id: PeerId, options: { erasure: "proven" | "unproven"; appFormat?: string }): Promise<PeerStore>;
   peer(id: PeerId): Promise<PeerStore>;    // opens an existing peer's logical store
-  deletePeer(id: PeerId): Promise<DeleteReport>;   // §4.13 reading 143
+  deletePeer(id: PeerId): Promise<DeleteReport>;   // §4.13 reading 144
   openAdmin(): Exporter;                   // whole-store operations, §4.7.6
   close(): Promise<void>;
 }
@@ -99,7 +99,7 @@ function openStore(url: string, options?: OpenOptions): Promise<Store>;   // §4
 - `peer` opens an existing peer and refuses `peer-absent`. It never creates one: a peer without a
   declared posture cannot exist.
 - `deletePeer` deletes a peer and everything it holds, and keeps the bytes another peer holds
-  (§4.13 reading 143).
+  (§4.13 reading 144).
 - **A store owns what it holds; no caller holds a reference into it.** It keeps its own copy of
   every delta, signature and arrival record, holding only the canonical fields of the claims. A
   caller that changes a value after appending it, or a value a read returned, changes nothing in
@@ -260,7 +260,7 @@ type AppendResult =
 
 **One path for removal.** `purge` (§4.7.2) is the only operation that removes a delta from a
 peer that stays. `deletePeer` removes every delta of a peer with the peer, through the purge's
-own release (§4.13 reading 143). An earlier draft also carried `erased` on `Admission`; it is not offered. An erasure is two
+own release (§4.13 reading 144). An earlier draft also carried `erased` on `Admission`; it is not offered. An erasure is two
 calls: `append` admits the order, then `purge` removes its targets. Slice 4 decides whether the
 journal needs both in one commit, and adds that then.
 
@@ -1736,7 +1736,7 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
     handle's history is a non-empty string, other peers of the store have other values, a
     reopened handle and every snapshot report the peer's value (README §1.3). One name created in
     two stores has two values; no script can delete a peer, so each witness tests that itself
-    (the TypeScript stores since step 4d, reading 143).
+    (the TypeScript stores since step 4d, reading 144).
 40. **A capture is checked, never repaired.** `makeCapture` and `parseCapture` refuse a list that
     is not strictly ascending by UTF-8 bytes; they do not sort. A capture stored by code that
     sorted by UTF-16 code units (JavaScript's default `sort`) is refused, not searched in the
@@ -2178,7 +2178,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      A later ask of an id it removed answers `not-held`. §4.7.2 permits it: `not-held` claims
      nothing about bytes, and the peer asked for no proof.
 111. **A busy log** (slice 4, step 4b). `wal_checkpoint(TRUNCATE)` answers a row and does not
-     throw. The store reads it: anything but `busy = 0` and `log = 0` is a failed truncate. Then
+     throw. The store reads it: anything but `busy = 0` and `log = 0` is a failed truncate. A
+     busy answer with `log = -1` is first tried again, for one `busyTimeoutMs` at most (reading
+     143). Then
      the old pages are still in the database file, not only in the log, so every file surface is
      `owed`, `rows` and `index-entries` included. A reader in another process causes this; the
      store's own snapshots hold no transaction (decision S4-2). A `VACUUM` or a checkpoint that
@@ -2241,7 +2243,7 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      empty at its lock. A delete that commits after that read raises `dirty` past `d`, in
      whichever step of the rebuild it falls, so the file stays not clean. Since step 4d an
      `AFTER DELETE` trigger on `peer` raises `dirty` too: only a peer delete removes a `peer`
-     row (reading 143). A file surface is
+     row (reading 144). A file surface is
      `absent` only when two conditions hold in the purge's last transaction: the file is clean,
      and the log was empty when that transaction took the write lock (reading 119). There is no
      other ground for `absent`. Its costs:
@@ -2491,7 +2493,7 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      of step 4c's follow-up). Now a snapshot of the memory store and of the SQLite store answers
      after appends as at its own revision. A call refuses `snapshot-moved` when, in the
      transaction of the call:
-     - the peer row is absent, or a peer delete marked it (reading 143);
+     - the peer row is absent, or a peer delete marked it (reading 144);
      - the peer's history differs from the snapshot's (a new file identity, `restored`);
      - the peer's revision is below the snapshot's (a file restored in place without
        `restored`, when the restored revision is lower);
@@ -2671,7 +2673,7 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      sequence or transfer above the peer's last, key `seq` or `transfer`), `feed-gap`,
      `orphan-bytes` (no `peer`) and `engine` (SQLite's `integrity_check` and
      `foreign_key_check`). `digest-mismatch` and `journal-broken` come with the digest and the
-     journal. `peer-deleting` names a peer whose delete did not end (reading 143). Every check that a read makes (reading 136) is also a check of `fsck`, with the
+     journal. `peer-deleting` names a peer whose delete did not end (reading 144). Every check that a read makes (reading 136) is also a check of `fsck`, with the
      same fault. `fsck` reports every fault of a holding, not the first: a fault of the claims
      ends only the checks that read the claims (the authors, the timestamp and the index rows),
      and the signature, the arrival record and the sequence are checked still. The SQLite store
@@ -2814,7 +2816,34 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      the purging peer, below a prefix that the update rewrites; it removes no holding, delta or
      index row, and no row of another peer. Nothing can be removed now that could not be removed
      before.
-143. **Peer delete** (slice 4, step 4d, gap G5 f). `Store.deletePeer(id)` deletes one peer and
+143. **A busy checkpoint is tried again, bounded** (slice 4, step 4d, after the third review of
+     PR #101). SQLite answers `wal_checkpoint(TRUNCATE)` with `busy = 1` and `log = -1` at once,
+     without the busy handler, while another connection is in a checkpoint. The automatic passive
+     checkpoint that follows an ordinary commit is such a checkpoint. Before, the truncate of a
+     peer of posture `proven` then failed, and the purge answered without the proof (reading 111).
+     Measured on the earlier code: a purge of 900 deltas beside one process that appends to another
+     peer without pause answered `unproven` in 3 of 30 rounds; with the rule below it answered
+     `proven` in 30 of 30. The rule:
+     - the truncate runs the checkpoint again while it answers `busy = 1` and `log = -1`. It
+       pauses 5 ms between tries. It makes no new try after one `busyTimeoutMs` has passed since
+       its first try. Each try waits for locks as any statement does (reading 105);
+     - any other answer ends the truncate at once. `busy = 0` and `log = 0` is a truncate. Every
+       other answer, and a throw, is a failed truncate, as before (reading 111);
+     - the rule of the proof does not change. The last transaction decides the report from the
+       size of the log and from `clean = dirty` (readings 117 and 119). A try only repeats a
+       checkpoint: it removes no row and raises no counter. So no report is false because of it;
+     - what stays possible: a checkpoint of another connection that stays busy past the bound.
+       The purge then answers without the proof: every file surface `owed`, and a record for each
+       `removed` target. The next ask can prove (reading 107);
+     - the cost: the pauses block the thread, at most 5 ms each and one `busyTimeoutMs` in all,
+       as the engine's busy handler does.
+     Rails: another process is in a checkpoint that waits for a third process's write lock. A
+     purge held just after its `VACUUM` is let go, meets the busy checkpoint, and answers `proven`
+     once the checkpoint ends. The earlier code answered `unproven` there in 5 of 5 runs. With a
+     `busyTimeoutMs` of 300 and a checkpoint that stays busy, the purge reaches its last
+     transaction while the checkpoint still runs, and answers `unproven` with every file surface
+     `owed`. Nothing can be removed now that could not be removed before.
+144. **Peer delete** (slice 4, step 4d, gap G5 f). `Store.deletePeer(id)` deletes one peer and
      answers `DeleteReport = {claim, boundary, surfaces, retains, released, keptByOtherPeers}`.
      `claim`, `boundary`, `surfaces` and `retains` have the purge report's words (§4.7.2).
      `released` counts the holdings this call released. `keptByOtherPeers` counts those whose id
@@ -3252,7 +3281,7 @@ Slice 3 leaves these to later slices. Each was owed by the slice 3 build plan, w
   when the store is restored from a backup, or when a peer is deleted and created again. It keeps
   every history it issued across a reopen, so a host mint that repeats is refused there too
   (§4.13 reading 49). Done in step 4c for the SQLite store: file identity and `restored` (§4.13
-  readings 122 and 123). Peer delete done in step 4d (§4.13 reading 143).
+  readings 122 and 123). Peer delete done in step 4d (§4.13 reading 144).
 - Records appear in revision order (§4.6; §4.13 reading 5). A store open to several writing
   processes enforces this at commit. Done in step 4c: two writing processes and a follower in a
   third (§4.13 reading 120).

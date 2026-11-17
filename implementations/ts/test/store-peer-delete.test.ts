@@ -1,4 +1,4 @@
-// Peer delete (SPEC-18 proposal §4.13 reading 143): the contract, on the memory store and on the
+// Peer delete (SPEC-18 proposal §4.13 reading 144): the contract, on the memory store and on the
 // SQLite store. Every rail is two-sided: what the delete removes is gone, and a named bystander
 // peer reads as before, byte for byte. The SQLite stores live in one `mkdtempSync` directory,
 // which the file removes at its end. The byte scans and the many-process rails of the SQLite store

@@ -110,7 +110,7 @@ export class StoreFaultError extends Error {
  * - `engine`: the engine's own check of the file failed;
  * - `digest-mismatch`: a stored node of the holdings digest, or the stored root, is not the one
  *   the peer's holdings give (`key` names the node, `digest:<prefix>`, or the root);
- * - `peer-deleting`: a `deletePeer` of the peer began and did not end (§4.13 reading 143). Its
+ * - `peer-deleting`: a `deletePeer` of the peer began and did not end (§4.13 reading 144). Its
  *   other rows are not checked: a delete removes them in pages. `deletePeer` of the peer
  *   finishes it.
  */
@@ -250,7 +250,7 @@ export interface Store {
   peer(id: PeerId): Promise<PeerStore>;
   /**
    * Deletes the peer: its holdings, its index entries, its change records, its debts and its
-   * digest, then the peer itself (§4.13 reading 143). Bytes another peer holds stay. Refuses
+   * digest, then the peer itself (§4.13 reading 144). Bytes another peer holds stay. Refuses
    * `invalid-request` for an id that is not a non-empty, well-formed string, and `peer-absent`
    * for a peer that does not exist. From the start of the delete, every call on the peer refuses
    * `peer-absent` and every snapshot of it refuses `snapshot-moved`. A delete that did not end
@@ -496,7 +496,7 @@ export type PurgeReport = {
 };
 
 /**
- * What `Store.deletePeer` answers (§4.13 reading 143), in the purge report's words. The claim
+ * What `Store.deletePeer` answers (§4.13 reading 144), in the purge report's words. The claim
  * covers every row of the deleted peer and the bytes of each delta it released that no peer holds
  * at the report's last commit. A delta another peer holds then is kept by that peer, and the
  * report counts it without naming it.

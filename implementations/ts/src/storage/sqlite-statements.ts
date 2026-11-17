@@ -18,7 +18,7 @@
  * `clean = dirty` begins after every such hash left the live rows, and it rewrites every page
  * (§4.13 reading 142).
  *
- * A peer delete (§4.13 reading 143) removes the peer's change records, debts, records and digest
+ * A peer delete (§4.13 reading 144) removes the peer's change records, debts, records and digest
  * rows, and then its peer row, which holds its id and its head. A trigger on the delete of a
  * `peer` row counts that removal in `residue.dirty`, so a rebuild that makes `clean = dirty`
  * begins after it, also for a peer that held nothing. No statement deletes a `peer` row but the
@@ -149,7 +149,7 @@ export const SQLITE_STATEMENTS = {
 
   historyFind: "SELECT 1 FROM history WHERE value = ?",
   historyAdd: "INSERT INTO history (value) VALUES (?)",
-  // A peer that a delete marked is absent to every call (§4.13 reading 143). Only `peerState`,
+  // A peer that a delete marked is absent to every call (§4.13 reading 144). Only `peerState`,
   // `fsckPeers` and the delete's own statements read a marked row. `origin` is the history that
   // `createPeer` issued. A minting open never changes it, and no peer gets it again, so it names
   // this peer and not a later one of the same id.

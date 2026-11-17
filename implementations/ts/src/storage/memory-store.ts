@@ -357,7 +357,7 @@ class MemoryStore implements Store {
   #handle(state: PeerState): PeerStore {
     // After `close`, `history` and `appFormat` refuse `store-closed`, as on the SQLite store. A
     // handle names the state it was made for: after `deletePeer` every call refuses
-    // `peer-absent`, also when a `createPeer` of the id made a new peer (§4.13 reading 143).
+    // `peer-absent`, also when a `createPeer` of the id made a new peer (§4.13 reading 144).
     const live = (): PeerState => {
       this.#open();
       if (state.deleted) throw new StoreError("peer-absent", "the peer was deleted");
@@ -380,7 +380,7 @@ class MemoryStore implements Store {
   }
 
   /**
-   * The peer delete (§4.13 reading 143), all at once: no writer can come between its steps. A
+   * The peer delete (§4.13 reading 144), all at once: no writer can come between its steps. A
    * held id without its stored claims refuses the delete before it removes anything, as the purge
    * of that id does (reading 136). Process memory cannot prove absence, so the claim is
    * `unproven`.

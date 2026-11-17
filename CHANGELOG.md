@@ -157,13 +157,21 @@ Step 4d adds more, listed under Breaking.
   exports `digestOf`, `EMPTY_DIGEST`, `DigestNode`, `runDigestConformance`, `digestVectors` and
   `STORE_DIGEST_FORMAT`. New shared vectors: `vectors/store/digest.json` (README §12). The Rust
   witness checks the file's trees byte for byte, and takes the digest in its stores in step 4e.
+- A purge of a peer of posture `proven` on the SQLite store tries its truncate again while
+  another connection is in a checkpoint (§4.13 reading 143). SQLite answers that truncate busy
+  at once, with `log = -1`, also during the automatic checkpoint of another process's commit.
+  Before, the purge then answered `unproven` in 3 of 30 rounds beside one appending process.
+  Now the truncate tries again every 5 ms until one `busyTimeoutMs` has passed, and the same
+  measurement gave 30 of 30 `proven`. The rule of the proof does not change, and no report can
+  be false because of the tries. A checkpoint that stays busy past the bound still gives
+  `unproven`, with every file surface `owed`.
 - The memory store's test meter counts the digest's path in `append` and `purge`. A rail bounds
   their lookups by a fixed cost per level of the tree for each changed id, with the levels
   counted from the ids.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
-- **Peer delete** (step 4d, §4.13 reading 143). `Store.deletePeer(id)` deletes a peer: its
+- **Peer delete** (step 4d, §4.13 reading 144). `Store.deletePeer(id)` deletes a peer: its
   holdings, index entries, change records, purge debts, records of removals and digest, then the
   peer. Bytes that another peer holds stay. It answers a `DeleteReport`
   `{claim, boundary, surfaces, retains, released, keptByOtherPeers}`, in the purge report's
