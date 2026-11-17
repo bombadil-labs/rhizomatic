@@ -4122,6 +4122,108 @@
               "snapshot-moved"
             ]
           }
+        },
+        {
+          "op": "createPeer",
+          "peer": "B",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": null,
+          "nextHead": "b-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "bed-link",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 3,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height-neg",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 3,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1100,
+                "sequence": 100,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name",
+              "bed-link",
+              "a-height-neg"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "targets",
+          "snapshot": "s1b",
+          "entities": [
+            "plant:a"
+          ],
+          "expect": {
+            "ids": [
+              "a-name",
+              "a-height"
+            ],
+            "orError": "snapshot-moved"
+          }
+        },
+        {
+          "op": "negators",
+          "snapshot": "s1b",
+          "ids": [
+            "a-height"
+          ],
+          "expect": {
+            "ids": [],
+            "orError": "snapshot-moved"
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s1b",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": 9007199254740991
+          },
+          "expect": {
+            "lower": [
+              "a-name",
+              "a-height"
+            ],
+            "upper": [
+              "a-name",
+              "a-height"
+            ],
+            "orError": "snapshot-moved"
+          }
         }
       ]
     },

@@ -982,6 +982,18 @@ function scripts(named: readonly Named[]): StoreScript[] {
       m.release("s1");
       m.targets("s1", ["plant:a"]);
       m.scope("s1", ["plant:a"]);
+      // Another peer holds A's later deltas at sequences inside s1b's bound, and an older delta
+      // past it. B's holdings neither add to nor remove from A's old snapshot.
+      m.createPeer("B", "unproven");
+      m.append("B", null, "b-1", [
+        { delta: "bed-link", sequence: 1 },
+        { delta: "a-height-neg", sequence: 2 },
+        { delta: "a-name", sequence: 100 },
+      ]);
+      m.targets("s1b", ["plant:a"]);
+      m.negators("s1b", ["a-height"]);
+      // A bound above the snapshot's own keeps the snapshot's set.
+      m.scope("s1b", ["plant:a"], { arrivalAtMost: 2 ** 53 - 1 });
     }),
     s(
       "a-snapshot-across-a-purge",
