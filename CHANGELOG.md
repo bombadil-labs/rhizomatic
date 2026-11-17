@@ -80,7 +80,12 @@ Step 4d adds three more, listed under Breaking.
   the peer's last arrival sequence at the snapshot's revision, fixed when the snapshot is read.
 - The shared store vectors are tightened: a snapshot older than a purge that released a holding
   must refuse `snapshot-moved`. Five steps of `a-snapshot-across-a-purge` expect the refusal, not
-  an answer. The Rust memory store refuses after any advance and conforms unchanged.
+  an answer. The Rust memory store refuses after any advance and conforms unchanged. The Rust
+  tests change: the runner's rule table accepts the text "expected a refusal `snapshot-moved`,
+  the store refused `invalid-request`" for its wrong store that refuses `targets`.
+- The `snapshots` script gains a second peer that holds the first peer's later ids, and a
+  `scope` with `arrivalAtMost` above an old snapshot's own bound. Both stores must keep the old
+  snapshot's set. The Rust feed rules now expect a feed that mixes peers to fail this script.
 
 ### ⚠️ Breaking
 

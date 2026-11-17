@@ -2485,11 +2485,16 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      transaction. No purged byte is served to an older snapshot. A pull, `checkFresh` and a pass
      of held views on one snapshot answer at that snapshot's position; a retention that trimmed
      the records after it answers `resync-required` as before, because `changes` is a peer call.
-     A restore in place with no `restored` and an equal or higher revision is not seen; the
-     same limit stood before (decision S4-8). The shared contract is tightened with it: a
-     snapshot older than a purge that released a holding must refuse, and the vector
-     `a-snapshot-across-a-purge` expects `snapshot-moved` there, not an answer. The Rust memory
-     store refuses after any advance, so it conforms unchanged; it becomes tolerant in step 4e.
+     A file restored in place with no `restored` flag, at a revision equal to or higher than
+     the snapshot's, is not seen. Before this step only an equal revision was not seen: any
+     other revision moved the snapshot (decision S4-8). The wider limit stays, because a store
+     cannot tell a restored file at a higher revision from a legal later append by the peer
+     row alone; a host that restores in place passes `restored` (reading 123). The shared
+     contract is tightened with it: a snapshot older than a purge that released a holding must
+     refuse, and the vector `a-snapshot-across-a-purge` expects `snapshot-moved` there, not an
+     answer. The Rust memory store refuses after any advance, so the store conforms unchanged;
+     the Rust runner's rule table gains the refusal text that this vector now gives. The store
+     becomes tolerant in step 4e.
 131. **The bound and `lastSequence`** (slice 4, step 4d). `Snapshot.lastSequence` is the highest
      arrival sequence the peer had admitted at the snapshot's revision, 0 before the first. It
      is fixed when the snapshot is read and never refuses, as `revision`, `history`, `head` and
