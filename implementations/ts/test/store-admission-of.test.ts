@@ -315,26 +315,55 @@ const entry = (delta: Delta, sequence: number, transfer: number) => ({
   arrival: { id: delta.id, at: 1, sequence, transfer, sender: "local" },
 });
 
+// The snapshot rail opens the SQLite store with no audit wrapper: the wrapper copies
+// `lastTransfer` when it wraps a snapshot, so a live value would pass through it unseen.
+const UNWRAPPED: typeof STORES = [
+  ["the memory store", async () => createMemoryStore()],
+  ["the SQLite store", () => fixture.open()],
+];
+
+describe.each(UNWRAPPED)(
+  "the transfer ordinal of a snapshot on %s (§4.13 reading 135)",
+  (_, open) => {
+    it("lastTransfer is 0 on a new peer, is the committed transfer after each append, is fixed on a snapshot, and stays after a head-only append and a purge", async () => {
+      const store = await open();
+      const peer = await store.createPeer("peer:p", { erasure: "unproven" });
+      const first = await peer.read();
+      expect(first.lastTransfer).toBe(0);
+      await peer.append(admissionOf(first, [fact("x"), sacrificial(1)], options()));
+      const second = await peer.read();
+      expect(second.lastTransfer).toBe(1);
+      await peer.append(admissionOf(second, [fact("y")], options()));
+      expect([first.lastTransfer, second.lastTransfer]).toEqual([0, 1]);
+      const third = await peer.read();
+      expect(third.lastTransfer).toBe(2);
+      await peer.append(admissionOf(third, [], options()));
+      await moveByPurge(peer);
+      const last = await peer.read();
+      expect([last.lastTransfer, last.head === third.head]).toEqual([2, false]);
+      expect(
+        (await last.arrivals(await last.targets(["x", "y"]))).map((a) => a.transfer).sort(),
+      ).toEqual([1, 2]);
+    });
+  },
+);
+
 describe.each(STORES)("the transfer ordinal on %s (§4.13 reading 135)", (_, open) => {
-  it("lastTransfer is 0 on a new peer, is the committed transfer after each append, is fixed on a snapshot, and stays after a head-only append and a purge", async () => {
+  it("a held entry with a higher transfer is skipped and does not raise the last transfer", async () => {
     const store = await open();
     const peer = await store.createPeer("peer:p", { erasure: "unproven" });
-    const first = await peer.read();
-    expect(first.lastTransfer).toBe(0);
-    await peer.append(admissionOf(first, [fact("x"), sacrificial(1)], options()));
-    const second = await peer.read();
-    expect(second.lastTransfer).toBe(1);
-    await peer.append(admissionOf(second, [fact("y")], options()));
-    expect([first.lastTransfer, second.lastTransfer]).toEqual([0, 1]);
-    const third = await peer.read();
-    expect(third.lastTransfer).toBe(2);
-    await peer.append(admissionOf(third, [], options()));
-    await moveByPurge(peer);
-    const last = await peer.read();
-    expect([last.lastTransfer, last.head === third.head]).toEqual([2, false]);
+    const [x, y] = [fact("x"), fact("y")];
+    await peer.append({ expectedHead: null, nextHead: "h1", frame: null, added: [entry(x, 1, 1)] });
     expect(
-      (await last.arrivals(await last.targets(["x", "y"]))).map((a) => a.transfer).sort(),
-    ).toEqual([1, 2]);
+      await peer.append({
+        expectedHead: "h1",
+        nextHead: "h2",
+        frame: null,
+        added: [entry(x, 2, 50), entry(y, 3, 2)],
+      }),
+    ).toMatchObject({ status: "committed", added: [y.id] });
+    const now = await peer.read();
+    expect([now.lastTransfer, (await now.arrivals([x.id]))[0]!.transfer]).toEqual([2, 1]);
   });
 
   it("refuses invalid-admission a new entry whose transfer does not pass the peer's last one, and changes nothing; a held entry's transfer is not compared; the last is the largest of an append", async () => {
