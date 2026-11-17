@@ -1,8 +1,9 @@
 // The holdings digest on both stores (SPEC-18 proposal §4.7.6; §4.13 readings 139 to 142): the
 // shared vectors `digest.json`; the root and every node against the model `digestOf` at every
 // size from 0 to 40 and back, at several depths; one root for one set in any order; the strict
-// call; a reopen; `fsck` on a damaged digest; two writing processes; and the two-sided erasure
-// rail on a real file. Each SQLite rail runs in its own `mkdtempSync` directory.
+// call; a reopen; `fsck` on a damaged digest and on a stray row; two writing processes; and the
+// two-sided erasure rails on a real file: a sound digest, a damaged one, a merge and a second
+// holder. Each SQLite rail runs in its own `mkdtempSync` directory.
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -359,6 +360,33 @@ describe("the digest on the SQLite store alone", () => {
     expect((await store.openAdmin().fsck()).faults.map((f) => f.kind)).toContain("digest-mismatch");
   });
 
+  it("fsck reports a stray digest row that no parent accounts for: a copy of x's leaf where no held id starts, at the top and under an internal node", async () => {
+    const x = FORTY[0]!.id;
+    const used = new Set(FORTY.map((d) => d.id.slice(0, 8)));
+    const empty = [..."0123456789abcdef"].map((d) => `1e20c0d${d}`).find((p) => !used.has(p));
+    expect(empty).toBeDefined();
+    for (const [stray, keys] of [
+      ["ff", ["digest:ff"]],
+      [empty!, ["digest:1e20c0d", `digest:${empty}`]],
+    ] as const) {
+      const { path } = place();
+      const store = await sqlite(path);
+      await add(await store.createPeer("peer:a", { erasure: "unproven" }), FORTY);
+      const db = new Database(path);
+      const copied = db
+        .prepare(
+          `INSERT INTO digest (peer, prefix, count, hash)
+          SELECT peer, ?, count, hash FROM digest WHERE peer = 'peer:a' AND prefix = ?`,
+        )
+        .run(stray, x.slice(0, 8)).changes;
+      db.close();
+      expect(copied).toBe(1);
+      expect(places(await store.openAdmin().fsck())).toEqual(
+        keys.map((key) => ({ kind: "digest-mismatch", peer: "peer:a", id: undefined, key })),
+      );
+    }
+  });
+
   it("a snapshot's digest of a prefix that has no row and more than 16 held ids throws StoreIntegrityError digest-mismatch", async () => {
     const { path } = place();
     const store = await sqlite(path);
@@ -377,7 +405,10 @@ describe("the digest on the SQLite store alone", () => {
 });
 
 describe("the digest on the memory store: fsck", () => {
-  it("a stored node changed in the store's own map gives one digest-mismatch with its key", async () => {
+  it.each([
+    ["a stored node's hash changed", "1e20c0d", "1e20c0d"],
+    ["a copy of x's leaf at a prefix no held id starts with", "ff", FORTY[0]!.id.slice(0, 8)],
+  ])("%s in the store's own map gives one digest-mismatch with its key", async (_, key, from) => {
     const store = createMemoryStore();
     const peer = await store.createPeer("peer:a", { erasure: "unproven" });
     await add(peer, FORTY);
@@ -385,9 +416,9 @@ describe("the digest on the memory store: fsck", () => {
     const snapshot = await peer.read();
     const real = Map.prototype.get;
     let rows: Map<string, unknown> | undefined;
-    Map.prototype.get = function (this: Map<unknown, unknown>, key: unknown) {
-      if (key === "1e20c0d") rows = this as Map<string, unknown>;
-      return real.call(this, key) as unknown;
+    Map.prototype.get = function (this: Map<unknown, unknown>, asked: unknown) {
+      if (asked === "1e20c0d") rows = this as Map<string, unknown>;
+      return real.call(this, asked) as unknown;
     };
     let pending: Promise<unknown>;
     try {
@@ -396,11 +427,11 @@ describe("the digest on the memory store: fsck", () => {
       Map.prototype.get = real;
     }
     await pending;
-    const row = rows!.get("1e20c0d") as object;
-    rows!.set("1e20c0d", { ...row, hash: EMPTY_DIGEST.hash });
+    const row = rows!.get(from) as object;
+    rows!.set(key, key === from ? { ...row, hash: EMPTY_DIGEST.hash } : row);
     expect(
-      (await store.openAdmin().fsck()).faults.map(({ kind, peer: p, key }) => ({ kind, p, key })),
-    ).toEqual([{ kind: "digest-mismatch", p: "peer:a", key: "digest:1e20c0d" }]);
+      (await store.openAdmin().fsck()).faults.map(({ kind, peer: p, key: k }) => ({ kind, p, k })),
+    ).toEqual([{ kind: "digest-mismatch", p: "peer:a", k: `digest:${key}` }]);
   });
 });
 
@@ -439,7 +470,10 @@ describe("the digest under writing processes (SQLite)", () => {
     for (const start = Date.now(); Date.now() - start < 3_000; )
       reports.push(await store.openAdmin().fsck());
     writeFileSync(`${path}.stop`, "");
-    expect(await Promise.all(writers.map((w) => w.ended))).toEqual([0, 0, 0]);
+    expect(
+      await Promise.all(writers.map((w) => w.ended)),
+      writers.map((w) => w.output()).join("\n"),
+    ).toEqual([0, 0, 0]);
     expect(reports.flatMap((r) => r.faults)).toEqual([]);
     audit(path);
     for (const id of ["peer:a", "peer:b"]) {
@@ -489,6 +523,7 @@ describe.skipIf(process.platform !== "linux")(
       }
       const bystander = y.id.slice(0, 7);
       const yBefore = await (await peer.read()).digest(bystander);
+      const seen = scan(dir, [...ofX]).map((found) => found.slice(found.indexOf(": ") + 2));
       const report = await peer.purge([x!.id]);
       expect(report.claim).toBe("proven");
       const remaining = held.filter((id) => id !== x!.id);
@@ -498,10 +533,204 @@ describe.skipIf(process.platform !== "linux")(
       const live = hashes();
       const markers = [...ofX].filter((h) => !live.has(h));
       expect(markers.length).toBeGreaterThan(8);
+      // The control: before the purge, the scan found markers in a file.
+      expect(markers.filter((m) => seen.includes(m)).length).toBeGreaterThan(0);
       expect(scan(dir, markers)).toEqual([]);
       // The bystander: its subtree did not change, so its node is the same, and it reads.
       expect(await after.digest(bystander)).toEqual(yBefore);
       expect((await after.get([y.id])).map((d) => d.id)).toEqual([y.id]);
+      audit(path);
+    }, 60_000);
+
+    /** Every live digest hash and root of the file, or of one peer. */
+    const liveHashes = (path: string, peer?: string): Set<string> => {
+      const db = new Database(path, { readonly: true });
+      try {
+        const one = peer === undefined ? [] : [peer];
+        return new Set([
+          ...(db
+            .prepare(`SELECT hash FROM digest${peer === undefined ? "" : " WHERE peer = ?"}`)
+            .pluck()
+            .all(...one) as string[]),
+          ...(db
+            .prepare(`SELECT root FROM peer${peer === undefined ? "" : " WHERE id = ?"}`)
+            .pluck()
+            .all(...one) as string[]),
+        ]);
+      } finally {
+        db.close();
+      }
+    };
+    /** The peer's digest rows, ascending by prefix. */
+    const rowsOf = (
+      path: string,
+      peer: string,
+    ): { prefix: string; count: number; hash: string }[] => {
+      const db = new Database(path, { readonly: true });
+      try {
+        return db
+          .prepare("SELECT prefix, count, hash FROM digest WHERE peer = ? ORDER BY prefix")
+          .all(peer) as { prefix: string; count: number; hash: string }[];
+      } finally {
+        db.close();
+      }
+    };
+    /** The stored hash of every node on the path of `id` in the peer's digest, and its root. */
+    const pathHashes = (path: string, peer: string, id: string): string[] => [
+      ...new Set([
+        rootOf(path, peer),
+        ...rowsOf(path, peer)
+          .filter((r) => id.startsWith(r.prefix))
+          .map((r) => r.hash),
+      ]),
+    ];
+    const rootOf = (path: string, peer: string): string => {
+      const db = new Database(path, { readonly: true });
+      try {
+        return db.prepare("SELECT root FROM peer WHERE id = ?").pluck().get(peer) as string;
+      } finally {
+        db.close();
+      }
+    };
+    const raw = (path: string, statement: string): number => {
+      const db = new Database(path);
+      try {
+        return db.prepare(statement).run().changes;
+      } finally {
+        db.close();
+      }
+    };
+
+    // x lies under `1e20c0d`, an internal node below the internal `1e20c0`; y lies under
+    // `1e20c0` beside it. Each damage is made after the hashes of x's path are read.
+    const THIRTY_EIGHT = FORTY.slice(0, 38);
+    const x = FORTY[0]!.id;
+    const y = FORTY[25]!.id;
+    it.each([
+      {
+        damage: "the root's count set to 1",
+        statement: "UPDATE digest SET count = 1 WHERE peer = 'peer:p' AND prefix = ''",
+        // The update reads every held id for the root and writes the root as one leaf.
+        rootIsLeaf: true,
+        rewritten: "",
+        faults: ["digest:"],
+      },
+      {
+        damage: "the internal row 1e20c0 on x's path lost",
+        statement: "DELETE FROM digest WHERE peer = 'peer:p' AND prefix = '1e20c0'",
+        // The update writes `1e20c0` as one leaf over its held ids.
+        rootIsLeaf: false,
+        rewritten: "1e20c0",
+        faults: ["digest:1e20c0"],
+      },
+      {
+        damage: "the count of x's leaf set to 20",
+        statement: `UPDATE digest SET count = 20 WHERE peer = 'peer:p' AND prefix = '${x.slice(0, 8)}'`,
+        // The update takes the leaf for a node of 20 ids whose children it does not find.
+        rootIsLeaf: false,
+        rewritten: x.slice(0, 8),
+        faults: ["digest:1e20c0d", `digest:${x.slice(0, 8)}`],
+      },
+    ])(
+      "a proven purge of x on a damaged digest ($damage): no file and no live row holds a hash of x's path, y reads back, and fsck names what the purge leaves",
+      async ({ statement, rootIsLeaf, rewritten, faults }) => {
+        const { dir, path } = place();
+        const store = await sqlite(path);
+        const peer = await store.createPeer("peer:p", { erasure: "proven" });
+        await add(peer, THIRTY_EIGHT);
+        const old = pathHashes(path, "peer:p", x);
+        expect(old.length).toBe(9);
+        const yBefore = await (await peer.read()).digest(y.slice(0, 7));
+        expect(raw(path, statement)).toBe(1);
+        // The control: the scan finds the hashes of x's path before the purge.
+        expect(scan(dir, old).length).toBeGreaterThan(0);
+        const report = await peer.purge([x]);
+        expect(report.claim).toBe("proven");
+        expect(scan(dir, old)).toEqual([]);
+        const live = liveHashes(path);
+        expect(old.filter((h) => live.has(h))).toEqual([]);
+        const rest = THIRTY_EIGHT.map((d) => d.id).filter((id) => id !== x);
+        const after = await peer.read();
+        expect((await after.get([y])).map((d) => d.id)).toEqual([y]);
+        expect(await after.digest(y.slice(0, 7))).toEqual(yBefore);
+        // The purge does not repair the digest. It leaves the rewritten node with no row below
+        // it, and fsck names the damage.
+        expect(after.root).not.toBe(digestOf(rest).hash);
+        if (rootIsLeaf) expect(after.root).toBe(leafHash(rest.sort()));
+        const under = rowsOf(path, "peer:p").filter((r) => r.prefix.startsWith(rewritten));
+        expect(under.map((r) => r.prefix)).toEqual([rewritten]);
+        const found = (await store.openAdmin().fsck()).faults;
+        expect(found.map((f) => [f.kind, f.peer, f.key])).toEqual(
+          faults.map((key) => ["digest-mismatch", "peer:p", key]),
+        );
+      },
+      60_000,
+    );
+
+    it("a proven purge that merges 1e20c0d from 17 ids back into a leaf of 16 leaves no file or live row with a hash of x's path or of a dropped child; the root is the remaining set's, and y reads back", async () => {
+      const { dir, path } = place();
+      const store = await sqlite(path);
+      const peer = await store.createPeer("peer:p", { erasure: "proven" });
+      await add(peer, THIRTY_EIGHT);
+      const first = FORTY.slice(1, 4).map((d) => d.id);
+      expect((await peer.purge(first)).claim).toBe("proven");
+      const node = rowsOf(path, "peer:p").filter((r) => r.prefix.startsWith("1e20c0d"));
+      expect(node[0]).toMatchObject({ prefix: "1e20c0d", count: 17 });
+      expect(node.length).toBeGreaterThan(1);
+      const old = [...new Set([...pathHashes(path, "peer:p", x), ...node.map((r) => r.hash)])];
+      const yBefore = await (await peer.read()).digest(y.slice(0, 7));
+      expect(scan(dir, old).length).toBeGreaterThan(0);
+      expect((await peer.purge([x])).claim).toBe("proven");
+      expect(rowsOf(path, "peer:p").filter((r) => r.prefix.startsWith("1e20c0d"))).toEqual([
+        { prefix: "1e20c0d", count: 16, hash: expect.any(String) as unknown },
+      ]);
+      const live = liveHashes(path);
+      expect(old.filter((h) => live.has(h))).toEqual([]);
+      expect(scan(dir, old)).toEqual([]);
+      const rest = THIRTY_EIGHT.map((d) => d.id).filter((id) => id !== x && !first.includes(id));
+      const after = await peer.read();
+      expect(after.root).toBe(digestOf(rest).hash);
+      expect((await after.get([y])).map((d) => d.id)).toEqual([y]);
+      expect(await after.digest(y.slice(0, 7))).toEqual(yBefore);
+      expect((await store.openAdmin().fsck()).faults).toEqual([]);
+      audit(path);
+    }, 60_000);
+
+    it("x held by two peers: a purge from a leaves b's digest rows, root and x intact; a purge from b then leaves no file or live row with a hash of x's path from either peer", async () => {
+      const { dir, path } = place();
+      const store = await sqlite(path);
+      const a = await store.createPeer("peer:a", { erasure: "proven" });
+      const b = await store.createPeer("peer:b", { erasure: "proven" });
+      // a holds 17 ids under `1e20c0d`, so its purge of x merges that node and drops the rows
+      // below it; b holds 20 there, and keeps its rows.
+      const held = THIRTY_EIGHT.filter((_, i) => i === 0 || i > 3);
+      await add(a, held);
+      await add(b, FORTY.slice(0, 30));
+      const oldA = pathHashes(path, "peer:a", x);
+      const oldB = pathHashes(path, "peer:b", x);
+      const old = [...new Set([...oldA, ...oldB])];
+      expect(scan(dir, old).length).toBeGreaterThan(0);
+      const bRows = rowsOf(path, "peer:b");
+      const bRoot = rootOf(path, "peer:b");
+      await a.purge([x]);
+      expect(rowsOf(path, "peer:a").filter((r) => r.prefix.startsWith("1e20c0d"))).toHaveLength(1);
+      // b still holds x, so its hashes over x stay; a keeps none of its own.
+      expect(rowsOf(path, "peer:b")).toEqual(bRows);
+      expect(rootOf(path, "peer:b")).toBe(bRoot);
+      expect((await (await b.read()).get([x])).map((d) => d.id)).toEqual([x]);
+      expect((await b.read()).root).toBe(digestOf(FORTY.slice(0, 30).map((d) => d.id)).hash);
+      const liveA = liveHashes(path, "peer:a");
+      expect(oldA.filter((h) => liveA.has(h))).toEqual([]);
+      expect((await b.purge([x])).claim).toBe("proven");
+      const live = liveHashes(path);
+      expect(old.filter((h) => live.has(h))).toEqual([]);
+      expect(scan(dir, old)).toEqual([]);
+      expect((await a.read()).root).toBe(
+        digestOf(held.map((d) => d.id).filter((id) => id !== x)).hash,
+      );
+      expect((await b.read()).root).toBe(digestOf(FORTY.slice(1, 30).map((d) => d.id)).hash);
+      expect((await (await a.read()).get([y])).map((d) => d.id)).toEqual([y]);
+      expect((await store.openAdmin().fsck()).faults).toEqual([]);
       audit(path);
     }, 60_000);
   },

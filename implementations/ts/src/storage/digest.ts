@@ -170,7 +170,9 @@ function visit(
   const internal = was !== undefined && was > DIGEST_LEAF;
   if (count <= DIGEST_LEAF) {
     ids ??= rows.held(prefix);
-    if (internal) rows.dropUnder(prefix);
+    // A leaf has no row below it. The rows below are dropped whatever the stored count says, so
+    // a damaged count or a lost row cannot keep a row that hashes a released id (reading 142).
+    rows.dropUnder(prefix);
     // A leaf takes its count from the holdings it read, so a damaged count above it cannot make
     // a write fail: an append or a purge completes, and `fsck` reports the damage.
     node = { count: ids.length, hash: leafHash(ids) };
