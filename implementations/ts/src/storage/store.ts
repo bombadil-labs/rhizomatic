@@ -61,14 +61,18 @@ export class StoreError extends Error {
  * - `mismatched-answers`: `get` and `arrivals` on one snapshot name other ids;
  * - `unasked-ids`: an answer of `get` or `arrivals` names an id the call did not ask for, names
  *   one twice, or is not ascending;
- * - `revision-out-of-range`: a snapshot's revision is not an integer from 0 to 2^53 − 1.
+ * - `revision-out-of-range`: a snapshot's revision is not an integer from 0 to 2^53 − 1;
+ * - `malformed-member`: a member of a `scope` answer is malformed, its id does not recompute from
+ *   its claims, or its arrival record is missing or names another id (reading 21). TypeScript
+ *   only until step 4e.
  */
 export type StoreFaultRule =
   | "no-progress"
   | "past-the-bound"
   | "mismatched-answers"
   | "unasked-ids"
-  | "revision-out-of-range";
+  | "revision-out-of-range"
+  | "malformed-member";
 
 /**
  * A store broke its contract: a fault, not a refusal (`StoreError`). `checkFresh` and a feed
@@ -86,6 +90,68 @@ export class StoreFaultError extends Error {
     this.values = Object.freeze({ ...values });
   }
 }
+
+/**
+ * What is wrong in a store's own data (§4.13 readings 136 and 137). `peer`, `id` and `key` name
+ * the place when the fault has one; `detail` is for a person.
+ * - `claims-mismatch`: stored claims do not hash to their id;
+ * - `claims-unreadable`: stored bytes hash to their id but are not claims, or a held id has no
+ *   stored claims;
+ * - `index-missing`: a held delta's claims name an index entry (an entity, or a referenced id
+ *   with its role) that the store does not keep;
+ * - `index-stray`: the store keeps an index entry that the delta's claims do not name;
+ * - `column-mismatch`: a stored column differs from the claims or from the arrival record (`key`
+ *   names the column);
+ * - `count-mismatch`: a peer's count is not the number of its holdings;
+ * - `sequence-mismatch`: a holding's sequence or transfer passes the peer's last one;
+ * - `feed-gap`: a peer's change records do not run from its floor to its revision;
+ * - `orphan-bytes`: bytes that no peer holds;
+ * - `engine`: the engine's own check of the file failed.
+ */
+export type IntegrityFaultKind =
+  | "claims-mismatch"
+  | "claims-unreadable"
+  | "index-missing"
+  | "index-stray"
+  | "column-mismatch"
+  | "count-mismatch"
+  | "sequence-mismatch"
+  | "feed-gap"
+  | "orphan-bytes"
+  | "engine";
+
+export type IntegrityFault = {
+  readonly kind: IntegrityFaultKind;
+  readonly peer?: PeerId;
+  readonly id?: Id;
+  readonly key?: string;
+  readonly detail: string;
+};
+
+/**
+ * A read met a stored row that is wrong (§4.13 reading 136): a fault in the store's data, not a
+ * refusal (`StoreError`) and not a broken rule of the contract (`StoreFaultError`). The read
+ * answers nothing, never a smaller answer. Other rows still read. A host catches it with
+ * `instanceof`, discards the delta with `purge([id])` or restores the file, and runs `fsck`.
+ */
+export class StoreIntegrityError extends Error {
+  readonly fault: IntegrityFault;
+  constructor(fault: IntegrityFault) {
+    super(fault.detail);
+    this.name = "StoreIntegrityError";
+    this.fault = Object.freeze({ ...fault });
+  }
+}
+
+/** What `Exporter.fsck` answers: how much it read, and every fault it found. */
+export type FsckReport = {
+  readonly checked: {
+    readonly peers: number;
+    readonly holdings: number;
+    readonly deltas: number;
+  };
+  readonly faults: readonly IntegrityFault[];
+};
 
 /** What a store can prove after a purge (§4.7.2). `none` means it offers no purge. */
 export type ErasureClass = "proven" | "unprovable" | "none";
@@ -410,6 +476,13 @@ export interface Exporter {
    * what one peer purges or serves: it names other peers' deltas.
    */
   storedIds(): AsyncIterable<Id>;
+  /**
+   * Checks every row the store keeps against the claims it holds and against its own counters,
+   * and reports each fault it finds (§4.13 reading 137). It only reads: it repairs, replaces and
+   * deletes nothing, and takes no write lock. O(store). Under writes by other connections,
+   * every fault it reports held at one moment of the scan.
+   */
+  fsck(): Promise<FsckReport>;
 }
 
 export interface PeerExporter {

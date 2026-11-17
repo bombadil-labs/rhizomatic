@@ -221,4 +221,17 @@ export const SQLITE_STATEMENTS = {
     WHERE holding.peer = ? AND holding.delta > ?
     ORDER BY holding.delta LIMIT ?`,
   exportStored: "SELECT id FROM delta WHERE id > ? ORDER BY id LIMIT ?",
+
+  fsckEngine: "PRAGMA integrity_check",
+  fsckForeignKeys: "PRAGMA foreign_key_check",
+  fsckHoldings: `SELECT holding.delta AS id, holding.seq, holding.arrival, holding.author AS heldAuthor,
+    delta.claims, delta.author, delta.timestamp
+    FROM holding CROSS JOIN delta ON delta.id = holding.delta
+    WHERE holding.peer = ? AND holding.delta > ?
+    ORDER BY holding.delta LIMIT ?`,
+  fsckTargets: "SELECT entity FROM target WHERE peer = ? AND delta = ?",
+  fsckReferences: "SELECT ref, role FROM reference WHERE peer = ? AND delta = ?",
+  fsckCount: "SELECT count(*) AS held FROM holding WHERE peer = ?",
+  fsckFeed: `SELECT count(*) AS kept, min(revision) AS low, max(revision) AS high
+    FROM change WHERE peer = ?`,
 } as const;

@@ -64,6 +64,7 @@ describe("the statement list", () => {
       expect(report.skipped).toEqual([]);
       const store = await open();
       store.openAdmin().connection();
+      expect((await store.openAdmin().fsck()).faults).toEqual([]);
       // A peer of posture proven runs the rebuild on a store of class proven.
       if (store.profile.capabilities.erasure === "proven") {
         const peer = await store.createPeer("peer:p", { erasure: "proven" });
@@ -105,6 +106,8 @@ describe("the statement list", () => {
         : []),
       SQLITE_STATEMENTS.checkpoint,
       SQLITE_STATEMENTS.residueRead,
+      SQLITE_STATEMENTS.fsckHoldings,
+      SQLITE_STATEMENTS.fsckForeignKeys,
       "BEGIN IMMEDIATE",
       "PRAGMA synchronous",
     ])
@@ -136,6 +139,32 @@ describe("the statements a snapshot runs", () => {
       const text = statements[name]!;
       const branches = name === "scope" ? 2 : 1;
       expect(text.split(BOUND).length - 1, name).toBe(branches);
+    }
+  });
+});
+
+describe("the index rows", () => {
+  // An index row leaves only with its holding, by the cascade from `holding` (§4.13 reading 138).
+  // So a holding whose claims name an entry that is missing is damage, which `fsck` reports, and
+  // never the store's own work. No statement deletes or updates a `target` or `reference` row,
+  // and an insert into either never updates or replaces a row.
+  const texts = [SQLITE_SCHEMA, ...Object.values(SQLITE_STATEMENTS)];
+
+  it("no statement deletes or updates a target or reference row directly", () => {
+    const touching = texts.filter((sql) =>
+      /\b(DELETE\s+FROM|UPDATE(\s+OR\s+\w+)?)\s+(target|reference)\b/i.test(sql),
+    );
+    expect(touching).toEqual([]);
+  });
+
+  it("an insert into target or reference does nothing on a conflict", () => {
+    const inserts = texts.filter((sql) =>
+      /INSERT\s+(OR\s+\w+\s+)?INTO\s+(target|reference)\b/i.test(sql),
+    );
+    expect(inserts.length).toBe(2);
+    for (const sql of inserts) {
+      expect(sql).toMatch(/ON CONFLICT \([^)]*\) DO NOTHING/);
+      expect(sql).not.toMatch(/INSERT\s+OR|DO UPDATE/i);
     }
   });
 });

@@ -33,6 +33,7 @@ import { withSnapshot } from "../storage/with-snapshot.js";
 import type { ScopeSource } from "../storage/scope-source.js";
 import {
   StoreError,
+  StoreFaultError,
   collectDeltaSet,
   type AppliedPushdown,
   type Entity,
@@ -43,7 +44,30 @@ import {
   type Revision,
   type ScopeRequest,
   type Snapshot,
+  type VerifiedDelta,
 } from "../storage/store.js";
+
+/**
+ * Files a `scope` answer in the read's cache. A member the cache refuses came from the store, so
+ * it is the store fault `malformed-member`, not a refusal of the caller's request (§4.13 reading
+ * 21).
+ */
+function fileAnswer(
+  cache: { add(members: Iterable<VerifiedDelta>): number },
+  answer: readonly VerifiedDelta[],
+  revision: Revision,
+): void {
+  try {
+    cache.add(answer);
+  } catch (error) {
+    if (!(error instanceof StoreError && error.code === "invalid-request")) throw error;
+    throw new StoreFaultError(
+      "malformed-member",
+      { revision },
+      `the store answered a scope member that is malformed or whose id does not recompute (${error.message})`,
+    );
+  }
+}
 
 /** The refusal of a store-backed read of an unanchored term. `reason` is SPEC-17 §5's. */
 export class UnanchoredTermError extends Error {
@@ -359,7 +383,7 @@ export async function readAnchoredWith(
     );
     const answer = await snapshot.scope(asked);
     // The cache keeps members that fail the residual, so `exclude` names them next round.
-    cache.add(answer.deltas);
+    fileAnswer(cache, answer.deltas, snapshot.revision);
     // A field one round left to the host stays with the host: an earlier round's members that
     // the store did trim pass it anyway.
     for (const field of policy.residual(asked.pushdown, answer.applied)) unapplied.add(field);
@@ -555,7 +579,7 @@ export async function fetchScope(
   });
   const answer = await snapshot.scope(asked);
   const { cache, held } = createReadCache();
-  cache.add(answer.deltas);
+  fileAnswer(cache, answer.deltas, snapshot.revision);
   const unapplied = new Set(unappliedFields(asked.pushdown, answer.applied));
   const members = scopeIds(
     held,

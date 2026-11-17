@@ -31,6 +31,12 @@ afterAll(() => fixture.cleanup());
 const EXEMPT: Readonly<Record<string, string>> = {
   schemaNames:
     "open reads the catalog once to tell an empty file from a store; its size is the schema's, not the data's",
+  fsckEngine:
+    "fsck is O(store) by definition (an admin call of the Exporter, plan §5): the engine reads every page once, in one read transaction",
+  fsckForeignKeys:
+    "fsck is O(store) by definition: the engine checks every foreign key of every row once, in one read transaction",
+  fsckCount:
+    "fsck counts one peer's holdings to compare them with the peer's count, in the transaction that reads the count; it reads each holding once per scan",
 };
 const BASE_TABLES = [
   "sqlite_master",
