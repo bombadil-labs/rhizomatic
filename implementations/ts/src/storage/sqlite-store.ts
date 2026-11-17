@@ -58,11 +58,13 @@ const DRIVER = "better-sqlite3";
 
 /**
  * Where `require` of the driver starts: this module in an ES module, the bundle in a CommonJS
- * bundle (where `import.meta.url` is undefined). With neither, the load refuses: the working
- * directory is not a location of this module, and a module there is not the host's driver.
+ * bundle (where `import.meta.url` is undefined). An `import.meta.url` that is not a `file:` URL
+ * is not a location on disk. With neither, the load refuses: the working directory is not a
+ * location of this module, and a module there is not the host's driver.
  */
 function location(): string {
-  if (typeof import.meta.url === "string") return import.meta.url;
+  if (typeof import.meta.url === "string" && /^file:/i.test(import.meta.url))
+    return import.meta.url;
   if (typeof __filename === "string" && isAbsolute(__filename)) return __filename;
   throw new Error(
     `@bombadil/rhizomatic/store/sqlite cannot find its own module location, so it does not know where to load ${DRIVER} from. Load the package as a module, or as a CommonJS bundle from a file.`,
