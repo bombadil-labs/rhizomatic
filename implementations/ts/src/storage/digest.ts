@@ -171,7 +171,9 @@ function visit(
   if (count <= DIGEST_LEAF) {
     ids ??= rows.held(prefix);
     if (internal) rows.dropUnder(prefix);
-    node = { count, hash: leafHash(ids) };
+    // A leaf takes its count from the holdings it read, so a damaged count above it cannot make
+    // a write fail: an append or a purge completes, and `fsck` reports the damage.
+    node = { count: ids.length, hash: leafHash(ids) };
     leaf = ids;
   } else {
     const names = childrenOf(prefix);
@@ -187,7 +189,7 @@ function visit(
     });
     node = { count, hash: nodeHash(children) };
   }
-  if (count === 0) rows.drop(prefix);
+  if (node.count === 0) rows.drop(prefix);
   else rows.put(prefix, node, leaf);
   return node;
 }

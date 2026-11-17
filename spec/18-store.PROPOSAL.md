@@ -2770,7 +2770,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      missed; no fault is invented by a write. It holds because the digest rows and the
      holdings change in one transaction, so every read transaction sees them agree. The memory
      store compares its rows with the tree its holdings give. A damaged digest has no remedy by
-     a call: the host restores the file.
+     a call: the host restores the file. A damaged digest does not stop a write: the update gives
+     each leaf the count of the holdings it reads, so an append or a purge completes, and the
+     damage stays for `fsck` to report. No purge waits on the digest.
 142. **Format `/6`, and the digest under erasure** (slice 4, step 4d). The `peer` table gains
      `root TEXT NOT NULL`, and the `digest (peer, prefix, count, hash)` table keeps one row per
      stored node, keyed `(peer, prefix)`, without a rowid. Open refuses a `/1` to `/5` file with

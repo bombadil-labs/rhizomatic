@@ -345,6 +345,20 @@ describe("the digest on the SQLite store alone", () => {
     ]);
   });
 
+  it("a damaged count in the digest does not stop a purge: the purge removes the ids, and fsck then reports digest-mismatch", async () => {
+    const { path } = place();
+    const store = await sqlite(path);
+    const peer = await store.createPeer("peer:a", { erasure: "unproven" });
+    await add(peer, FORTY);
+    const db = new Database(path);
+    db.prepare("UPDATE digest SET count = 1 WHERE peer = 'peer:a' AND prefix = ''").run();
+    db.close();
+    const report = await peer.purge([FORTY[0]!.id, FORTY[1]!.id]);
+    expect(report.targets.map((t) => t.outcome)).toEqual(["removed", "removed"]);
+    expect((await (await peer.read()).get([FORTY[0]!.id, FORTY[1]!.id])).length).toBe(0);
+    expect((await store.openAdmin().fsck()).faults.map((f) => f.kind)).toContain("digest-mismatch");
+  });
+
   it("a snapshot's digest of a prefix that has no row and more than 16 held ids throws StoreIntegrityError digest-mismatch", async () => {
     const { path } = place();
     const store = await sqlite(path);
