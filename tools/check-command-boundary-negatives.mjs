@@ -238,6 +238,11 @@ try {
       /module location observation/,
     ],
     [
+      "hidden module location by __dirname",
+      { "delta/a.ts": "export const source=typeof __dirname;" },
+      /module location observation/,
+    ],
+    [
       "host unresolved require",
       { "federation/http.ts": "const x=require(variable);" },
       /unsupported require import/,
