@@ -130,9 +130,11 @@ Step 4d adds more, listed under Breaking.
   the content of every change record. A holding whose `delta` row is gone is reported with its
   peer and id. On a file with a damaged page it answers a report with one `engine` fault that
   names the engine's code, where it rejected `store-unavailable` before (reading 137).
-- The memory store's `purge` of a held id with no stored claims completes: the holding leaves,
-  the report answers `removed` and names `index-entries` `owed`. Before, it threw a plain
-  `Error`. Reading 136 names `purge([id])` as the remedy for a damaged row.
+- The memory store's `purge` of a held id with no stored claims throws `StoreIntegrityError`
+  (`claims-unreadable`, with the peer and the id) before it removes anything, and the store is
+  unchanged. Before, it threw a plain `Error`, and the ids sorted before that id were already
+  removed, with no change record. The SQLite store's purge of a damaged id completes, as before.
+  A memory-store purge that completes is proposed in its own pull request (reading 136).
 - Tests: rails for every `fsck` check that had none, two repaired rails of the transfer ordinal,
   and a timeout of its own for the statement-list rail, which runs the whole store conformance.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
@@ -157,7 +159,8 @@ Step 4d adds more, listed under Breaking.
 - **`PeerStore` has a new member, `appFormat`.** A host that builds its own `PeerStore` object
   must pass it through.
 - **A bad stored row throws `StoreIntegrityError`, not a plain `Error`.** A host that caught the
-  plain `Error` of a read must catch `StoreIntegrityError`. It is not a `StoreError`.
+  plain `Error` of a read, or of a memory-store `purge`, must catch `StoreIntegrityError`. It is
+  not a `StoreError`.
 - **A malformed `scope` member is the store fault `malformed-member`.** A host that caught
   `invalid-request` from a read for it must catch `StoreFaultError`.
 - **`Exporter` has a new member, `fsck`.** A host that builds its own `Exporter` must give one.

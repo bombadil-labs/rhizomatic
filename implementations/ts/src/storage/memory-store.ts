@@ -657,20 +657,15 @@ class MemoryStore implements Store {
     const released: Id[] = [];
     let rowsOwed = false;
     let indexesOwed = false;
-    for (const id of sorted(ids)) {
+    const order = sorted(ids);
+    // A held id without its stored claims refuses the whole purge before it removes anything
+    // (§4.13 reading 136).
+    for (const id of order) if (state.holdings.get(id) !== undefined) this.#row(state, id);
+    for (const id of order) {
       const holding = state.holdings.get(id);
       let outcome: PurgeOutcome;
-      const row = holding === undefined ? undefined : this.#rows.get(id);
-      if (holding !== undefined && row === undefined) {
-        // A damaged store: the held id has no stored claims (§4.13 reading 136), so no bytes of
-        // it are here. The holding leaves. Its index entries cannot be found without the claims,
-        // so the report says they are owed.
-        state.holdings.delete(id);
-        state.count--;
-        released.push(id);
-        indexesOwed = true;
-        outcome = "removed";
-      } else if (row !== undefined) {
+      if (holding !== undefined) {
+        const row = this.#row(state, id);
         const keys = indexKeys(row.claims);
         for (const entity of keys.entities) this.#unfile(state.targets, entity, id);
         for (const negated of keys.negated) this.#unfile(state.negators, negated, id);

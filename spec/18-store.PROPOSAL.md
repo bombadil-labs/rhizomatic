@@ -2622,11 +2622,14 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      A lost index row is not seen by a read (reading 138). The memory store keeps its rows in
      process memory, where no call can damage them; it throws `claims-unreadable` for a held id
      with no stored claims, in `get`, `arrivals`, `targets`, `negators` and `scope`. A host
-     discards a damaged delta with `purge([id])`, or restores the file, and runs `fsck`. That
-     purge completes on both stores: the SQLite purge reads no claims, and the memory store
-     releases a held id with no stored claims, answers `removed`, and reports `index-entries`
-     `owed`, because it cannot find the index entries without the claims (`fsck` then reports
-     them as `index-stray`). No call replaces a row; a replace stays with Loam's repair layer in
+     discards a damaged delta with `purge([id])`, or restores the file, and runs `fsck`. On the
+     SQLite store that purge completes for a damaged id the caller names, as it did before this
+     step: the SQLite purge reads no claims. On the memory store, a purge that names a held id
+     with no stored claims throws `StoreIntegrityError` (`claims-unreadable`, with the peer and
+     the id) before it removes anything, so the store is unchanged; before, it threw a plain
+     `Error` and could leave the ids sorted before that id removed with no change record. A
+     memory-store remedy that completes that purge is proposed in its own pull request, because
+     it widens what a purge removes. No call replaces a row; a replace stays with Loam's repair layer in
      slice 5. Rust takes the error in step 4e. **A fault is erasable material.** Its `id` is a
      delta id, and its `key` can be an entity id or a referenced id; an `index-stray` or
      `index-missing` detail can name a pointer role. All of these come from claims. A host that

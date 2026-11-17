@@ -1,8 +1,10 @@
-// A purge of a damaged id (SPEC-18 proposal §4.13 reading 136): the remedy for a row a read
-// refuses is `purge([id])`, so that purge completes on both stores. Each rail is two-sided: the
-// damaged target is gone, and a named live bystander still reads. The SQLite damage is made by a
-// second connection on a file in a new temporary directory; the memory damage by a test-only watch
-// on `Map.prototype.get`, which records the store's map of rows while one read runs.
+// A purge of a damaged id (SPEC-18 proposal §4.13 reading 136). On the SQLite store the remedy for
+// a row a read refuses is `purge([id])`, and that purge completes. Each SQLite rail is two-sided:
+// the damaged target is gone, and a named live bystander still reads. On the memory store, a held
+// id whose row is gone refuses the purge with StoreIntegrityError, and the store is unchanged. The
+// SQLite damage is made by a second connection on a file in a new temporary directory; the memory
+// damage by a test-only watch on `Map.prototype.get`, which records the store's map of rows while
+// one read runs.
 
 import Database from "better-sqlite3";
 import { afterAll, describe, expect, it } from "vitest";
@@ -11,7 +13,12 @@ import type { Delta } from "../src/delta/types.js";
 import { admissionOf } from "../src/storage/admission.js";
 import { createMemoryStore } from "../src/storage/memory-store.js";
 import { openSqliteStore, type SqliteStore } from "../src/storage/sqlite-store.js";
-import type { ErasurePosture, PeerStore } from "../src/storage/store.js";
+import {
+  type ErasurePosture,
+  type IntegrityFault,
+  type PeerStore,
+  StoreIntegrityError,
+} from "../src/storage/store.js";
 import { sqliteFixture } from "./support/sqlite-fixture.js";
 
 const fixture = sqliteFixture("rhizomatic-purge-damaged");
@@ -110,12 +117,23 @@ describe("a purge of a damaged id on the SQLite store", () => {
 });
 
 describe("a purge of a damaged id on the memory store", () => {
-  it("a held id whose row is gone: the purge answers removed with its index entries owed, the target is gone, and the bystander reads", async () => {
+  const faultOf = (call: Promise<unknown>) =>
+    call.then(
+      () => "answered",
+      (error: unknown) =>
+        error instanceof StoreIntegrityError
+          ? (({ kind, peer, id }: IntegrityFault) => ({ kind, peer, id }))(error.fault)
+          : `not a StoreIntegrityError: ${String(error)}`,
+    );
+
+  it("a held id whose row is gone: the purge throws claims-unreadable, removes nothing, and the target's holding, a named companion and the bystander stay", async () => {
     const store = createMemoryStore();
     const peer = await store.createPeer("peer:a", { erasure: "unproven" });
     const target = fact("e:target");
     const bystander = fact("e:bystander");
-    await add(peer, [target, bystander]);
+    let companion = fact("e:companion");
+    while (companion.id > target.id) companion = fact("e:companion");
+    await add(peer, [target, bystander, companion]);
     const snapshot = await peer.read();
     const real = Map.prototype.get;
     const rows: Map<unknown, unknown>[] = [];
@@ -134,19 +152,23 @@ describe("a purge of a damaged id on the memory store", () => {
     await pending;
     expect(rows.length).toBe(1);
     rows[0]!.delete(target.id);
-    const report = await peer.purge([target.id]);
-    expect([report.claim, report.targets, report.surfaces]).toEqual([
-      "unproven",
-      [{ id: target.id, outcome: "removed" }],
-      [
-        { surface: "rows", state: "absent" },
-        { surface: "index-entries", state: "owed" },
-        { surface: "process-memory", state: "unprovable" },
-      ],
-    ]);
-    await goneAndKept(peer, target, bystander);
-    expect(
-      (await store.openAdmin().fsck()).faults.map(({ kind, id, key }) => ({ kind, id, key })),
-    ).toEqual([{ kind: "index-stray", id: target.id, key: "e:target" }]);
+    const fault = { kind: "claims-unreadable", peer: "peer:a", id: target.id };
+    const feed = await peer.changes(0);
+    const faults = (await store.openAdmin().fsck()).faults;
+
+    expect(await faultOf(peer.purge([target.id, companion.id]))).toEqual(fault);
+
+    const now = await peer.read();
+    expect([now.revision, now.count]).toEqual([snapshot.revision, 3]);
+    expect(await peer.changes(0)).toEqual(feed);
+    expect(await faultOf(now.arrivals([target.id]))).toEqual(fault);
+    for (const kept of [companion, bystander]) {
+      expect(await now.get([kept.id])).toEqual([kept]);
+      expect((await now.arrivals([kept.id])).map((r) => r.id)).toEqual([kept.id]);
+    }
+    expect(await now.targets(["e:companion", "e:bystander"])).toEqual(
+      [companion.id, bystander.id].sort(),
+    );
+    expect((await store.openAdmin().fsck()).faults).toEqual(faults);
   });
 });
