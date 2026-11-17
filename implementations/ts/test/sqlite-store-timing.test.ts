@@ -14,7 +14,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { makeDelta, makeNegationClaims } from "../src/delta/set.js";
 import type { Delta } from "../src/delta/types.js";
-import type { PeerStore, Store, VerifiedDelta } from "../src/storage/store.js";
+import type { PeerStore, Snapshot, Store, VerifiedDelta } from "../src/storage/store.js";
 import { sqliteFixture } from "./support/sqlite-fixture.js";
 
 const fixture = sqliteFixture("rhizomatic-sqlite-timing");
@@ -225,9 +225,10 @@ describe("the time of a feed read does not grow with the size of the records bes
 
 describe("the time of a read does not grow with the size of the arrival records beside it", () => {
   // An arrival record has no size bound. A table that keys whole rows (WITHOUT ROWID) reads every
-  // cell a seek passes, and an arrival that overflows its page is read whole. A `get` of one small
+  // cell a seek passes, and an arrival that overflows its page is read whole. A read of one small
   // holding beside holdings with senders of 1 MB then costs the size of those neighbours. The same
-  // read beside senders of one character is the reference.
+  // read beside senders of one character is the reference. `targets`, `negators` and `scope` read
+  // `holding.seq` of each row they find, for the snapshot's bound (§4.13 reading 131).
   const NEIGHBOURS = 40;
   const SENDER = 1_000_000;
 
@@ -243,6 +244,7 @@ describe("the time of a read does not grow with the size of the arrival records 
       }),
     );
     const [small] = deltas.splice(NEIGHBOURS / 2, 1);
+    const strike = makeDelta(makeNegationClaims(AUTHOR, 99, small!.id));
     let sequence = 0;
     const entry = (delta: Delta, from: string): VerifiedDelta => ({
       delta,
@@ -252,22 +254,28 @@ describe("the time of a read does not grow with the size of the arrival records 
       expectedHead: null,
       nextHead: "h",
       frame: null,
-      added: [entry(small!, "s"), ...deltas.map((delta) => entry(delta, sender))],
+      added: [
+        entry(small!, "s"),
+        entry(strike, "s"),
+        ...deltas.map((delta) => entry(delta, sender)),
+      ],
     });
     if (result.status !== "committed") throw new Error(result.status);
-    return async () => {
-      for (let i = 0; i < CALLS; i++) {
-        const snapshot = await peer.read();
-        await snapshot.get([small!.id]);
-      }
+    const entity = `s:${NEIGHBOURS / 2}`;
+    const each = (read: (snapshot: Snapshot) => Promise<unknown>) => async (): Promise<void> => {
+      for (let i = 0; i < CALLS; i++) await read(await peer.read());
+    };
+    return {
+      get: each((s) => s.get([small!.id])),
+      targets: each((s) => s.targets([entity])),
+      negators: each((s) => s.negators([small!.id])),
+      scope: each((s) => s.scope({ anchors: [{ kind: "entity", entity }] })),
     };
   }
 
-  it(`get beside senders of ${SENDER} characters: at most ${BOUND} times the time beside senders of one`, async () => {
-    await withinBound(
-      "get beside large senders",
-      await beside("s"),
-      await beside("s".repeat(SENDER)),
-    );
-  }, 600_000);
+  for (const op of ["get", "targets", "negators", "scope"] as const)
+    it(`${op} beside senders of ${SENDER} characters: at most ${BOUND} times the time beside senders of one`, async () => {
+      const [plain, large] = [await beside("s"), await beside("s".repeat(SENDER))];
+      await withinBound(`${op} beside large senders`, plain[op], large[op]);
+    }, 600_000);
 });
