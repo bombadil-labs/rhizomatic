@@ -850,7 +850,10 @@ type PurgeReport = {
   revision: Revision;
   targets: readonly { id: Id; outcome: "removed" | "held-by-other-peer" | "not-held" }[];
   surfaces: readonly { surface: string; state: "absent" | "owed" | "unprovable" }[];
-  retains: readonly { surface: "change-feed" | "purge-debt" | "surface-debt"; holds: "id" }[];
+  retains: readonly {
+    surface: "change-feed" | "purge-debt" | "surface-debt" | "index-entries";
+    holds: "id";
+  }[];
 };
 ```
 
@@ -2136,8 +2139,11 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      - `change-feed` whenever the store's retention is not `none`. Both TypeScript stores always
        list it;
      - `purge-debt` while a purge debt of any peer names such a target;
-     - `surface-debt` while a record of a removal (reading 107) of any peer names such a target.
-     The memory store lists the first two. The SQLite store lists all three. Rust adds the field
+     - `surface-debt` while a record of a removal (reading 107) of any peer names such a target;
+     - `index-entries` when the memory store releases a held id with no stored claims (reading
+       136): the peer's index entries for that id stay.
+     The memory store lists the first two, and the fourth in that case. The SQLite store lists
+     the first three. Rust adds the field
      in step 4e.
 109. **The residue of a removal belongs to the file** (slice 4, step 4b; decision S4-12). A
      rebalanced page can keep copies of a deleted row in its free space. The SQLite store keeps
@@ -2624,10 +2630,23 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      with no stored claims, in `get`, `arrivals`, `targets`, `negators` and `scope`. A host
      discards a damaged delta with `purge([id])`, or restores the file, and runs `fsck`. That
      purge completes on both stores for a damaged id the caller names. The SQLite purge reads no
-     claims. The memory store releases a held id with no stored claims, answers `removed`, and
-     reports `index-entries` `owed`, because it cannot find the index entries without the claims
-     (`fsck` then reports them as `index-stray`). Before, the memory purge threw
-     `StoreIntegrityError` for that id and removed nothing. No call replaces a row; a replace stays with Loam's repair layer in
+     claims. On the memory store, a purge of a held id with no stored claims does this:
+     - It deletes this peer's holding of the id: the arrival record and the signature. It
+       deletes no claims, because none are stored. It deletes no holding of another peer.
+     - It answers `removed`, reports `index-entries` `owed`, and names `index-entries` in
+       `retains`.
+     - The peer's index entries for the id stay, because the store cannot find them without the
+       claims. They hold the id and keys made from its claims: entity ids and negated ids. No
+       call removes them today.
+     - Only this one report says `owed`. The store records no debt, so a later purge of the same
+       id answers `not-held`.
+     - `fsck` names each stray entry as `index-stray`.
+     - To clear the entries, a host that has the delta appends it to that peer again and purges
+       it. That purge finds the claims and removes the entries, and `fsck` then finds none. A
+       host without the delta cannot clear them: they stay until the process ends, and a memory
+       store holds nothing after that. This is a known limit.
+     Before, the memory purge threw `StoreIntegrityError` for that id and removed nothing. No
+     call replaces a row; a replace stays with Loam's repair layer in
      slice 5. Rust takes the error in step 4e. **A fault is erasable material.** Its `id` is a
      delta id, and its `key` can be an entity id or a referenced id; an `index-stray` or
      `index-missing` detail can name a pointer role. All of these come from claims. A host that

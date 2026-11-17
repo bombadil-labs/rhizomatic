@@ -452,12 +452,13 @@ export type PurgeReport = {
   /**
    * The store-controlled surfaces that may still hold the id, never the bytes, of a target this
    * peer released or owes (decision S4-5): `change-feed` whenever the store keeps a feed,
-   * `purge-debt` while a purge debt names such a target, and `surface-debt` while a debt for the
-   * residue of its removal does. The list may name a surface that no longer holds the id; it
-   * never omits one that does. The claim does not cover ids (decision O4).
+   * `purge-debt` while a purge debt names such a target, `surface-debt` while a debt for the
+   * residue of its removal does, and `index-entries` when the memory store releases a held id
+   * with no stored claims. The list may name a surface that no longer holds the id; it never
+   * omits one that does. The claim does not cover ids (decision O4).
    */
   readonly retains: readonly {
-    readonly surface: "change-feed" | "purge-debt" | "surface-debt";
+    readonly surface: "change-feed" | "purge-debt" | "surface-debt" | "index-entries";
     readonly holds: "id";
   }[];
 };

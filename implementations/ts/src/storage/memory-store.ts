@@ -657,18 +657,21 @@ class MemoryStore implements Store {
     const released: Id[] = [];
     let rowsOwed = false;
     let indexesOwed = false;
+    let strays = false;
     for (const id of sorted(ids)) {
       const holding = state.holdings.get(id);
       let outcome: PurgeOutcome;
       const row = holding === undefined ? undefined : this.#rows.get(id);
       if (holding !== undefined && row === undefined) {
-        // A damaged store: the held id has no stored claims (§4.13 reading 136), so no bytes of
-        // it are here. The holding leaves. Its index entries cannot be found without the claims,
-        // so the report says they are owed.
+        // A damaged store: the held id has no stored claims (§4.13 reading 136). The holding
+        // leaves. Its index entries cannot be found without the claims, so they stay until they
+        // are cleared: they keep the id and keys made from its claims. The report says they are
+        // owed, and `retains` names them.
         state.holdings.delete(id);
         state.count--;
         released.push(id);
         indexesOwed = true;
+        strays = true;
         outcome = "removed";
       } else if (row !== undefined) {
         const keys = indexKeys(row.claims);
@@ -715,13 +718,14 @@ class MemoryStore implements Store {
         { surface: "index-entries", state: indexesOwed ? "owed" : "absent" },
         { surface: "process-memory", state: "unprovable" },
       ],
-      // The ids the feed or a debt may keep, for the targets this peer released or owes. This
-      // store always keeps a feed.
+      // The ids the feed, a debt or a stray index entry may keep, for the targets this peer
+      // released or owes. This store always keeps a feed.
       retains: [
         { surface: "change-feed", holds: "id" },
         ...(targets.some((t) => t.outcome !== "not-held" && this.#debtors.get(t.id) !== undefined)
           ? [{ surface: "purge-debt" as const, holds: "id" as const }]
           : []),
+        ...(strays ? [{ surface: "index-entries" as const, holds: "id" as const }] : []),
       ],
     };
   }
