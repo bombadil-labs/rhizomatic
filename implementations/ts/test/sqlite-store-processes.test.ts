@@ -621,6 +621,30 @@ describe("the open of a store whose lock another connection takes between the op
     ]);
   }, 60_000);
 
+  for (const [code, expected] of [
+    ["SQLITE_CORRUPT", "open-failed: sqlite store: the file did not open (SQLITE_CORRUPT)"],
+    ["SQLITE_BUSY", UNAVAILABLE],
+  ] as const)
+    it(`an engine error ${code} at the format read of the second pass, in the open's write transaction, answers ${expected.split(":")[0]} after one try`, async () => {
+      const path = await made();
+      let reads = 0;
+      const { answer } = await hooked(
+        "prepare",
+        (source) => {
+          if (source !== SQLITE_STATEMENTS.metaGet) return;
+          // The first pass reads format and retention; the third read is the second pass.
+          if (++reads === 3) throw new Database.SqliteError("the engine failed", code);
+        },
+        () => timedOpen(path, BOUND_MS),
+      );
+      expect([answer, reads]).toEqual([expected, 3]);
+      const store = await openSqliteStore(path);
+      const peers: string[] = [];
+      for await (const id of store.openAdmin().peers()) peers.push(id);
+      expect(peers).toEqual(["peer:a"]);
+      await store.close();
+    }, 60_000);
+
   for (const file of ["a new file", "a rollback-journal store"] as const)
     it(`a holder that takes an exclusive lock again before each statement of the open of ${file}, and holds it for most of busyTimeoutMs, cannot make the open take more than one and a half times busyTimeoutMs`, async () => {
       const path = file === "a new file" ? storePath() : await rollbackStore();
@@ -648,6 +672,21 @@ describe("the open of a store whose lock another connection takes between the op
       () => timedOpen(path, BOUND_MS),
     );
     expect([answer, begins]).toEqual([UNAVAILABLE, 1]);
+    expect(ms).toBeGreaterThanOrEqual(BOUND_MS);
+    expect(past(ms)).toBeLessThan(0.5);
+    audit(path);
+  }, 60_000);
+
+  it("a holder that makes the open's first write transaction wait more than half of busyTimeoutMs, then takes the write lock again at the second, makes the open refuse store-unavailable within the bound: the second waits only the time left", async () => {
+    const path = await made();
+    let begins = 0;
+    const { answer, ms } = await retaking(
+      path,
+      0.6 * BOUND_MS,
+      (source) => source === "BEGIN IMMEDIATE" && ++begins <= 2,
+      () => timedOpen(path, BOUND_MS),
+    );
+    expect([answer, begins]).toEqual([UNAVAILABLE, 2]);
     expect(ms).toBeGreaterThanOrEqual(BOUND_MS);
     expect(past(ms)).toBeLessThan(0.5);
     audit(path);

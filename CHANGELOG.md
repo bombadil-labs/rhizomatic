@@ -28,13 +28,18 @@ new text, a busy open of a SQLite file refuses `store-unavailable` where it refu
   sets the engine's wait to the time left, so the whole open takes about `busyTimeoutMs` at most,
   also when a holder takes the lock again before each statement. A busy read of the `format` row
   refuses `store-unavailable` too, and an engine error there that is not busy refuses
-  `open-failed` with its code. Only a file with no `meta` table is "not a rhizomatic store"
+  `open-failed` with its code. Only a file with no `meta` table is "not a rhizomatic store"; an
+  index or a view named `meta` is not that table. A `meta` table of other columns refuses
+  `open-failed` with `SQLITE_ERROR`. The second read of the schema, in the open's write
+  transaction, refuses by the same rule; before, any error there refused `store-unavailable`
   (reading 126).
 - The SQLite subpath refuses to load when it cannot find its own module location. The released
   `0.11.0-next.11` imported `better-sqlite3` statically. So a host with no module location, such
   as an IIFE bundle run through `vm`, loaded it; that host now gets the location error. The
   subpath takes `import.meta.url` before `__filename`, and only when it is a `file:` URL. For
-  another URL, and with neither, it gives the location error.
+  another URL, and with neither, it gives the location error. An ES module bundle whose bundler
+  writes an absolute path, not a URL, for `import.meta.url` loaded before and now gets the
+  location error. A CommonJS bundle of that kind now loads the driver beside the bundle.
 - The `unknown-scheme` message has new text: it says that the `sqlite` scheme is registered when
   the host imports `@bombadil/rhizomatic/store/sqlite`. A host that matches the old text must
   change its match. It is still one fixed message for every unrouted URL.
@@ -49,7 +54,10 @@ new text, a busy open of a SQLite file refuses `store-unavailable` where it refu
 - Tests: the many-process rails ask again on `store-unavailable`, and the crash rail no longer
   needs a fast disk. Rails bound the busy open from above at one and a half times
   `busyTimeoutMs`, also under a holder that takes the lock again before each statement. A rail
-  holds that both stores refuse a delta whose id hashes an inherited `validUntil`.
+  holds that both stores refuse a delta whose id hashes an inherited `validUntil`. PR #93 added
+  eight rails, not six as its text said. Rails now hold the answer "not a rhizomatic store", the
+  wait before the open's second write transaction, the case of the `file:` scheme, and that no
+  statement after the open sets `busy_timeout`.
 
 ## 0.11.0-next.11 — 2026-11-16
 

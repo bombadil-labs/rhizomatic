@@ -209,6 +209,14 @@ function unavailable(error: unknown): unknown {
   );
 }
 
+/** The refusal of an open for an engine error that is not busy, with the error's code. */
+function notOpened(error: unknown): StoreError {
+  return new StoreError(
+    "open-failed",
+    `sqlite store: the file did not open (${error instanceof Database.SqliteError ? error.code : "unknown"})`,
+  );
+}
+
 /** The cell that `waiting` pauses on, made at its first pause. */
 let pause: Int32Array | undefined;
 
@@ -371,9 +379,10 @@ const SCHEMA_NAMES = [...SQLITE_SCHEMA.matchAll(/CREATE (?:TABLE|INDEX|TRIGGER) 
 
 /**
  * True when the file holds no schema at all, as a new file does. Refuses `open-failed` for a file
- * that holds a schema but not a whole store of this format: no `meta` table, another format, no
- * `format` row, or a missing table, index, trigger or `retention` row. It only reads, and runs
- * `before` before each statement. An engine error of a read passes up.
+ * that holds a schema but not a whole store of this format: no `meta` table (an index or a view
+ * of that name is not one), another format, no `format` row, or a missing table, index, trigger
+ * or `retention` row. It only reads, and runs `before` before each statement. An engine error of
+ * a read passes up.
  */
 function isEmpty(db: BetterSqlite3.Database, before: () => void = () => {}): boolean {
   const read = (key: string): string | undefined => {
@@ -381,11 +390,12 @@ function isEmpty(db: BetterSqlite3.Database, before: () => void = () => {}): boo
     return metaOf(db, key);
   };
   before();
-  const names = new Set(
-    (db.prepare(SQLITE_STATEMENTS.schemaNames).all() as { name: string }[]).map((r) => r.name),
-  );
-  if (names.size === 0) return true;
-  const format = names.has("meta") ? read("format") : undefined;
+  const rows = db.prepare(SQLITE_STATEMENTS.schemaNames).all() as { name: string; type: string }[];
+  if (rows.length === 0) return true;
+  const names = new Set(rows.map((r) => r.name));
+  const format = rows.some((r) => r.name === "meta" && r.type === "table")
+    ? read("format")
+    : undefined;
   if (format !== SQLITE_STORE_FORMAT)
     throw new StoreError(
       "open-failed",
@@ -499,7 +509,17 @@ class SqliteFileStore implements SqliteStore {
   /** Creates the schema in an empty file, or checks the format and retention of a store. */
   #format(asked: Retention | undefined): Retention {
     const db = this.#db;
-    if (isEmpty(db)) {
+    let empty: boolean;
+    try {
+      empty = isEmpty(db);
+    } catch (error) {
+      // The second pass, in the write transaction, refuses as the first does: only busy is
+      // `store-unavailable` (§4.13 reading 126).
+      if (error instanceof Database.SqliteError && !error.code.startsWith("SQLITE_BUSY"))
+        throw notOpened(error);
+      throw error;
+    }
+    if (empty) {
       const retention = asked ?? DEFAULT_RETENTION;
       db.exec(SQLITE_SCHEMA);
       const put = db.prepare(SQLITE_STATEMENTS.metaSet);
@@ -1191,10 +1211,7 @@ export async function openSqliteStore(
   } catch (error) {
     db.close();
     if (error instanceof StoreError) throw error;
-    throw new StoreError(
-      "open-failed",
-      `sqlite store: the file did not open (${error instanceof Database.SqliteError ? error.code : "unknown"})`,
-    );
+    throw notOpened(error);
   }
 }
 

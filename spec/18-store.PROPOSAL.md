@@ -2399,8 +2399,12 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      before each statement. Before this, that holder made an open of a rollback-journal file take
      about five times `busyTimeoutMs`, and of a new file about three times. A busy read of the
      `format` row is part of the try, so it ends as `store-unavailable` too. Only a file with no
-     `meta` table is "not a rhizomatic store"; any other engine error of the reads refuses
-     `open-failed` with its code. Measured with one holder that keeps its lock, and with a holder
+     `meta` table is "not a rhizomatic store"; an index or a view named `meta` is not that table.
+     Any other engine error of the reads refuses `open-failed` with its code, so a `meta` table of
+     other columns refuses `open-failed` with `SQLITE_ERROR`. The open reads the schema a second
+     time in its write transaction, and the same rule holds there: an engine error that is not
+     busy refuses `open-failed` with its code, and a busy error refuses `store-unavailable`.
+     Measured with one holder that keeps its lock, and with a holder
      that takes an exclusive lock again before each statement: 0, 50, 200 and 1000 ms of wait gave
      the refusal after at most 1, 53, 202 and 1003 ms, on a new file and on a rollback-journal
      store. With `busyTimeoutMs` 0 the open makes one try.
