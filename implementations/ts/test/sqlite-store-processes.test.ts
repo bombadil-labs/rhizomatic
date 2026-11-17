@@ -79,6 +79,8 @@ function child(job: Record<string, unknown>) {
   return {
     ended,
     printed,
+    /** Everything the child printed so far. */
+    output: () => out,
     /** The JSON the child printed after `word`. */
     json: async <T>(word: string): Promise<T> => JSON.parse(await printed(word)) as T,
     held: (point: string) => printed("held").then((p) => expect(p).toBe(point)),
@@ -316,6 +318,57 @@ describe("busy: a write that cannot take the lock within busyTimeoutMs", () => {
     expect(written.committed.map((c) => c.revision)).toEqual([2]);
     audit(path);
   }, 60_000);
+});
+
+// ---- the open of a new file ---------------------------------------------------------------------
+
+describe("the open of a new file that other connections open at the same time", () => {
+  it("while another connection holds the write lock of the new file, open waits busyTimeoutMs and refuses store-unavailable, not open-failed at once; a later open makes the store", async () => {
+    const path = storePath();
+    const holder = new Database(path);
+    holder.prepare("BEGIN IMMEDIATE").run();
+    const started = Date.now();
+    const refused = await openSqliteStore(path, { busyTimeoutMs: 200 }).then(
+      () => "opened",
+      (error: unknown) =>
+        error instanceof StoreError ? `${error.code}: ${error.message}` : String(error),
+    );
+    expect(refused).toBe(
+      "store-unavailable: the SQLite store cannot serve this call now (SQLITE_BUSY); ask again",
+    );
+    expect(Date.now() - started).toBeGreaterThanOrEqual(200);
+    holder.prepare("ROLLBACK").run();
+    holder.close();
+    const store = await openSqliteStore(path);
+    await store.createPeer("peer:a", { erasure: "unproven" });
+    await store.close();
+    audit(path);
+  }, 60_000);
+
+  it("four processes that open one new path together all open it, with no refusal to ask again, and the file is one sound store", async () => {
+    for (let round = 0; round < 10; round++) {
+      const path = storePath();
+      const go = `${path}.go-start`;
+      const openers = Array.from({ length: 4 }, () => child({ op: "open", path, go }));
+      for (const opener of openers) await opener.printed("waiting");
+      writeFileSync(go, String(Date.now() + 100));
+      for (const opener of openers) {
+        expect(await opener.json("histories")).toEqual({});
+        expect(await opener.ended).toBe("0");
+        expect(opener.output()).not.toContain("busy ");
+      }
+      const db = new Database(path, { readonly: true });
+      try {
+        expect([
+          db.pragma("integrity_check", { simple: true }),
+          db.pragma("journal_mode", { simple: true }),
+          db.prepare("SELECT key FROM meta ORDER BY key").all(),
+        ]).toEqual(["ok", "wal", [{ key: "format" }, { key: "identity" }, { key: "retention" }]]);
+      } finally {
+        db.close();
+      }
+    }
+  }, 120_000);
 });
 
 // ---- values a process could keep ---------------------------------------------------------------

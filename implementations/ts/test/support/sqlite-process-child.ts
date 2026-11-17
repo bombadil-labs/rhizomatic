@@ -1,7 +1,9 @@
 // A child of the many-process rails (sqlite-store-processes.test.ts). It runs one job on the store
 // at a path, given as JSON in its first argument, and prints its answer as one line
 // `<word> <json>`. A job can wait for a go file before it starts (`go`), so that several
-// children start together.
+// children start together; it prints `waiting go` first. A go file that holds a time in ms
+// since the epoch makes the child wait until that time, so that several children start within
+// a millisecond.
 //
 // A job can also hold at one point, from the test side: the child wraps the statements of
 // `better-sqlite3` in this process only, and the store has no hook for it. A hold prints
@@ -40,7 +42,7 @@
 // - `create`: creates the peer with the host mint `mint`. Prints `created <history>` or
 //   `refused <code>`.
 
-import { existsSync, writeSync } from "node:fs";
+import { existsSync, readFileSync, writeSync } from "node:fs";
 import Database from "better-sqlite3";
 import { makeDelta } from "../../src/delta/set.js";
 import type { Delta } from "../../src/delta/types.js";
@@ -164,7 +166,12 @@ async function again<T>(what: string, call: () => Promise<T>): Promise<T> {
   }
 }
 
-if (job.go !== undefined) waitFor(job.go);
+if (job.go !== undefined) {
+  print("waiting", "go");
+  waitFor(job.go);
+  const at = Number(readFileSync(job.go, "utf8"));
+  while (Date.now() < at);
+}
 armed = job.hold === "identity" || job.hold === "lock";
 const store = await again("open", () =>
   openSqliteStore(job.path, {

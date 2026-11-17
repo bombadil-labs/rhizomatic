@@ -192,6 +192,26 @@ function unavailable(error: unknown): unknown {
   );
 }
 
+/**
+ * Runs `body`, and runs it again while the engine answers `SQLITE_BUSY`, for at most `timeoutMs`.
+ * The switch to the `wal` journal mode answers busy at once, without the busy handler, while
+ * another connection opens the same new file. After the wait the refusal is `store-unavailable`,
+ * as for any lock held past the wait (reading 105). Any other error passes up unchanged.
+ */
+function waiting<T>(timeoutMs: number, body: () => T): T {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      return body();
+    } catch (error) {
+      if (!(error instanceof Database.SqliteError && error.code.startsWith("SQLITE_BUSY")))
+        throw error;
+      if (Date.now() >= deadline) throw unavailable(error);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+    }
+  }
+}
+
 // ---- claims from their canonical bytes ----------------------------------------------------------
 
 function fieldsOf(value: CborValue | undefined): Map<string, CborValue> {
@@ -395,7 +415,8 @@ class SqliteFileStore implements SqliteStore {
     // file that is not a store is refused first, by reads only (§4.13 reading 126).
     db.pragma(`busy_timeout = ${options.busyTimeoutMs}`);
     isEmpty(db);
-    for (const [name, value] of this.#rules) db.pragma(`${name} = ${value}`);
+    for (const [name, value] of this.#rules)
+      waiting(options.busyTimeoutMs, () => db.pragma(`${name} = ${value}`));
     const now = this.#connection();
     for (const [name, value, expected] of this.#rules)
       if (now[name] !== expected)
