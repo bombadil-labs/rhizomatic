@@ -103,9 +103,12 @@ ${ERASABLE.flatMap((table) =>
 
 // A snapshot's statements keep the holdings with a sequence of at most `@bound`, the snapshot's
 // last sequence (§4.13 reading 131). A scope binds the lower of that and its `arrivalAtMost`. The
-// other pushdown fields are nullable parameters: a null keeps every delta.
+// other pushdown fields are nullable parameters: a null keeps every delta. Every read joins
+// `delta` with a left join, so a holding whose `delta` row is gone stays in the answer with a
+// null, and the read fails on it (§4.13 reading 136). A held delta whose timestamp cannot be read
+// passes the timestamp bound, for the same reason.
 const PASSES = (id: string): string => `holding.seq <= @bound
-    AND (@timestamp IS NULL OR delta.timestamp <= @timestamp)
+    AND (@timestamp IS NULL OR delta.id IS NULL OR delta.timestamp <= @timestamp)
     AND ${id} NOT IN (SELECT value FROM json_each(@drop))`;
 
 export const SQLITE_STATEMENTS = {
@@ -167,33 +170,38 @@ export const SQLITE_STATEMENTS = {
   get: `SELECT holding.delta AS id, delta.claims, holding.sig
     FROM json_each(@keys) AS asked
     CROSS JOIN holding ON holding.peer = @peer AND holding.delta = asked.value
-    CROSS JOIN delta ON delta.id = holding.delta
+    LEFT JOIN delta ON delta.id = holding.delta
     WHERE holding.seq <= @bound
     ORDER BY holding.delta`,
-  arrivals: `SELECT holding.arrival
+  arrivals: `SELECT holding.delta AS id, holding.seq, holding.arrival, delta.id IS NULL AS lost
     FROM json_each(@keys) AS asked
     CROSS JOIN holding ON holding.peer = @peer AND holding.delta = asked.value
+    LEFT JOIN delta ON delta.id = holding.delta
     WHERE holding.seq <= @bound
     ORDER BY holding.delta`,
-  targets: `SELECT DISTINCT target.delta
+  targets: `SELECT target.delta, max(delta.id IS NULL) AS lost
     FROM json_each(@keys) AS asked
     CROSS JOIN target ON target.peer = @peer AND target.entity = asked.value
     CROSS JOIN holding ON holding.peer = @peer AND holding.delta = target.delta
+    LEFT JOIN delta ON delta.id = target.delta
     WHERE holding.seq <= @bound
+    GROUP BY target.delta
     ORDER BY target.delta`,
-  negators: `SELECT DISTINCT reference.delta
+  negators: `SELECT reference.delta, max(delta.id IS NULL) AS lost
     FROM json_each(@keys) AS asked
     CROSS JOIN reference
       ON reference.peer = @peer AND reference.ref = asked.value AND reference.role = 'negates'
     CROSS JOIN holding ON holding.peer = @peer AND holding.delta = reference.delta
+    LEFT JOIN delta ON delta.id = reference.delta
     WHERE holding.seq <= @bound
+    GROUP BY reference.delta
     ORDER BY reference.delta`,
   scope: `WITH RECURSIVE member (id) AS (
     SELECT target.delta
     FROM json_each(@anchors) AS anchor
     CROSS JOIN target ON target.peer = @peer AND target.entity = anchor.value
     CROSS JOIN holding ON holding.peer = @peer AND holding.delta = target.delta
-    CROSS JOIN delta ON delta.id = target.delta
+    LEFT JOIN delta ON delta.id = target.delta
     WHERE ${PASSES("target.delta")}
     UNION
     SELECT reference.delta
@@ -201,14 +209,14 @@ export const SQLITE_STATEMENTS = {
     CROSS JOIN reference
       ON reference.peer = @peer AND reference.ref = member.id AND reference.role = 'negates'
     CROSS JOIN holding ON holding.peer = @peer AND holding.delta = reference.delta
-    CROSS JOIN delta ON delta.id = reference.delta
+    LEFT JOIN delta ON delta.id = reference.delta
     WHERE ${PASSES("reference.delta")}
   )
-  SELECT member.id, delta.claims, holding.sig, holding.arrival
+  SELECT member.id, delta.claims, holding.sig, holding.seq, holding.arrival
   FROM member
   CROSS JOIN holding ON holding.peer = @peer AND holding.delta = member.id
-  CROSS JOIN delta ON delta.id = member.id
-  WHERE member.id NOT IN (SELECT value FROM json_each(@exclude))
+  LEFT JOIN delta ON delta.id = member.id
+  WHERE delta.id IS NULL OR member.id NOT IN (SELECT value FROM json_each(@exclude))
   ORDER BY member.id`,
   changes: `SELECT revision, head, added, removed FROM change
     WHERE peer = @peer AND revision > @from AND revision <= @to
@@ -217,18 +225,20 @@ export const SQLITE_STATEMENTS = {
   exportPeers: "SELECT id FROM peer WHERE id > ? ORDER BY id LIMIT ?",
   exportIds: "SELECT delta FROM holding WHERE peer = ? AND delta > ? ORDER BY delta LIMIT ?",
   exportDeltas: `SELECT holding.delta AS id, delta.claims, holding.sig
-    FROM holding CROSS JOIN delta ON delta.id = holding.delta
+    FROM holding LEFT JOIN delta ON delta.id = holding.delta
     WHERE holding.peer = ? AND holding.delta > ?
     ORDER BY holding.delta LIMIT ?`,
   exportStored: "SELECT id FROM delta WHERE id > ? ORDER BY id LIMIT ?",
 
   fsckEngine: "PRAGMA integrity_check",
   fsckForeignKeys: "PRAGMA foreign_key_check",
-  fsckHoldings: `SELECT holding.delta AS id, holding.seq, holding.arrival, holding.author AS heldAuthor,
-    delta.claims, delta.author, delta.timestamp
-    FROM holding CROSS JOIN delta ON delta.id = holding.delta
+  fsckHoldings: `SELECT holding.delta AS id, holding.seq, holding.arrival, holding.sig,
+    holding.author AS heldAuthor, delta.claims, delta.author, delta.timestamp
+    FROM holding LEFT JOIN delta ON delta.id = holding.delta
     WHERE holding.peer = ? AND holding.delta > ?
     ORDER BY holding.delta LIMIT ?`,
+  fsckChanges: `SELECT revision, added, removed FROM change
+    WHERE peer = ? AND revision > ? ORDER BY revision LIMIT ?`,
   fsckTargets: "SELECT entity FROM target WHERE peer = ? AND delta = ?",
   fsckReferences: "SELECT ref, role FROM reference WHERE peer = ? AND delta = ?",
   fsckCount: "SELECT count(*) AS held FROM holding WHERE peer = ?",

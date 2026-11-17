@@ -229,6 +229,12 @@ The store checks sequences for two things only: greater than the peer's largest,
 among the batch's new entries. That sequences follow ascending id inside a transfer, and that one batch shares
 one transfer ordinal, are admission's rules (SPEC-6 vNext §3). The store does not check them.
 
+Owed in step 4e: the transfer rule (SPEC-18 proposal §4.13 reading 135). The TypeScript stores
+keep each peer's last transfer ordinal and refuse `invalid-admission` for a new entry whose
+`transfer` does not pass it. A skipped entry is not compared and does not raise it. No vector
+holds a case of this rule yet, and the Rust stores do not check it. Step 4e adds the vector and
+the Rust check together.
+
 A store that cannot tell whether an append committed answers `uncertain`. The memory reference
 store never does. In a conformance run `uncertain` fails the step.
 

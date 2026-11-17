@@ -55,25 +55,28 @@
   "get": [
     "SCAN asked VIRTUAL TABLE INDEX 1:",
     "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
-    "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
+    "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?) LEFT-JOIN",
     "USE TEMP B-TREE FOR ORDER BY"
   ],
   "arrivals": [
     "SCAN asked VIRTUAL TABLE INDEX 1:",
     "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
+    "SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id=?) LEFT-JOIN",
     "USE TEMP B-TREE FOR ORDER BY"
   ],
   "targets": [
     "SCAN asked VIRTUAL TABLE INDEX 1:",
     "SEARCH target USING PRIMARY KEY (peer=? AND entity=?)",
     "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
-    "USE TEMP B-TREE FOR DISTINCT"
+    "SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id=?) LEFT-JOIN",
+    "USE TEMP B-TREE FOR GROUP BY"
   ],
   "negators": [
     "SCAN asked VIRTUAL TABLE INDEX 1:",
     "SEARCH reference USING PRIMARY KEY (peer=? AND ref=? AND role=?)",
     "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
-    "USE TEMP B-TREE FOR DISTINCT"
+    "SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id=?) LEFT-JOIN",
+    "USE TEMP B-TREE FOR GROUP BY"
   ],
   "scope": [
     "CO-ROUTINE member",
@@ -84,7 +87,7 @@
     "      SCAN json_each VIRTUAL TABLE INDEX 1:",
     "      CREATE BLOOM FILTER",
     "    SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
-    "    SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
+    "    SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?) LEFT-JOIN",
     "  RECURSIVE STEP",
     "    SCAN member",
     "    SEARCH reference USING PRIMARY KEY (peer=? AND ref=? AND role=?)",
@@ -92,13 +95,13 @@
     "      SCAN json_each VIRTUAL TABLE INDEX 1:",
     "      CREATE BLOOM FILTER",
     "    SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
-    "    SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
+    "    SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?) LEFT-JOIN",
     "SCAN member",
+    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
+    "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?) LEFT-JOIN",
     "LIST SUBQUERY 5",
     "  SCAN json_each VIRTUAL TABLE INDEX 1:",
     "  CREATE BLOOM FILTER",
-    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
-    "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)",
     "USE TEMP B-TREE FOR ORDER BY"
   ],
   "changes": [
@@ -110,15 +113,16 @@
   ],
   "exportDeltas": [
     "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta>?)",
-    "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)"
+    "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?) LEFT-JOIN"
   ],
   "exportStored": ["SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id>?)"],
   "fsckEngine": [],
   "fsckForeignKeys": [],
   "fsckHoldings": [
     "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta>?)",
-    "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)"
+    "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?) LEFT-JOIN"
   ],
+  "fsckChanges": ["SEARCH change USING INDEX sqlite_autoindex_change_1 (peer=? AND revision>?)"],
   "fsckTargets": ["SEARCH target USING COVERING INDEX target_by_delta (peer=? AND delta=?)"],
   "fsckReferences": [
     "SEARCH reference USING COVERING INDEX reference_by_delta (peer=? AND delta=?)"

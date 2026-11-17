@@ -112,7 +112,8 @@ describe("the statement list", () => {
       "PRAGMA synchronous",
     ])
       expect(seen.has(text), text).toBe(true);
-  });
+    // It runs the whole store conformance: 1 to 3 s alone, and 24 s once under a loaded full run.
+  }, 120_000);
 });
 
 describe("the statements a snapshot runs", () => {

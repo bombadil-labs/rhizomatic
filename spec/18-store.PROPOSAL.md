@@ -2592,14 +2592,49 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      (`StoreError`) is the store keeping its contract, a store fault (`StoreFaultError`) is an
      answer that breaks a rule of the contract, and an integrity fault is damage in the store's
      own data, found by the store. A read never answers less in its place: the call that meets
-     the row answers nothing, and other calls, and other rows, read as before. The SQLite store
-     throws `claims-mismatch` for claims that do not hash to their id, `claims-unreadable` for
-     bytes that hash to their id and are not claims, and `column-mismatch` (key
-     `holding.arrival`) for an arrival record that is not one or names another id. The memory
-     store throws `claims-unreadable` for a held id with no stored claims. `fault.peer` and
-     `fault.id` name the place. A host discards the delta with `purge([id])`, or restores the
-     file, and runs `fsck`. No call replaces a row; a replace stays with Loam's repair layer in
-     slice 5. Rust takes the error in step 4e.
+     the row answers nothing, and other calls, and other rows, read as before. `fsck` (reading
+     137) reports the same fault, with the same kind, peer, id and key. What a read checks, on
+     each row it answers or walks through:
+     - **Claims.** `claims-mismatch` for claims that do not hash to their id. `claims-unreadable`
+       for bytes that hash to their id and are not claims, and for a holding whose stored claims
+       are gone (on SQLite, a `holding` row whose `delta` row is gone). On SQLite, `get`,
+       `arrivals`, `targets`, `negators`, `scope` and an export join `delta` with a left join,
+       so such a holding fails the read and does not vanish from it. In `scope`, such a holding
+       passes `timestampAtMost`, and `exclude` does not trim it, so the walk fails on it. The check costs one more
+       index seek per answered id in `arrivals`, `targets` and `negators`, on `delta`'s key alone;
+       `get` and `scope` read that row already. Measured on WSL, 400 calls at 32,000 deltas:
+       `get` 54 ms before and 56 ms after, `arrivals` 7.3 and 9.3, `targets` 5.4 and 6.2,
+       `negators` 4.6 and 4.7, `scope` 66.9 and 69.1.
+     - **Arrival record** (SQLite, `arrivals` and `scope`). `column-mismatch` (key
+       `holding.arrival`) for a text that is not a record of exactly the five fields `id`, `at`,
+       `sequence`, `transfer` and `sender`; for an `id` that is not the holding's delta; for a
+       `sequence` that is not the holding's `seq`; for a `transfer` that is not an integer of 1
+       or more; for an `at` that is not a finite number; and for a `sender` that is not a
+       non-empty, well-formed text. `sequence-mismatch` (key `transfer`) for a `transfer` above
+       the peer's last. `at` and `sender` have no second copy in the store, so only their form is
+       checked: another `at` or `sender` of the right form reads as stored.
+     - **Signature** (SQLite, `get`, `scope` and an export). `column-mismatch` (key
+       `holding.sig`) for a stored signature that is not 128 lowercase hex digits. Only the form
+       is checked: the store does not verify a signature.
+     - **Change record** (SQLite, `changes`). `column-mismatch` (key `change.added` or
+       `change.removed`, no `id`) for a list that is not a JSON list of texts; the detail names
+       the revision. The ids in it are not compared with the holdings.
+     A lost index row is not seen by a read (reading 138). The memory store keeps its rows in
+     process memory, where no call can damage them; it throws `claims-unreadable` for a held id
+     with no stored claims, in `get`, `arrivals`, `targets`, `negators` and `scope`. A host
+     discards a damaged delta with `purge([id])`, or restores the file, and runs `fsck`. On the
+     SQLite store that purge completes for a damaged id the caller names, as it did before this
+     step: the SQLite purge reads no claims. On the memory store, a purge that names a held id
+     with no stored claims throws `StoreIntegrityError` (`claims-unreadable`, with the peer and
+     the id) before it removes anything, so the store is unchanged; before, it threw a plain
+     `Error` and could leave the ids sorted before that id removed with no change record. A
+     memory-store remedy that completes that purge is proposed in its own pull request, because
+     it widens what a purge removes. No call replaces a row; a replace stays with Loam's repair layer in
+     slice 5. Rust takes the error in step 4e. **A fault is erasable material.** Its `id` is a
+     delta id, and its `key` can be an entity id or a referenced id; an `index-stray` or
+     `index-missing` detail can name a pointer role. All of these come from claims. A host that
+     logs or keeps a fault keeps them outside the store, where a purge does not reach. It treats
+     a stored fault report as erasable material of that delta.
 137. **`fsck`** (slice 4, step 4d, §4.7.3). `Exporter.fsck()` answers `{checked: {peers,
      holdings, deltas}, faults}`. It is an admin call: O(store), and it only reads. It repairs,
      replaces and deletes nothing, and takes no write lock. The kinds: `claims-mismatch`,
@@ -2610,20 +2645,36 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      sequence or transfer above the peer's last, key `seq` or `transfer`), `feed-gap`,
      `orphan-bytes` (no `peer`) and `engine` (SQLite's `integrity_check` and
      `foreign_key_check`). `digest-mismatch` and `journal-broken` come with the digest and the
-     journal. The SQLite store works in steps, and each step is one short read transaction: the
-     engine's checks; per peer, its count and change records against its row; per page of 256
-     of a peer's holdings, each holding's claims, columns, sequence, transfer and index rows
-     against the peer's row; per page of 256 stored deltas, whether a peer holds it. Between
-     steps it holds no transaction and yields to the host's event loop. So a write by this store
-     or by another process commits between steps, and a purge between steps reports the same
-     surfaces as with no `fsck` (reading 129). Each step reads every fact it compares in its own
-     transaction. **Guarantee under concurrent writes:** every fault that `fsck` reports was true
-     of the file at the moment of the read transaction of the step that found it; a fault in a
-     row or a peer that exists unchanged for the whole scan is reported, because a keyset page
-     visits every row whose key exists for the whole scan. A fault that a write makes or removes
-     during the scan may be missed; no fault is invented by a write. The engine's checks run in
-     one read transaction of O(file) bytes; during it a purge in another process reports its
-     file surfaces `owed`, as it does beside any reader. On the memory store `fsck` gives the
+     journal. Every check that a read makes (reading 136) is also a check of `fsck`, with the
+     same fault. The SQLite store works in steps, and each step is one short read transaction:
+     the engine's checks; per peer, its count and change records against its row; per page of
+     256 of a peer's change records, the form of each record; per page of 256 of a peer's
+     holdings, each holding's claims, signature, columns, arrival record, sequence, transfer and
+     index rows against the peer's row; per page of 256 stored deltas, whether a peer holds it.
+     A holding whose `delta` row is gone is reported `claims-unreadable` with its peer and id,
+     beside the `engine` fault of `foreign_key_check`. Between steps it holds no transaction and
+     yields to the host's event loop. So a write by this store or by another process commits
+     between steps, and a purge between steps reports the same surfaces as with no `fsck`
+     (reading 129). Each step reads every fact it compares in its own transaction. **Guarantee
+     under concurrent writes:** every fault that `fsck` reports was true of the file at the
+     moment of the read transaction of the step that found it; a fault in a row or a peer that
+     exists unchanged for the whole scan is reported, because a keyset page visits every row
+     whose key exists for the whole scan. A fault that a write makes or removes during the scan
+     may be missed; no fault is invented by a write. The engine's checks run in one read
+     transaction of O(file) bytes; during it a purge in another process reports its file
+     surfaces `owed`, as it does beside any reader. **The engine step blocks the host's event
+     loop** for the whole of `integrity_check` and `foreign_key_check`: one synchronous call that
+     reads every page. Measured on WSL at 32,000 deltas (a file of 34 MB): 110 to 130 ms, of a
+     whole `fsck` of 620 to 690 ms. It grows with the file, so a file of some GB blocks for
+     seconds. A host that must stay responsive runs `fsck` in another process or worker.
+     **Damaged pages.** When a step meets a page that the engine reports damaged
+     (`SQLITE_CORRUPT` or `SQLITE_NOTADB`), the scan stops there and `fsck` answers the report
+     so far with one `engine` fault (no `peer`, `id` or `key`) whose detail names the engine's
+     code; `checked` counts what was read. Any other engine error still rejects
+     `store-unavailable`, a busy or locked file included. A contract read of such a page refuses
+     `store-unavailable`, with the message that it is not a lock. A file whose header or schema
+     pages are damaged cannot be opened: a new open refuses `open-failed` with the engine's code,
+     so no `fsck` can run on it; the host restores the file. On the memory store `fsck` gives the
      same report over its own structures, in one synchronous pass. Measured on WSL with the
      test's deltas (one or two pointers each): 50 ms at 2,000 deltas and 730 ms at 32,000.
 138. **Lost index entries** (slice 4, step 4d). §4.7.3 said that nothing is served silently. That
