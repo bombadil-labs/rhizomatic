@@ -66,6 +66,7 @@ mod set;
 mod sign;
 mod store_broken;
 mod store_cost;
+mod store_digest;
 mod store_feed;
 mod store_feed_rules;
 mod store_follow;

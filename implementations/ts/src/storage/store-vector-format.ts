@@ -48,7 +48,7 @@ export type VectorPushdown = {
   readonly arrivalAtMost?: number;
   readonly excludeIds?: readonly string[];
 };
-export type VectorRequirement = "purge" | "journal-absent" | "changes";
+export type VectorRequirement = "purge" | "journal-absent" | "changes" | "digest";
 
 /** One code, or a list when more than one cause applies and any listed code conforms. */
 export type VectorRefusal = StoreErrorCode | readonly StoreErrorCode[];
