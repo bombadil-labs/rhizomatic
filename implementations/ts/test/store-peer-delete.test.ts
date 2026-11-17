@@ -172,6 +172,8 @@ describe.each(STORES)("peer delete on the %s store", (name, open, posture, claim
     expect(await now.get(ids(deltas))).toEqual([]);
     expect(await listed(store.openAdmin().peer("peer:a").ids())).toEqual([]);
     expect(await snapshotCodes(old, deltas[0]!.id)).toEqual(Array(6).fill("snapshot-moved"));
+    // A handle names its peer by id: the old handle now reaches the new peer.
+    expect([a.history, (await a.read()).count]).toEqual([again.history, 0]);
     await holds(b, bystander);
     expect((await store.openAdmin().fsck()).faults).toEqual([]);
   });

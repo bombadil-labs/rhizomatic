@@ -163,6 +163,8 @@ type PeerState = {
   /** The holdings digest by prefix (§4.7.6): the root and each node of more than 16 ids' children. */
   readonly digest: Index<DigestRow>;
   root: DigestNode;
+  /** Set by `deletePeer`. A snapshot of this state refuses from then on. */
+  deleted: boolean;
 };
 
 // The default histories: one counter for every memory store in this copy of the module, so two
@@ -339,6 +341,7 @@ class MemoryStore implements Store {
       feed: { records: [], start: 0, floor: 0 },
       digest: new Index(this.#meter),
       root: EMPTY_DIGEST,
+      deleted: false,
     };
     this.#peers.set(id, state);
     return this.#handle(state);
@@ -351,26 +354,27 @@ class MemoryStore implements Store {
     return this.#handle(state);
   }
 
-  /**
-   * The peer a handle names, found by its id at each call, as the SQLite store reads its row.
-   * After `deletePeer` every call refuses `peer-absent` (§4.13 reading 143).
-   */
-  #live(id: PeerId): PeerState {
-    this.#open();
-    const state = this.#peers.get(id);
-    if (state === undefined) throw new StoreError("peer-absent", "the peer was deleted");
-    return state;
-  }
-
-  #handle(state: PeerState): PeerStore {
-    // After `close`, `history` and `appFormat` refuse `store-closed`, as on the SQLite store.
-    const live = (): PeerState => this.#live(state.id);
+  #handle(created: PeerState): PeerStore {
+    // After `close`, `history` and `appFormat` refuse `store-closed`, as on the SQLite store. A
+    // handle names its peer by id, as the SQLite store reads its row: after `deletePeer` every
+    // call refuses `peer-absent`, and after a `createPeer` of the id it reaches the new peer
+    // (§4.13 reading 143). Only a call after a delete looks the id up again.
+    let state = created;
+    const live = (): PeerState => {
+      this.#open();
+      if (state.deleted) {
+        const now = this.#peers.get(state.id);
+        if (now === undefined) throw new StoreError("peer-absent", "the peer was deleted");
+        state = now;
+      }
+      return state;
+    };
     return {
-      id: state.id,
+      id: created.id,
       get history() {
         return live().history;
       },
-      erasure: { posture: state.posture, storeClass: this.#own.capabilities.erasure },
+      erasure: { posture: created.posture, storeClass: this.#own.capabilities.erasure },
       get appFormat() {
         return live().appFormat;
       },
@@ -401,6 +405,7 @@ class MemoryStore implements Store {
     const gone = held.filter((key) => this.#release(state, key).gone);
     for (const [key] of state.owed.scan()) this.#settle(state, key);
     this.#peers.delete(id);
+    state.deleted = true;
     return {
       claim: "unproven",
       boundary: PURGE_BOUNDARY,
@@ -525,7 +530,7 @@ class MemoryStore implements Store {
     const guard = (): void => {
       this.#open();
       if (released) throw new StoreError("snapshot-released", "the snapshot was released");
-      if (this.#peers.get(state.id) !== state)
+      if (state.deleted)
         throw new StoreError("snapshot-moved", "the peer was deleted after this snapshot");
       if (state.removedAt > revision)
         throw new StoreError("snapshot-moved", "the peer released a holding after this snapshot");
