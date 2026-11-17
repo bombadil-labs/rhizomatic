@@ -9,7 +9,11 @@
 // - `delete`: deletes the peer. Prints `report <DeleteReport>`. With `slowMs`, the child sleeps
 //   that long after each commit of this process, from the test side: it wraps the statements of
 //   `better-sqlite3` in this process only, and the store has no hook for it. A test that kills the
-//   child then kills it between two of the delete's transactions.
+//   child then kills it between two of the delete's transactions. With `hold`, the child stops
+//   after the delete's first commit, prints `held <pid>`, and waits for the file
+//   `<path>.go-<pid>`. So a test can let other calls run between that transaction and the next.
+// - `recreate`: deletes the peer, prints `report <DeleteReport>`, creates the peer again with the
+//   posture `posture`, and prints `created <history>`.
 // - `watch`: opens the peer and takes a snapshot of it, prints `ready 1`, and waits for the file
 //   `<path>.go-watch`. Then it calls every call of the handle and of the snapshot, and prints
 //   `codes {handle: [...], snapshot: [...]}`, each a refusal code or `answered`.
@@ -24,28 +28,47 @@ import { openSqliteStore, type SqliteStore } from "../../src/storage/sqlite-stor
 import { StoreError, type PeerStore } from "../../src/storage/store.js";
 
 type Job = {
-  op: "delete" | "watch" | "append";
+  op: "delete" | "watch" | "append" | "recreate";
   path: string;
   peer: string;
   after?: number;
   slowMs?: number;
+  hold?: boolean;
+  posture?: "proven" | "unproven";
 };
 
 const job = JSON.parse(process.argv[2]!) as Job;
 const sleep = (ms: number): void => {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 };
-if (job.slowMs !== undefined) {
+// Set just before the delete begins: the open's own commits do not stop the child.
+let armed = false;
+/** Waits for `<path>.go-<pid>`, for up to a minute. */
+const held = (): void => {
+  print("held", process.pid);
+  const deadline = Date.now() + 60_000;
+  while (!existsSync(`${job.path}.go-${process.pid}`)) {
+    if (Date.now() > deadline) process.exit(3);
+    sleep(2);
+  }
+};
+if (job.slowMs !== undefined || job.hold === true) {
   const probe = new Database(":memory:");
   const statement = Object.getPrototypeOf(probe.prepare("SELECT 1")) as {
     run: (this: Database.Statement, ...args: unknown[]) => unknown;
   };
   probe.close();
   const run = statement.run;
-  const slowMs = job.slowMs;
+  const slowMs = job.slowMs ?? 0;
   statement.run = function (...args) {
     const result = run.apply(this, args);
-    if (this.source === "COMMIT") sleep(slowMs);
+    if (this.source === "COMMIT") {
+      if (armed) {
+        armed = false;
+        held();
+      }
+      sleep(slowMs);
+    }
     return result;
   };
 }
@@ -165,8 +188,14 @@ async function append(peer: PeerStore): Promise<void> {
 
 const store = await patient(() => openSqliteStore(job.path, { busyTimeoutMs: 200 }));
 try {
-  if (job.op === "delete") print("report", await patient(() => store.deletePeer(job.peer)));
-  else if (job.op === "watch") await watch(store);
+  if (job.op === "delete") {
+    armed = job.hold === true;
+    print("report", await patient(() => store.deletePeer(job.peer)));
+  } else if (job.op === "recreate") {
+    print("report", await patient(() => store.deletePeer(job.peer)));
+    const peer = await patient(() => store.createPeer(job.peer, { erasure: job.posture! }));
+    print("created", peer.history);
+  } else if (job.op === "watch") await watch(store);
   else await append(await patient(() => store.peer(job.peer)));
 } catch (error) {
   if (!(error instanceof StoreError)) throw error;

@@ -100,6 +100,16 @@ const handleCodes = async (p: PeerStore, id: string): Promise<string[]> => [
   await code(() => p.changes(0)),
 ];
 
+/** Every call of a handle, by name. The R4 rail checks that it names them all. */
+const HANDLE_CALLS: Record<string, (p: PeerStore, id: string) => unknown> = {
+  history: (p) => p.history,
+  appFormat: (p) => p.appFormat,
+  read: (p) => p.read(),
+  append: (p) => p.append({ expectedHead: null, nextHead: "h", frame: null, added: [] }),
+  purge: (p, id) => p.purge([id]),
+  changes: (p) => p.changes(0),
+};
+
 async function listed<T>(items: AsyncIterable<T>): Promise<T[]> {
   const out: T[] = [];
   for await (const item of items) out.push(item);
@@ -172,8 +182,43 @@ describe.each(STORES)("peer delete on the %s store", (name, open, posture, claim
     expect(await now.get(ids(deltas))).toEqual([]);
     expect(await listed(store.openAdmin().peer("peer:a").ids())).toEqual([]);
     expect(await snapshotCodes(old, deltas[0]!.id)).toEqual(Array(6).fill("snapshot-moved"));
-    // A handle names its peer by id: the old handle now reaches the new peer.
-    expect([a.history, (await a.read()).count]).toEqual([again.history, 0]);
+    // A handle names the peer it was made for: the old handle never reaches the new peer.
+    expect(await handleCodes(a, deltas[0]!.id)).toEqual(Array(6).fill("peer-absent"));
+    await holds(b, bystander);
+    expect((await store.openAdmin().fsck()).faults).toEqual([]);
+  });
+
+  it("R4: after a delete and a createPeer of the id, every call of an old handle refuses peer-absent and changes nothing; a new handle answers every call", async () => {
+    const store = await open();
+    const a = await store.createPeer("peer:a", { erasure: posture });
+    const b = await store.createPeer("peer:b", { erasure: posture });
+    const bystander = facts("r4b", 2);
+    await add(a, facts("r4a", 3));
+    await add(b, bystander);
+    // The table names every call of a handle: a new call fails this check until it is listed.
+    expect(
+      Object.keys(a)
+        .filter((key) => key !== "id" && key !== "erasure")
+        .sort(),
+    ).toEqual(Object.keys(HANDLE_CALLS).sort());
+    const id = facts("r4x", 1)[0]!.id;
+    await store.deletePeer("peer:a");
+    const fresh = await store.createPeer("peer:a", { erasure: posture });
+    const kept = facts("r4n", 2);
+    await add(fresh, kept);
+    const before = await fresh.read();
+    for (const [call, run] of Object.entries(HANDLE_CALLS))
+      expect([call, await code(() => run(a, id))]).toEqual([call, "peer-absent"]);
+    const after = await fresh.read();
+    expect([after.revision, after.head, after.count]).toEqual([
+      before.revision,
+      before.head,
+      before.count,
+    ]);
+    await holds(fresh, kept);
+    const handle = await store.peer("peer:a");
+    for (const [call, run] of Object.entries(HANDLE_CALLS))
+      expect([call, await code(() => run(handle, id))]).toEqual([call, "answered"]);
     await holds(b, bystander);
     expect((await store.openAdmin().fsck()).faults).toEqual([]);
   });

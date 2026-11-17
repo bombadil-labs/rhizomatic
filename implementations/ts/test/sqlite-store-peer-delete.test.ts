@@ -8,7 +8,7 @@
 // Each crash, and each other process, is a real child process
 // (test/support/sqlite-delete-child.ts). The store has no hook, switch or quirk for it.
 
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -494,6 +494,261 @@ describe("a purge that a delete overtakes", () => {
   });
 });
 
+// ---- incarnations: a delete and a createPeer of the same id between two calls ----------------
+
+const POSTURE = PROVEN_HERE ? "proven" : "unproven";
+/** The answer of a delete whose last transaction found a peer row of the id. */
+const owed = (released: number, keptByOtherPeers: number): DeleteReport => ({
+  claim: "unproven",
+  boundary: "store-controlled-surfaces",
+  surfaces: FILE_SURFACES.map((surface) => ({
+    surface,
+    state: surface === "temp-files" && !PROVEN_HERE ? "unprovable" : "owed",
+  })),
+  retains: RETAINS as DeleteReport["retains"],
+  released,
+  keptByOtherPeers,
+});
+/** A child deleter that stops after its first commit; `go` lets it on. */
+async function heldDeleter(path: string, peer: string) {
+  const deleter = child({ op: "delete", path, peer, hold: true });
+  const pid = await deleter.printed<number>("held");
+  return { ...deleter, go: () => writeFileSync(`${path}.go-${pid}`, "") };
+}
+/** The peer's rows in every per-peer table, by another connection. */
+const rowsOf = (path: string, peer: string): Record<string, number> =>
+  read(path, (db) =>
+    Object.fromEntries(
+      [
+        ["peer", "id"],
+        ["holding", "peer"],
+        ["change", "peer"],
+        ["digest", "peer"],
+        ["debt", "peer"],
+        ["surface_debt", "peer"],
+      ].map(([table, column]) => [
+        table,
+        db.prepare(`SELECT count(*) FROM ${table} WHERE ${column} = ?`).pluck().get(peer) as number,
+      ]),
+    ),
+  );
+
+describe("a late deleter and a peer created again under the id", () => {
+  for (const variant of ["three deltas", "empty", "an append racing the late deleter"])
+    it(`R1 (${variant}): deleter A ends, the id is created again, and deleter B, which began before A ended, then goes on: it touches nothing of the new peer and answers its own counts with every file surface owed; the new peer reads back byte for byte`, async () => {
+      const { path } = place();
+      const store = await open(path);
+      const d = await store.createPeer("peer:d", { erasure: POSTURE });
+      const b = await store.createPeer("peer:b", { erasure: POSTURE });
+      const old = group(`R1Old${variant[0]}`, 5);
+      const y = marked(`R1Y${variant[0]}`, 1);
+      await put(d, old, "HdR1OldZ");
+      await put(b, [y], "HdR1BZ");
+
+      const a = await heldDeleter(path, "peer:d");
+      const late = await heldDeleter(path, "peer:d");
+      a.go();
+      expect(await a.printed<DeleteReport>("report")).toEqual(
+        PROVEN_HERE ? proven(5, 0) : owed(5, 0),
+      );
+      expect(await a.ended).toBe("0");
+
+      const fresh = await store.createPeer("peer:d", { erasure: POSTURE });
+      const news = variant === "empty" ? [] : group(`R1New${variant[0]}`, 3);
+      if (news.length > 0) await put(fresh, news, "HdR1NewZ");
+      late.go();
+      const racing: Marked[] = [];
+      if (variant.startsWith("an append"))
+        for (let i = 0; i < 20; i++) {
+          racing.push(marked("R1Race", i));
+          await put(fresh, racing.slice(-1), `HdR1Race${i}Z`);
+        }
+      expect(await late.printed<DeleteReport>("report")).toEqual(owed(0, 0));
+      expect(await late.ended).toBe("0");
+
+      const all = [...news, ...racing];
+      expect(rowsOf(path, "peer:d")).toMatchObject({ peer: 1, holding: all.length });
+      await bystanderHolds(store, fresh, all);
+      const again = await store.peer("peer:d");
+      expect(again.history).toBe(fresh.history);
+      await put(again, [marked("R1After", 1)], "HdR1AfterZ");
+      expect((await again.read()).count).toBe(all.length + 1);
+      await bystanderHolds(store, b, [y]);
+    }, 120_000);
+
+  it.skipIf(!PROVEN_HERE)(
+    "R2: two deletes of one peer at once both end; their counts add up to the peer's holdings; no file holds the peer's bytes; the bystander reads back byte for byte",
+    async () => {
+      const { dir, path } = place();
+      const name = "peer:Qdel7Twice";
+      const { store, b, bystander, markers } = await filled(path, name, 900);
+      const first = await heldDeleter(path, name);
+      const second = await heldDeleter(path, name);
+      first.go();
+      second.go();
+      const reports = [
+        await first.printed<DeleteReport>("report"),
+        await second.printed<DeleteReport>("report"),
+      ];
+      expect([await first.ended, await second.ended]).toEqual(["0", "0"]);
+      expect([
+        reports[0]!.released + reports[1]!.released,
+        reports[0]!.keptByOtherPeers + reports[1]!.keptByOtherPeers,
+      ]).toEqual([899, 49]);
+      expect(rowsOf(path, name)).toEqual({
+        peer: 0,
+        holding: 0,
+        change: 0,
+        digest: 0,
+        debt: 0,
+        surface_debt: 0,
+      });
+      expect(reports.map((r) => r.claim)).toEqual(["proven", "proven"]);
+      expect(markersLeft(dir, path, markers)).toEqual([]);
+      await bystanderHolds(store, b, bystander);
+    },
+    180_000,
+  );
+});
+
+describe.skipIf(!PROVEN_HERE)("a purge across a delete and a re-create (Linux)", () => {
+  for (const [before, after] of [
+    ["unproven", "proven"],
+    ["proven", "unproven"],
+  ] as const)
+    it(`R3 (old ${before}, new ${after}): another process deletes and creates the peer again between the purge's transactions; the purge refuses peer-absent and writes nothing on the new peer; the new peer's purge answers not-held; the bystander's purge answers removed and no file holds the bytes`, async () => {
+      const { dir, path } = place();
+      const store = await open(path);
+      const d = await store.createPeer("peer:d", { erasure: before });
+      const b = await store.createPeer("peer:b", { erasure: "proven" });
+      const x = marked(`R3X${before[0]}`, 1);
+      const xOfB = appearance(`R3XB${before[0]}`, 1, x);
+      const own = marked(`R3Own${before[0]}`, 1);
+      const y = marked(`R3Y${before[0]}`, 1);
+      await put(d, [x, own], "HdR3DZ");
+      await put(b, [xOfB, y], "HdR3BZ");
+      // Another process deletes and creates the peer again as soon as the purge's first
+      // transaction commits. The watch is on this process's statements only.
+      const probe = new Database(":memory:");
+      const statement = Object.getPrototypeOf(probe.prepare("SELECT 1")) as {
+        run: (this: Database.Statement, ...args: unknown[]) => unknown;
+      };
+      probe.close();
+      const run = statement.run;
+      let other: { status: number | null; stdout: string; stderr: string } | undefined;
+      statement.run = function (...args) {
+        const result = run.apply(this, args);
+        if (this.source === "COMMIT" && other === undefined)
+          other = spawnSync(
+            process.execPath,
+            [
+              "--import",
+              "tsx",
+              childScript,
+              JSON.stringify({ op: "recreate", path, peer: "peer:d", posture: after }),
+            ],
+            { cwd: pkg, encoding: "utf8" },
+          );
+        return result;
+      };
+      let refused: string;
+      try {
+        refused = await code(() => d.purge([x.delta.id]));
+      } finally {
+        statement.run = run;
+      }
+      expect([other?.status, other?.stderr]).toEqual([0, ""]);
+      expect(other!.stdout).toMatch(/^report .*\ncreated \S+\n$/);
+      expect(refused).toBe("peer-absent");
+      expect(rowsOf(path, "peer:d")).toEqual({
+        peer: 1,
+        holding: 0,
+        change: 0,
+        digest: 0,
+        debt: 0,
+        surface_debt: 0,
+      });
+
+      const fresh = await store.peer("peer:d");
+      expect(fresh.erasure.posture).toBe(after);
+      const theirs = await fresh.purge([x.delta.id]);
+      expect([theirs.claim, theirs.targets, theirs.revision]).toEqual([
+        "nothing-removed",
+        [{ id: x.delta.id, outcome: "not-held" }],
+        0,
+      ]);
+      const last = await b.purge([x.delta.id]);
+      expect([last.claim, last.targets]).toEqual([
+        "proven",
+        [{ id: x.delta.id, outcome: "removed" }],
+      ]);
+      expect(scan(dir, [...markersOf([x, own]), ...ownMarkers([x, xOfB])])).toEqual([]);
+      const again = await fresh.purge([x.delta.id]);
+      expect(again.targets).toEqual([{ id: x.delta.id, outcome: "not-held" }]);
+      expect(rowsOf(path, "peer:d")).toMatchObject({ debt: 0, surface_debt: 0 });
+      await bystanderHolds(store, b, [y]);
+    }, 120_000);
+});
+
+describe("a handle and a listing name one peer, not its id", () => {
+  it("R4 (export): a listing of a peer's ids that began before the delete refuses peer-absent at its next page after the id is created again", async () => {
+    const { path } = place();
+    const store = await open(path);
+    const d = await store.createPeer("peer:d", { erasure: "unproven" });
+    await put(d, group("R4Ex", 300), "HdR4ExZ");
+    for (const listing of ["ids", "deltas"] as const) {
+      const pages = store.openAdmin().peer("peer:d")[listing]()[Symbol.asyncIterator]();
+      expect((await pages.next()).done).toBe(false);
+      await store.deletePeer("peer:d");
+      const fresh = await store.createPeer("peer:d", { erasure: "unproven" });
+      await put(fresh, group(`R4Ex${listing}`, 300), `HdR4Ex${listing}Z`);
+      let refused = "";
+      for (let i = 0; i < 300 && refused === ""; i++)
+        refused = await code(() => pages.next()).then((answer) =>
+          answer === "answered" ? "" : answer,
+        );
+      expect(refused).toBe("peer-absent");
+      const now = await listed(store.openAdmin().peer("peer:d").ids());
+      expect(now.length).toBe(300);
+    }
+  }, 60_000);
+});
+
+describe("a damaged row of the peer that a page key cannot reach", () => {
+  const damage: [string, string][] = [
+    [
+      "a change record of revision -5",
+      "INSERT INTO change VALUES ('peer:d', -5, NULL, '[]', '[]')",
+    ],
+    ["a purge debt of the empty id", "INSERT INTO debt VALUES ('peer:d', '')"],
+    ["a record of a removal of the empty id", "INSERT INTO surface_debt VALUES ('peer:d', '')"],
+  ];
+  for (const [what, sql] of damage)
+    it(`R5 (${what}): the delete ends and removes it, and fsck is clean`, async () => {
+      const { path } = place();
+      const store = await open(path);
+      const d = await store.createPeer("peer:d", { erasure: "unproven" });
+      const b = await store.createPeer("peer:b", { erasure: "unproven" });
+      const y = marked("R5Y", 1);
+      await put(d, group("R5", 3), "HdR5Z");
+      await put(b, [y], "HdR5BZ");
+      const raw = new Database(path);
+      raw.prepare(sql).run();
+      raw.close();
+      const report = await store.deletePeer("peer:d");
+      expect([report.released, report.keptByOtherPeers]).toEqual([3, 0]);
+      expect(rowsOf(path, "peer:d")).toEqual({
+        peer: 0,
+        holding: 0,
+        change: 0,
+        digest: 0,
+        debt: 0,
+        surface_debt: 0,
+      });
+      await bystanderHolds(store, b, [y]);
+    }, 60_000);
+});
+
 describe("the statements that read a peer", () => {
   const statements = SQLITE_STATEMENTS as Record<string, string>;
   // Each statement that names the peer table and does not keep live peers only, with why it may.
@@ -530,9 +785,43 @@ describe("the statements that read a peer", () => {
     // insert, and a purge's last transaction after its #live check.
     const assumed = [...source.matchAll(/#peerRow\([^)]*\)!/g)].map((m) => methodAt(m.index));
     expect(assumed).toEqual(["createPeer", "#decide"]);
-    expect(source).toMatch(/this\.#live\(peer\);\s+return this\.#decide\(/);
+    expect(source).toMatch(/this\.#live\(peer, origin\);\s+return this\.#decide\(/);
     // A marked row is read only where the delete is decided, and where createPeer refuses.
     const uses = [...source.matchAll(/\.peerState\.get\(/g)].map((m) => methodAt(m.index));
-    expect(uses).toEqual(["createPeer", "deletePeer", "#deleted"]);
+    expect(uses).toEqual(["createPeer", "deletePeer", "deletePeer", "#deleted"]);
+  });
+
+  it("every call of a handle reads its peer through #live with the origin the handle was made with; no other path reads a peer row by its id alone", () => {
+    // A new call of a handle that reads the row itself shows here as a new reader.
+    const readers = [...source.matchAll(/this\.#peerRow\(/g)].map((m) => methodAt(m.index));
+    expect(readers).toEqual([
+      "#live",
+      "createPeer",
+      "peer",
+      "#snapshot",
+      "#decide",
+      "openAdmin",
+      "openAdmin",
+      "#fsckPeer",
+      "#fsckHoldings",
+    ]);
+    expect(source).toMatch(
+      /#live\(id: PeerId, origin: History\): PeerRow \{\s+const row = this\.#peerRow\(id\);\s+if \(row\?\.origin !== origin\)/,
+    );
+    const lives = [...source.matchAll(/this\.#live\(([^)]*)\)/g)];
+    expect(lives.map((m) => [methodAt(m.index), m[1]!.split(", ")[1]])).toEqual([
+      ["#handle", "origin"],
+      ["#handle", "origin"],
+      ["#handle", "origin"],
+      ["#changes", "origin"],
+      ["#append", "origin"],
+      ["#purge", "origin"],
+      ["#purge", "origin"],
+    ]);
+    // Each call of the handle that does not read #live itself passes the origin to the method that does.
+    for (const call of ["#append", "#purge", "#changes"]) {
+      expect(source).toMatch(new RegExp(`this\\.${call}\\(id, origin, `));
+      expect(source).toMatch(new RegExp(`^  ${call}\\(peer: PeerId, origin: History, `, "m"));
+    }
   });
 });
