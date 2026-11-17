@@ -285,6 +285,37 @@ describe("busy: a write that cannot take the lock within busyTimeoutMs", () => {
     await store.close();
     audit(path);
   }, 60_000);
+
+  it("a writing child refused store-unavailable while another process holds the write lock asks again, and commits after the lock is free", async () => {
+    const path = await made();
+    const holder = child({
+      op: "append",
+      path,
+      peer: "peer:a",
+      tag: "H",
+      size: 1,
+      after: 0,
+      hold: "locked",
+    });
+    await holder.held("locked");
+    const writer = child({
+      op: "write",
+      path,
+      peer: "peer:a",
+      tag: "W",
+      batches: 1,
+      size: 1,
+      busyTimeoutMs: 50,
+    });
+    expect(await writer.printed("busy")).toBe("open");
+    holder.go("locked");
+    expect(await holder.printed("appended")).toBe("committed");
+    const written = await writer.json<Written & { asked: number }>("done");
+    expect(await writer.ended).toBe("0");
+    expect(written.asked).toBeGreaterThan(0);
+    expect(written.committed.map((c) => c.revision)).toEqual([2]);
+    audit(path);
+  }, 60_000);
 });
 
 // ---- values a process could keep ---------------------------------------------------------------
