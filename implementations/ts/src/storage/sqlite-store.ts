@@ -625,6 +625,41 @@ function profileOf(retention: Retention): StoreProfile {
 
 // ---- the store --------------------------------------------------------------------------------
 
+/**
+ * A peer delete's report, with every file surface in `files`. The claim is `proven` only for a
+ * proving call whose surfaces are all `absent`.
+ */
+function deleteReport(
+  files: "absent" | "owed",
+  proving: boolean,
+  released: number,
+  keptByOtherPeers: number,
+): DeleteReport {
+  const surfaces: DeleteReport["surfaces"] = [
+    { surface: "rows", state: files },
+    { surface: "index-entries", state: files },
+    { surface: "page-free-space", state: files },
+    { surface: "freed-pages", state: files },
+    { surface: "write-ahead-log", state: files },
+    { surface: "temp-files", state: ERASURE_CLASS === "proven" ? files : "unprovable" },
+  ];
+  return {
+    claim:
+      proving && surfaces.every((surface) => surface.state === "absent") ? "proven" : "unproven",
+    boundary: PURGE_BOUNDARY,
+    surfaces,
+    // Another peer's change records, purge debts and records can name a released id. The store
+    // keeps no list of the ids, so it names all three.
+    retains: [
+      { surface: "change-feed", holds: "id" },
+      { surface: "purge-debt", holds: "id" },
+      { surface: "surface-debt", holds: "id" },
+    ],
+    released,
+    keptByOtherPeers,
+  };
+}
+
 class SqliteFileStore implements SqliteStore {
   readonly profile: StoreProfile;
   readonly #db: BetterSqlite3.Database;
@@ -1403,6 +1438,10 @@ class SqliteFileStore implements SqliteStore {
       try {
         return this.#run("write", () => this.#deleted(id, proving, proof, tries, released, kept));
       } catch (error) {
+        // The rows are gone, so a repeat would answer `peer-absent`. A report with every file
+        // surface `owed` is true without the lock (§4.13 reading 144).
+        if (error instanceof StoreError && error.code === "store-unavailable")
+          return deleteReport("owed", false, released, kept);
         if (error !== LOG_NOT_EMPTY) throw error;
         if (!this.#truncate()) proof = undefined;
       }
@@ -1428,29 +1467,7 @@ class SqliteFileStore implements SqliteStore {
     if (proof !== undefined && !empty && tries < LAST_TRIES) throw LOG_NOT_EMPTY;
     if (empty && proof?.d !== undefined) s.residueClean.run(proof.d);
     const files = empty && this.#clean() && s.peerState.get(peer) === undefined ? "absent" : "owed";
-    const surfaces: DeleteReport["surfaces"] = [
-      { surface: "rows", state: files },
-      { surface: "index-entries", state: files },
-      { surface: "page-free-space", state: files },
-      { surface: "freed-pages", state: files },
-      { surface: "write-ahead-log", state: files },
-      { surface: "temp-files", state: ERASURE_CLASS === "proven" ? files : "unprovable" },
-    ];
-    return {
-      claim:
-        proving && surfaces.every((surface) => surface.state === "absent") ? "proven" : "unproven",
-      boundary: PURGE_BOUNDARY,
-      surfaces,
-      // Another peer's change records, purge debts and records can name a released id. The store
-      // keeps no list of the ids, so it names all three.
-      retains: [
-        { surface: "change-feed", holds: "id" },
-        { surface: "purge-debt", holds: "id" },
-        { surface: "surface-debt", holds: "id" },
-      ],
-      released,
-      keptByOtherPeers,
-    };
+    return deleteReport(files, proving, released, keptByOtherPeers);
   }
 
   /**

@@ -12,6 +12,7 @@
 //   child then kills it between two of the delete's transactions. With `hold`, the child stops
 //   after the delete's first commit, prints `held <pid>`, and waits for the file
 //   `<path>.go-<pid>`. So a test can let other calls run between that transaction and the next.
+//   With `once`, a refused delete is not asked again: the child prints the refusal.
 // - `recreate`: deletes the peer, prints `report <DeleteReport>`, creates the peer again with the
 //   posture `posture`, and prints `created <history>`.
 // - `watch`: opens the peer and takes a snapshot of it, prints `ready 1`, and waits for the file
@@ -20,6 +21,8 @@
 // - `append`: appends one new delta at a time to the peer, each from the head it reads, under a
 //   head named with this process's id, until a call is refused. Prints `appended 1` after its
 //   first commit, then `done {committed, ids, refused}`.
+//
+// Every job opens the store with `busyTimeoutMs` (default 200).
 
 import { existsSync, writeSync } from "node:fs";
 import Database from "better-sqlite3";
@@ -34,6 +37,8 @@ type Job = {
   after?: number;
   slowMs?: number;
   hold?: boolean;
+  once?: boolean;
+  busyTimeoutMs?: number;
   posture?: "proven" | "unproven";
 };
 
@@ -186,11 +191,14 @@ async function append(peer: PeerStore): Promise<void> {
   }
 }
 
-const store = await patient(() => openSqliteStore(job.path, { busyTimeoutMs: 200 }));
+const store = await patient(() =>
+  openSqliteStore(job.path, { busyTimeoutMs: job.busyTimeoutMs ?? 200 }),
+);
 try {
   if (job.op === "delete") {
     armed = job.hold === true;
-    print("report", await patient(() => store.deletePeer(job.peer)));
+    const call = () => store.deletePeer(job.peer);
+    print("report", await (job.once === true ? call() : patient(call)));
   } else if (job.op === "recreate") {
     print("report", await patient(() => store.deletePeer(job.peer)));
     const peer = await patient(() => store.createPeer(job.peer, { erasure: job.posture! }));

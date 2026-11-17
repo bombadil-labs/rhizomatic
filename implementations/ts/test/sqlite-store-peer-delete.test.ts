@@ -494,6 +494,60 @@ describe("a purge that a delete overtakes", () => {
   });
 });
 
+describe("a delete whose last transaction cannot take the write lock", () => {
+  it("after the peer row is gone, a busy last transaction answers every file surface owed with the delete's counts and throws nothing; a repeat answers peer-absent; the bystander reads back", async () => {
+    const { path } = place();
+    const store = await openSqliteStore(path, { busyTimeoutMs: 100 });
+    opened.push(store);
+    const a = await store.createPeer("peer:a", { erasure: PROVEN_HERE ? "proven" : "unproven" });
+    const b = await store.createPeer("peer:b", { erasure: "unproven" });
+    const y = marked("BusyLastY", 1);
+    await put(a, group("BusyLast", 5), "HdBusyLastZ");
+    await put(b, [y], "HdBusyLastBZ");
+    // Another connection takes the write lock just before the delete's last transaction begins,
+    // after the transaction that removed the peer row. The watch is on this process's statements.
+    const other = new Database(path);
+    const probe = new Database(":memory:");
+    const statement = Object.getPrototypeOf(probe.prepare("SELECT 1")) as {
+      run: (this: Database.Statement, ...args: unknown[]) => unknown;
+    };
+    probe.close();
+    const run = statement.run;
+    let dropped = false;
+    let taken = false;
+    statement.run = function (...args) {
+      if (this.source === SQLITE_STATEMENTS.peerDrop) dropped = true;
+      else if (this.source === "BEGIN IMMEDIATE" && dropped && !taken) {
+        taken = true;
+        other.exec("BEGIN IMMEDIATE");
+      }
+      return run.apply(this, args);
+    };
+    let answer: DeleteReport | string;
+    try {
+      answer = await store.deletePeer("peer:a").catch((error: unknown) => {
+        if (error instanceof StoreError) return error.code;
+        throw error;
+      });
+    } finally {
+      statement.run = run;
+      if (other.inTransaction) other.exec("COMMIT");
+      other.close();
+    }
+    expect([taken, answer]).toEqual([true, owed(5, 0)]);
+    expect(rowsOf(path, "peer:a")).toEqual({
+      peer: 0,
+      holding: 0,
+      change: 0,
+      digest: 0,
+      debt: 0,
+      surface_debt: 0,
+    });
+    expect(await code(() => store.deletePeer("peer:a"))).toBe("peer-absent");
+    await bystanderHolds(store, b, [y]);
+  });
+});
+
 // ---- incarnations: a delete and a createPeer of the same id between two calls ----------------
 
 const POSTURE = PROVEN_HERE ? "proven" : "unproven";
@@ -509,9 +563,16 @@ const owed = (released: number, keptByOtherPeers: number): DeleteReport => ({
   released,
   keptByOtherPeers,
 });
-/** A child deleter that stops after its first commit; `go` lets it on. */
-async function heldDeleter(path: string, peer: string) {
-  const deleter = child({ op: "delete", path, peer, hold: true });
+/**
+ * A child deleter that stops after its first commit; `go` lets it on. `options` can set the
+ * child's `busyTimeoutMs`, and `once` to print a refusal and not ask again.
+ */
+async function heldDeleter(
+  path: string,
+  peer: string,
+  options: { busyTimeoutMs?: number; once?: boolean } = {},
+) {
+  const deleter = child({ op: "delete", path, peer, hold: true, ...options });
   const pid = await deleter.printed<number>("held");
   return { ...deleter, go: () => writeFileSync(`${path}.go-${pid}`, "") };
 }
@@ -582,8 +643,10 @@ describe("a late deleter and a peer created again under the id", () => {
       const { dir, path } = place();
       const name = "peer:Qdel7Twice";
       const { store, b, bystander, markers } = await filled(path, name, 900);
-      const first = await heldDeleter(path, name);
-      const second = await heldDeleter(path, name);
+      // Each child makes one call with the default wait, and a refusal fails the rail with its
+      // text: a repeat would answer peer-absent, or count only its own releases.
+      const first = await heldDeleter(path, name, { busyTimeoutMs: 5000, once: true });
+      const second = await heldDeleter(path, name, { busyTimeoutMs: 5000, once: true });
       first.go();
       second.go();
       const reports = [
@@ -604,10 +667,11 @@ describe("a late deleter and a peer created again under the id", () => {
         surface_debt: 0,
       });
       // SQLite answers busy at once to a checkpoint while another connection checkpoints, without
-      // the busy handler. A deleter whose rebuild meets the other's checkpoint so has no proof,
-      // and it answers unproven unless the log is empty and the file clean at its last
-      // transaction. The checkpoint that runs waits under the busy handler; with no other reader
-      // or writer here, its deleter answers proven, and that report carries the proof.
+      // the busy handler, and the truncate tries again for one busyTimeoutMs (reading 143). A
+      // deleter whose truncate stays busy past that, or whose lock wait passes busyTimeoutMs, has
+      // no proof; it answers unproven unless the log is empty and the file clean at its last
+      // transaction. When no wait passes busyTimeoutMs, the checkpoint that runs ends and its
+      // deleter answers proven. So at least one of the two answers proven here.
       const claims = reports.map((r) => r.claim);
       expect(claims.filter((claim) => claim !== "proven" && claim !== "unproven")).toEqual([]);
       expect(claims).toContain("proven");
