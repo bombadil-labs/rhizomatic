@@ -40751,6 +40751,186 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API Snapshot.lastSequence implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:CreatePeerOptions#appFormat",
+      "owner": "storage",
+      "symbol": "CreatePeerOptions.appFormat",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API CreatePeerOptions.appFormat implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:PeerStore#appFormat",
+      "owner": "storage",
+      "symbol": "PeerStore.appFormat",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API PeerStore.appFormat implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:admissionOf",
+      "owner": "storage",
+      "symbol": "admissionOf",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/admission.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API admissionOf implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:AdmissionOptions",
+      "owner": "storage",
+      "symbol": "AdmissionOptions",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/admission.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API AdmissionOptions implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:AdmissionOptions#at",
+      "owner": "storage",
+      "symbol": "AdmissionOptions.at",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/admission.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API AdmissionOptions.at implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:AdmissionOptions#sender",
+      "owner": "storage",
+      "symbol": "AdmissionOptions.sender",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/admission.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API AdmissionOptions.sender implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:AdmissionOptions#transfer",
+      "owner": "storage",
+      "symbol": "AdmissionOptions.transfer",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/admission.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API AdmissionOptions.transfer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:AdmissionOptions#nextHead",
+      "owner": "storage",
+      "symbol": "AdmissionOptions.nextHead",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/admission.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API AdmissionOptions.nextHead implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/admission.ts:admissionOf",
+      "owner": "storage",
+      "symbol": "admissionOf",
+      "source": "implementations/ts/src/storage/admission.ts",
+      "definition": "implementations/ts/src/storage/admission.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API admissionOf implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/admission.ts:AdmissionOptions",
+      "owner": "storage",
+      "symbol": "AdmissionOptions",
+      "source": "implementations/ts/src/storage/admission.ts",
+      "definition": "implementations/ts/src/storage/admission.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API AdmissionOptions implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/admission.ts:AdmissionOptions#at",
+      "owner": "storage",
+      "symbol": "AdmissionOptions.at",
+      "source": "implementations/ts/src/storage/admission.ts",
+      "definition": "implementations/ts/src/storage/admission.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API AdmissionOptions.at implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/admission.ts:AdmissionOptions#sender",
+      "owner": "storage",
+      "symbol": "AdmissionOptions.sender",
+      "source": "implementations/ts/src/storage/admission.ts",
+      "definition": "implementations/ts/src/storage/admission.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API AdmissionOptions.sender implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/admission.ts:AdmissionOptions#transfer",
+      "owner": "storage",
+      "symbol": "AdmissionOptions.transfer",
+      "source": "implementations/ts/src/storage/admission.ts",
+      "definition": "implementations/ts/src/storage/admission.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API AdmissionOptions.transfer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/admission.ts:AdmissionOptions#nextHead",
+      "owner": "storage",
+      "symbol": "AdmissionOptions.nextHead",
+      "source": "implementations/ts/src/storage/admission.ts",
+      "definition": "implementations/ts/src/storage/admission.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API AdmissionOptions.nextHead implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/request.ts:takeAppFormat",
+      "owner": "storage",
+      "symbol": "takeAppFormat",
+      "source": "implementations/ts/src/storage/request.ts",
+      "definition": "implementations/ts/src/storage/request.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API takeAppFormat implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/request.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/request.ts:APP_FORMAT_MAX_BYTES",
+      "owner": "storage",
+      "symbol": "APP_FORMAT_MAX_BYTES",
+      "source": "implementations/ts/src/storage/request.ts",
+      "definition": "implementations/ts/src/storage/request.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API APP_FORMAT_MAX_BYTES implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/request.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:CreatePeerOptions#appFormat",
+      "owner": "storage",
+      "symbol": "CreatePeerOptions.appFormat",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API CreatePeerOptions.appFormat implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:PeerStore#appFormat",
+      "owner": "storage",
+      "symbol": "PeerStore.appFormat",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API PeerStore.appFormat implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }
