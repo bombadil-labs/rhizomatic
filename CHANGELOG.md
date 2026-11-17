@@ -117,6 +117,24 @@ Step 4d adds more, listed under Breaking.
 - A read through `readAnchored`, `StoreReactor`, a pass of held views or `fetchScope` reports a
   malformed `scope` member from the store as the store fault `malformed-member`
   (`StoreFaultError`), not as `invalid-request` (§4.13 reading 21).
+- A read never answers from a damaged row (§4.13 reading 136, follow-ups of PR #97). On the
+  SQLite store, `arrivals` and `scope` check the whole arrival record: its five fields, its id and
+  sequence against the holding, a `transfer` from 1 to the peer's last, a finite `at` and a
+  non-empty `sender`. `get`, `scope` and an export check the form of a stored signature.
+  `changes` checks that a change record holds two lists of ids. A holding whose `delta` row is
+  gone fails `get`, `arrivals`, `targets`, `negators`, `scope` and an export with
+  `claims-unreadable`; before, the SQLite store answered without it. The memory store throws the
+  same fault in `arrivals`, `targets` and `negators` too. Each costs at most one index seek per
+  answered id.
+- `fsck` reports each of these faults with the same kind, peer, id and key as the read. It reads
+  the content of every change record. A holding whose `delta` row is gone is reported with its
+  peer and id. On a file with a damaged page it answers a report with one `engine` fault that
+  names the engine's code, where it rejected `store-unavailable` before (reading 137).
+- The memory store's `purge` of a held id with no stored claims completes: the holding leaves,
+  the report answers `removed` and names `index-entries` `owed`. Before, it threw a plain
+  `Error`. Reading 136 names `purge([id])` as the remedy for a damaged row.
+- Tests: rails for every `fsck` check that had none, two repaired rails of the transfer ordinal,
+  and a timeout of its own for the statement-list rail, which runs the whole store conformance.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
@@ -143,6 +161,15 @@ Step 4d adds more, listed under Breaking.
 - **A malformed `scope` member is the store fault `malformed-member`.** A host that caught
   `invalid-request` from a read for it must catch `StoreFaultError`.
 - **`Exporter` has a new member, `fsck`.** A host that builds its own `Exporter` must give one.
+- **The memory store's `history` and `appFormat` refuse `store-closed` after `close`.** They
+  answered before. A host that reads them after `close` must read them first.
+- **A read of a damaged row throws `StoreIntegrityError` where it answered.** On the SQLite store
+  this covers an arrival record of the wrong form, a signature of the wrong form, a holding whose
+  `delta` row is gone, and a change record that is not two lists of ids (`changes` threw a plain
+  `SyntaxError`). A host catches the error, purges the id or restores the file, and runs `fsck`.
+- **The memory store's `fsck` names an arrival record that names another id with key
+  `holding.arrival`, as the SQLite store does.** It used `arrival`. A host that matched the key
+  must change its match.
 
 ## 0.11.0-next.11 — 2026-11-16
 
