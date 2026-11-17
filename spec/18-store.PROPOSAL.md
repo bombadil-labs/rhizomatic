@@ -1182,7 +1182,10 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     member whose id does not recompute, or a malformed member; and, in a dynamically typed
     witness, a request with a value that is not of its type (reading 34), an optional object
     field that is not a plain object (reading 40), and `openStore` options that are not of
-    their type (reading 41).
+    their type (reading 41). Until a later change, a malformed member that a store returns
+    raises `invalid-request` too: a read, a pass and `fetchScope` refuse it through the fetch
+    cache. A fault rule `malformed-member` (reading 73) is planned in its own PR, for both
+    witnesses.
 22. **Requirements are an allow-list.** A name outside it is refused and named, never looked up
     on the profile. A capability counts only when it is exactly true.
 23. **Handles.** An older `PeerStore` stays valid when the peer is opened again; both are views
@@ -2360,15 +2363,31 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      read each option and request object of a caller as own fields only. A field that only a
      prototype holds, also one set on `Object.prototype`, reads as absent. So an options object
      made by a class with fields on its prototype gives none of them. The store reads a delta's
-     `sig` and `validUntil` as own fields too, and so do the canonical encoding and the claims
-     check: an absent `sig` is stored as absent, and an id hashes only the fields the claims hold.
-     The SQLite store refuses a file that is not a store before any statement that can write.
-     The open reads the schema and the `format` row first, and only then sets the journal mode,
-     which writes the file's header and makes the `-wal` and `-shm` files. So a refused open of a
-     SQLite file made by another tool, or of a file that is not SQLite, changes no byte and leaves
-     no `-wal` or `-shm` file. One case remains. A SQLite file with no schema object at all, such as
-     an empty file or a file with only a header, cannot be told from a new file without a write.
-     The open makes it a store.
+     `sig` and `validUntil` as own fields too: an absent `sig` is stored as absent. The core's
+     canonical encoding does not change, and it still reads an inherited `validUntil`. So the
+     store computes each id over its own copy of the claims, which has no prototype, and keeps
+     that copy. A delta whose id hashes a `validUntil` that only a prototype held (a class
+     getter, `Object.create`, a polluted `Object.prototype`) is refused `invalid-admission`, and
+     the store keeps nothing of it. A delta made without one and appended under a polluted
+     `Object.prototype` is stored as made, and its id recomputes. While `Object.prototype` holds a
+     `validUntil`, a read refuses `invalid-request`: the fetch cache hashes the members with the
+     core's encoding.
+     The SQLite store refuses a file that is not a whole store before any statement that can
+     write. The open reads the schema names, the `format` row and the `retention` row first, and
+     only then sets the journal mode, which writes the file's header and makes the `-wal` and
+     `-shm` files. It refuses a file of another format, a file with no `format` row, and a file
+     with the store's `format` row that lacks a table, index, trigger or the `retention` row. So
+     a refused open of such a file, or of a file that is not SQLite, changes no byte of the
+     file's content and leaves no `-wal` or `-shm` file, with two exceptions. A SQLite file left
+     in WAL mode with a `-wal` file: the close of the refused connection checkpoints that log into
+     the file and removes it, so the file's bytes change to what a clean close would give. A
+     file that another process holds open: the bytes of its `-shm` file change. One case is not
+     refused. A SQLite file with no schema object at all, such as an empty file or a file with
+     only a header, cannot be told from a new file without a write. The open makes it a store.
+     The switch to the WAL journal mode answers busy at once, without the engine's wait, while
+     another connection holds the write lock of a new file. The open then asks again for
+     `busyTimeoutMs`, and after that refuses `store-unavailable` (reading 105), as a busy write
+     does. Before, it refused `open-failed` at once.
 
 ## 5. Architectures
 
