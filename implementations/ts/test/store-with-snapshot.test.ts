@@ -145,7 +145,7 @@ for (const [name, open] of STORES)
       expect(value.fetched).toEqual(value.first);
     });
 
-    it("a body that the peer always moves takes exactly the bound: 4 snapshots by default, 1 and 16 when asked, then snapshot-moved", async () => {
+    it("a body that the peer always moves takes exactly the bound: 4 snapshots by default, 1 and 16 when asked, then the last snapshot-moved passes up as the same object", async () => {
       const { peer, write } = await seeded(open);
       for (const [retry, expected] of [
         [undefined, 4],
@@ -154,6 +154,7 @@ for (const [name, open] of STORES)
       ] as const) {
         const { peer: watched, reads } = counted(peer);
         let runs = 0;
+        const met: unknown[] = [];
         const failure = await outcome(
           withSnapshot(
             watched,
@@ -161,16 +162,21 @@ for (const [name, open] of STORES)
               runs += 1;
               await snapshot.targets([X]);
               await write(Y);
-              return snapshot.targets([Y]);
+              return snapshot.targets([Y]).catch((error: unknown) => {
+                met.push(error);
+                throw error;
+              });
             },
             retry,
           ),
         );
         expect([codeOf(failure), reads(), runs]).toEqual(["snapshot-moved", expected, expected]);
+        expect(met).toHaveLength(expected);
+        expect(failure).toBe(met.at(-1));
       }
     });
 
-    it("a read() that refuses snapshot-moved counts as an attempt: three such and the fourth answers; four, and snapshot-moved passes up", async () => {
+    it("a read() that refuses snapshot-moved counts as an attempt, and the body's attempt counts it too: three such and the body runs once with attempt 4; four, and the fourth refusal passes up as the same object", async () => {
       const { peer } = await seeded(open);
       for (const [refusals, answers] of [
         [3, true],
@@ -178,25 +184,42 @@ for (const [name, open] of STORES)
       ] as const) {
         let left = refusals;
         let reads = 0;
-        let runs = 0;
+        const given: number[] = [];
+        const refused: StoreError[] = [];
         const moving = withRead(peer, async () => {
           reads += 1;
-          if (left-- > 0) throw new StoreError("snapshot-moved", "moved before the snapshot");
+          if (left-- > 0) {
+            refused.push(new StoreError("snapshot-moved", "moved before the snapshot"));
+            throw refused.at(-1)!;
+          }
           return peer.read();
         });
         const answer = await outcome(
-          withSnapshot(moving, (snapshot) => {
-            runs += 1;
+          withSnapshot(moving, (snapshot, attempt) => {
+            given.push(attempt);
             return snapshot.revision;
           }),
         );
         expect(reads).toBe(4);
-        if (answers) expect([(answer as { attempts: number }).attempts, runs]).toEqual([4, 1]);
-        else expect([codeOf(answer), runs]).toEqual(["snapshot-moved", 0]);
+        if (answers) {
+          expect([(answer as { attempts: number }).attempts, given]).toEqual([4, [4]]);
+        } else {
+          expect(given).toEqual([]);
+          expect(answer).toBe(refused[3]);
+        }
       }
+      let first = true;
+      const once = withRead(peer, async () => {
+        if (!first) return peer.read();
+        first = false;
+        throw new StoreError("snapshot-moved", "moved before the snapshot");
+      });
+      const given: number[] = [];
+      await withSnapshot(once, (_snapshot, attempt) => given.push(attempt));
+      expect(given).toEqual([2]);
     });
 
-    it("any other error, of read() or of the body, passes up at once as the same object, after one read", async () => {
+    it("any other error, of read() or of the body, passes up at once as the same object, after one read; an object that only carries the code snapshot-moved is such an error", async () => {
       const { peer } = await seeded(open);
       const errors: unknown[] = [
         new StoreError("store-unavailable", "the engine is busy; ask again"),
@@ -206,6 +229,8 @@ for (const [name, open] of STORES)
         new StoreError("invalid-request", "bad"),
         new StoreFaultError("no-progress", { from: 1 }, "a fault"),
         new Error("plain"),
+        Object.assign(new Error("a look-alike"), { code: "snapshot-moved" }),
+        { code: "snapshot-moved" },
         "not an error",
       ];
       for (const error of errors) {
@@ -286,7 +311,76 @@ for (const [name, open] of STORES)
       expect([codeOf(unbounded), reads()]).toEqual(["snapshot-moved", 4]);
     });
 
-    it("refuses a bad policy invalid-request before any store call, and reads policy fields as own fields", async () => {
+    it("a clock reading below the first, or not a finite number, refuses invalid-request after the move, and a clock that throws passes its error up; one snapshot was taken and released in each case", async () => {
+      const { peer, write } = await seeded(open);
+      const thrown = new Error("the clock failed");
+      for (const [later, expected] of [
+        [999, "invalid-request"],
+        [Number.NaN, "invalid-request"],
+        [Number.POSITIVE_INFINITY, "invalid-request"],
+        [-1, "invalid-request"],
+        ["throws", thrown],
+      ] as const) {
+        let readings = 0;
+        const clock = (): number => {
+          readings += 1;
+          if (readings === 1) return 1_000;
+          if (later === "throws") throw thrown;
+          return later;
+        };
+        const { peer: watched, reads, taken } = counted(peer);
+        const failure = await outcome(
+          withSnapshot(
+            watched,
+            async (snapshot) => {
+              await snapshot.targets([X]);
+              await write(Y);
+              return snapshot.targets([Y]);
+            },
+            { withinMs: 1_000_000, clock },
+          ),
+        );
+        if (expected === thrown) expect(failure).toBe(thrown);
+        else expect(codeOf(failure), String(later)).toBe(expected);
+        expect([reads(), readings]).toEqual([1, 2]);
+        expect(codeOf(await outcome(taken[0]!.targets([X])))).toBe("snapshot-released");
+      }
+      const equal = await outcome(
+        withSnapshot(peer, (s) => s.revision, { withinMs: 0, clock: () => 7 }),
+      );
+      expect((equal as { attempts: number }).attempts).toBe(1);
+    });
+
+    it("the clock is not read once the count ends the call: snapshots 1 reads it once, at the start", async () => {
+      const { peer, write } = await seeded(open);
+      let readings = 0;
+      const clock = (): number => {
+        readings += 1;
+        return 0;
+      };
+      const failure = await outcome(
+        withSnapshot(
+          peer,
+          async (snapshot) => {
+            await snapshot.targets([X]);
+            await write(Y);
+            return snapshot.targets([Y]);
+          },
+          { snapshots: 1, withinMs: 100, clock },
+        ),
+      );
+      expect([codeOf(failure), readings]).toEqual(["snapshot-moved", 1]);
+    });
+
+    it("a body that answers a thenable is awaited: the value is what the thenable gives", async () => {
+      const { peer } = await seeded(open);
+      const thenable = {
+        then: (done: (value: number) => void) => done(5),
+      } as unknown as Promise<number>;
+      expect(await withSnapshot(peer, () => thenable)).toEqual({ value: 5, attempts: 1 });
+    });
+
+    it("refuses a bad policy invalid-request before any store call, an unknown own field too, and reads policy fields as own fields", async () => {
       const { peer, write } = await seeded(open);
       class Policy {
         readonly snapshots = 2;
@@ -304,16 +398,21 @@ for (const [name, open] of STORES)
         { snapshots: Number.NaN },
         { snapshots: "4" },
         { snapshots: null },
-        { withinMs: -1 },
-        { withinMs: 1.5 },
-        { withinMs: Number.POSITIVE_INFINITY },
-        { withinMs: "10" },
-        { withinMs: null },
+        { withinMs: -1, clock: () => 0 },
+        { withinMs: 1.5, clock: () => 0 },
+        { withinMs: Number.POSITIVE_INFINITY, clock: () => 0 },
+        { withinMs: 2 ** 53, clock: () => 0 },
+        { withinMs: "10", clock: () => 0 },
+        { withinMs: null, clock: () => 0 },
         { withinMs: 10 },
         { withinMs: 10, clock: 5 },
         { clock: "now" },
         { withinMs: 10, clock: () => Number.NaN },
         { withinMs: 10, clock: () => "1" },
+        { snapshot: 1 },
+        { within: 5 },
+        { snapshots: 2, retries: 1 },
+        { snapshots: 2, clock: () => 0, extra: undefined },
       ];
       for (const retry of bad) {
         const { peer: watched, reads } = counted(peer);
