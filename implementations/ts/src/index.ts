@@ -231,6 +231,16 @@ export {
   type FollowStoreRequest,
 } from "./storage/follow-conformance.js";
 export { followVectors } from "./storage/follow-vectors.js";
+export { EMPTY_DIGEST, digestOf, type DigestNode } from "./storage/digest.js";
+export {
+  runDigestConformance,
+  type DigestConformanceReport,
+} from "./storage/digest-conformance.js";
+export {
+  STORE_DIGEST_FORMAT,
+  digestVectors,
+  type StoreDigestDocument,
+} from "./storage/digest-vectors.js";
 export {
   StoreViews,
   type Refresh,

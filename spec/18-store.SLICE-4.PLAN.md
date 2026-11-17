@@ -79,7 +79,8 @@ Each is made here under the store-arc delegation. Each moves to §12 when its st
   host mint is refused after a reopen too.
 - **S4-9. The journal split is step 4d, after the trial.** Steps 4a to 4c ship with
   `journal: false` and `digest: false`: a non-null `frame` is refused `capability-absent`, and the
-  head compare-and-set still runs (§4.5).
+  head compare-and-set still runs (§4.5). Step 4d switches `digest` on for both TypeScript
+  stores (proposal §4.13 reading 139); `journal` stays false until the journal tables land.
 - **S4-10. TypeScript first; Rust before the slice counts as conformant.** This is the witness
   policy the necessity audit proposed and Myk accepted on 2026-11-15. The Rust builder works from
   this plan, the proposal and the vectors only.
@@ -434,7 +435,7 @@ follows per S4-10.
 | Persisted history; new history on restore | 4c (S4-8), done; a new history at peer delete is 4d (G5 f) |
 | Lost index entries | 4d, done in TypeScript: `fsck` finds them (proposal §4.13 readings 137 and 138) |
 | Frame and head (G11): done in TypeScript (proposal §4.13 reading 133); fault report (G6): done in TypeScript (readings 136 and 137); peer delete (G5 f) | 4d |
-| Whole-peer version address | 4d |
+| Whole-peer version address | 4d, done in TypeScript: the holdings digest and its root (proposal §4.13 readings 139 to 142) |
 | Journal frames and payload; purge and the head compare-and-set; arrival history after a purge | 4d |
 | Release-mode cost rails | 4e |
 | A refused open of a file that is not a whole store writes nothing: the schema, format and retention check before the journal mode (proposal §4.13 reading 126) | 4e |
@@ -445,6 +446,7 @@ follows per S4-10.
 | The transfer ordinal (step 4d, proposal §4.13 reading 135): `last_transfer` on a snapshot, fixed at read; a new holding's transfer must pass the peer's last one, refused `invalid-admission`; a head-only append and a purge keep it; `max_transfer` in the peer row and the check on `app_format`, format `/5`; a shared vector of the rule in `scripts.json` | 4e |
 | The integrity fault (step 4d, proposal §4.13 reading 136): a read that meets claims that do not hash to their id, bytes that are not claims, or an arrival record that is not one gives the integrity error with one fault `{kind, peer, id, key, detail}`, never a smaller answer; the tests that damage a file through a second connection | 4e |
 | `fsck` on both Rust stores (step 4d, proposal §4.13 readings 137 and 138): the report `{checked, faults}`, the kinds, short read transactions with none held between steps, no write lock; the tests of `sqlite-store-fsck.test.ts` (one per kind, the gate, the scale rail, the child that appends and purges during the scan, and the erasure guard) and of `store-integrity.test.ts`; the static rail that no statement deletes or updates a `target` or `reference` row | 4e |
+| The holdings digest (step 4d, proposal §4.13 readings 139 to 142): `root` on a snapshot, fixed at read; `digest(prefix)`, a strict call that refuses `snapshot-moved` once the held set moved; the 16-way tree over the hex digits of the ids, leaves of at most 16 ids, the tags `rhizomatic.digest.leaf` and `rhizomatic.digest.node`; the `digest` table and `peer.root` written in the transaction of the append and the purge, format `/6`; the memory store's tree; `digest-mismatch` in `fsck`; `digest: true` in both profiles; `vectors/store/digest.json` run as a store document (today the Rust test checks only its trees and that each case requires `digest`); the tests of `store-digest.test.ts`, the memory cost rail of append and purge, and the digest in the timing rail | 4e |
 | The store fault `malformed-member` (step 4d, proposal §4.13 reading 21): the Rust read checks each `scope` member's id and arrival record and reports a bad one as `StoreFault::MalformedMember`; then a shared vector for both witnesses | 4e |
 
 ## 11. Risks
