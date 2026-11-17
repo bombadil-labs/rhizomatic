@@ -2173,7 +2173,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      A later ask of an id it removed answers `not-held`. §4.7.2 permits it: `not-held` claims
      nothing about bytes, and the peer asked for no proof.
 111. **A busy log** (slice 4, step 4b). `wal_checkpoint(TRUNCATE)` answers a row and does not
-     throw. The store reads it: anything but `busy = 0` and `log = 0` is a failed truncate. Then
+     throw. The store reads it: anything but `busy = 0` and `log = 0` is a failed truncate. A
+     busy answer with `log = -1` is first tried again, for one `busyTimeoutMs` at most (reading
+     143). Then
      the old pages are still in the database file, not only in the log, so every file surface is
      `owed`, `rows` and `index-entries` included. A reader in another process causes this; the
      store's own snapshots hold no transaction (decision S4-2). A `VACUUM` or a checkpoint that
@@ -2807,6 +2809,33 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      the purging peer, below a prefix that the update rewrites; it removes no holding, delta or
      index row, and no row of another peer. Nothing can be removed now that could not be removed
      before.
+143. **A busy checkpoint is tried again, bounded** (slice 4, step 4d, after the third review of
+     PR #101). SQLite answers `wal_checkpoint(TRUNCATE)` with `busy = 1` and `log = -1` at once,
+     without the busy handler, while another connection is in a checkpoint. The automatic passive
+     checkpoint that follows an ordinary commit is such a checkpoint. Before, the truncate of a
+     peer of posture `proven` then failed, and the purge answered without the proof (reading 111).
+     Measured on the earlier code: a purge of 900 deltas beside one process that appends to another
+     peer without pause answered `unproven` in 3 of 30 rounds; with the rule below it answered
+     `proven` in 30 of 30. The rule:
+     - the truncate runs the checkpoint again while it answers `busy = 1` and `log = -1`. It
+       pauses 5 ms between tries. It makes no new try after one `busyTimeoutMs` has passed since
+       its first try. Each try waits for locks as any statement does (reading 105);
+     - any other answer ends the truncate at once. `busy = 0` and `log = 0` is a truncate. Every
+       other answer, and a throw, is a failed truncate, as before (reading 111);
+     - the rule of the proof does not change. The last transaction decides the report from the
+       size of the log and from `clean = dirty` (readings 117 and 119). A try only repeats a
+       checkpoint: it removes no row and raises no counter. So no report is false because of it;
+     - what stays possible: a checkpoint of another connection that stays busy past the bound.
+       The purge then answers without the proof: every file surface `owed`, and a record for each
+       `removed` target. The next ask can prove (reading 107);
+     - the cost: the pauses block the thread, at most 5 ms each and one `busyTimeoutMs` in all,
+       as the engine's busy handler does.
+     Rails: another process is in a checkpoint that waits for a third process's write lock. A
+     purge held just after its `VACUUM` is let go, meets the busy checkpoint, and answers `proven`
+     once the checkpoint ends. The earlier code answered `unproven` there in 5 of 5 runs. With a
+     `busyTimeoutMs` of 300 and a checkpoint that stays busy, the purge reaches its last
+     transaction while the checkpoint still runs, and answers `unproven` with every file surface
+     `owed`. Nothing can be removed now that could not be removed before.
 
 ## 5. Architectures
 

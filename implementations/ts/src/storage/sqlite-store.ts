@@ -276,10 +276,15 @@ function waiting<T>(deadline: number, body: () => T): T {
         throw error;
       const left = deadline - performance.now();
       if (left <= 0) throw unavailable(error);
-      pause ??= new Int32Array(new SharedArrayBuffer(4));
-      Atomics.wait(pause, 0, 0, Math.min(BUSY_PAUSE_MS, left));
+      rest(left);
     }
   }
+}
+
+/** Blocks for `BUSY_PAUSE_MS`, or for `left` ms when that is shorter. */
+function rest(left: number): void {
+  pause ??= new Int32Array(new SharedArrayBuffer(4));
+  Atomics.wait(pause, 0, 0, Math.min(BUSY_PAUSE_MS, left));
 }
 
 // ---- claims from their canonical bytes ----------------------------------------------------------
@@ -629,12 +634,14 @@ class SqliteFileStore implements SqliteStore {
   readonly #pageSize: number;
   readonly #mint: ((peer: PeerId) => History) | undefined;
   readonly #rules: ReturnType<typeof RULES>;
+  readonly #busyTimeoutMs: number;
   readonly #file: string;
   #closed = false;
 
   constructor(db: BetterSqlite3.Database, options: OwnOptions) {
     this.#db = db;
     this.#rules = RULES(options.busyTimeoutMs);
+    this.#busyTimeoutMs = options.busyTimeoutMs;
     // Before each statement of the open, the engine waits only for the time left of one
     // `busyTimeoutMs`, so a holder that takes the lock again before each statement cannot make the
     // open wait longer. The host's value is set again before the rules are checked, and at the end.
@@ -1403,13 +1410,20 @@ class SqliteFileStore implements SqliteStore {
   }
 
   /**
-   * Empties the log. A busy checkpoint answers a row and does not throw. Until it truncates,
-   * the old pages stay in the database file and the log.
+   * Empties the log. A busy checkpoint answers a row and does not throw. While another
+   * connection is in a checkpoint, the engine answers busy with `log = -1` at once, without the
+   * busy handler; the truncate tries again until one `busyTimeoutMs` has passed (§4.13 reading
+   * 143). Until it truncates, the old pages stay in the database file and the log.
    */
   #truncate(): boolean {
+    const deadline = performance.now() + this.#busyTimeoutMs;
     try {
-      const { busy, log } = this.#s.checkpoint.get() as { busy: number; log: number };
-      return busy === 0 && log === 0;
+      for (;;) {
+        const { busy, log } = this.#s.checkpoint.get() as { busy: number; log: number };
+        const left = deadline - performance.now();
+        if (busy === 0 || log !== -1 || left <= 0) return busy === 0 && log === 0;
+        rest(left);
+      }
     } catch {
       return false;
     }

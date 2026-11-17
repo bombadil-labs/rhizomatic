@@ -24,6 +24,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
@@ -54,6 +55,7 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const pkg = resolve(here, "..");
 const childScript = resolve(here, "support/sqlite-erasure-child.ts");
+const connectionScript = resolve(here, "support/sqlite-checkpoint-child.ts");
 
 const PROVEN_HERE = process.platform === "linux";
 const FILE_SURFACES = [
@@ -178,15 +180,26 @@ async function filled(
 
 /**
  * Runs the child with a mode; answers its report and how it ended. `limit` runs it under a limit
- * on the size of the files it writes, in blocks of 512 bytes.
+ * on the size of the files it writes, in blocks of 512 bytes. `wait` is the child's
+ * `busyTimeoutMs` (default 100).
  */
-function child(path: string, peer: string, mode: string, purge: unknown, limit?: number) {
+function child(
+  path: string,
+  peer: string,
+  mode: string,
+  purge: unknown,
+  limit?: number,
+  wait?: number,
+) {
   const args = ["--import", "tsx", childScript, path, peer, mode, JSON.stringify(purge)];
+  const env =
+    wait === undefined ? process.env : { ...process.env, SQLITE_CHILD_WAIT_MS: String(wait) };
   const proc =
     limit === undefined
-      ? spawn(process.execPath, args, { cwd: pkg, stdio: ["ignore", "pipe", "pipe"] })
+      ? spawn(process.execPath, args, { cwd: pkg, env, stdio: ["ignore", "pipe", "pipe"] })
       : spawn("sh", ["-c", `ulimit -f ${limit} && exec "$0" "$@"`, process.execPath, ...args], {
           cwd: pkg,
+          env,
           stdio: ["ignore", "pipe", "pipe"],
         });
   children.push(proc);
@@ -236,6 +249,73 @@ function child(path: string, peer: string, mode: string, purge: unknown, limit?:
     kill: () => proc.kill("SIGKILL"),
     errors: () => errors,
   };
+}
+
+/**
+ * A raw connection in a process of its own (support/sqlite-checkpoint-child.ts). `line(head)`
+ * waits for the whole line that starts with `head` and the process's pid.
+ */
+function connection(path: string, ...args: string[]) {
+  const proc = spawn(process.execPath, ["--import", "tsx", connectionScript, path, ...args], {
+    cwd: pkg,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  children.push(proc);
+  const lines: string[] = [];
+  let errors = "";
+  let closed = false;
+  const wake: (() => void)[] = [];
+  const woken = () => {
+    for (const done of wake.splice(0)) done();
+  };
+  createInterface({ input: proc.stdout }).on("line", (text) => {
+    lines.push(text);
+    woken();
+  });
+  proc.stderr.on("data", (chunk: Buffer) => (errors += chunk.toString()));
+  proc.on("close", () => {
+    closed = true;
+    woken();
+  });
+  const find = (head: string) => lines.find((text) => text.startsWith(`${head} ${proc.pid}`));
+  return {
+    printed: (head: string) => find(head) !== undefined,
+    line: async (head: string): Promise<string> => {
+      for (;;) {
+        const found = find(head);
+        if (found !== undefined) return found;
+        if (closed) throw new Error(`connection ${proc.pid} ended before ${head}: ${errors}`);
+        await new Promise<void>((done) => wake.push(done));
+      }
+    },
+    release: () => proc.stdin.end("go\n"),
+  };
+}
+
+/**
+ * Another process holds the write lock, and a third is in a `TRUNCATE` checkpoint that waits for
+ * it with a busy timeout of a minute. A passive checkpoint of a probe answers `log = -1` only
+ * while some connection is in a checkpoint; a third process that raced the probe and ended is
+ * started again.
+ */
+async function busyCheckpoint(path: string) {
+  const writer = connection(path, "hold");
+  await writer.line("held");
+  const probe = new Database(path);
+  try {
+    for (let tries = 0; tries < 20; tries++) {
+      const checkpoint = connection(path, "checkpoint", "60000");
+      await checkpoint.line("start");
+      while (!checkpoint.printed("done")) {
+        const [row] = probe.pragma("wal_checkpoint(PASSIVE)") as { log: number }[];
+        if (row!.log === -1) return { writer, checkpoint };
+        await new Promise((done) => setTimeout(done, 5));
+      }
+    }
+  } finally {
+    probe.close();
+  }
+  throw new Error("no connection stayed in a checkpoint");
 }
 
 const group = (tag: string, count: number, from = 0): Marked[] =>
@@ -1461,6 +1541,74 @@ describe.skipIf(!PROVEN_HERE)("proven erasure on the SQLite store (plan §7)", (
       expect(found.filter((f) => !f.startsWith("hard.db-wal: "))).toEqual([]);
       expect(found.length).toBeGreaterThan(0);
       await bystandersHold(dir, a, bystanders);
+    }, 120_000);
+  });
+
+  describe("another connection's checkpoint makes the truncate answer busy at once (reading 143)", () => {
+    async function ready(tag: string) {
+      const { dir, path } = place();
+      const [x, bystanders] = [group(`X${tag}`, 50), group(`B${tag}`, 2)];
+      const { store } = await filled(path, {
+        "peer:a": { posture: "proven", deltas: x },
+        "peer:b": { posture: "proven", deltas: bystanders },
+      });
+      await store.close();
+      return { dir, path, x, bystanders };
+    }
+
+    it("the truncate tries again while the other checkpoint runs, and the purge answers proven once it ends; no marker is in any file and the bystanders read back", async () => {
+      const { dir, path, x, bystanders } = await ready("K1");
+      const run = child(
+        path,
+        "peer:a",
+        "hold-vacuum-done,note-checkpoint-done,hold-report",
+        ids(x),
+        undefined,
+        10_000,
+      );
+      await run.held("vacuum-done");
+      const { writer, checkpoint } = await busyCheckpoint(path);
+      run.go("vacuum-done");
+      await run.printed("noted checkpoint-done\n");
+      writer.release();
+      expect(await checkpoint.line("done")).toMatch(/"busy":0,"log":0,/);
+      await run.held("report");
+      const found = scan(dir, markersOf(x));
+      run.go("report");
+      expect(await run.ended).toBe("0");
+      expect(shape(run.report())).toEqual(["proven", every("absent"), removedAll(x)]);
+      expect(found).toEqual([]);
+      await bystandersHold(dir, await (await open(path)).peer("peer:b"), bystanders);
+    }, 120_000);
+
+    it("the tries are bounded: a checkpoint that stays busy past busyTimeoutMs ends the truncate without the proof; the purge answers unproven with every file surface owed and keeps its records, and the next ask proves", async () => {
+      const { dir, path, x, bystanders } = await ready("K2");
+      const run = child(
+        path,
+        "peer:a",
+        "hold-vacuum-done,hold-last,hold-report",
+        ids(x),
+        undefined,
+        300,
+      );
+      await run.held("vacuum-done");
+      const { writer, checkpoint } = await busyCheckpoint(path);
+      run.go("vacuum-done");
+      const bound = new Promise<string>((done) => setTimeout(() => done("no end"), 10_000));
+      expect(await Promise.race([run.held("last").then(() => "ended"), bound])).toBe("ended");
+      expect(checkpoint.printed("done")).toBe(false);
+      writer.release();
+      await checkpoint.line("done");
+      run.go("last");
+      await run.held("report");
+      run.go("report");
+      expect(await run.ended).toBe("0");
+      expect(shape(run.report())).toEqual(["unproven", every("owed"), removedAll(x)]);
+      expect(ledger(path).records).toEqual(recordsOf("peer:a", x));
+      const a = await (await open(path)).peer("peer:a");
+      expect(shape(await a.purge(ids(x)))).toEqual(["proven", every("absent"), removedAll(x)]);
+      expect(scan(dir, markersOf(x))).toEqual([]);
+      await bystandersHold(dir, await (await open(path)).peer("peer:b"), bystanders);
     }, 120_000);
   });
 
