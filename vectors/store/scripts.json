@@ -4246,11 +4246,7 @@
             "a-name"
           ],
           "expect": {
-            "deltas": [
-              "a-name",
-              "a-height-neg"
-            ],
-            "orError": "snapshot-moved"
+            "error": "snapshot-moved"
           }
         },
         {
@@ -4260,10 +4256,7 @@
             "a-height-neg"
           ],
           "expect": {
-            "ids": [
-              "a-height-neg"
-            ],
-            "orError": "snapshot-moved"
+            "error": "snapshot-moved"
           }
         },
         {
@@ -4273,11 +4266,7 @@
             "plant:a"
           ],
           "expect": {
-            "ids": [
-              "a-name",
-              "a-height"
-            ],
-            "orError": "snapshot-moved"
+            "error": "snapshot-moved"
           }
         },
         {
@@ -4287,10 +4276,7 @@
             "a-height"
           ],
           "expect": {
-            "ids": [
-              "a-height-neg"
-            ],
-            "orError": "snapshot-moved"
+            "error": "snapshot-moved"
           }
         },
         {
@@ -4303,17 +4289,7 @@
             }
           ],
           "expect": {
-            "lower": [
-              "a-name",
-              "a-height-neg",
-              "a-height"
-            ],
-            "upper": [
-              "a-name",
-              "a-height-neg",
-              "a-height"
-            ],
-            "orError": "snapshot-moved"
+            "error": "snapshot-moved"
           }
         },
         {

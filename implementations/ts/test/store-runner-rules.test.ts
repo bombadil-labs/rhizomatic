@@ -896,11 +896,24 @@ const RULES: Readonly<Record<string, Rule>> = {
         })(),
     })),
   },
-  "a moved snapshot refuses with a code that is not snapshot-moved": {
+  "a snapshot older than a purge refuses with a code that is not snapshot-moved": {
+    doc: "scripts",
+    says: /refused with snapshot-released, expected snapshot-moved/,
+    store: {
+      snapshot: queries((run) => recoded("snapshot-moved", "snapshot-released", run)),
+    },
+  },
+  "a snapshot moved by an append refuses with a code that is not snapshot-moved": {
     doc: "scripts",
     says: /the query refused with snapshot-released, and only snapshot-moved or an answer conforms/,
     store: {
-      snapshot: queries((run) => recoded("snapshot-moved", "snapshot-released", run)),
+      snapshot: (s, peer) =>
+        queries(async (run) => {
+          const now = await peer.read();
+          now.release();
+          if (now.revision !== s.revision) throw new StoreError("snapshot-released", "moved");
+          return run();
+        })(s),
     },
   },
   "a current snapshot refuses a query": {
