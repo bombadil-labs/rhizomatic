@@ -28,10 +28,11 @@ export const hostModules = {
       performance: ["now"],
       Atomics: ["wait"],
       SharedArrayBuffer: true,
+      setImmediate: true,
     },
     location: true,
     reason:
-      "The SQLite store: its file through better-sqlite3 (loaded by createRequire from import.meta.url, or from __filename in a CommonJS bundle, so a host without it gets an error that names it), the size of its log (a proof of erasure needs an empty log), random histories, file URLs, the platform that sets its erasure class, and a clock and a pause between tries of the open's first statements, because the journal mode switch answers busy without the engine's wait.",
+      "The SQLite store: its file through better-sqlite3 (loaded by createRequire from import.meta.url, or from __filename in a CommonJS bundle, so a host without it gets an error that names it), the size of its log (a proof of erasure needs an empty log), random histories, file URLs, the platform that sets its erasure class, and a clock and a pause between tries of the open's first statements, because the journal mode switch answers busy without the engine's wait, and a turn of the host's event loop between the steps of fsck, so that no step holds a transaction while other work runs.",
   },
   "federation/http.ts": {
     modules: ["node:http"],
