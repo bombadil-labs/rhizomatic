@@ -25,6 +25,7 @@ import {
   MEMORY_STORE_FORMAT,
   type StoreMeter,
 } from "../src/storage/memory-store.js";
+import { digestRows } from "../src/storage/digest.js";
 import { openStore, registerStoreScheme } from "../src/storage/open-store.js";
 import { scopeSource } from "../src/storage/scope-source.js";
 import {
@@ -2035,7 +2036,7 @@ describe("cost rail: an operation costs its footprint, not the store", () => {
     return costs;
   }
 
-  it("the same operations make the same index calls with 0, N and 4N unrelated deltas, but append and purge, whose digest path grows with its depth only", async () => {
+  it("the same operations make the same index calls with 0, N and 4N unrelated deltas, but append and purge, whose lookups stay within a fixed bound per digest level of each changed id", async () => {
     const alone = await measure([]);
     const crowded = await measure(unrelatedOf(N));
     const four = await measure(unrelatedOf(4 * N));
@@ -2056,10 +2057,31 @@ describe("cost rail: an operation costs its footprint, not the store", () => {
         a.visited,
         a.scans,
       ]);
-      // From N to 4N ids the digest gains at most one level, so the cost grows by less than it
-      // did from 0 to N. A cost that grows with the held set grows by three times as much.
-      expect(f.lookups - n.lookups).toBeLessThan(n.lookups - a.lookups);
     }
+    // Append and purge: a fixed bound from the model. Each changed id costs at most PER_LEVEL
+    // lookups per level of the digest on its path, on average over the path, with the levels
+    // counted from the ids and not from the store: the 16 child rows a level reads, the row it
+    // writes, and at the leaf its held ids and the rows below it. Every other lookup is one the
+    // store with no other deltas makes too. A walk of the digest tree, or a lookup per held id,
+    // goes over the bound.
+    const PER_LEVEL = 24;
+    const heldWith = (extra: readonly Delta[]): string[] =>
+      [...footprint, ...extra, ...fresh].map((d) => d.id);
+    const levels = (ids: readonly string[], changed: readonly string[]): number => {
+      const prefixes = [...digestRows(ids).keys()];
+      return changed.reduce((sum, id) => sum + prefixes.filter((p) => id.startsWith(p)).length, 0);
+    };
+    const changed = { append: fresh.map((d) => d.id), purge: [footprint[1]!.id, fresh[0]!.id] };
+    for (const [costs, extra] of [
+      [crowded, unrelatedOf(N)],
+      [four, unrelatedOf(4 * N)],
+    ] as const)
+      for (const name of ["append", "purge"] as const) {
+        const touched = levels(heldWith(extra), changed[name]);
+        const bound = alone[name]!.lookups + PER_LEVEL * touched;
+        console.log(`memory cost, ${name}: ${costs[name]!.lookups} lookups, bound ${bound}`);
+        expect(costs[name]!.lookups, `${name}: ${touched} levels`).toBeLessThanOrEqual(bound);
+      }
     // The rail measures something: a scope read does index work, and more than a point read.
     expect(alone["scope"]!.lookups).toBeGreaterThan(alone["targets"]!.lookups);
     expect(alone["scope"]!.visited).toBeGreaterThan(0);
