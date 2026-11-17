@@ -1377,7 +1377,10 @@ class SqliteFileStore implements SqliteStore {
       for (let found = EXPORT_PAGE; mine && found === EXPORT_PAGE; ) {
         await new Promise<void>((resolve) => setImmediate(resolve));
         this.#open();
-        found = this.#run("write", () => ((mine = marked()) ? page() : 0));
+        found = this.#run("write", () => {
+          mine = marked();
+          return mine ? page() : 0;
+        });
       }
     this.#open();
     // `peerDrop` removes the row only on the terms of `marked`. It removes nothing when another
