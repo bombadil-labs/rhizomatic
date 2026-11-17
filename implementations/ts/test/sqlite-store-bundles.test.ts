@@ -2,7 +2,9 @@
 // CommonJS or an ES module file, with `better-sqlite3` left external, as a native addon needs.
 // Each bundle loads in a new Node process: with the driver it opens a store; without it the error
 // names the package to install; and a driver that fails for another reason passes its own error
-// up, without that message. Every bundle and store lives in a `mkdtempSync` directory.
+// up, without that message. A bundle evaluated with no file location refuses with a message that
+// says so, and loads nothing from the working directory. Every bundle and store lives in a
+// `mkdtempSync` directory.
 
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -20,16 +22,19 @@ afterAll(() => {
 
 const INSTALL = "@bombadil/rhizomatic/store/sqlite needs the package better-sqlite3";
 
+const NO_LOCATION = "@bombadil/rhizomatic/store/sqlite cannot find its own module location";
+
 /** The subpath bundled in `format` into a new directory; the bundle's path. */
-async function bundle(format: "cjs" | "esm"): Promise<string> {
+async function bundle(format: "cjs" | "esm" | "iife"): Promise<string> {
   const dir = mkdtempSync(join(tmpdir(), "rhizomatic-sqlite-bundle-"));
   dirs.push(dir);
-  const file = join(dir, format === "cjs" ? "store.cjs" : "store.mjs");
+  const file = join(dir, { cjs: "store.cjs", esm: "store.mjs", iife: "store.js" }[format]);
   await build({
     entryPoints: [resolve(pkg, "src/storage/sqlite-store.ts")],
     bundle: true,
     platform: "node",
     format,
+    ...(format === "iife" ? { globalName: "sqliteStore" } : {}),
     external: ["better-sqlite3"],
     outfile: file,
     logLevel: "silent",
@@ -77,7 +82,78 @@ try {
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
 }
 
+/**
+ * A new directory whose `node_modules/better-sqlite3` is a stub that prints `stub ran`, to be a
+ * working directory that a load must not read.
+ */
+function planted(): string {
+  const dir = mkdtempSync(join(tmpdir(), "rhizomatic-sqlite-planted-"));
+  dirs.push(dir);
+  const driver = join(dir, "node_modules", "better-sqlite3");
+  mkdirSync(driver, { recursive: true });
+  writeFileSync(join(driver, "package.json"), '{"name":"better-sqlite3","main":"index.js"}');
+  writeFileSync(join(driver, "index.js"), 'console.log("stub ran"); module.exports = {};');
+  return dir;
+}
+
+/** Runs `args` in a new Node process in `cwd`, with no NODE_PATH; what it printed. */
+function node(args: string[], cwd: string): { status: number | null; output: string } {
+  const result = spawnSync(process.execPath, args, {
+    cwd,
+    encoding: "utf8",
+    timeout: 120_000,
+    env: { ...process.env, NODE_PATH: "" },
+  });
+  return { status: result.status, output: `${result.stdout}${result.stderr}` };
+}
+
 describe("the SQLite subpath bundled by a host, with better-sqlite3 external", () => {
+  it("a bundle evaluated with no module location (vm.runInThisContext) refuses with the message that the location is unknown, and loads no better-sqlite3 from the working directory", async () => {
+    const file = await bundle("iife");
+    const result = node(
+      [
+        "--input-type=module",
+        "-e",
+        `import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+globalThis.require = createRequire(import.meta.url);
+try {
+  vm.runInThisContext(readFileSync(${JSON.stringify(file)}, "utf8"), { filename: ${JSON.stringify(file)} });
+  console.log("loaded");
+} catch (error) {
+  console.log(error.message);
+  process.exit(1);
+}`,
+      ],
+      planted(),
+    );
+    expect(result.output).toContain(NO_LOCATION);
+    expect(result.output).not.toContain("stub ran");
+    expect(result.status).toBe(1);
+  }, 120_000);
+
+  it("a CommonJS bundle evaluated in node -e, where __filename is [eval], refuses with the message that the location is unknown, not ERR_INVALID_ARG_VALUE", async () => {
+    const file = await bundle("cjs");
+    const result = node(
+      [
+        "-e",
+        `try {
+  eval(require("node:fs").readFileSync(${JSON.stringify(file)}, "utf8"));
+  console.log("loaded");
+} catch (error) {
+  console.log(error.message);
+  process.exit(1);
+}`,
+      ],
+      planted(),
+    );
+    expect(result.output).toContain(NO_LOCATION);
+    expect(result.output).not.toContain("ERR_INVALID_ARG_VALUE");
+    expect(result.output).not.toContain("stub ran");
+    expect(result.status).toBe(1);
+  }, 120_000);
+
   for (const format of ["cjs", "esm"] as const) {
     it(`a ${format} bundle loads and opens a store with the driver`, async () => {
       const file = await bundle(format);
