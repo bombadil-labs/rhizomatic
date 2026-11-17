@@ -139,18 +139,21 @@ for (const [name, open] of STORES)
       expect(codeOf(await outcome(taken[0]!.targets([X])))).toBe("snapshot-released");
     });
 
-    it("a purge between two calls of the body starts it again: attempts 2, and every part of the answer is at the new revision", async () => {
-      const { peer, move } = await seeded(open);
+    it("an append at X and a purge between two calls of the body start it again: attempts 2, and every part of the answer is at the new revision, with both deltas at X", async () => {
+      const { peer, write, move } = await seeded(open);
       const before = (await withSnapshot(peer, (s) => s.revision)).value;
       const { value, attempts } = await withSnapshot(peer, async (snapshot, attempt) => {
         const first = await snapshot.targets([X]);
-        if (attempt === 1) await move();
+        if (attempt === 1) {
+          await write(X);
+          await move();
+        }
         const fetched = await fetchScope(snapshot, [X]);
         return { at: snapshot.revision, first, fetched: [...fetched.source.ids()].sort() };
       });
       expect(attempts).toBe(2);
-      expect(value.at).toBe(before + 1);
-      expect(value.first).toHaveLength(1);
+      expect(value.at).toBe(before + 2);
+      expect(value.first).toHaveLength(2);
       expect(value.fetched).toEqual(value.first);
     });
 

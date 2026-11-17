@@ -28,6 +28,7 @@ const STORES: readonly (readonly [string, (options?: Options) => Promise<Store>]
 
 const AUTHOR = `ed25519:${"7e".repeat(32)}`;
 const X = "entity:x";
+const Y = "entity:y";
 const LEAF = parseTerm({
   op: "group",
   key: "byTargetContext",
@@ -190,10 +191,12 @@ for (const [name, open] of STORES)
       expect(await now.targets([X])).toHaveLength(3);
     });
 
-    it("a purge that releases nothing, and a purge of another peer, move no snapshot of this peer", async () => {
+    it("a purge that releases nothing, and a purge of another peer, move no older snapshot of this peer", async () => {
       const { store, peer, append } = await writer(open);
       const held = fact(X);
       await append([held]);
+      const s = await peer.read();
+      await append([fact(Y)]);
       const other = await store.createPeer("peer:q", { erasure: "unproven" });
       const shared = fact(X);
       await other.append({
@@ -207,10 +210,32 @@ for (const [name, open] of STORES)
           },
         ],
       });
-      const s = await peer.read();
       expect((await peer.purge([fact(X).id])).claim).toBe("nothing-removed");
       expect((await other.purge([shared.id])).claim).not.toBe("nothing-removed");
       expect(await s.targets([X])).toEqual([held.id]);
+    });
+
+    it("two peers share ids across a snapshot: a holding of the other peer neither adds to nor removes from this peer's targets, negators or scope", async () => {
+      const { store, peer, append } = await writer(open);
+      const held = fact(X);
+      await append([held, fact(Y)]);
+      const s = await peer.read();
+      const late = fact(X);
+      const strike = negation(held);
+      const other = await store.createPeer("peer:q", { erasure: "unproven" });
+      const added = [late, strike, held].map((delta, i) => ({
+        delta,
+        arrival: { id: delta.id, at: 1, sequence: [1, 2, 100][i]!, transfer: 1, sender: "q" },
+      }));
+      const result = await other.append({ expectedHead: null, nextHead: "q", frame: null, added });
+      expect(result.status).toBe("committed");
+      await append([late, strike]);
+      expect(await s.targets([X])).toEqual([held.id]);
+      expect(await s.negators([held.id])).toEqual([]);
+      expect(await scopeIds(s, X)).toEqual([held.id]);
+      const now = await peer.read();
+      expect(await now.targets([X])).toEqual([held.id, late.id].sort());
+      expect(await now.negators([held.id])).toEqual([strike.id]);
     });
 
     it("scenario 9: arrivalAtMost above the snapshot's last sequence keeps the snapshot's set, and is reported applied", async () => {
