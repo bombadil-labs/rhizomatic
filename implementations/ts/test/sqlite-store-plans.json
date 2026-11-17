@@ -10,6 +10,16 @@
   "historyAdd": [],
   "peerRead": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
   "peerAdd": [],
+  "peerState": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
+  "peerMark": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
+  "peerDrop": [
+    "SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)",
+    "SEARCH surface_debt USING PRIMARY KEY (peer=?)",
+    "SEARCH debt USING PRIMARY KEY (peer=?)",
+    "SEARCH change USING COVERING INDEX sqlite_autoindex_change_1 (peer=?)",
+    "SEARCH digest USING PRIMARY KEY (peer=?)",
+    "SEARCH holding USING COVERING INDEX sqlite_autoindex_holding_2 (peer=?)"
+  ],
   "peerHistory": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
   "peerAdvance": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
   "holdingFind": [
@@ -117,7 +127,13 @@
   "changes": [
     "SEARCH change USING INDEX sqlite_autoindex_change_1 (peer=? AND revision>? AND revision<?)"
   ],
-  "exportPeers": ["SEARCH peer USING COVERING INDEX sqlite_autoindex_peer_1 (id>?)"],
+  "deleteChanges": [
+    "SEARCH change USING COVERING INDEX sqlite_autoindex_change_1 (peer=? AND revision>?)"
+  ],
+  "deleteDigest": ["SEARCH digest USING PRIMARY KEY (peer=? AND prefix>?)"],
+  "deleteDebts": ["SEARCH debt USING PRIMARY KEY (peer=? AND delta>?)"],
+  "deleteSurfaceDebts": ["SEARCH surface_debt USING PRIMARY KEY (peer=? AND delta>?)"],
+  "exportPeers": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id>?)"],
   "exportIds": [
     "SEARCH holding USING COVERING INDEX sqlite_autoindex_holding_1 (peer=? AND delta>?)"
   ],
@@ -126,6 +142,7 @@
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?) LEFT-JOIN"
   ],
   "exportStored": ["SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id>?)"],
+  "fsckPeers": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id>?)"],
   "fsckEngine": [],
   "fsckForeignKeys": [],
   "fsckHoldings": [
@@ -147,5 +164,6 @@
   "trigger target_delete_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
   "trigger target_update_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
   "trigger reference_delete_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
-  "trigger reference_update_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"]
+  "trigger reference_update_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
+  "trigger peer_delete_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"]
 }

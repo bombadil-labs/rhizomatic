@@ -39,6 +39,7 @@ import {
   type ChangeRecord,
   type ChangeRetention,
   type CreatePeerOptions,
+  type DeleteReport,
   type Entity,
   type ErasureClass,
   type ErasurePosture,
@@ -350,36 +351,76 @@ class MemoryStore implements Store {
     return this.#handle(state);
   }
 
+  /**
+   * The peer a handle names, found by its id at each call, as the SQLite store reads its row.
+   * After `deletePeer` every call refuses `peer-absent` (§4.13 reading 143).
+   */
+  #live(id: PeerId): PeerState {
+    this.#open();
+    const state = this.#peers.get(id);
+    if (state === undefined) throw new StoreError("peer-absent", "the peer was deleted");
+    return state;
+  }
+
   #handle(state: PeerState): PeerStore {
     // After `close`, `history` and `appFormat` refuse `store-closed`, as on the SQLite store.
-    const open = (): void => this.#open();
+    const live = (): PeerState => this.#live(state.id);
     return {
       id: state.id,
       get history() {
-        open();
-        return state.history;
+        return live().history;
       },
       erasure: { posture: state.posture, storeClass: this.#own.capabilities.erasure },
       get appFormat() {
-        open();
-        return state.appFormat;
+        return live().appFormat;
       },
-      read: async () => {
-        this.#open();
-        return this.#snapshot(state);
-      },
-      append: async (batch) => {
-        this.#open();
-        return this.#append(state, batch);
-      },
-      purge: async (ids) => {
-        this.#open();
-        return this.#purge(state, strings(ids, "purge: ids"));
-      },
-      changes: async (from, to) => {
-        this.#open();
-        return this.#changes(state, from, to);
-      },
+      read: async () => this.#snapshot(live()),
+      append: async (batch) => this.#append(live(), batch),
+      purge: async (ids) => this.#purge(live(), strings(ids, "purge: ids")),
+      changes: async (from, to) => this.#changes(live(), from, to),
+    };
+  }
+
+  /**
+   * The peer delete (§4.13 reading 143), all at once: no writer can come between its steps. A
+   * held id without its stored claims refuses the delete before it removes anything, as the purge
+   * of that id does (reading 136). Process memory cannot prove absence, so the claim is
+   * `unproven`.
+   */
+  async deletePeer(id: PeerId): Promise<DeleteReport> {
+    this.#open();
+    if (typeof id !== "string" || id.length === 0 || !wellFormed(id))
+      throw new StoreError(
+        "invalid-request",
+        "deletePeer: the peer id must be a non-empty, well-formed string",
+      );
+    const state = this.#peers.get(id);
+    if (state === undefined) throw new StoreError("peer-absent", "deletePeer: no such peer");
+    const held = state.holdings.scan().map(([key]) => key);
+    for (const key of held) this.#row(state, key);
+    const gone = held.filter((key) => this.#release(state, key).gone);
+    for (const [key] of state.owed.scan()) this.#settle(state, key);
+    this.#peers.delete(id);
+    return {
+      claim: "unproven",
+      boundary: PURGE_BOUNDARY,
+      // The report states what a second look finds, not what the removal intended.
+      surfaces: [
+        {
+          surface: "rows",
+          state: gone.some((key) => this.#rows.get(key) !== undefined) ? "owed" : "absent",
+        },
+        { surface: "index-entries", state: "absent" },
+        { surface: "process-memory", state: "unprovable" },
+      ],
+      retains: [
+        { surface: "change-feed", holds: "id" },
+        ...(held.some((key) => this.#debtors.get(key) !== undefined)
+          ? [{ surface: "purge-debt" as const, holds: "id" as const }]
+          : []),
+      ],
+      released: held.length,
+      keptByOtherPeers: held.length - gone.length,
     };
   }
 
@@ -484,6 +525,8 @@ class MemoryStore implements Store {
     const guard = (): void => {
       this.#open();
       if (released) throw new StoreError("snapshot-released", "the snapshot was released");
+      if (this.#peers.get(state.id) !== state)
+        throw new StoreError("snapshot-moved", "the peer was deleted after this snapshot");
       if (state.removedAt > revision)
         throw new StoreError("snapshot-moved", "the peer released a holding after this snapshot");
     };
@@ -738,6 +781,22 @@ class MemoryStore implements Store {
     else this.#debtors.set(id, left);
   }
 
+  /**
+   * Releases the peer's holding of `id`: the holding and its index entries, and the stored row
+   * when no other peer holds the id (`gone`). A purge and a peer delete release only through this.
+   */
+  #release(state: PeerState, id: Id): { keys: ReturnType<typeof indexKeys>; gone: boolean } {
+    const row = this.#row(state, id);
+    const keys = indexKeys(row.claims);
+    for (const entity of keys.entities) this.#unfile(state.targets, entity, id);
+    for (const negated of keys.negated) this.#unfile(state.negators, negated, id);
+    state.holdings.delete(id);
+    state.count--;
+    row.holders--;
+    if (row.holders === 0) this.#rows.delete(id);
+    return { keys, gone: row.holders === 0 };
+  }
+
   #purge(state: PeerState, ids: readonly Id[]): PurgeReport {
     const targets: { id: Id; outcome: PurgeOutcome }[] = [];
     // The ids that leave this peer's holdings. A settled debt is not one: the peer stopped
@@ -753,15 +812,8 @@ class MemoryStore implements Store {
       const holding = state.holdings.get(id);
       let outcome: PurgeOutcome;
       if (holding !== undefined) {
-        const row = this.#row(state, id);
-        const keys = indexKeys(row.claims);
-        for (const entity of keys.entities) this.#unfile(state.targets, entity, id);
-        for (const negated of keys.negated) this.#unfile(state.negators, negated, id);
-        state.holdings.delete(id);
-        state.count--;
-        row.holders--;
-        if (row.holders === 0) this.#rows.delete(id);
-        else this.#owe(state, id);
+        const { keys, gone } = this.#release(state, id);
+        if (!gone) this.#owe(state, id);
         released.push(id);
         // The report states what a second look finds, not what the removal intended.
         indexesOwed ||=

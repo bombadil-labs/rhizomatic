@@ -1981,6 +1981,7 @@ describe("runner rules: what the profile makes the runner do", () => {
         profile: store.profile,
         createPeer: (id, options) => store.createPeer(id, options),
         peer: (id) => store.peer(id),
+        deletePeer: (id) => store.deletePeer(id),
         openAdmin: () => store.openAdmin(),
         close: async () => {
           closed++;

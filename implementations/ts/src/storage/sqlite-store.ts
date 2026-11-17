@@ -59,6 +59,7 @@ import {
   type ChangePage,
   type ChangeRecord,
   type CreatePeerOptions,
+  type DeleteReport,
   type ErasureClass,
   type ErasurePosture,
   type Exporter,
@@ -113,7 +114,7 @@ function loadDriver(): typeof BetterSqlite3 {
 }
 const Database = loadDriver();
 
-export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/6";
+export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/7";
 
 export type SqliteStoreOptions = {
   /** How long a call waits for a lock another connection holds, in ms. Default 5000. */
@@ -786,8 +787,16 @@ class SqliteFileStore implements SqliteStore {
     if (this.#closed) throw new StoreError("store-closed", "the store is closed");
   }
 
+  /** The peer's row, or nothing for a peer that is absent or that a delete marked. */
   #peerRow(id: PeerId): PeerRow | undefined {
     return this.#s.peerRead.get(id) as PeerRow | undefined;
+  }
+
+  /** The row of a peer a handle names. Refuses `peer-absent` once a delete marked it. */
+  #live(id: PeerId): PeerRow {
+    const row = this.#peerRow(id);
+    if (row === undefined) throw new StoreError("peer-absent", "the peer was deleted");
+    return row;
   }
 
   /**
@@ -826,7 +835,13 @@ class SqliteFileStore implements SqliteStore {
         `createPeer: the peer promises proven erasure and this store's class is ${storeClass}`,
       );
     const row = this.#run("write", () => {
-      if (this.#peerRow(id) !== undefined)
+      const found = this.#s.peerState.get(id) as { state: string } | undefined;
+      if (found?.state === "deleting")
+        throw new StoreError(
+          "peer-exists",
+          "createPeer: a delete of the peer did not end; deletePeer of the id finishes it",
+        );
+      if (found !== undefined)
         throw new StoreError("peer-exists", "createPeer: the peer already exists");
       const history = this.#history(id);
       this.#s.historyAdd.run(history);
@@ -879,11 +894,11 @@ class SqliteFileStore implements SqliteStore {
     // reads it from the file at each ask.
     const history = (): History => {
       this.#open();
-      return this.#run("read", () => this.#peerRow(id)!.history);
+      return this.#run("read", () => this.#live(id).history);
     };
     const appFormat = (): string | null => {
       this.#open();
-      return this.#run("read", () => this.#peerRow(id)!.appFormat);
+      return this.#run("read", () => this.#live(id).appFormat);
     };
     return {
       id,
@@ -900,7 +915,7 @@ class SqliteFileStore implements SqliteStore {
         this.#open();
         return this.#snapshot(
           id,
-          this.#run("read", () => this.#peerRow(id)!),
+          this.#run("read", () => this.#live(id)),
         );
       },
       append: async (batch) => {
@@ -1085,7 +1100,7 @@ class SqliteFileStore implements SqliteStore {
     if (upTo !== undefined && upTo < after)
       throw new StoreError("invalid-request", "changes: to must not be less than from");
     return this.#run("read", () => {
-      const { revision: current, floor } = this.#peerRow(peer)!;
+      const { revision: current, floor } = this.#live(peer);
       if (after > current || after < floor) return { status: "resync-required", current };
       const end = Math.min(upTo ?? current, current);
       const rows = this.#s.changes.all({
@@ -1162,7 +1177,7 @@ class SqliteFileStore implements SqliteStore {
     return this.#run(
       "write",
       (): AppendResult => {
-        const row = this.#peerRow(peer)!;
+        const row = this.#live(peer);
         if (row.head !== expectedHead) return { status: "conflict" };
         if (entries === undefined) throw refusal;
         const fresh = new Map<Id, Admitted>();
@@ -1242,20 +1257,16 @@ class SqliteFileStore implements SqliteStore {
     const s = this.#s;
     const asked = sorted(ids);
     const first = this.#run("write", () => {
-      const row = this.#peerRow(peer)!;
+      const row = this.#live(peer);
       const proving = ERASURE_CLASS === "proven" && row.posture === "proven";
       const released: Id[] = [];
       for (const id of asked) {
         if (s.holdingFind.get(peer, id) === undefined) continue;
-        s.holdingDrop.run(peer, id);
         released.push(id);
-        if (s.heldElsewhere.get(id) !== undefined) s.debtAdd.run(peer, id);
-        else {
-          s.deltaDrop.run(id);
-          // The record of the removal, in the delete's transaction: a crash after it keeps the
-          // peer's later proof (decision S4-13).
-          if (proving) s.surfaceDebtAdd.run(peer, id);
-        }
+        if (!this.#release(peer, id)) s.debtAdd.run(peer, id);
+        // The record of the removal, in the delete's transaction: a crash after it keeps the
+        // peer's later proof (decision S4-13).
+        else if (proving) s.surfaceDebtAdd.run(peer, id);
       }
       if (released.length > 0)
         this.#advance(
@@ -1276,12 +1287,143 @@ class SqliteFileStore implements SqliteStore {
     let proof = first.proving ? this.#rebuild(first.dirty) : undefined;
     for (let tries = 1; ; tries++) {
       try {
-        return this.#run("write", () => this.#decide(peer, asked, first, proof, tries));
+        // A delete that marked the peer since the first transaction refuses the report: its
+        // delete has committed, as for any refused purge (reading 105).
+        return this.#run("write", () => {
+          this.#live(peer);
+          return this.#decide(peer, asked, first, proof, tries);
+        });
       } catch (error) {
         if (error !== LOG_NOT_EMPTY) throw error;
         if (!this.#truncate()) proof = undefined;
       }
     }
+  }
+
+  /**
+   * Releases the peer's holding of `id`: its `holding` row, and by the cascade its index rows.
+   * The `delta` row goes too when no other peer holds the id. True when it went. The triggers
+   * count each deleted row. A purge and a peer delete release a holding only through this.
+   */
+  #release(peer: PeerId, id: Id): boolean {
+    const s = this.#s;
+    s.holdingDrop.run(peer, id);
+    if (s.heldElsewhere.get(id) !== undefined) return false;
+    s.deltaDrop.run(id);
+    return true;
+  }
+
+  /**
+   * The peer delete (§4.13 reading 143). The first transaction marks the peer, and from its
+   * commit every call on the peer refuses. Then the peer's holdings are released, and its change
+   * records, debts, records and digest rows removed, a page of one table per write transaction,
+   * read by the peer's own key: no other peer's listing is read. A last transaction removes the
+   * peer row. A peer of posture `proven` then rebuilds and empties the log as a purge does, and
+   * the report is decided in one more transaction, from what it reads. A delete that dies leaves
+   * the mark, and the next delete of the peer goes on from where it stopped.
+   */
+  async deletePeer(id: PeerId): Promise<DeleteReport> {
+    this.#open();
+    if (typeof id !== "string" || id.length === 0 || !wellFormed(id))
+      throw new StoreError(
+        "invalid-request",
+        "deletePeer: the peer id must be a non-empty, well-formed string",
+      );
+    const s = this.#s;
+    const posture = this.#run("write", () => {
+      const found = s.peerState.get(id) as { state: string; posture: ErasurePosture } | undefined;
+      if (found === undefined) throw new StoreError("peer-absent", "deletePeer: no such peer");
+      if (found.state === "live") s.peerMark.run(id);
+      return found.posture;
+    });
+    let released = 0;
+    let kept = 0;
+    // Each page reads past the last key of the page before it, by the peer's own key.
+    const tables: [BetterSqlite3.Statement, string | number, BetterSqlite3.Statement | null][] = [
+      [s.exportIds, "", null],
+      [s.deleteChanges, -1, s.changeDrop],
+      [s.deleteDigest, "", s.digestDrop],
+      [s.deleteDebts, "", s.debtDrop],
+      [s.deleteSurfaceDebts, "", s.surfaceDebtDrop],
+    ];
+    for (const [list, start, drop] of tables)
+      for (let after = start, found = EXPORT_PAGE; found === EXPORT_PAGE; ) {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        this.#open();
+        const keys = this.#run("write", () => {
+          const page = (list.all(id, after, EXPORT_PAGE) as Record<string, string | number>[]).map(
+            (r) => Object.values(r)[0]!,
+          );
+          for (const key of page)
+            if (drop !== null) drop.run(id, key);
+            else {
+              released++;
+              if (!this.#release(id, key as Id)) kept++;
+            }
+          return page;
+        });
+        found = keys.length;
+        after = keys.at(-1) ?? after;
+      }
+    this.#open();
+    const dirty = this.#run("write", () => {
+      s.peerDrop.run(id);
+      return !this.#clean();
+    });
+    const proving = ERASURE_CLASS === "proven" && posture === "proven";
+    let proof = proving ? this.#rebuild(dirty) : undefined;
+    for (let tries = 1; ; tries++) {
+      try {
+        return this.#run("write", () => this.#deleted(id, proving, proof, tries, released, kept));
+      } catch (error) {
+        if (error !== LOG_NOT_EMPTY) throw error;
+        if (!this.#truncate()) proof = undefined;
+      }
+    }
+  }
+
+  /**
+   * The last transaction of a peer delete. It takes the file surfaces by the rule of a purge's
+   * last transaction (readings 117 and 119): `absent` only when the log was empty at the lock and
+   * the file is clean. With the foreign keys on, no row of the peer outlives its peer row, so a
+   * peer row found here, of any state, makes every file surface `owed`.
+   */
+  #deleted(
+    peer: PeerId,
+    proving: boolean,
+    proof: { d: number | undefined } | undefined,
+    tries: number,
+    released: number,
+    keptByOtherPeers: number,
+  ): DeleteReport {
+    const s = this.#s;
+    const empty = this.#logEmpty();
+    if (proof !== undefined && !empty && tries < LAST_TRIES) throw LOG_NOT_EMPTY;
+    if (empty && proof?.d !== undefined) s.residueClean.run(proof.d);
+    const files = empty && this.#clean() && s.peerState.get(peer) === undefined ? "absent" : "owed";
+    const surfaces: DeleteReport["surfaces"] = [
+      { surface: "rows", state: files },
+      { surface: "index-entries", state: files },
+      { surface: "page-free-space", state: files },
+      { surface: "freed-pages", state: files },
+      { surface: "write-ahead-log", state: files },
+      { surface: "temp-files", state: ERASURE_CLASS === "proven" ? files : "unprovable" },
+    ];
+    return {
+      claim:
+        proving && surfaces.every((surface) => surface.state === "absent") ? "proven" : "unproven",
+      boundary: PURGE_BOUNDARY,
+      surfaces,
+      // Another peer's change records, purge debts and records can name a released id. The store
+      // keeps no list of the ids, so it names all three.
+      retains: [
+        { surface: "change-feed", holds: "id" },
+        { surface: "purge-debt", holds: "id" },
+        { surface: "surface-debt", holds: "id" },
+      ],
+      released,
+      keptByOtherPeers,
+    };
   }
 
   /**
@@ -1422,9 +1564,15 @@ class SqliteFileStore implements SqliteStore {
       this.#open();
       return this.#run("read", body);
     };
-    const held = (peer: PeerId): void => {
-      if (!(typeof peer === "string" && wellFormed(peer) && read(() => this.#peerRow(peer))))
-        throw new StoreError("peer-absent", "export: no such peer");
+    // Each page of a peer's listing reads the peer row in its own transaction, so a delete that
+    // marked the peer since the listing began ends it with `peer-absent` (reading 143).
+    const held = <T>(peer: PeerId, body: () => T): T => {
+      const absent = new StoreError("peer-absent", "export: no such peer");
+      if (!(typeof peer === "string" && wellFormed(peer))) throw absent;
+      return read(() => {
+        if (this.#peerRow(peer) === undefined) throw absent;
+        return body();
+      });
     };
     // Each page is one short statement after the last key of the page before it, so a listing
     // never holds a transaction open between pages. `first` runs when the listing is first read.
@@ -1452,15 +1600,21 @@ class SqliteFileStore implements SqliteStore {
     return {
       peers: () => pages(ids(s.exportPeers)),
       peer: (peer) => ({
-        ids: () => pages(ids(s.exportIds, peer), () => held(peer)),
+        ids: () =>
+          pages(
+            (after) =>
+              held(peer, () => s.exportIds.all(peer, after, EXPORT_PAGE) as { delta: Id }[]).map(
+                (r) => ({ key: r.delta, value: r.delta }),
+              ),
+            () => held(peer, () => undefined),
+          ),
         deltas: () =>
           pages(
             (after) =>
-              read(() => s.exportDeltas.all(peer, after, EXPORT_PAGE) as DeltaRow[]).map((r) => ({
-                key: r.id,
-                value: this.#delta(r, peer),
-              })),
-            () => held(peer),
+              held(peer, () => s.exportDeltas.all(peer, after, EXPORT_PAGE) as DeltaRow[]).map(
+                (r) => ({ key: r.id, value: this.#delta(r, peer) }),
+              ),
+            () => held(peer, () => undefined),
           ),
       }),
       storedIds: () => pages(ids(s.exportStored)),
@@ -1519,10 +1673,22 @@ class SqliteFileStore implements SqliteStore {
           });
       });
       for (let after = "", found = EXPORT_PAGE; found === EXPORT_PAGE; ) {
-        const peers = await step(() =>
-          (s.exportPeers.all(after, EXPORT_PAGE) as { id: PeerId }[]).map((r) => r.id),
+        const rows = await step(
+          () => s.fsckPeers.all(after, EXPORT_PAGE) as { id: PeerId; state: string }[],
         );
-        for (const peer of peers) {
+        const peers = rows.map((r) => r.id);
+        // A peer a delete marked has rows the delete has not reached yet, and none of them is
+        // checked: the one fault names the delete that did not end (reading 143).
+        for (const { id: peer, state } of rows) {
+          if (state === "deleting") {
+            faults.push({
+              kind: "peer-deleting",
+              peer,
+              detail:
+                "sqlite store: a delete of the peer did not end; deletePeer of the id finishes it",
+            });
+            continue;
+          }
           if (!(await step(() => this.#fsckPeer(peer, faults)))) continue;
           checked.peers++;
           for (let from = Number.MIN_SAFE_INTEGER, page = EXPORT_PAGE; page === EXPORT_PAGE; ) {

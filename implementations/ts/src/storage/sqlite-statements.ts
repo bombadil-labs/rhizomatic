@@ -17,6 +17,13 @@
  * peer's own holding of it, and that transaction deletes a `holding` row. So a rebuild that makes
  * `clean = dirty` begins after every such hash left the live rows, and it rewrites every page
  * (§4.13 reading 142).
+ *
+ * A peer delete (§4.13 reading 143) removes the peer's change records, debts, records and digest
+ * rows, and then its peer row, which holds its id and its head. A trigger on the delete of a
+ * `peer` row counts that removal in `residue.dirty`, so a rebuild that makes `clean = dirty`
+ * begins after it, also for a peer that held nothing. No statement deletes a `peer` row but the
+ * delete's last, and every row of the peer is gone by then: the foreign keys refuse it otherwise.
+ * An update of a `peer` row counts nothing: every append writes one.
  */
 const ERASABLE = ["holding", "delta", "target", "reference"] as const;
 
@@ -36,7 +43,8 @@ CREATE TABLE peer (
   removed_at INTEGER NOT NULL CHECK (removed_at >= 0 AND removed_at <= revision),
   max_transfer INTEGER NOT NULL CHECK (max_transfer >= 0),
   app_format TEXT CHECK (app_format IS NULL OR length(CAST(app_format AS BLOB)) BETWEEN 1 AND 256),
-  root TEXT NOT NULL
+  root TEXT NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('live', 'deleting'))
 ) STRICT;
 CREATE TABLE delta (
   id TEXT PRIMARY KEY,
@@ -114,6 +122,8 @@ ${ERASABLE.flatMap((table) =>
   BEGIN UPDATE residue SET dirty = dirty + 1 WHERE one = 1; END;`,
   ),
 ).join("\n")}
+CREATE TRIGGER peer_delete_residue AFTER DELETE ON peer
+  BEGIN UPDATE residue SET dirty = dirty + 1 WHERE one = 1; END;
 `;
 
 // A snapshot's statements keep the holdings with a sequence of at most `@bound`, the snapshot's
@@ -138,13 +148,18 @@ export const SQLITE_STATEMENTS = {
 
   historyFind: "SELECT 1 FROM history WHERE value = ?",
   historyAdd: "INSERT INTO history (value) VALUES (?)",
+  // A peer that a delete marked is absent to every call (§4.13 reading 143). Only `peerState`,
+  // `fsckPeers` and the delete's own statements read a marked row.
   peerRead: `SELECT posture, store_class AS storeClass, history, revision, floor, head, count,
     max_seq AS maxSeq, removed_at AS removedAt, max_transfer AS maxTransfer,
-    app_format AS appFormat, root FROM peer WHERE id = ?`,
+    app_format AS appFormat, root FROM peer WHERE id = ? AND state = 'live'`,
   peerAdd: `INSERT INTO peer
     (id, posture, store_class, history, revision, floor, head, count, max_seq, removed_at,
-    max_transfer, app_format, root)
-    VALUES (?, ?, ?, ?, 0, 0, NULL, 0, 0, 0, 0, ?, ?)`,
+    max_transfer, app_format, root, state)
+    VALUES (?, ?, ?, ?, 0, 0, NULL, 0, 0, 0, 0, ?, ?, 'live')`,
+  peerState: "SELECT state, posture FROM peer WHERE id = ?",
+  peerMark: "UPDATE peer SET state = 'deleting' WHERE id = ?",
+  peerDrop: "DELETE FROM peer WHERE id = ?",
   peerHistory: "UPDATE peer SET history = ? WHERE id = ?",
   peerAdvance: `UPDATE peer SET revision = @revision, floor = @floor, head = @head, count = @count,
     max_seq = @maxSeq, removed_at = @removedAt, max_transfer = @maxTransfer, root = @root
@@ -250,7 +265,16 @@ export const SQLITE_STATEMENTS = {
     WHERE peer = @peer AND revision > @from AND revision <= @to
     ORDER BY revision LIMIT @limit`,
 
-  exportPeers: "SELECT id FROM peer WHERE id > ? ORDER BY id LIMIT ?",
+  // A peer delete reads one page of each per-peer table by the peer's own key, and removes each
+  // row it read with that table's own delete. The peer's holdings are read by `exportIds`.
+  deleteChanges:
+    "SELECT revision FROM change WHERE peer = ? AND revision > ? ORDER BY revision LIMIT ?",
+  deleteDigest: "SELECT prefix FROM digest WHERE peer = ? AND prefix >= ? ORDER BY prefix LIMIT ?",
+  deleteDebts: "SELECT delta FROM debt WHERE peer = ? AND delta > ? ORDER BY delta LIMIT ?",
+  deleteSurfaceDebts: `SELECT delta FROM surface_debt WHERE peer = ? AND delta > ?
+    ORDER BY delta LIMIT ?`,
+
+  exportPeers: "SELECT id FROM peer WHERE id > ? AND state = 'live' ORDER BY id LIMIT ?",
   exportIds: "SELECT delta FROM holding WHERE peer = ? AND delta > ? ORDER BY delta LIMIT ?",
   exportDeltas: `SELECT holding.delta AS id, delta.claims, holding.sig
     FROM holding LEFT JOIN delta ON delta.id = holding.delta
@@ -258,6 +282,7 @@ export const SQLITE_STATEMENTS = {
     ORDER BY holding.delta LIMIT ?`,
   exportStored: "SELECT id FROM delta WHERE id > ? ORDER BY id LIMIT ?",
 
+  fsckPeers: "SELECT id, state FROM peer WHERE id > ? ORDER BY id LIMIT ?",
   fsckEngine: "PRAGMA integrity_check",
   fsckForeignKeys: "PRAGMA foreign_key_check",
   fsckHoldings: `SELECT holding.delta AS id, holding.seq, holding.arrival, holding.sig,
