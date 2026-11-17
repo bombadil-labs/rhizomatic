@@ -24,8 +24,11 @@ const INSTALL = "@bombadil/rhizomatic/store/sqlite needs the package better-sqli
 
 const NO_LOCATION = "@bombadil/rhizomatic/store/sqlite cannot find its own module location";
 
-/** The subpath bundled in `format` into a new directory; the bundle's path. */
-async function bundle(format: "cjs" | "esm" | "iife"): Promise<string> {
+/**
+ * The subpath bundled in `format` into a new directory; the bundle's path. With `metaUrl`, the
+ * bundler writes that string for `import.meta.url`, as some bundlers do.
+ */
+async function bundle(format: "cjs" | "esm" | "iife", metaUrl?: string): Promise<string> {
   const dir = mkdtempSync(join(tmpdir(), "rhizomatic-sqlite-bundle-"));
   dirs.push(dir);
   const file = join(dir, { cjs: "store.cjs", esm: "store.mjs", iife: "store.js" }[format]);
@@ -35,6 +38,7 @@ async function bundle(format: "cjs" | "esm" | "iife"): Promise<string> {
     platform: "node",
     format,
     ...(format === "iife" ? { globalName: "sqliteStore" } : {}),
+    ...(metaUrl === undefined ? {} : { define: { "import.meta.url": JSON.stringify(metaUrl) } }),
     external: ["better-sqlite3"],
     outfile: file,
     logLevel: "silent",
@@ -96,6 +100,17 @@ function planted(): string {
   return dir;
 }
 
+/** Writes a stub `better-sqlite3` into `dir/node_modules` that prints `word` when it loads. */
+function stub(dir: string, word: string): void {
+  const driver = join(dir, "node_modules", "better-sqlite3");
+  mkdirSync(driver, { recursive: true });
+  writeFileSync(join(driver, "package.json"), '{"name":"better-sqlite3","main":"index.js"}');
+  writeFileSync(
+    join(driver, "index.js"),
+    `console.log(${JSON.stringify(word)}); module.exports = {};`,
+  );
+}
+
 /** Runs `args` in a new Node process in `cwd`, with no NODE_PATH; what it printed. */
 function node(args: string[], cwd: string): { status: number | null; output: string } {
   const result = spawnSync(process.execPath, args, {
@@ -140,6 +155,44 @@ try {
         "-e",
         `try {
   eval(require("node:fs").readFileSync(${JSON.stringify(file)}, "utf8"));
+  console.log("loaded");
+} catch (error) {
+  console.log(error.message);
+  process.exit(1);
+}`,
+      ],
+      planted(),
+    );
+    expect(result.output).toContain(NO_LOCATION);
+    expect(result.output).not.toContain("ERR_INVALID_ARG_VALUE");
+    expect(result.output).not.toContain("stub ran");
+    expect(result.status).toBe(1);
+  }, 120_000);
+
+  it("a CommonJS bundle whose import.meta.url names another directory loads the driver from there, not from beside the bundle: import.meta.url comes before __filename", async () => {
+    const other = mkdtempSync(join(tmpdir(), "rhizomatic-sqlite-meta-"));
+    dirs.push(other);
+    stub(other, "meta driver ran");
+    const file = await bundle("cjs", pathToFileURL(join(other, "store.cjs")).href);
+    stub(dirname(file), "bundle driver ran");
+    const result = node(
+      ["-e", `require(${JSON.stringify(file)}); console.log("loaded");`],
+      planted(),
+    );
+    expect(result.output).toContain("meta driver ran");
+    expect(result.output).not.toContain("bundle driver ran");
+    expect(result.output).not.toContain("stub ran");
+    expect(result.status).toBe(0);
+  }, 120_000);
+
+  it("an ES module bundle whose import.meta.url is not a file: URL refuses with the message that the location is unknown, not ERR_INVALID_ARG_VALUE", async () => {
+    const file = await bundle("esm", "https://example.invalid/store.mjs");
+    const result = node(
+      [
+        "--input-type=module",
+        "-e",
+        `try {
+  await import(${JSON.stringify(pathToFileURL(file).href)});
   console.log("loaded");
 } catch (error) {
   console.log(error.message);

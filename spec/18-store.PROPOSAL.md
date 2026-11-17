@@ -2388,16 +2388,22 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      refused. A SQLite file with no schema object at all, such as an empty file or a file with
      only a header, cannot be told from a new file without a write. The open makes it a store.
      The switch to the WAL journal mode answers busy at once, without the engine's wait, while
-     another connection holds the write lock of a new file. The open's first read and its
+     another connection holds the write lock of a new file. The open's first reads and its
      connection rules run as one try, and the open runs the try again while it answers busy,
-     until `busyTimeoutMs` has passed since the first try. After that it refuses
+     until `busyTimeoutMs` has passed since the open began. After that it refuses
      `store-unavailable` (reading 105), as a busy write does. Before, it refused `open-failed` at
-     once. A try that starts just before the end can wait in the engine's busy handler, so with
-     one holder that keeps its lock the open refuses within about twice `busyTimeoutMs`. Each
-     statement of a try can wait `busyTimeoutMs`, so a holder that frees and takes the lock again
-     between statements can make the last try longer. Measured with one holder: 0, 50, 200 and
-     1000 ms of wait gave the refusal after 1, 51, 202 and 1003 ms. With `busyTimeoutMs` 0 the
-     open makes one try.
+     once. Before each statement of the open, its two write transactions included, the open sets
+     the engine's wait to the time left, and it sets the host's `busyTimeoutMs` again before it
+     checks the connection rules and at its end. So no statement waits past the end, and the
+     whole open takes about `busyTimeoutMs` at most, also under a holder that takes the lock again
+     before each statement. Before this, that holder made an open of a rollback-journal file take
+     about five times `busyTimeoutMs`, and of a new file about three times. A busy read of the
+     `format` row is part of the try, so it ends as `store-unavailable` too. Only a file with no
+     `meta` table is "not a rhizomatic store"; any other engine error of the reads refuses
+     `open-failed` with its code. Measured with one holder that keeps its lock, and with a holder
+     that takes an exclusive lock again before each statement: 0, 50, 200 and 1000 ms of wait gave
+     the refusal after at most 1, 53, 202 and 1003 ms, on a new file and on a rollback-journal
+     store. With `busyTimeoutMs` 0 the open makes one try.
 
 ## 5. Architectures
 

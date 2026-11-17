@@ -5,9 +5,19 @@
 // store lives in its own `mkdtempSync` directory, which the file removes at its end.
 
 import { spawn, type ChildProcess } from "node:child_process";
-import { copyFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { Worker } from "node:worker_threads";
 import Database from "better-sqlite3";
 import { afterAll, describe, expect, it } from "vitest";
 import { makeDelta } from "../src/delta/set.js";
@@ -16,6 +26,7 @@ import { captureScope } from "../src/reactor/store-read.js";
 import { checkFresh } from "../src/storage/freshness.js";
 import { followFeed, positionOf } from "../src/storage/follow.js";
 import { openStore } from "../src/storage/open-store.js";
+import { SQLITE_STATEMENTS } from "../src/storage/sqlite-statements.js";
 import { openSqliteStore, type SqliteStoreOptions } from "../src/storage/sqlite-store.js";
 import { StoreError, type PeerStore, type VerifiedDelta } from "../src/storage/store.js";
 import { audit } from "./support/sqlite-fixture.js";
@@ -346,21 +357,32 @@ async function timedOpen(path: string, busyTimeoutMs: number) {
 }
 
 /**
- * Runs `body` while each `pragma` call of `better-sqlite3` in this process first runs `before`.
- * The hook lives in the test process only; the store has none.
+ * Runs `body` while each `pragma` or `prepare` call (`method`) of `better-sqlite3` in this process
+ * first runs `before`. The hook lives in the test process only; the store has none.
  */
-async function hooked<T>(before: (source: string) => void, body: () => Promise<T>): Promise<T> {
-  const pragma = Database.prototype.pragma;
-  Database.prototype.pragma = function (this: Database.Database, source, options) {
+async function hooked<T>(
+  method: "pragma" | "prepare",
+  before: (source: string) => void,
+  body: () => Promise<T>,
+): Promise<T> {
+  type Method = (this: Database.Database, source: string, ...rest: unknown[]) => unknown;
+  const proto = Database.prototype as unknown as Record<string, Method>;
+  const original = proto[method]!;
+  proto[method] = function (this: Database.Database, source, ...rest) {
     before(source);
-    return pragma.call(this, source, options);
-  } as typeof pragma;
+    return original.call(this, source, ...rest);
+  };
   try {
     return await body();
   } finally {
-    Database.prototype.pragma = pragma;
+    proto[method] = original;
   }
 }
+
+/** The configured wait of the bound rails, long enough that a slow disk adds little to it. */
+const BOUND_MS = 1000;
+/** How far past its wait an open took, as a part of the wait: a bound of twice gives 1 or more. */
+const past = (ms: number): number => (ms - BOUND_MS) / BOUND_MS;
 
 describe("the open of a new file that other connections open at the same time", () => {
   it("while another connection holds the write lock of the new file, open waits busyTimeoutMs and refuses store-unavailable, not open-failed at once; a later open makes the store", async () => {
@@ -385,23 +407,24 @@ describe("the open of a new file that other connections open at the same time", 
     audit(path);
   }, 60_000);
 
-  it("while another connection holds an exclusive lock on the new file, the open's first read waits and refuses store-unavailable after busyTimeoutMs and within twice it, not open-failed", async () => {
+  it("while another connection holds an exclusive lock on the new file, the open's first read waits and refuses store-unavailable after busyTimeoutMs and within one and a half times it, not open-failed", async () => {
     const path = storePath();
     const holder = new Database(path);
     holder.prepare("BEGIN EXCLUSIVE").run();
-    const { answer, ms } = await timedOpen(path, 200);
+    const { answer, ms } = await timedOpen(path, BOUND_MS);
     holder.prepare("ROLLBACK").run();
     holder.close();
     expect(answer).toBe(UNAVAILABLE);
-    expect(ms).toBeGreaterThanOrEqual(200);
-    expect(ms).toBeLessThan(2 * 200 + 600);
+    expect(ms).toBeGreaterThanOrEqual(BOUND_MS);
+    expect(past(ms)).toBeLessThan(0.5);
   }, 60_000);
 
-  it("when another connection takes an exclusive lock after the open's first read, so each journal mode switch waits busyTimeoutMs in the engine, the open refuses store-unavailable within twice busyTimeoutMs", async () => {
+  it("when another connection takes an exclusive lock after the open's first read, so each journal mode switch is busy, the open refuses store-unavailable within one and a half times busyTimeoutMs", async () => {
     const path = storePath();
     let holder: Database.Database | undefined;
     let switches = 0;
     const { answer, ms } = await hooked(
+      "pragma",
       (source) => {
         if (!source.startsWith("journal_mode")) return;
         switches++;
@@ -409,20 +432,21 @@ describe("the open of a new file that other connections open at the same time", 
         holder = new Database(path);
         holder.prepare("BEGIN EXCLUSIVE").run();
       },
-      () => timedOpen(path, 200),
+      () => timedOpen(path, BOUND_MS),
     );
     holder?.prepare("ROLLBACK").run();
     holder?.close();
     expect(answer).toBe(UNAVAILABLE);
     expect(switches).toBeGreaterThanOrEqual(1);
-    expect(ms).toBeGreaterThanOrEqual(200);
-    expect(ms).toBeLessThan(2 * 200 + 600);
+    expect(ms).toBeGreaterThanOrEqual(BOUND_MS);
+    expect(past(ms)).toBeLessThan(0.5);
   }, 60_000);
 
   it("an error of a connection rule that is not busy passes up as open-failed with its code, after one try", async () => {
     const path = storePath();
     let switches = 0;
     const { answer } = await hooked(
+      "pragma",
       (source) => {
         if (!source.startsWith("journal_mode")) return;
         switches++;
@@ -461,6 +485,173 @@ describe("the open of a new file that other connections open at the same time", 
       }
     }
   }, 120_000);
+});
+
+/** A store with one peer, set to the rollback journal, as another tool can leave a file. */
+async function rollbackStore(): Promise<string> {
+  const path = await made();
+  const db = new Database(path);
+  try {
+    expect(db.pragma("journal_mode = DELETE", { simple: true })).toBe("delete");
+  } finally {
+    db.close();
+  }
+  return path;
+}
+
+/**
+ * Runs `body` while a connection in a worker thread takes an exclusive lock on `path` before
+ * each statement that the store in this process runs and `at` accepts, and holds it `holdMs`. A
+ * statement that finds the lock held, or only sets the wait, does not ask for it again. The
+ * worker takes no lock that this process holds: it does not wait. The hook lives in the test
+ * process only.
+ */
+async function retaking<T>(
+  path: string,
+  holdMs: number,
+  at: (source: string) => boolean,
+  body: () => Promise<T>,
+): Promise<T> {
+  const cell = new Int32Array(new SharedArrayBuffer(12));
+  const worker = new Worker(
+    `const { workerData } = require("node:worker_threads");
+const Database = require(workerData.driver);
+const cell = new Int32Array(workerData.cell.buffer);
+const db = new Database(workerData.path, { timeout: 0 });
+for (let seen = 0; ; ) {
+  Atomics.wait(cell, 0, seen);
+  seen = Atomics.load(cell, 0);
+  if (seen < 0) break;
+  let taken = 1;
+  try { db.exec("BEGIN EXCLUSIVE"); } catch { taken = 2; }
+  if (taken === 1) Atomics.store(cell, 2, 1);
+  Atomics.store(cell, 1, taken);
+  Atomics.notify(cell, 1);
+  if (taken !== 1) continue;
+  Atomics.wait(cell, 0, seen, workerData.holdMs);
+  Atomics.store(cell, 2, 0);
+  db.exec("ROLLBACK");
+}
+db.close();`,
+    {
+      eval: true,
+      workerData: {
+        driver: createRequire(import.meta.url).resolve("better-sqlite3"),
+        cell,
+        path,
+        holdMs,
+      },
+    },
+  );
+  const probe = new Database(":memory:");
+  const proto = Object.getPrototypeOf(probe.prepare("SELECT 1")) as Record<
+    "run" | "get" | "all",
+    (this: Database.Statement, ...args: unknown[]) => unknown
+  >;
+  probe.close();
+  const originals = { run: proto.run, get: proto.get, all: proto.all };
+  let asked = 0;
+  const take = (source: string): void => {
+    if (/^PRAGMA (busy_timeout|database_list)|^(COMMIT|ROLLBACK)$/.test(source)) return;
+    if (!at(source) || Atomics.load(cell, 2) === 1) return;
+    Atomics.store(cell, 1, 0);
+    Atomics.store(cell, 0, ++asked);
+    Atomics.notify(cell, 0);
+    Atomics.wait(cell, 1, 0, 10_000);
+  };
+  for (const name of ["run", "get", "all"] as const)
+    proto[name] = function (this: Database.Statement, ...args: unknown[]) {
+      take(this.source);
+      return originals[name].apply(this, args);
+    };
+  try {
+    return await body();
+  } finally {
+    Object.assign(proto, originals);
+    Atomics.store(cell, 0, -1);
+    Atomics.notify(cell, 0);
+    await new Promise((done) => worker.on("exit", done));
+  }
+}
+
+describe("the open of a store whose lock another connection takes between the open's statements", () => {
+  it("an exclusive lock taken after the names read of a rollback-journal store makes the format read busy: the open refuses store-unavailable within the bound, not open-failed, changes no byte, and the next open opens the store", async () => {
+    const path = await rollbackStore();
+    const before = readFileSync(path);
+    let holder: Database.Database | undefined;
+    const { answer, ms } = await hooked(
+      "prepare",
+      (source) => {
+        if (source !== SQLITE_STATEMENTS.metaGet || holder !== undefined) return;
+        holder = new Database(path);
+        holder.exec("BEGIN EXCLUSIVE");
+      },
+      () => timedOpen(path, BOUND_MS),
+    );
+    holder?.exec("ROLLBACK");
+    holder?.close();
+    expect(answer).toBe(UNAVAILABLE);
+    expect(ms).toBeGreaterThanOrEqual(BOUND_MS);
+    expect(past(ms)).toBeLessThan(0.5);
+    expect(readFileSync(path).equals(before)).toBe(true);
+    expect(existsSync(`${path}-wal`)).toBe(false);
+    const store = await openSqliteStore(path);
+    const peers: string[] = [];
+    for await (const id of store.openAdmin().peers()) peers.push(id);
+    expect(peers).toEqual(["peer:a"]);
+    await store.close();
+    audit(path);
+  }, 60_000);
+
+  it("an engine error at the format read that is not busy passes up as open-failed with its code, after one try, not as a file that is not a store", async () => {
+    const path = await made();
+    let reads = 0;
+    const { answer } = await hooked(
+      "prepare",
+      (source) => {
+        if (source !== SQLITE_STATEMENTS.metaGet) return;
+        reads++;
+        throw new Database.SqliteError("database disk image is malformed", "SQLITE_CORRUPT");
+      },
+      () => timedOpen(path, BOUND_MS),
+    );
+    expect([answer, reads]).toEqual([
+      "open-failed: sqlite store: the file did not open (SQLITE_CORRUPT)",
+      1,
+    ]);
+  }, 60_000);
+
+  for (const file of ["a new file", "a rollback-journal store"] as const)
+    it(`a holder that takes an exclusive lock again before each statement of the open of ${file}, and holds it for most of busyTimeoutMs, cannot make the open take more than one and a half times busyTimeoutMs`, async () => {
+      const path = file === "a new file" ? storePath() : await rollbackStore();
+      const { answer, ms } = await retaking(
+        path,
+        0.85 * BOUND_MS,
+        () => true,
+        () => timedOpen(path, BOUND_MS),
+      );
+      expect(["opened", UNAVAILABLE]).toContain(answer);
+      expect(past(ms)).toBeLessThan(0.5);
+      const store = await openSqliteStore(path);
+      await store.close();
+      audit(path);
+    }, 60_000);
+  it("a holder that makes the first read of a rollback-journal store wait most of busyTimeoutMs, then takes the write lock at the open's write transaction, cannot make the open take more than one and a half times busyTimeoutMs", async () => {
+    const path = await rollbackStore();
+    let begins = 0;
+    const { answer, ms } = await retaking(
+      path,
+      0.85 * BOUND_MS,
+      (source) =>
+        source === SQLITE_STATEMENTS.schemaNames ||
+        (source === "BEGIN IMMEDIATE" && ++begins === 1),
+      () => timedOpen(path, BOUND_MS),
+    );
+    expect([answer, begins]).toEqual([UNAVAILABLE, 1]);
+    expect(ms).toBeGreaterThanOrEqual(BOUND_MS);
+    expect(past(ms)).toBeLessThan(0.5);
+    audit(path);
+  }, 60_000);
 });
 
 // ---- values a process could keep ---------------------------------------------------------------

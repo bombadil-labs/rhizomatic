@@ -25,7 +25,6 @@ const ALLOWED = new Set<string>([
     (rule) => `PRAGMA ${rule}`,
   ),
   "PRAGMA temp_store = FILE",
-  "PRAGMA busy_timeout = 5000",
   "PRAGMA busy_timeout",
   ...RULES.map((rule) => `PRAGMA ${rule}`),
 ]);
@@ -69,7 +68,10 @@ describe("the statement list", () => {
     } finally {
       Object.assign(proto, originals);
     }
-    expect([...seen].filter((text) => !ALLOWED.has(text))).toEqual([]);
+    // The open sets the wait to the time left before each statement, so its value varies.
+    expect(
+      [...seen].filter((text) => !ALLOWED.has(text) && !/^PRAGMA busy_timeout = \d+$/.test(text)),
+    ).toEqual([]);
     // The watch saw the store at work, not nothing.
     for (const text of [
       SQLITE_SCHEMA,
