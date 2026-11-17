@@ -181,6 +181,10 @@ Step 4d adds more, listed under Breaking.
   the id. Every call of an old handle refuses `peer-absent` after a delete, also after a
   `createPeer` of the id: a host gets a new handle. The same holds for a page of an export
   listing of one peer.
+- Two deletes of one peer at once share the work. When their rebuilds meet, SQLite answers one
+  checkpoint busy at once, and that delete can answer `unproven`. No later call gives a proof for
+  a deleted peer: a second `deletePeer` of the id refuses `peer-absent` or deletes a new peer. A
+  host keeps the other delete's `proven` report and does not repeat the call.
 - What can now be deleted that could not be deleted before: every holding, index entry, change
   record, purge debt, record of a removal, digest row and peer row of one peer, and the bytes of
   each delta that no other peer holds, by one call. Never a peer created later under the same

@@ -2849,7 +2849,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        - a purge's last transaction refuses `peer-absent` before it writes anything when the row
          is absent, marked, or of another `origin`. So no purge debt and no record of a removal is
          written on a later peer of the id. The first transaction's removals stay, and they were
-         true: the delete removed the debts, records and change records it wrote;
+         true. The delete removes the debts, records and change records the purge wrote when the
+         delete ends. If the deleter died after the mark, they stay under the marked peer until
+         the next `deletePeer` of the id, and no call reads them;
        - a handle keeps the `origin` of the row it was made from (the memory store: the peer's
          state), and every call of it refuses `peer-absent` when the row has another one. This
          covers `history`, `appFormat`, `read`, `append`, `purge` and `changes`. A page of an
@@ -2876,8 +2878,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        transaction, of any state, makes every file surface `owed`. With the foreign keys on, no
        other row of the peer can outlive it. The claim is `proven` only when the store's class
        and the peer's posture are `proven` and every surface is `absent`; otherwise `unproven`.
-       It is never `nothing-removed`: every delete removes the peer row. A peer of posture
-       `unproven` runs no rebuild.
+       It is never `nothing-removed`, because a call reports for the peer and not for its own
+       removals: a late call can release 0 rows and remove no row. A peer of posture `unproven`
+       runs no rebuild.
      - **What the claim covers.** Every row of the deleted peer: its peer row, holdings, index
        rows, change records, purge debts, records and digest rows, with the peer's id, heads,
        arrival records, signatures and digest hashes in them. And the bytes of each delta it
@@ -2896,6 +2899,18 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        removes nothing more and answers its own counts, decided by the same last transaction:
        a `peer` row of the id found there, of any state, makes every file surface `owed`. So
        each report is true at its commit.
+     - **Two deletes at once, and the proof.** SQLite answers busy at once to a
+       `wal_checkpoint(TRUNCATE)` while another connection checkpoints, without the busy handler.
+       So when the rebuilds of two deletes of one peer meet, one checkpoint answers busy, and
+       that delete has no proof. It answers `unproven` unless the log is empty and the file is
+       clean at its last transaction. The checkpoint that runs waits under the busy handler.
+       In rail R2, with no other reader or writer, at least one of the two answers `proven`.
+       A `proven` report covers the releases of both calls: its last transaction finds the
+       `peer` row gone, so every release of either call committed before it. No later call
+       gives a proof for a deleted peer. A late deleter of a `proven` peer also answers
+       `unproven` while a new peer of the id exists. A second `deletePeer` of the id refuses
+       `peer-absent`, or deletes the new peer. So a host must not repeat the call to get a
+       proof. The `proven` report of the other delete carries it.
      - **The memory store.** The same contract, all at once in one synchronous call. Its claim
        is always `unproven`; its surfaces are its purge's, from a second look. A held id whose
        row is gone throws `StoreIntegrityError` (`claims-unreadable`) before the delete removes
@@ -2904,7 +2919,11 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      - **A handle names one peer.** After a delete, every call of an old handle refuses
        `peer-absent`, on both stores, also after a `createPeer` of the same id. A host gets a
        handle of the new peer from `createPeer` or `Store.peer`. A snapshot never reaches the new
-       peer either: the history differs.
+       peer either: the history differs. `fsck` during a delete and a `createPeer` of the id
+       gives no false fault, and it can miss early rows of the new peer. The memory store's
+       export listing of a peer reads the peer's holdings once, at its first item. A listing
+       that began before a delete ends with the old peer's deltas, and never gives the new
+       peer's.
      - **What it costs.** O(the peer's rows) in pages, plus one rebuild for a peer of posture
        `proven`, which is O(store) as for a purge. Each page commits with a full sync. Measured
        on WSL: a peer of posture `proven` with 20,000 marked deltas of about 1 kB, beside a peer
