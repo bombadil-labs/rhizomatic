@@ -18,6 +18,7 @@
 import { randomBytes } from "node:crypto";
 import { statSync } from "node:fs";
 import { createRequire } from "node:module";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type BetterSqlite3 from "better-sqlite3";
 import { compareUtf8, decode, type CborValue } from "../delta/cbor.js";
@@ -56,6 +57,16 @@ import {
 const DRIVER = "better-sqlite3";
 
 /**
+ * Where `require` of the driver starts: this module in an ES module, the bundle in a CommonJS
+ * bundle (where `import.meta.url` is undefined), else the working directory.
+ */
+function location(): string {
+  if (typeof import.meta.url === "string") return import.meta.url;
+  if (typeof __filename === "string") return __filename;
+  return join(process.cwd(), "index.js");
+}
+
+/**
  * The driver, loaded when this module loads. When Node cannot find it, or a module it needs, the
  * error names the package to install and keeps Node's error as its cause. A static import would
  * fail with Node's message alone, which names neither this module nor the remedy. Any other
@@ -63,7 +74,7 @@ const DRIVER = "better-sqlite3";
  */
 function loadDriver(): typeof BetterSqlite3 {
   try {
-    return createRequire(import.meta.url)(DRIVER) as typeof BetterSqlite3;
+    return createRequire(location())(DRIVER) as typeof BetterSqlite3;
   } catch (cause) {
     if ((cause as { code?: unknown } | null)?.code !== "MODULE_NOT_FOUND") throw cause;
     throw new Error(
@@ -156,6 +167,7 @@ const RULES = (
   ["temp_store", "FILE", 1],
 ];
 const MAX_BUSY_TIMEOUT = 2 ** 31 - 1;
+const BUSY_PAUSE_MS = 5;
 
 type Statements = { readonly [K in keyof typeof SQLITE_STATEMENTS]: BetterSqlite3.Statement };
 type PeerRow = {
@@ -199,15 +211,15 @@ function unavailable(error: unknown): unknown {
  * as for any lock held past the wait (reading 105). Any other error passes up unchanged.
  */
 function waiting<T>(timeoutMs: number, body: () => T): T {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
+  const pause = new Int32Array(new SharedArrayBuffer(4));
+  for (let waited = 0; ; waited += BUSY_PAUSE_MS) {
     try {
       return body();
     } catch (error) {
       if (!(error instanceof Database.SqliteError && error.code.startsWith("SQLITE_BUSY")))
         throw error;
-      if (Date.now() >= deadline) throw unavailable(error);
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+      if (waited >= timeoutMs) throw unavailable(error);
+      Atomics.wait(pause, 0, 0, BUSY_PAUSE_MS);
     }
   }
 }

@@ -98,6 +98,8 @@ export const requiredCheckerCases = {
     "negative:undeclared file adapter network",
     "negative:destructured randomness",
     "negative:hidden module location",
+    "negative:host module location without the location permission",
+    "negative:hidden module location by __filename",
     "negative:host unresolved require",
     "negative:direct hidden clock",
     "positive:declared process ID",
@@ -105,6 +107,7 @@ export const requiredCheckerCases = {
     "positive:benign property names",
     "positive:explicit crypto primitives",
     "positive:declared host operation",
+    "positive:declared module location",
     "positive:allowed type and runtime edges"
   ],
   "contracts": [
