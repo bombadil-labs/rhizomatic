@@ -12,6 +12,7 @@
 // - `read-done`: just after that read.
 // - `vacuum`: before `VACUUM`.
 // - `in-vacuum`: prints `held in-vacuum` and runs `VACUUM` at once; the test kills it then.
+// - `vacuum-done`: just after `VACUUM`, before the truncate begins.
 // - `checkpoint`: before the checkpoint.
 // - `checkpoint-done`: just after the checkpoint.
 // - `last`: before the last transaction begins.
@@ -20,7 +21,9 @@
 // - `report`: after the report is printed (a hold only).
 //
 // The last transaction can take the write lock more than once (reading 119); `last` is its first
-// try, and `after-last` its commit.
+// try, and `after-last` its commit. A step `note-<point>` prints `noted <point>` and goes on.
+//
+// The environment variable `SQLITE_CHILD_WAIT_MS` sets the store's `busyTimeoutMs` (default 100).
 //
 // The mode `serve` reads one purge per line from stdin, as JSON `{path, peer, ids, mode}`, and
 // prints `report <json>` or `refused <code>` for each. The mode `plain` purges once and ends.
@@ -54,6 +57,7 @@ const [firstPath, peerId, startMode, idsText] = process.argv.slice(2) as [
   string,
 ];
 let path = firstPath;
+const WAIT = Number(process.env.SQLITE_CHILD_WAIT_MS ?? 100);
 
 let steps = new Map<string, string>();
 let begun = 0;
@@ -63,6 +67,10 @@ function at(point: string): void {
   const step = steps.get(point);
   if (step === undefined) return;
   steps.delete(point);
+  if (step === "note") {
+    writeSync(1, `noted ${point}\n`);
+    return;
+  }
   if (step === "kill") {
     process.kill(process.pid, "SIGKILL");
     for (;;) sleep(1000);
@@ -89,6 +97,7 @@ statement.run = function (...args) {
   }
   if (source === SQLITE_STATEMENTS.changeAdd) at("append-end");
   const result = run.apply(this, args);
+  if (source === SQLITE_STATEMENTS.vacuum) at("vacuum-done");
   if (source === "COMMIT" && begun === 1 && !committed) {
     committed = true;
     at("delete-commit");
@@ -127,7 +136,7 @@ async function purge(at: string, peer: string, ids: string[], mode: string): Pro
   if (store === undefined || at !== path) {
     await store?.close();
     path = at;
-    store = await openSqliteStore(path, { busyTimeoutMs: 100 });
+    store = await openSqliteStore(path, { busyTimeoutMs: WAIT });
   }
   arm(mode);
   let line: string;
@@ -142,7 +151,7 @@ async function purge(at: string, peer: string, ids: string[], mode: string): Pro
 }
 
 async function append(spec: { batch: BatchSpec; after: number; purge?: string[] }) {
-  store = await openSqliteStore(path, { busyTimeoutMs: 100 });
+  store = await openSqliteStore(path, { busyTimeoutMs: WAIT });
   arm(startMode);
   const write = await writerOf(await store.peer(peerId), spec.after);
   let line: string;

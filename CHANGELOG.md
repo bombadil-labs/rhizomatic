@@ -157,6 +157,14 @@ Step 4d adds more, listed under Breaking.
   exports `digestOf`, `EMPTY_DIGEST`, `DigestNode`, `runDigestConformance`, `digestVectors` and
   `STORE_DIGEST_FORMAT`. New shared vectors: `vectors/store/digest.json` (README §12). The Rust
   witness checks the file's trees byte for byte, and takes the digest in its stores in step 4e.
+- A purge of a peer of posture `proven` on the SQLite store tries its truncate again while
+  another connection is in a checkpoint (§4.13 reading 143). SQLite answers that truncate busy
+  at once, with `log = -1`, also during the automatic checkpoint of another process's commit.
+  Before, the purge then answered `unproven` in 3 of 30 rounds beside one appending process.
+  Now the truncate tries again every 5 ms until one `busyTimeoutMs` has passed, and the same
+  measurement gave 30 of 30 `proven`. The rule of the proof does not change, and no report can
+  be false because of the tries. A checkpoint that stays busy past the bound still gives
+  `unproven`, with every file surface `owed`.
 - The memory store's test meter counts the digest's path in `append` and `purge`. A rail bounds
   their lookups by a fixed cost per level of the tree for each changed id, with the levels
   counted from the ids.
