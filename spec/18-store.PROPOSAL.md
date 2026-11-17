@@ -1035,12 +1035,14 @@ covered by entity or value anchors, the store keeps a **derived index** for that
 #### 4.7.6 Digest and export
 
 ```ts
-digest(prefix: IdPrefix): Promise<{ count: number; hash: Uint8Array }>;
+readonly root: string | null;                                  // on a Snapshot
+digest(prefix: string): Promise<{ count: number; hash: string }>;  // on a Snapshot
 ```
 
 A hash over the sorted held ids that share an id prefix, maintained incrementally (a Merkle tree
 over id prefixes). The journal commits its root (§4.7.3). Two peers reconcile by comparing digests
-top-down in O(differences × log N); that use is for step 7.
+top-down in O(differences × log N); that use is for step 7. §4.13 readings 139 to 142 give the
+tree, the hashes, the strict call and what the digest keeps. A hash has the spelling of an id.
 
 ```ts
 interface Exporter {
@@ -1165,6 +1167,7 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     message (§4.10).
 13. **The memory profile in slice 1** reports `values`, `journal`, `views`, `derivedIndexes` and
     `digest` false, and `arrival` true. §5.1's "every capability" is the target for slice 6.
+    Step 4d of slice 4 switches `digest` on in the TypeScript stores (reading 139).
 14. **Anchors** are a tagged union with one member, `{ kind: "entity", entity }`. A store refuses
     an anchor kind it has no index for with `capability-absent`.
 15. **`ArrivalRecord`** moved from the `federation` package boundary to `storage`, which stores
@@ -2619,6 +2622,22 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      - **Change record** (SQLite, `changes`). `column-mismatch` (key `change.added` or
        `change.removed`, no `id`) for a list that is not a JSON list of texts; the detail names
        the revision. The ids in it are not compared with the holdings.
+     - **Rows dropped before they are read** (SQLite). In two cases a statement drops a row
+       before the store reads it, and the read answers without a fault. First, the snapshot's
+       bound, `arrivalAtMost` and `excludeIds` drop a holding by its `seq` or its id, also a
+       holding whose `delta` row is gone. Second, `exclude` in `scope` drops a member whose
+       `delta` row is there, so a member with changed claims, a bad signature or a bad arrival
+       record is not read. `exclude` does not drop a member whose `delta` row is gone, and
+       `timestampAtMost` keeps it, so the walk fails on it. The memory store reads the row of a
+       held id before it applies the bound. So its `get` and `scope` throw for a lost row of a
+       holding past the snapshot's bound, and its `scope` throws for a lost row that
+       `excludeIds` or `arrivalAtMost` drops. No call can lose a memory row, so no host meets
+       this difference.
+     - **A lowered last transfer** (SQLite). When a peer row's `max_transfer` is below the
+       transfer of a holding, `arrivals` and `scope` fail for each such holding
+       (`sequence-mismatch`, key `transfer`). `purge([id])` is no remedy here: the fault is in
+       the peer row, which no call writes back, and a purge removes a sound delta. The host
+       restores the file. `fsck` names each holding above the peer's last transfer.
      A lost index row is not seen by a read (reading 138). The memory store keeps its rows in
      process memory, where no call can damage them; it throws `claims-unreadable` for a held id
      with no stored claims, in `get`, `arrivals`, `targets`, `negators` and `scope`. A host
@@ -2646,11 +2665,14 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `orphan-bytes` (no `peer`) and `engine` (SQLite's `integrity_check` and
      `foreign_key_check`). `digest-mismatch` and `journal-broken` come with the digest and the
      journal. Every check that a read makes (reading 136) is also a check of `fsck`, with the
-     same fault. The SQLite store works in steps, and each step is one short read transaction:
-     the engine's checks; per peer, its count and change records against its row; per page of
-     256 of a peer's change records, the form of each record; per page of 256 of a peer's
-     holdings, each holding's claims, signature, columns, arrival record, sequence, transfer and
-     index rows against the peer's row; per page of 256 stored deltas, whether a peer holds it.
+     same fault. `fsck` reports every fault of a holding, not the first: a fault of the claims
+     ends only the checks that read the claims (the authors, the timestamp and the index rows),
+     and the signature, the arrival record and the sequence are checked still. The SQLite store
+     works in steps, and each step is one short read transaction: the engine's checks; per
+     peer, its count and change records against its row; per page of 256 of a peer's change
+     records, the form of each record; per page of 256 of a peer's holdings, each holding's
+     claims, signature, columns, arrival record, sequence, transfer and index rows against the
+     peer's row; per page of 256 stored deltas, whether a peer holds it.
      A holding whose `delta` row is gone is reported `claims-unreadable` with its peer and id,
      beside the `engine` fault of `foreign_key_check`. Between steps it holds no transaction and
      yields to the host's event loop. So a write by this store or by another process commits
@@ -2686,6 +2708,105 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      replaces one on insert (a static rail reads the list). So a lost index row is damage from
      outside the store. A read MAY later verify an entity's rows against a digest (§4.7.6); none
      does yet.
+
+139. **The holdings digest and the version address** (slice 4, step 4d, §4.7.6; decisions g and
+     O9 of slice 3). `Snapshot.root` names the exact set of ids the peer holds at the snapshot's
+     revision: two peers, two stores and two witnesses that hold one set give one root, in any
+     order of arrival, also after a purge and an append of the same id. It is the version
+     address of the set: equal roots mean equal sets, and a host compares two in O(1).
+     `Snapshot.digest(prefix)` answers `{count, hash}` for the node of one prefix, so two holders
+     find where their sets differ in O(log n) calls per difference. The tree:
+     - The node of a prefix, a string of lowercase hex digits, covers the held ids that start
+       with it. A node of at most 16 ids is a leaf. Any other node has 16 children, one per
+       next digit. The root is the node of the empty prefix. The node of every prefix is
+       defined, also one below a leaf (the leaf over its ids that start with the prefix) and one
+       that no id starts with.
+     - A leaf's hash is the content address of the canonical CBOR of
+       `["rhizomatic.digest.leaf", [id, …]]`, the ids ascending. A node's hash is the content
+       address of the canonical CBOR of `["rhizomatic.digest.node", [[count, hash], …]]`, 16
+       pairs in digit order, a child with no id as `[0, empty]`. The empty node is the leaf of no
+       id. The tags take the vocabulary prefix. A hash has the spelling of an id.
+     - A delta id is the content address of a CBOR map, and a leaf and a node hash an array whose
+       first item is its own tag, so no two of them hash the same bytes.
+     - Every id is `1e20` and 64 hex digits, so the four levels above `1e20` each have one child.
+       They cost four node writes per change and are kept: the tree does not depend on the id's
+       hash function.
+     The digest holds ids only: no claims, no payload and no arrival data. It names a set of
+     ids, not a set of appearances: two holders of one id with different signatures, or with
+     different arrival records, have one root. `root` is fixed when the snapshot is read and
+     never refuses, as `revision` is. After later commits it stays the root at the snapshot's
+     revision. A prefix that is not lowercase hex is refused `invalid-request`. The memory store
+     and the SQLite store keep the same tree and give the same answers; `vectors/store/digest.json`
+     pins both the hashes and the answers, and its store cases require `digest`. Both profiles say
+     `digest: true`; a store whose profile says `digest: false` gives `root` null and refuses
+     `digest` with `capability-absent`. An append and a purge change the digest in their own
+     transaction, along the path of each id they change: O(depth × 16) rows per id, never the
+     held set. Measured on WSL, 100 single-id appends at 2,000 and 32,000 deltas: 119 and 126 ms
+     before, 208 and 215 ms after; 100 purges: 165 and 176 ms before, 214 and 230 ms after.
+     Loam's use of the root as a pool's version address is a slice 5 decision (§10.1).
+140. **The strict call** (slice 4, step 4d; reading 131). The digest keeps no arrival sequence, so
+     `digest` cannot answer as at an older revision. It is strict: in the transaction of the
+     call it refuses `snapshot-moved` when the peer's last sequence is not the snapshot's
+     `lastSequence`, and in every case where reading 130 moves a snapshot. So it answers after a
+     head-only append, an append that adds no new id, a purge that releases nothing, another
+     peer's commits and the trim of records, and refuses after an append that adds an id and a
+     purge that releases one. Every other call of the snapshot still answers as at its revision.
+     The SQLite store's two statements of the call, `digestRows` and `digestHeld`, are in the
+     static rail's `STRICT` list. On SQLite a prefix with no row covers at most 16 held ids; a
+     prefix with no row that covers more is damage, and the call throws `StoreIntegrityError`
+     (`digest-mismatch`, key `digest:<prefix>`).
+141. **`fsck` checks the digest** (slice 4, step 4d; reading 137). `digest-mismatch` names a node
+     (`key` `digest:<prefix>`) or the root (SQLite `peer.root`, memory `root`). The SQLite store
+     checks the peer's root row against `peer.root` and against the count of its holdings in the
+     peer's step, and then reads its digest rows in pages of 256, ascending by prefix. Each row is
+     checked in the read transaction of its page: a leaf against the held ids under its prefix,
+     any other node against its 16 children, and every row but the root against a parent of more
+     than 16 ids. Each check reads at most 17 holdings or 17 rows. With the root's count checked,
+     these local checks cover every held id. The guarantee under concurrent writes is reading
+     137's, in its words: every fault that `fsck` reports was true of the file at the moment of
+     the read transaction of the step that found it; a fault in a row or a peer that exists
+     unchanged for the whole scan is reported, because a keyset page visits every row whose key
+     exists for the whole scan. A fault that a write makes or removes during the scan may be
+     missed; no fault is invented by a write. It holds because the digest rows and the
+     holdings change in one transaction, so every read transaction sees them agree. The memory
+     store compares its rows with the tree its holdings give. A stored row that no parent
+     accounts for (a stray row) is reported `digest-mismatch` on both stores. The memory store
+     names the row. On SQLite the row, its parent or a row below it fails its check, because a
+     leaf is checked against held ids and every other row against its parent and its children.
+     A damaged digest has no remedy by a call: the host restores the file. A damaged digest does
+     not stop a write: the update gives each leaf the count of the holdings it reads, so an
+     append or a purge completes. On SQLite, each leaf the update writes drops every row of the
+     peer below its prefix, whatever the stored counts say, so a damaged count or a lost row on
+     the path keeps no row below a rewritten leaf (reading 142). The memory store drops the rows
+     it reaches through child rows; no call can damage its digest, and it never reports
+     `proven`. The update does not repair the digest:
+     a rewritten node can be a leaf of more than 16 ids, or a node of more than 16 ids whose
+     children it does not find. The damage stays for `fsck` to report. No purge waits on the
+     digest.
+142. **Format `/6`, and the digest under erasure** (slice 4, step 4d). The `peer` table gains
+     `root TEXT NOT NULL`, and the `digest (peer, prefix, count, hash)` table keeps one row per
+     stored node, keyed `(peer, prefix)`, without a rowid. Open refuses a `/1` to `/5` file with
+     `open-failed`, names both formats and changes no byte. No migration ships. Every statement
+     of the digest is an index search with its key bound; the committed plans hold them. An old
+     hash can confirm that an id was held, so the digest is erasable material, and §4.7.2's
+     surfaces cover it. It needs no trigger of its own: a hash that depends on an id changes
+     only while a peer holds the id, or in the transaction that releases the peer's holding,
+     and that transaction deletes a `holding` row, which raises `residue.dirty`. A rebuild that
+     makes `clean = dirty` begins after that commit and rewrites every page. So a `proven` report
+     stays true: after it no file holds a digest row or a hash that existed only because of a
+     purged id. The update rewrites every node on the path of each released id, and on SQLite each
+     leaf it writes drops every row of the peer below its prefix, also when damage changed a stored
+     count or lost a row (reading 141). Rails scan every file of the store for the hashes of the
+     id's path: on a sound digest (every hash the path ever had), after a damaged root count,
+     after a lost internal row, after a damaged leaf count, after a merge of 17 ids into a leaf
+     of 16, and with a second peer that holds the id. **The limit.** The claim covers the digest
+     rows at the prefixes the store wrote. A row that damage moved to a prefix off the purged
+     id's path is outside the claim: the purge finds rows by an index search on the path and
+     below a rewritten leaf, and it does not scan the table. `fsck` reports such a row as a
+     stray row (reading 141). The host restores the file. The drop removes only digest rows of
+     the purging peer, below a prefix that the update rewrites; it removes no holding, delta or
+     index row, and no row of another peer. Nothing can be removed now that could not be removed
+     before.
 
 ## 5. Architectures
 

@@ -130,6 +130,8 @@ function logged(peer: PeerStore, log: Call[]): PeerStore {
     count: snapshot.count,
     lastSequence: snapshot.lastSequence,
     lastTransfer: snapshot.lastTransfer,
+    root: snapshot.root,
+    digest: (prefix) => (note("digest"), snapshot.digest(prefix)),
     get: (ids) => (log.push({ op: "get", ids: [...ids] }), snapshot.get(ids)),
     arrivals: (ids) => (note("arrivals"), snapshot.arrivals(ids)),
     targets: (entities) => (note("targets"), snapshot.targets(entities)),

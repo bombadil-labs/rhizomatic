@@ -276,6 +276,27 @@ describe("a damaged change record on the SQLite store", () => {
 });
 
 describe("fsck checks that each have one rail (SQLite)", () => {
+  it("a holding with bad claims, a bad signature and a bad arrival record: fsck reports all three faults, the faults that get and arrivals throw among them", async () => {
+    const { a, t, b, damage, arrival, fsck } = await sqliteFilled();
+    damage(
+      "UPDATE delta SET claims = (SELECT claims FROM delta WHERE id = ?) WHERE id = ?",
+      b.id,
+      t.id,
+    );
+    damage("UPDATE holding SET sig = 'zz' WHERE peer = 'peer:a' AND delta = ?", t.id);
+    arrival(() => ({}));
+    const claims = { kind: "claims-mismatch", peer: "peer:a", id: t.id, key: undefined };
+    const record = { kind: "column-mismatch", peer: "peer:a", id: t.id, key: "holding.arrival" };
+    expect(places(await fsck())).toEqual([
+      claims,
+      { kind: "column-mismatch", peer: "peer:a", id: t.id, key: "holding.sig" },
+      record,
+    ]);
+    const snapshot = await a.read();
+    expect(await faultOf(snapshot.get([t.id]))).toEqual(claims);
+    expect(await faultOf(snapshot.arrivals([t.id]))).toEqual(record);
+  });
+
   it("a stored author changed: one column-mismatch (delta.author) for each holder", async () => {
     const { b, damage, fsck } = await sqliteFilled();
     damage("UPDATE delta SET author = 'someone' WHERE id = ?", b.id);
@@ -375,6 +396,21 @@ describe("fsck on a file the engine cannot read whole (SQLite)", () => {
       (error: unknown) => (error instanceof StoreError ? error.code : String(error)),
     );
     expect(reopened).toBe("open-failed");
+  });
+
+  it("an overwritten header: fsck answers a report with one engine fault that names SQLITE_NOTADB", async () => {
+    const { path, store } = await sqliteFilled();
+    const db = new Database(path);
+    db.pragma("wal_checkpoint(TRUNCATE)");
+    db.close();
+    const file = openSync(path, "r+");
+    writeSync(file, Buffer.from("this is not a database file"), 0, 27, 0);
+    closeSync(file);
+    const report = await store.openAdmin().fsck();
+    expect(places(report)).toEqual([
+      { kind: "engine", peer: undefined, id: undefined, key: undefined },
+    ]);
+    expect(report.faults[0]!.detail).toMatch(/SQLITE_NOTADB/);
   });
 
   it("an engine error that is not a damaged page (a table dropped by another connection) still rejects store-unavailable, not a report", async () => {

@@ -137,15 +137,46 @@ Step 4d adds more, listed under Breaking.
   A memory-store purge that completes is proposed in its own pull request (reading 136).
 - Tests: rails for every `fsck` check that had none, two repaired rails of the transfer ordinal,
   and a timeout of its own for the statement-list rail, which runs the whole store conformance.
+- Follow-ups of PR #98. `fsck` reports every fault of a holding: a holding whose claims are
+  wrong still gets the checks of its signature, its arrival record and its sequence (reading
+  137). The memory store's test meter `StoreMeter.lookups` rises by one for each id that
+  `arrivals`, `targets` and `negators` answer, because each looks up the id's row (reading 136).
+  Reading 136 states when a damaged row is dropped before it is read, where the memory store
+  differs, and that a lowered `max_transfer` has no purge remedy. Rails hold `fsck` on a change
+  record past the first page and on a file whose header is not a database header.
+- The holdings digest (§4.7.6; §4.13 readings 139 to 142). `Snapshot.root` names the exact set
+  of ids the peer holds at the snapshot's revision, in any order of arrival: the version address
+  of the set. `Snapshot.digest(prefix)` answers `{count, hash}` for the node of one hex prefix of
+  a 16-way tree whose leaves hold at most 16 ids. `digest` is a strict call: it refuses
+  `snapshot-moved` once the peer's held set differs from the snapshot's. Both TypeScript stores
+  keep the tree and declare `digest: true`. An append and a purge change it in their own
+  transaction, at O(depth) rows per changed id. On SQLite each leaf the update writes drops every digest
+  row of the peer below it, so a damaged count or a lost row keeps no hash of a purged id below
+  a rewritten leaf. `fsck` reports `digest-mismatch`, also for a stray row. A row that damage
+  moved off a purged id's path is outside a `proven` claim (reading 142). The package root
+  exports `digestOf`, `EMPTY_DIGEST`, `DigestNode`, `runDigestConformance`, `digestVectors` and
+  `STORE_DIGEST_FORMAT`. New shared vectors: `vectors/store/digest.json` (README §12). The Rust
+  witness checks the file's trees byte for byte, and takes the digest in its stores in step 4e.
+- The memory store's test meter counts the digest's path in `append` and `purge`. A rail bounds
+  their lookups by a fixed cost per level of the tree for each changed id, with the levels
+  counted from the ids.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
 
 ### ⚠️ Breaking
 
-- **SQLite format `rhizomatic-store-sqlite/5`.** The `peer` table gains `removed_at` and
-  `max_transfer`, and `app_format` gains a check. Open refuses a file of format `/1` to `/4` with
-  `open-failed` and names both formats. No migration ships: create a new file and append again.
+- **SQLite format `rhizomatic-store-sqlite/6`.** The `peer` table gains `removed_at`,
+  `max_transfer` and `root`, `app_format` gains a check, and the `digest` table is new. Open
+  refuses a file of format `/1` to `/5` with `open-failed`, names both formats and changes no
+  byte. No migration ships: create a new file and append again.
+- **`Snapshot` has two more new members, `root` and `digest`.** A host that builds its own
+  `Snapshot` object must pass them through. A store without the digest gives `root` null and
+  refuses `digest` with `capability-absent`.
+- **`IntegrityFaultKind` has a new kind, `digest-mismatch`.** A host that matches every kind
+  must add it.
+- **The memory store's profile says `digest: true`.** A host that required its absence, or
+  compared the whole profile, must change its check.
 - **The store checks transfer ordinals.** A new holding's `transfer` must pass the peer's last
   one. A host that gave every append the same transfer, such as 1, is refused
   `invalid-admission` at its second append. Number each transfer from `snapshot.lastTransfer + 1`.

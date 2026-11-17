@@ -45,7 +45,7 @@ try {
     const made = fact(n);
     const deltas = [made, negation(n, before)];
     const result = await peer.append(
-      admissionOf(now, deltas, { at: n, sender: "churn", nextHead: `churn-${n}` }),
+      admissionOf(now, deltas, { at: n, sender: "churn", nextHead: `churn-${process.pid}-${n}` }),
     );
     now.release();
     if (result.status !== "committed") continue;

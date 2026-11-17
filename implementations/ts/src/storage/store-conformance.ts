@@ -1160,6 +1160,7 @@ export function missing(
     if (requirement === "purge") holds = store.profile.capabilities.erasure !== "none";
     else if (requirement === "journal-absent") holds = !store.profile.capabilities.journal;
     else if (requirement === "changes") holds = store.profile.changeRetention !== "none";
+    else if (requirement === "digest") holds = store.profile.capabilities.digest === true;
     else throw new Error(`unknown script requirement ${String(requirement)}`);
     if (!holds) return requirement;
   }

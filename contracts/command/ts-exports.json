@@ -41211,6 +41211,806 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API Exporter.fsck implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:Snapshot#root",
+      "owner": "storage",
+      "symbol": "Snapshot.root",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API Snapshot.root implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Snapshot#digest",
+      "owner": "storage",
+      "symbol": "Snapshot.digest",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API Snapshot.digest implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:EMPTY_DIGEST",
+      "owner": "storage",
+      "symbol": "EMPTY_DIGEST",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API EMPTY_DIGEST implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:digestOf",
+      "owner": "storage",
+      "symbol": "digestOf",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API digestOf implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DigestNode",
+      "owner": "storage",
+      "symbol": "DigestNode",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API DigestNode implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DigestNode#count",
+      "owner": "storage",
+      "symbol": "DigestNode.count",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API DigestNode.count implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DigestNode#hash",
+      "owner": "storage",
+      "symbol": "DigestNode.hash",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API DigestNode.hash implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:runDigestConformance",
+      "owner": "storage",
+      "symbol": "runDigestConformance",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API runDigestConformance implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DigestConformanceReport",
+      "owner": "storage",
+      "symbol": "DigestConformanceReport",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API DigestConformanceReport implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DigestConformanceReport#passed",
+      "owner": "storage",
+      "symbol": "DigestConformanceReport.passed",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API DigestConformanceReport.passed implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DigestConformanceReport#skipped",
+      "owner": "storage",
+      "symbol": "DigestConformanceReport.skipped",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API DigestConformanceReport.skipped implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:STORE_DIGEST_FORMAT",
+      "owner": "storage",
+      "symbol": "STORE_DIGEST_FORMAT",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API STORE_DIGEST_FORMAT implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:digestVectors",
+      "owner": "storage",
+      "symbol": "digestVectors",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API digestVectors implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreDigestDocument",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API StoreDigestDocument implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreDigestDocument#format",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.format",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API StoreDigestDocument.format implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreDigestDocument#note",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.note",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API StoreDigestDocument.note implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreDigestDocument#reference",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.reference",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API StoreDigestDocument.reference implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreDigestDocument#hash",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.hash",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API StoreDigestDocument.hash implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreDigestDocument#trees",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.trees",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API StoreDigestDocument.trees implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreDigestDocument#peers",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.peers",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API StoreDigestDocument.peers implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreDigestDocument#deltas",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.deltas",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API StoreDigestDocument.deltas implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreDigestDocument#cases",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.cases",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API StoreDigestDocument.cases implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/digest-conformance.ts:runDigestConformance",
+      "owner": "storage",
+      "symbol": "runDigestConformance",
+      "source": "implementations/ts/src/storage/digest-conformance.ts",
+      "definition": "implementations/ts/src/storage/digest-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API runDigestConformance implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-conformance.ts:DigestConformanceReport",
+      "owner": "storage",
+      "symbol": "DigestConformanceReport",
+      "source": "implementations/ts/src/storage/digest-conformance.ts",
+      "definition": "implementations/ts/src/storage/digest-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestConformanceReport implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-conformance.ts:DigestConformanceReport#passed",
+      "owner": "storage",
+      "symbol": "DigestConformanceReport.passed",
+      "source": "implementations/ts/src/storage/digest-conformance.ts",
+      "definition": "implementations/ts/src/storage/digest-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestConformanceReport.passed implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-conformance.ts:DigestConformanceReport#skipped",
+      "owner": "storage",
+      "symbol": "DigestConformanceReport.skipped",
+      "source": "implementations/ts/src/storage/digest-conformance.ts",
+      "definition": "implementations/ts/src/storage/digest-conformance.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestConformanceReport.skipped implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:digestVectors",
+      "owner": "storage",
+      "symbol": "digestVectors",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API digestVectors implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:STORE_DIGEST_FORMAT",
+      "owner": "storage",
+      "symbol": "STORE_DIGEST_FORMAT",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API STORE_DIGEST_FORMAT implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestTreeCase",
+      "owner": "storage",
+      "symbol": "DigestTreeCase",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestTreeCase implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestTreeCase#name",
+      "owner": "storage",
+      "symbol": "DigestTreeCase.name",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestTreeCase.name implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestTreeCase#ids",
+      "owner": "storage",
+      "symbol": "DigestTreeCase.ids",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestTreeCase.ids implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestTreeCase#nodes",
+      "owner": "storage",
+      "symbol": "DigestTreeCase.nodes",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestTreeCase.nodes implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestTreeCase#probes",
+      "owner": "storage",
+      "symbol": "DigestTreeCase.probes",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestTreeCase.probes implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestStep",
+      "owner": "storage",
+      "symbol": "DigestStep",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStep implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestStep#op",
+      "owner": "storage",
+      "symbol": "DigestStep.op",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStep.op implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestStep#peer",
+      "owner": "storage",
+      "symbol": "DigestStep.peer",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStep.peer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestStep#deltas",
+      "owner": "storage",
+      "symbol": "DigestStep.deltas",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStep.deltas implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestStep#as",
+      "owner": "storage",
+      "symbol": "DigestStep.as",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStep.as implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestStep#snapshot",
+      "owner": "storage",
+      "symbol": "DigestStep.snapshot",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStep.snapshot implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestStep#expect",
+      "owner": "storage",
+      "symbol": "DigestStep.expect",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStep.expect implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestStep#prefix",
+      "owner": "storage",
+      "symbol": "DigestStep.prefix",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStep.prefix implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestStep#error",
+      "owner": "storage",
+      "symbol": "DigestStep.error",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStep.error implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestStoreCase",
+      "owner": "storage",
+      "symbol": "DigestStoreCase",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStoreCase implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestStoreCase#name",
+      "owner": "storage",
+      "symbol": "DigestStoreCase.name",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStoreCase.name implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestStoreCase#spec",
+      "owner": "storage",
+      "symbol": "DigestStoreCase.spec",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStoreCase.spec implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestStoreCase#requires",
+      "owner": "storage",
+      "symbol": "DigestStoreCase.requires",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStoreCase.requires implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:DigestStoreCase#steps",
+      "owner": "storage",
+      "symbol": "DigestStoreCase.steps",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStoreCase.steps implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:StoreDigestDocument",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreDigestDocument implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:StoreDigestDocument#format",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.format",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreDigestDocument.format implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:StoreDigestDocument#note",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.note",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreDigestDocument.note implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:StoreDigestDocument#reference",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.reference",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreDigestDocument.reference implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:StoreDigestDocument#hash",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.hash",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreDigestDocument.hash implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:StoreDigestDocument#trees",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.trees",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreDigestDocument.trees implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:StoreDigestDocument#peers",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.peers",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreDigestDocument.peers implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:StoreDigestDocument#deltas",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.deltas",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreDigestDocument.deltas implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest-vectors.ts:StoreDigestDocument#cases",
+      "owner": "storage",
+      "symbol": "StoreDigestDocument.cases",
+      "source": "implementations/ts/src/storage/digest-vectors.ts",
+      "definition": "implementations/ts/src/storage/digest-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreDigestDocument.cases implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:digestOf",
+      "owner": "storage",
+      "symbol": "digestOf",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API digestOf implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:digestRows",
+      "owner": "storage",
+      "symbol": "digestRows",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API digestRows implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:updateDigest",
+      "owner": "storage",
+      "symbol": "updateDigest",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API updateDigest implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:DigestNode",
+      "owner": "storage",
+      "symbol": "DigestNode",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestNode implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:DigestNode#count",
+      "owner": "storage",
+      "symbol": "DigestNode.count",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestNode.count implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:DigestNode#hash",
+      "owner": "storage",
+      "symbol": "DigestNode.hash",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestNode.hash implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:DIGEST_LEAF",
+      "owner": "storage",
+      "symbol": "DIGEST_LEAF",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DIGEST_LEAF implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:leafHash",
+      "owner": "storage",
+      "symbol": "leafHash",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API leafHash implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:nodeHash",
+      "owner": "storage",
+      "symbol": "nodeHash",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API nodeHash implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:EMPTY_DIGEST",
+      "owner": "storage",
+      "symbol": "EMPTY_DIGEST",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API EMPTY_DIGEST implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:isDigestPrefix",
+      "owner": "storage",
+      "symbol": "isDigestPrefix",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API isDigestPrefix implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:childrenOf",
+      "owner": "storage",
+      "symbol": "childrenOf",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API childrenOf implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:DigestRow",
+      "owner": "storage",
+      "symbol": "DigestRow",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestRow implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:DigestRow#count",
+      "owner": "storage",
+      "symbol": "DigestRow.count",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestRow.count implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:DigestRow#hash",
+      "owner": "storage",
+      "symbol": "DigestRow.hash",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestRow.hash implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:DigestRow#ids",
+      "owner": "storage",
+      "symbol": "DigestRow.ids",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestRow.ids implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:DigestStore",
+      "owner": "storage",
+      "symbol": "DigestStore",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStore implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:DigestStore#rows",
+      "owner": "storage",
+      "symbol": "DigestStore.rows",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStore.rows implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:DigestStore#held",
+      "owner": "storage",
+      "symbol": "DigestStore.held",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStore.held implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:DigestStore#put",
+      "owner": "storage",
+      "symbol": "DigestStore.put",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStore.put implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:DigestStore#drop",
+      "owner": "storage",
+      "symbol": "DigestStore.drop",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStore.drop implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/digest.ts:DigestStore#dropUnder",
+      "owner": "storage",
+      "symbol": "DigestStore.dropUnder",
+      "source": "implementations/ts/src/storage/digest.ts",
+      "definition": "implementations/ts/src/storage/digest.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DigestStore.dropUnder implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/digest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:Snapshot#root",
+      "owner": "storage",
+      "symbol": "Snapshot.root",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API Snapshot.root implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:Snapshot#digest",
+      "owner": "storage",
+      "symbol": "Snapshot.digest",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API Snapshot.digest implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }

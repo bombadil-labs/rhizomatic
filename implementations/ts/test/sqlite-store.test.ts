@@ -5,7 +5,15 @@
 // Not covered here: the plans of the statements (sqlite-store-plans.test.ts), their cost
 // (sqlite-store-timing.test.ts) and a crash during an append (sqlite-store-crash.test.ts).
 
-import { closeSync, openSync, readdirSync, readFileSync, statSync, writeSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeSync,
+} from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import Database from "better-sqlite3";
@@ -194,7 +202,7 @@ describe("the SQLite store's profile and scheme", () => {
         journal: false,
         views: false,
         derivedIndexes: false,
-        digest: false,
+        digest: true,
         erasure: process.platform === "linux" ? "proven" : "unprovable",
       },
       indexedValueRoles: [],
@@ -202,7 +210,7 @@ describe("the SQLite store's profile and scheme", () => {
       writers: "many-processes",
       atRest: "trusted",
       changeRetention: { revisions: 1024 },
-      formatVersion: "rhizomatic-store-sqlite/5",
+      formatVersion: "rhizomatic-store-sqlite/6",
     });
     expect(Object.isFrozen(store.profile)).toBe(true);
     // The posture gate on a store of class unprovable: sqlite-store-erasure.test.ts, rail 6.
@@ -272,23 +280,32 @@ describe("the SQLite store's profile and scheme", () => {
     );
   });
 
-  it("refuses a file of format /1 to /4, which steps 4a to 4d wrote, naming both formats; no migration ships", async () => {
+  it("refuses a file of format /1 to /5, which steps 4a to 4d wrote, naming both formats and changing no byte; no migration ships", async () => {
     for (const old of [
       "rhizomatic-store-sqlite/1",
       "rhizomatic-store-sqlite/2",
       "rhizomatic-store-sqlite/3",
       "rhizomatic-store-sqlite/4",
+      "rhizomatic-store-sqlite/5",
     ]) {
       const path = fixture.path();
       await (await openSqliteStore(path)).close();
       const db = new Database(path);
       db.prepare("UPDATE meta SET value = ? WHERE key = 'format'").run(old);
+      db.pragma("wal_checkpoint(TRUNCATE)");
       db.close();
+      // The file, its log and its shared-memory file: the bytes of each, or absent.
+      const files = (): (string | null)[] =>
+        ["", "-wal", "-shm"].map((end) =>
+          existsSync(path + end) ? readFileSync(path + end).toString("hex") : null,
+        );
+      const bytes = files();
       const error = (await openSqliteStore(path).catch((e: unknown) => e)) as StoreError;
       expect([error.code, error.message]).toEqual([
         "open-failed",
-        `sqlite store: the file holds format ${old}, and this store reads rhizomatic-store-sqlite/5`,
+        `sqlite store: the file holds format ${old}, and this store reads rhizomatic-store-sqlite/6`,
       ]);
+      expect(files()).toEqual(bytes);
     }
   });
 

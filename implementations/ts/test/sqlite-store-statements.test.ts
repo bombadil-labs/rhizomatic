@@ -121,16 +121,26 @@ describe("the statements a snapshot runs", () => {
   // sequence of at most the snapshot's last sequence (§4.13 readings 130 and 131). A statement
   // over a per-peer table with no sequence cannot do that, so a snapshot call that runs one must
   // be strict: it refuses snapshot-moved when the peer's max_seq is not the snapshot's bound.
-  // None exists yet; such a statement goes in STRICT with its check.
+  // The digest's two statements are strict (§4.13 reading 140): `digest` has no sequence, and
+  // the leaf read below a row answers the holdings now. store-digest.test.ts holds the refusal,
+  // and the last rail here shows that the snapshot runs them only after that comparison.
   const BOUND = "holding.seq <= @bound";
-  const STRICT: readonly string[] = [];
+  const STRICT: readonly string[] = ["digestHeld", "digestRows"];
   const source = readFileSync(resolve(here, "../src/storage/sqlite-store.ts"), "utf8");
   const body = source.slice(source.indexOf("  #snapshot("), source.indexOf("  #changes("));
   const used = [...new Set([...body.matchAll(/this\.#s\.(\w+)/g)].map((m) => m[1]!))].sort();
 
-  it("are the five reads, each found in the snapshot's own code", () => {
+  it("are the five reads and the digest's two, each found in the snapshot's own code", () => {
     expect(body.length).toBeGreaterThan(0);
-    expect(used).toEqual(["arrivals", "get", "negators", "scope", "targets"]);
+    expect(used).toEqual([
+      "arrivals",
+      "digestHeld",
+      "digestRows",
+      "get",
+      "negators",
+      "scope",
+      "targets",
+    ]);
   });
 
   it("each keeps the holdings at or below the bound, in every branch of the scope walk, or is strict", () => {
@@ -141,6 +151,31 @@ describe("the statements a snapshot runs", () => {
       const branches = name === "scope" ? 2 : 1;
       expect(text.split(BOUND).length - 1, name).toBe(branches);
     }
+  });
+
+  it("a strict statement runs only in a method that the snapshot calls in its digest call, after the call compares max_seq with the bound", () => {
+    // The method of the class that holds each use of a strict statement.
+    const methodAt = (at: number): string =>
+      [...source.slice(0, at).matchAll(/^ {2}(#?\w+)\(/gm)].at(-1)![1]!;
+    const helpers = new Set(
+      STRICT.flatMap((name) =>
+        [...source.matchAll(new RegExp(`this\\.#s\\.${name}\\b`, "g"))].map((m) =>
+          methodAt(m.index),
+        ),
+      ),
+    );
+    expect([...helpers].sort()).toEqual(["#digestRows", "#held"]);
+    // `#digestAt` calls both. The snapshot's own code calls it once, after the comparison.
+    const start = source.indexOf("  #snapshot(");
+    const snapshot = source.slice(start, source.indexOf("\n  }\n", start));
+    const call = /this\.(#held|#digestRows|#digestAt)\(/g;
+    const calls = [...snapshot.matchAll(call)].map((m) => [m[1], m.index]);
+    const check = snapshot.indexOf("if (now.maxSeq !== bound)");
+    const strict = snapshot.slice(check, snapshot.indexOf('"snapshot-moved"', check));
+    expect(calls.map(([name]) => name)).toEqual(["#digestAt"]);
+    expect(check).toBeGreaterThan(snapshot.indexOf("digest: async (prefix)"));
+    expect(check).toBeLessThan(calls[0]![1] as number);
+    expect(strict).toMatch(/^if \(now\.maxSeq !== bound\)\s+throw new StoreError\(\s*$/);
   });
 });
 
