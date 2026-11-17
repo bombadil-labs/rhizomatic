@@ -2486,7 +2486,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      of held views on one snapshot answer at that snapshot's position; a retention that trimmed
      the records after it answers `resync-required` as before, because `changes` is a peer call.
      A file restored in place with no `restored` flag, at a revision equal to or higher than
-     the snapshot's, is not seen. Before this step only an equal revision was not seen: any
+     the snapshot's, is not seen when its `removed_at` is at most the snapshot's revision. When
+     its `removed_at` is above the snapshot's revision, every call refuses by the last rule
+     above. Before this step only an equal revision was not seen: any
      other revision moved the snapshot (decision S4-8). The wider limit stays, because a store
      cannot tell a restored file at a higher revision from a legal later append by the peer
      row alone; a host that restores in place passes `restored` (reading 123). The shared
