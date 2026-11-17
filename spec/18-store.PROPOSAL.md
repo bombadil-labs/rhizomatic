@@ -84,7 +84,7 @@ vectors compare the result byte for byte with the memory reference store (§5.1)
 ```ts
 interface Store {
   readonly profile: StoreProfile;          // §4.8
-  createPeer(id: PeerId, options: { erasure: "proven" | "unproven" }): Promise<PeerStore>;
+  createPeer(id: PeerId, options: { erasure: "proven" | "unproven"; appFormat?: string }): Promise<PeerStore>;
   peer(id: PeerId): Promise<PeerStore>;    // opens an existing peer's logical store
   openAdmin(): Exporter;                   // whole-store operations, §4.7.6
   close(): Promise<void>;
@@ -102,7 +102,8 @@ function openStore(url: string, options?: OpenOptions): Promise<Store>;   // §4
   caller that changes a value after appending it, or a value a read returned, changes nothing in
   the store, for any peer.
 - A `PeerStore` exposes `erasure: { posture, storeClass }`, the posture and the store's class
-  recorded at creation.
+  recorded at creation, and `appFormat`, the application format string given at creation or
+  null (§4.13 reading 134).
 
 A store holds the bytes of every delta once. Each peer has its own membership, indexes,
 arrivals, journal, revision and change feed (R6). A peer's operations never return another
@@ -114,6 +115,7 @@ O(holdings).
 ```ts
 interface PeerStore {
   readonly history: History;               // the identity of this peer's revision history (§4.6)
+  readonly appFormat: string | null;       // fixed at creation (§4.13 reading 134)
   read(): Promise<Snapshot>;               // a consistent, repeatable view at one revision
   append(batch: Admission): Promise<AppendResult>;               // §4.5
   purge(ids: readonly Id[]): Promise<PurgeReport>;               // §4.7.2
@@ -274,6 +276,9 @@ journal needs both in one commit, and adds that then.
   `uncertain`. The caller reopens and replans (SPEC-6 vNext §2).
 - The store receives deltas that admission has already verified. It stores canonical bytes and
   never re-signs or repairs them.
+- The journal peer builds `frame` and `nextHead`; the store only commits them. A host with no
+  journal builds an admission from a snapshot with `admissionOf(snapshot, deltas, {at, sender,
+  transfer, nextHead})` (§4.13 reading 133).
 
 **Cost.** O(Σ|delta| × log N + active derived indexes) for the batch. Nothing in an append may
 read the whole set.
@@ -965,9 +970,10 @@ follows (decided 2026-11-09; greenfield, no migration):
   read-only background scrub is a later option; it writes nothing on a quiet cycle.
 - **A format-version marker** in the store replaces any boot-time scan for old record formats.
   Open checks it in O(1) and refuses an older format.
-- **A consumer keeps its own marker beside it.** `meta` holds one application format string per
-  peer, set at creation and returned by open in O(1). A consumer that retires one of its own record
-  formats changes that string and refuses the old one. It needs no scan.
+- **A consumer keeps its own marker beside it.** Each peer holds one application format string,
+  set at creation and returned by open in O(1). A consumer that retires one of its own record
+  formats changes the string it creates new peers with, and refuses a peer with the old one. It
+  needs no scan (§4.13 reading 134).
 
 #### 4.7.4 Stored views
 
@@ -2516,6 +2522,37 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
 132. **Format `/4`** (slice 4, step 4d). The `peer` table gains `removed_at INTEGER NOT NULL`,
      checked `0 <= removed_at <= revision`. Open refuses a `/1`, `/2` or `/3` file with
      `open-failed` and names both formats. No migration ships: the work is greenfield.
+133. **Who builds an admission** (slice 4, step 4d, gap G11). The journal peer builds `frame` and
+     `nextHead` (SPEC-6 vNext §2); the store only commits them, with the head compare-and-set and
+     the sequence check of reading 32. `admissionOf(snapshot, deltas, {at, sender, transfer,
+     nextHead})` is for a host with no journal. It is pure: it reads the snapshot's `head` and
+     `lastSequence` and calls no store. The admission has `expectedHead` = the snapshot's head,
+     `frame: null`, and one entry per distinct id, the first given kept, in ascending id order
+     with sequences from `lastSequence + 1` (SPEC-6 vNext §3). Every arrival record carries `at`,
+     `sender` and `transfer`. Every option is required: `nextHead` has no default, because a head
+     the helper made up could be taken for a journal head; `transfer` has none, because the store
+     does not keep a last transfer. An empty list builds a head-only append. The helper does not
+     know what the peer holds: an id the peer holds is skipped at append and its sequence is
+     unused, so the committed sequences can have a gap. A host that wants none passes only ids
+     that `snapshot.get` does not answer. It reads the options as own fields, once, and refuses
+     `invalid-request` for a malformed snapshot, list, delta or option, and for a sequence past
+     2^53 − 1. The store still checks every entry at append. An admission built on an older
+     snapshot cannot commit a reused sequence: after a commit that moved the head it answers
+     `conflict`, and after one that kept the head it is refused `invalid-admission`, because its
+     sequences do not pass the peer's last one. A host that used `count + 1` as the next sequence
+     is refused after a purge, because a purge lowers `count` and not the last sequence.
+134. **The application format string** (slice 4, step 4d, §4.7.3). `createPeer(id, {erasure,
+     appFormat})` takes an optional string: a host's own marker for the format of what it keeps
+     in the peer. It is a well-formed string of 1 to 256 UTF-8 bytes; any other value, null
+     included, is refused `invalid-request` before `posture-refused` and `peer-exists`. Absent
+     (a field only on a prototype included) means none, and `PeerStore.appFormat` reads null.
+     It is fixed at creation: no call changes it, and a second `createPeer` of the id is refused
+     `peer-exists` whatever it asks. Every handle in every process reads the same value in O(1).
+     The SQLite store keeps it in `peer.app_format`, a column of format `/4`, written in the
+     transaction that creates the peer, and reads it from the file at each ask, as `history`. So
+     the format stays `/4`, and a `/4` file made before this reading reads null. A host that
+     retires one of its record formats does not rewrite the string. It refuses a peer whose
+     string it no longer accepts and creates a new peer (the work is greenfield).
 
 ## 5. Architectures
 
@@ -3072,7 +3109,7 @@ Each needs an answer before the slice named. None changes slice 1.
   heals one from the other. §5.6 lists union, overlay and cache only.
 - **The integrity-fault report (slice 4).** §9 names it and gives it no shape. Loam's repair layer
   is built on it.
-- **Who builds the frame and the next head (slice 4).** `Admission` carries both. A consumer that
+- **Who builds the frame and the next head (slice 4).** Answered by §4.13 reading 133. `Admission` carries both. A consumer that
   admits through the journal peer never sees a frame. The journal peer builds the admission; the
   store only commits it. §4.5 should say so.
 - **Posture of a default memory pool (slice 5).** Loam defaults a pool to a memory store, and its

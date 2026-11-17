@@ -10,7 +10,7 @@ Follow-ups from the reviews of slice 4 and from the first Loam trial on `0.11.0-
 (TypeScript). Three changes can need action from a consumer: the `unknown-scheme` message has
 new text, a busy open of a SQLite file refuses `store-unavailable` where it refused
 `open-failed`, and a host that runs the SQLite subpath with no module location gets an error.
-Step 4d adds three more, listed under Breaking.
+Step 4d adds four more, listed under Breaking.
 
 - The package root exports `withSnapshot(peer, body, retry?)`, with the types `SnapshotRetry`
   and `OnSnapshot`. It runs several reads on one snapshot and runs them all again on a new
@@ -85,7 +85,21 @@ Step 4d adds three more, listed under Breaking.
   the store refused `invalid-request`" for its wrong store that refuses `targets`.
 - The `snapshots` script gains a second peer that holds the first peer's later ids, and a
   `scope` with `arrivalAtMost` above an old snapshot's own bound. Both stores must keep the old
-  snapshot's set, or refuse `snapshot-moved`. The Rust feed rules now expect a feed that mixes peers to fail this script.
+  snapshot's set, or refuse `snapshot-moved`. The Rust feed rules now expect a feed that mixes
+  peers to fail this script.
+- The package root exports `admissionOf(snapshot, deltas, {at, sender, transfer, nextHead})` and
+  its type `AdmissionOptions` (§4.13 reading 133). It builds an `Admission` for a host with no
+  journal: the snapshot's head as `expectedHead`, no frame, and sequences from
+  `snapshot.lastSequence + 1` in ascending id order. It calls no store. Every option is required.
+  It refuses `invalid-request` for a malformed call. A host that guessed the next sequence as
+  `count + 1` is refused after a purge; this helper is not.
+- `createPeer(id, {erasure, appFormat})` takes an optional application format string, 1 to 256
+  UTF-8 bytes, and `PeerStore.appFormat` reads it, or null (§4.13 reading 134). It is fixed at
+  creation. The SQLite store keeps it in the existing `peer.app_format` column, so the format
+  stays `/4`.
+- Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
+  `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
+  revision refuses when its `removed_at` is above the snapshot's revision.
 
 ### ⚠️ Breaking
 
@@ -97,6 +111,8 @@ Step 4d adds three more, listed under Breaking.
   again for it. A host that read its own write through an old snapshot must take a new one.
 - **`Snapshot` has a new member, `lastSequence`.** A host that builds its own `Snapshot` object,
   such as a wrapper over a store's snapshot, must pass it through.
+- **`PeerStore` has a new member, `appFormat`.** A host that builds its own `PeerStore` object
+  must pass it through.
 
 ## 0.11.0-next.11 — 2026-11-16
 
