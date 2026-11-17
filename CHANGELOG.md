@@ -175,14 +175,21 @@ Step 4d adds more, listed under Breaking.
   `peer-exists`. A history is never issued again, so a peer created later under the id gets a
   new one. The memory store deletes all at once, and its claim is always `unproven`. The package
   root exports `DeleteReport`. Rust takes peer delete in step 4e.
+- Every call is bound to one peer, not to its id. A delete works only on the peer row its first
+  transaction read (`peer.origin`, the history `createPeer` issued), and removes that row only on
+  the same terms. A purge's last transaction refuses `peer-absent` for a peer created again under
+  the id. Every call of an old handle refuses `peer-absent` after a delete, also after a
+  `createPeer` of the id: a host gets a new handle. The same holds for a page of an export
+  listing of one peer.
 - What can now be deleted that could not be deleted before: every holding, index entry, change
   record, purge debt, record of a removal, digest row and peer row of one peer, and the bytes of
-  each delta that no other peer holds, by one call.
+  each delta that no other peer holds, by one call. Never a peer created later under the same
+  id.
 
 ### ⚠️ Breaking
 
 - **SQLite format `rhizomatic-store-sqlite/7`.** The `peer` table gains `removed_at`,
-  `max_transfer`, `root` and `state`, `app_format` gains a check, the `digest` table is new, and
+  `max_transfer`, `root`, `state` and `origin`, `app_format` gains a check, the `digest` table is new, and
   a trigger counts the delete of a `peer` row in `residue.dirty`. Open refuses a file of format
   `/1` to `/6` with `open-failed`, names both formats and changes no byte. No migration ships:
   create a new file and append again.

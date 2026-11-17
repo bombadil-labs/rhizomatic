@@ -2836,13 +2836,34 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        mark refuses `peer-absent` at its last transaction; its delete has committed (reading
        105). A static rail lists every statement that names the `peer` table and does not keep
        `live` rows, each with its reason.
+     - **One peer, not one id.** A peer created later under a deleted peer's id is another peer.
+       Its history is new: the store never issues a history twice. The SQLite store keeps the
+       history that `createPeer` issued in the peer row as `origin`; a minting open (reading 122)
+       changes `history` and never `origin`. Every call is bound to the peer it began on:
+       - a delete reads the row's state and `origin` in its first transaction, and a resumed
+         delete reads them from the mark. Each later transaction reads the row again under the
+         write lock and works only while the row is there, marked, with that `origin`. The last
+         transaction removes the row only on those terms, in the statement itself. So a delete
+         that a second delete of the peer overtook, or that runs after a `createPeer` of the id,
+         removes nothing of the new peer;
+       - a purge's last transaction refuses `peer-absent` before it writes anything when the row
+         is absent, marked, or of another `origin`. So no purge debt and no record of a removal is
+         written on a later peer of the id. The first transaction's removals stay, and they were
+         true: the delete removed the debts, records and change records it wrote;
+       - a handle keeps the `origin` of the row it was made from (the memory store: the peer's
+         state), and every call of it refuses `peer-absent` when the row has another one. This
+         covers `history`, `appFormat`, `read`, `append`, `purge` and `changes`. A page of an
+         export listing of one peer does the same with the `origin` its first read found.
      - **Pages.** Then, in pages of 256, each one write transaction, the delete releases the
        peer's holdings, and removes its change records, digest rows, purge debts and records of
-       removals. Each page reads past the last key of the page before it, by the peer's key. No
+       removals. Each page reads from the peer's first row of one table, by the peer's key alone,
+       and removes every row it reads. So no key value, also of a damaged row (a change record of
+       a negative revision, a debt of the empty id), keeps a row out of a page. No
        transaction is held between pages, and the store yields to the host's event loop between
        them. The digest is not updated page by page: no call reads the digest of a marked peer.
-     - **The last removal.** One write transaction deletes the `peer` row. The foreign keys
-       refuse it while any row of the peer is left. The `history` table keeps the peer's history,
+     - **The last removal.** One write transaction deletes the `peer` row when it is still
+       marked and of the `origin` the first transaction read. The foreign keys refuse it while
+       any row of the peer is left. The `history` table keeps the peer's history,
        so a peer created later under the id gets a new one, and an old snapshot refuses.
      - **The proof.** A trigger on the delete of a `peer` row raises `residue.dirty` (reading
        117), because that row holds the peer's id and head, and its change records hold its
@@ -2871,25 +2892,29 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        reached. The next `deletePeer` of the id goes on from there; its counts cover only what
        that call released. `fsck` reports a marked peer as one `peer-deleting` fault, names the
        peer, and checks no other row of it. Two deletes of one peer at once share the work; each
-       counts what it released, and each report is true at its commit.
+       counts what it released. A delete that finds the row gone, or a row of another `origin`,
+       removes nothing more and answers its own counts, decided by the same last transaction:
+       a `peer` row of the id found there, of any state, makes every file surface `owed`. So
+       each report is true at its commit.
      - **The memory store.** The same contract, all at once in one synchronous call. Its claim
        is always `unproven`; its surfaces are its purge's, from a second look. A held id whose
        row is gone throws `StoreIntegrityError` (`claims-unreadable`) before the delete removes
        anything, as the purge of that id does (reading 136). **Known limit:** until a remedy for
        that purge lands, no call deletes such a peer.
-     - **Handles name a peer by its id.** After a delete and a `createPeer` of the same id, an
-       old handle reaches the new peer, on both stores; its `erasure` field still states the
-       posture it was made with. A snapshot never reaches it: the history differs. A host drops
-       its handles of a peer it deletes.
+     - **A handle names one peer.** After a delete, every call of an old handle refuses
+       `peer-absent`, on both stores, also after a `createPeer` of the same id. A host gets a
+       handle of the new peer from `createPeer` or `Store.peer`. A snapshot never reaches the new
+       peer either: the history differs.
      - **What it costs.** O(the peer's rows) in pages, plus one rebuild for a peer of posture
        `proven`, which is O(store) as for a purge. Each page commits with a full sync. Measured
        on WSL: a peer of posture `proven` with 20,000 marked deltas of about 1 kB, beside a peer
        of 70, was deleted in 2.1 s and in 7.0 s in two runs, the rebuild included.
-     - The format is `rhizomatic-store-sqlite/7`: the `peer` table gains `state`, and the
-       trigger is new. Open refuses a `/1` to `/6` file with `open-failed`, names both formats and
+     - The format is `rhizomatic-store-sqlite/7`: the `peer` table gains `state` and
+       `origin`, and the trigger is new. Open refuses a `/1` to `/6` file with `open-failed`, names both formats and
        changes no byte. No migration ships.
      - **What can now be deleted that could not be deleted before:** every row of one peer, and
-       the bytes of each delta that no other peer holds, by one call.
+       the bytes of each delta that no other peer holds, by one call. Only the peer that the
+       call's first transaction read: never a peer created later under the same id.
      Rust takes peer delete in step 4e. The shared scripts have no step for it yet; they gain one
      with the Rust store (reading 39 still holds until then).
 
