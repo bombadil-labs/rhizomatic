@@ -365,9 +365,10 @@ async function hooked<T>(
   before: (source: string) => void,
   body: () => Promise<T>,
 ): Promise<T> {
-  const proto = Database.prototype as unknown as Record<string, (...args: unknown[]) => unknown>;
+  type Method = (this: Database.Database, source: string, ...rest: unknown[]) => unknown;
+  const proto = Database.prototype as unknown as Record<string, Method>;
   const original = proto[method]!;
-  proto[method] = function (this: Database.Database, source: string, ...rest: unknown[]) {
+  proto[method] = function (this: Database.Database, source, ...rest) {
     before(source);
     return original.call(this, source, ...rest);
   };
@@ -595,7 +596,9 @@ describe("the open of a store whose lock another connection takes between the op
     expect(readFileSync(path).equals(before)).toBe(true);
     expect(existsSync(`${path}-wal`)).toBe(false);
     const store = await openSqliteStore(path);
-    expect(await Array.fromAsync(store.openAdmin().peers())).toEqual(["peer:a"]);
+    const peers: string[] = [];
+    for await (const id of store.openAdmin().peers()) peers.push(id);
+    expect(peers).toEqual(["peer:a"]);
     await store.close();
     audit(path);
   }, 60_000);
