@@ -278,7 +278,8 @@ journal needs both in one commit, and adds that then.
   never re-signs or repairs them.
 - The journal peer builds `frame` and `nextHead`; the store only commits them. A host with no
   journal builds an admission from a snapshot with `admissionOf(snapshot, deltas, {at, sender,
-  transfer, nextHead})` (§4.13 reading 133).
+  nextHead})` (§4.13 reading 133). The store keeps the peer's last transfer ordinal, and a new
+  holding's transfer must pass it (reading 135).
 
 **Cost.** O(Σ|delta| × log N + active derived indexes) for the batch. Nothing in an append may
 read the whole set.
@@ -2524,23 +2525,29 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `open-failed` and names both formats. No migration ships: the work is greenfield.
 133. **Who builds an admission** (slice 4, step 4d, gap G11). The journal peer builds `frame` and
      `nextHead` (SPEC-6 vNext §2); the store only commits them, with the head compare-and-set and
-     the sequence check of reading 32. `admissionOf(snapshot, deltas, {at, sender, transfer,
-     nextHead})` is for a host with no journal. It is pure: it reads the snapshot's `head` and
-     `lastSequence` and calls no store. The admission has `expectedHead` = the snapshot's head,
+     the sequence check of reading 32. `admissionOf(snapshot, deltas, {at, sender, nextHead})` is
+     for a host with no journal. It is pure: it reads the snapshot's `head`, `lastSequence` and
+     `lastTransfer` and calls no store. The admission has `expectedHead` = the snapshot's head,
      `frame: null`, and one entry per distinct id, the first given kept, in ascending id order
      with sequences from `lastSequence + 1` (SPEC-6 vNext §3). Every arrival record carries `at`,
-     `sender` and `transfer`. Every option is required: `nextHead` has no default, because a head
-     the helper made up could be taken for a journal head; `transfer` has none, because the store
-     does not keep a last transfer. An empty list builds a head-only append. The helper does not
-     know what the peer holds: an id the peer holds is skipped at append and its sequence is
-     unused, so the committed sequences can have a gap. A host that wants none passes only ids
-     that `snapshot.get` does not answer. It reads the options as own fields, once, and refuses
-     `invalid-request` for a malformed snapshot, list, delta or option, and for a sequence past
+     `sender` and the transfer ordinal `lastTransfer + 1` (reading 135). Every option is
+     required: `nextHead` has no default, because a head the helper made up could be taken for a
+     journal head. An empty list builds a head-only append. The helper checks every entry as the
+     store does, a repeat of an id too: its id recomputes from its claims, and a signature has
+     the store's form. So a forged repeat is refused, not dropped. A well-formed repeat is
+     skipped, as the store skips it, and the first entry's signature is kept. The helper does
+     not know what the peer holds: an id the peer holds is skipped at append and its sequence
+     is unused, so the committed sequences can have a gap. A host that wants none passes only
+     ids that `snapshot.get` does not answer. It reads the options as own fields, once, and
+     refuses `invalid-request` for a malformed snapshot (a head that is not null or a non-empty,
+     well-formed string included), list, delta or option, and for a sequence or a transfer past
      2^53 − 1. The store still checks every entry at append. An admission built on an older
-     snapshot cannot commit a reused sequence: after a commit that moved the head it answers
-     `conflict`, and after one that kept the head it is refused `invalid-admission`, because its
-     sequences do not pass the peer's last one. A host that used `count + 1` as the next sequence
-     is refused after a purge, because a purge lowers `count` and not the last sequence.
+     snapshot never commits a reused sequence or transfer. After a commit that moved the head it
+     answers `conflict`. After a commit that kept the head it is refused `invalid-admission`
+     when a new entry's sequence or transfer does not pass the peer's last one; otherwise it
+     commits, and its sequences and transfer are above every committed one. A host that used
+     `count + 1` as the next sequence is refused after a purge, because a purge lowers `count`
+     and not the last sequence. Step 4d's follow-up removed the `transfer` option (unreleased).
 134. **The application format string** (slice 4, step 4d, §4.7.3). `createPeer(id, {erasure,
      appFormat})` takes an optional string: a host's own marker for the format of what it keeps
      in the peer. It is a well-formed string of 1 to 256 UTF-8 bytes; any other value, null
@@ -2548,11 +2555,33 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      (a field only on a prototype included) means none, and `PeerStore.appFormat` reads null.
      It is fixed at creation: no call changes it, and a second `createPeer` of the id is refused
      `peer-exists` whatever it asks. Every handle in every process reads the same value in O(1).
-     The SQLite store keeps it in `peer.app_format`, a column of format `/4`, written in the
-     transaction that creates the peer, and reads it from the file at each ask, as `history`. So
-     the format stays `/4`, and a `/4` file made before this reading reads null. A host that
-     retires one of its record formats does not rewrite the string. It refuses a peer whose
-     string it no longer accepts and creates a new peer (the work is greenfield).
+     The SQLite store keeps it in `peer.app_format` and reads it from the file at each ask, as
+     `history`. The column carries its own check, `NULL` or 1 to 256 bytes, so a writer that
+     bypasses `createPeer` (the Rust witness, an operator) cannot store another value. After
+     `close`, `appFormat` and `history` refuse `store-closed` on both stores. The string lies
+     outside erasure: no purge removes it, and no erasure report names it. It lives as long as
+     the peer row, as the peer id and the head do. A host must not put personal data in it. A
+     host cannot move a peer to a new format string in place. A host that retires one of its
+     record formats refuses a peer whose string it no longer accepts and creates a new peer
+     under a new id (the work is greenfield). A peer made without a string can never get one.
+135. **The transfer ordinal** (slice 4, step 4d, after PR #96). SPEC-6 vNext §3: a transfer
+     ordinal increases for the peer's lifetime, and a transfer that admits no new id consumes
+     none. The store now keeps the peer's last one and checks it beside the sequence of reading
+     32. `Snapshot.lastTransfer` is the highest transfer ordinal of a new holding the peer has
+     committed at the snapshot's revision, 0 before the first. It is fixed when the snapshot is
+     read and never refuses. At append, each **new** entry's `transfer` must be above the peer's
+     last one; otherwise the append is refused `invalid-admission`, the code of the sequence
+     rule, and nothing changes. A skipped entry (held, or repeated in the batch) is not
+     compared and does not raise the last transfer, as for sequences. The commit sets the last
+     transfer to the largest transfer among the new entries. A head-only append, and an append
+     whose every entry is skipped, keep it. A purge never lowers it. The store does not check
+     that the entries of one append share one transfer: that stays admission's rule, and a
+     vector commits one append with two transfers. The SQLite store keeps it in
+     `peer.max_transfer`, written in the append's transaction. This column, and the check on
+     `peer.app_format` (reading 134), raise the format to `rhizomatic-store-sqlite/5`. Open
+     refuses a `/1` to `/4` file with `open-failed` and names both formats. No migration ships.
+     The shared vectors do not yet hold a case of this rule; they and the Rust stores take it in
+     step 4e.
 
 ## 5. Architectures
 
