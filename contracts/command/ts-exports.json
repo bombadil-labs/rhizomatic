@@ -42011,6 +42011,176 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API Snapshot.digest implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:DeleteReport",
+      "owner": "storage",
+      "symbol": "DeleteReport",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API DeleteReport implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DeleteReport#claim",
+      "owner": "storage",
+      "symbol": "DeleteReport.claim",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API DeleteReport.claim implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DeleteReport#boundary",
+      "owner": "storage",
+      "symbol": "DeleteReport.boundary",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API DeleteReport.boundary implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DeleteReport#surfaces",
+      "owner": "storage",
+      "symbol": "DeleteReport.surfaces",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API DeleteReport.surfaces implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DeleteReport#retains",
+      "owner": "storage",
+      "symbol": "DeleteReport.retains",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API DeleteReport.retains implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DeleteReport#released",
+      "owner": "storage",
+      "symbol": "DeleteReport.released",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API DeleteReport.released implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DeleteReport#keptByOtherPeers",
+      "owner": "storage",
+      "symbol": "DeleteReport.keptByOtherPeers",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API DeleteReport.keptByOtherPeers implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Store#deletePeer",
+      "owner": "storage",
+      "symbol": "Store.deletePeer",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API Store.deletePeer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteStore#deletePeer",
+      "owner": "storage",
+      "symbol": "SqliteStore.deletePeer",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API SqliteStore.deletePeer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/store.ts:Store#deletePeer",
+      "owner": "storage",
+      "symbol": "Store.deletePeer",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API Store.deletePeer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:DeleteReport",
+      "owner": "storage",
+      "symbol": "DeleteReport",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DeleteReport implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:DeleteReport#claim",
+      "owner": "storage",
+      "symbol": "DeleteReport.claim",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DeleteReport.claim implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:DeleteReport#boundary",
+      "owner": "storage",
+      "symbol": "DeleteReport.boundary",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DeleteReport.boundary implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:DeleteReport#surfaces",
+      "owner": "storage",
+      "symbol": "DeleteReport.surfaces",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DeleteReport.surfaces implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:DeleteReport#retains",
+      "owner": "storage",
+      "symbol": "DeleteReport.retains",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DeleteReport.retains implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:DeleteReport#released",
+      "owner": "storage",
+      "symbol": "DeleteReport.released",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DeleteReport.released implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:DeleteReport#keptByOtherPeers",
+      "owner": "storage",
+      "symbol": "DeleteReport.keptByOtherPeers",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API DeleteReport.keptByOtherPeers implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }
