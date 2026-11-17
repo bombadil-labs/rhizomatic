@@ -1918,6 +1918,48 @@ fn every_runner_rule_fails_its_wrong_store() {
     );
 }
 
+/// `judge` takes either text of a row in any script. The `TargetsRefuse` row has two: a `targets`
+/// step that expects an answer, with or without `orError`, gives the first; the step of
+/// `a-snapshot-across-a-purge` that expects the refusal `snapshot-moved` gives the second. Only
+/// that script may carry the second text. A script stops at its first failure, and no first
+/// `targets` step has `orError` today, so the run also takes a copy of the documents whose
+/// `an-older-handle-stays-valid` asks `orError` at its first `targets` step. A runner that gives
+/// the `error` text at an `orError` step fails there.
+#[test]
+fn only_a_snapshot_across_a_purge_expects_a_moved_targets() {
+    const MOVED: &str =
+        "targets: expected a refusal `snapshot-moved`, the store refused `invalid-request`";
+    let mut or_error = vectors();
+    let script = or_error.scripts["scripts"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|s| s["name"] == "an-older-handle-stays-valid")
+        .expect("the script exists");
+    let step = script["steps"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|s| s["op"] == "targets")
+        .expect("the script has a targets step");
+    step["expect"]["orError"] = serde_json::json!("snapshot-moved");
+    run_with(W::Nothing, PLAIN, &or_error).expect("a faithful store passes the copy");
+    for documents in [vectors(), or_error] {
+        let error =
+            run_with(W::TargetsRefuse, PLAIN, &documents).expect_err("the wrong store fails");
+        let carriers: BTreeSet<&str> = error
+            .failures
+            .iter()
+            .filter(|f| f.message.contains(MOVED))
+            .map(|f| f.name.as_str())
+            .collect();
+        assert_eq!(
+            carriers,
+            BTreeSet::from(["scripts/a-snapshot-across-a-purge"])
+        );
+    }
+}
+
 #[test]
 fn every_wrong_store_in_the_table_is_distinct() {
     let mut seen = BTreeSet::new();
