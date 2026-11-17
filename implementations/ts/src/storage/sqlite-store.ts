@@ -26,6 +26,17 @@ import { canonicalBytes } from "../delta/delta.js";
 import { contentAddress } from "../delta/hash.js";
 import type { Claims, Delta, Pointer, Target } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
+import {
+  DIGEST_LEAF,
+  EMPTY_DIGEST,
+  childrenOf,
+  isDigestPrefix,
+  leafHash,
+  nodeHash,
+  updateDigest,
+  type DigestNode,
+  type DigestStore,
+} from "./digest.js";
 import { isPlainObject, ownFields } from "./copy.js";
 import { LOCAL_HISTORY_PREFIX } from "./freshness.js";
 import { refuseMissing, registerStoreScheme, type OpenOptions } from "./open-store.js";
@@ -102,7 +113,7 @@ function loadDriver(): typeof BetterSqlite3 {
 }
 const Database = loadDriver();
 
-export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/5";
+export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/6";
 
 export type SqliteStoreOptions = {
   /** How long a call waits for a lock another connection holds, in ms. Default 5000. */
@@ -204,6 +215,7 @@ type PeerRow = {
   removedAt: Revision;
   maxTransfer: number;
   appFormat: string | null;
+  root: string;
 };
 type DeltaRow = { id: Id; claims: Uint8Array | null; sig: string | null };
 type FsckRow = DeltaRow & {
@@ -589,7 +601,7 @@ function profileOf(retention: Retention): StoreProfile {
       journal: false,
       views: false,
       derivedIndexes: false,
-      digest: false,
+      digest: true,
       erasure: ERASURE_CLASS,
     }),
     indexedValueRoles: Object.freeze([]),
@@ -818,7 +830,7 @@ class SqliteFileStore implements SqliteStore {
         throw new StoreError("peer-exists", "createPeer: the peer already exists");
       const history = this.#history(id);
       this.#s.historyAdd.run(history);
-      this.#s.peerAdd.run(id, posture, storeClass, history, appFormat);
+      this.#s.peerAdd.run(id, posture, storeClass, history, appFormat, EMPTY_DIGEST.hash);
       return this.#peerRow(id)!;
     });
     return this.#handle(id, row);
@@ -938,6 +950,24 @@ class SqliteFileStore implements SqliteStore {
       count: row.count,
       lastSequence: bound,
       lastTransfer: row.maxTransfer,
+      root: row.root,
+      // The digest table keeps no sequence, so the call is strict: it answers only while the
+      // peer's last sequence is the snapshot's bound (§4.13 reading 140).
+      digest: async (prefix) => {
+        if (!isDigestPrefix(prefix))
+          throw new StoreError(
+            "invalid-request",
+            "digest: the prefix is a string of lowercase hex digits",
+          );
+        return at((now) => {
+          if (now.maxSeq !== bound)
+            throw new StoreError(
+              "snapshot-moved",
+              "digest: the peer's holdings moved past this snapshot, and a digest call is strict",
+            );
+          return this.#digestAt(peer, prefix);
+        });
+      },
       get: async (ids) => {
         const asked = sorted(strings(ids, "get: ids"));
         return at(() =>
@@ -1007,6 +1037,43 @@ class SqliteFileStore implements SqliteStore {
     };
   }
 
+  /** The ids the peer holds now that start with `prefix`, ascending; at most `limit`, -1 for all. */
+  #held(peer: PeerId, prefix: string, limit = -1): Id[] {
+    return (
+      this.#s.digestHeld.all({ peer, low: prefix, high: `${prefix}g`, limit }) as { delta: Id }[]
+    ).map((r) => r.delta);
+  }
+
+  /** The stored nodes of the peer at `prefixes`, in their order. */
+  #digestRows(peer: PeerId, prefixes: readonly string[]): (DigestNode | undefined)[] {
+    const found = new Map(
+      (
+        this.#s.digestRows.all({ peer, keys: JSON.stringify(prefixes) }) as ({
+          prefix: string;
+        } & DigestNode)[]
+      ).map(({ prefix, count, hash }) => [prefix, { count, hash }]),
+    );
+    return prefixes.map((prefix) => found.get(prefix));
+  }
+
+  /**
+   * The node of `prefix`: its row, or the leaf over the held ids that start with it. A prefix
+   * with no row lies below a leaf or holds no id, so it covers at most 16 ids; more is damage.
+   */
+  #digestAt(peer: PeerId, prefix: string): DigestNode {
+    const [row] = this.#digestRows(peer, [prefix]);
+    if (row !== undefined) return Object.freeze(row);
+    const ids = this.#held(peer, prefix, DIGEST_LEAF + 1);
+    if (ids.length > DIGEST_LEAF)
+      throw new StoreIntegrityError({
+        kind: "digest-mismatch",
+        peer,
+        key: `digest:${prefix}`,
+        detail: "sqlite store: more than 16 held ids start with a prefix that has no digest row",
+      });
+    return Object.freeze({ count: ids.length, hash: leafHash(ids) });
+  }
+
   #changes(peer: PeerId, from: unknown, to: unknown): ChangePage {
     const revision = (value: unknown, what: string): Revision => {
       if (!(Number.isSafeInteger(value) && (value as number) >= 0))
@@ -1037,6 +1104,18 @@ class SqliteFileStore implements SqliteStore {
     });
   }
 
+  /** The peer's digest rows for `updateDigest`, read and written in the caller's transaction. */
+  #digestStore(peer: PeerId): DigestStore {
+    const s = this.#s;
+    return {
+      rows: (prefixes) => this.#digestRows(peer, prefixes),
+      held: (prefix) => this.#held(peer, prefix),
+      put: (prefix, { count, hash }) => s.digestPut.run({ peer, prefix, count, hash }),
+      drop: (prefix) => s.digestDrop.run(peer, prefix),
+      dropUnder: (prefix) => s.digestDropUnder.run({ peer, low: prefix, high: `${prefix}g` }),
+    };
+  }
+
   /**
    * Writes the change record of a revision advance and the peer row with it, and drops the
    * oldest record when the peer keeps more than its retention.
@@ -1053,8 +1132,18 @@ class SqliteFileStore implements SqliteStore {
       next.floor = row.floor + 1;
       this.#s.changeDrop.run(peer, next.floor);
     }
-    const { revision, floor, head, count, maxSeq, removedAt, maxTransfer } = next;
-    this.#s.peerAdvance.run({ peer, revision, floor, head, count, maxSeq, removedAt, maxTransfer });
+    const { revision, floor, head, count, maxSeq, removedAt, maxTransfer, root } = next;
+    this.#s.peerAdvance.run({
+      peer,
+      revision,
+      floor,
+      head,
+      count,
+      maxSeq,
+      removedAt,
+      maxTransfer,
+      root,
+    });
   }
 
   #append(peer: PeerId, batch: unknown): AppendResult {
@@ -1127,6 +1216,8 @@ class SqliteFileStore implements SqliteStore {
           count: row.count + ids.length,
           maxSeq,
           maxTransfer,
+          // The digest moves in the append's transaction (§4.13 reading 139).
+          root: ids.length > 0 ? updateDigest(this.#digestStore(peer), ids, []).hash : row.root,
         };
         this.#advance(peer, row, next, ids, []);
         return { status: "committed", revision: next.revision, added: ids };
@@ -1175,6 +1266,7 @@ class SqliteFileStore implements SqliteStore {
             revision: row.revision + 1,
             count: row.count - released.length,
             removedAt: row.revision + 1,
+            root: updateDigest(this.#digestStore(peer), [], released).hash,
           },
           [],
           released,
@@ -1451,6 +1543,18 @@ class SqliteFileStore implements SqliteStore {
             page = last.count;
             from = last.id;
           }
+          for (let from = "", page = EXPORT_PAGE; page === EXPORT_PAGE; ) {
+            const rows = await step(() => {
+              const found = s.fsckDigest.all(peer, from, EXPORT_PAGE) as ({
+                prefix: string;
+              } & DigestNode)[];
+              for (const { prefix, count, hash } of found)
+                this.#fsckNode(peer, prefix, { count, hash }, faults);
+              return found;
+            });
+            page = rows.length;
+            from = rows.at(-1)?.prefix ?? from;
+          }
         }
         found = peers.length;
         after = peers.at(-1) ?? after;
@@ -1503,7 +1607,50 @@ class SqliteFileStore implements SqliteStore {
         peer,
         detail: `sqlite store: the peer keeps ${feed.kept} change records from ${feed.low} to ${feed.high}, at floor ${row.floor} and revision ${row.revision}`,
       });
+    const [top] = this.#digestRows(peer, [""]);
+    if ((top ?? EMPTY_DIGEST).hash !== row.root || (top?.count ?? 0) !== held)
+      faults.push({
+        kind: "digest-mismatch",
+        peer,
+        key: "peer.root",
+        detail: "sqlite store: the peer's root is not the root of its digest and its holdings",
+      });
+    if (top !== undefined) this.#fsckNode(peer, "", top, faults);
     return true;
+  }
+
+  /**
+   * One stored digest node against what it covers (§4.13 reading 141): a leaf against the held
+   * ids under its prefix, any other node against its 16 children. Every node but the root has a
+   * parent of more than 16 ids. With the root's count checked against the holdings, the checks
+   * of every row cover every held id. Each reads at most 17 holdings or 17 rows.
+   */
+  #fsckNode(peer: PeerId, prefix: string, node: DigestNode, faults: IntegrityFault[]): void {
+    const fault = (detail: string): void => {
+      faults.push({
+        kind: "digest-mismatch",
+        peer,
+        key: `digest:${prefix}`,
+        detail: `sqlite store: ${detail}`,
+      });
+    };
+    if (prefix !== "") {
+      const [parent] = this.#digestRows(peer, [prefix.slice(0, -1)]);
+      if (parent === undefined || parent.count <= DIGEST_LEAF)
+        return fault("a digest row whose parent is not a node of more than 16 ids");
+    }
+    if (node.count <= DIGEST_LEAF) {
+      const ids = this.#held(peer, prefix, DIGEST_LEAF + 1);
+      if (ids.length !== node.count || leafHash(ids) !== node.hash)
+        fault("a digest leaf is not the leaf over the held ids under its prefix");
+      return;
+    }
+    const children = this.#digestRows(peer, childrenOf(prefix)).map((c) => c ?? EMPTY_DIGEST);
+    if (
+      children.reduce((sum, child) => sum + child.count, 0) !== node.count ||
+      nodeHash(children) !== node.hash
+    )
+      fault("a digest node is not the node over its children");
   }
 
   /**

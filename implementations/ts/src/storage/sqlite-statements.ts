@@ -10,6 +10,12 @@
  * one of their rows in `residue.dirty` (plan §7). A cascade from `holding` fires the triggers of
  * `target` and `reference` too. A `REPLACE` deletes rows and fires no delete trigger while
  * `recursive_triggers` is off, so no statement of the store uses it (a rail reads the list).
+ *
+ * The `digest` table and `peer.root` hold hashes over sets of held ids, so an old hash can confirm
+ * that an id was held. They need no trigger of their own: a hash that depends on an id changes
+ * only while a peer holds the id, or in the transaction that releases its last holding, and that
+ * transaction deletes a `holding` row. So a rebuild that makes `clean = dirty` begins after every
+ * such hash left the live rows, and it rewrites every page (§4.13 reading 142).
  */
 const ERASABLE = ["holding", "delta", "target", "reference"] as const;
 
@@ -28,7 +34,8 @@ CREATE TABLE peer (
   max_seq INTEGER NOT NULL CHECK (max_seq >= 0),
   removed_at INTEGER NOT NULL CHECK (removed_at >= 0 AND removed_at <= revision),
   max_transfer INTEGER NOT NULL CHECK (max_transfer >= 0),
-  app_format TEXT CHECK (app_format IS NULL OR length(CAST(app_format AS BLOB)) BETWEEN 1 AND 256)
+  app_format TEXT CHECK (app_format IS NULL OR length(CAST(app_format AS BLOB)) BETWEEN 1 AND 256),
+  root TEXT NOT NULL
 ) STRICT;
 CREATE TABLE delta (
   id TEXT PRIMARY KEY,
@@ -65,6 +72,13 @@ CREATE TABLE reference (
   FOREIGN KEY (peer, delta) REFERENCES holding ON DELETE CASCADE
 ) STRICT, WITHOUT ROWID;
 CREATE INDEX reference_by_delta ON reference (peer, delta);
+CREATE TABLE digest (
+  peer TEXT NOT NULL REFERENCES peer,
+  prefix TEXT NOT NULL,
+  count INTEGER NOT NULL CHECK (count >= 1),
+  hash TEXT NOT NULL,
+  PRIMARY KEY (peer, prefix)
+) STRICT, WITHOUT ROWID;
 CREATE TABLE change (
   peer TEXT NOT NULL REFERENCES peer,
   revision INTEGER NOT NULL,
@@ -125,14 +139,15 @@ export const SQLITE_STATEMENTS = {
   historyAdd: "INSERT INTO history (value) VALUES (?)",
   peerRead: `SELECT posture, store_class AS storeClass, history, revision, floor, head, count,
     max_seq AS maxSeq, removed_at AS removedAt, max_transfer AS maxTransfer,
-    app_format AS appFormat FROM peer WHERE id = ?`,
+    app_format AS appFormat, root FROM peer WHERE id = ?`,
   peerAdd: `INSERT INTO peer
     (id, posture, store_class, history, revision, floor, head, count, max_seq, removed_at,
-    max_transfer, app_format)
-    VALUES (?, ?, ?, ?, 0, 0, NULL, 0, 0, 0, 0, ?)`,
+    max_transfer, app_format, root)
+    VALUES (?, ?, ?, ?, 0, 0, NULL, 0, 0, 0, 0, ?, ?)`,
   peerHistory: "UPDATE peer SET history = ? WHERE id = ?",
   peerAdvance: `UPDATE peer SET revision = @revision, floor = @floor, head = @head, count = @count,
-    max_seq = @maxSeq, removed_at = @removedAt, max_transfer = @maxTransfer WHERE id = @peer`,
+    max_seq = @maxSeq, removed_at = @removedAt, max_transfer = @maxTransfer, root = @root
+    WHERE id = @peer`,
 
   holdingFind: "SELECT 1 FROM holding WHERE peer = ? AND delta = ?",
   heldElsewhere: "SELECT 1 FROM holding WHERE delta = ? LIMIT 1",
@@ -218,6 +233,18 @@ export const SQLITE_STATEMENTS = {
   LEFT JOIN delta ON delta.id = member.id
   WHERE delta.id IS NULL OR member.id NOT IN (SELECT value FROM json_each(@exclude))
   ORDER BY member.id`,
+  // The holdings digest (§4.13 reading 139). The ids under a prefix are a range of the key of
+  // `holding`: every id is hex, so each id that starts with the prefix sorts below the prefix
+  // followed by `g`. The digest keeps no sequence, so a snapshot's call is strict (reading 140).
+  digestRows: `SELECT asked.value AS prefix, digest.count, digest.hash
+    FROM json_each(@keys) AS asked
+    CROSS JOIN digest ON digest.peer = @peer AND digest.prefix = asked.value`,
+  digestHeld: `SELECT delta FROM holding
+    WHERE peer = @peer AND delta >= @low AND delta < @high ORDER BY delta LIMIT @limit`,
+  digestPut: `INSERT INTO digest (peer, prefix, count, hash) VALUES (@peer, @prefix, @count, @hash)
+    ON CONFLICT (peer, prefix) DO UPDATE SET count = excluded.count, hash = excluded.hash`,
+  digestDrop: "DELETE FROM digest WHERE peer = ? AND prefix = ?",
+  digestDropUnder: "DELETE FROM digest WHERE peer = @peer AND prefix > @low AND prefix < @high",
   changes: `SELECT revision, head, added, removed FROM change
     WHERE peer = @peer AND revision > @from AND revision <= @to
     ORDER BY revision LIMIT @limit`,
@@ -242,6 +269,8 @@ export const SQLITE_STATEMENTS = {
   fsckTargets: "SELECT entity FROM target WHERE peer = ? AND delta = ?",
   fsckReferences: "SELECT ref, role FROM reference WHERE peer = ? AND delta = ?",
   fsckCount: "SELECT count(*) AS held FROM holding WHERE peer = ?",
+  fsckDigest: `SELECT prefix, count, hash FROM digest
+    WHERE peer = ? AND prefix > ? ORDER BY prefix LIMIT ?`,
   fsckFeed: `SELECT count(*) AS kept, min(revision) AS low, max(revision) AS high
     FROM change WHERE peer = ?`,
 } as const;

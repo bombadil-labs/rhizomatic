@@ -6,6 +6,17 @@ import { compareUtf8 } from "../delta/cbor.js";
 import { computeId } from "../delta/delta.js";
 import type { Claims, Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
+import {
+  EMPTY_DIGEST,
+  childrenOf,
+  digestRows,
+  isDigestPrefix,
+  leafHash,
+  updateDigest,
+  type DigestNode,
+  type DigestRow,
+  type DigestStore,
+} from "./digest.js";
 import { copyArrival, copyClaims, isPlainObject, ownFields } from "./copy.js";
 import { LOCAL_HISTORY_PREFIX } from "./freshness.js";
 import {
@@ -148,6 +159,9 @@ type PeerState = {
   /** The revision of the last purge that released a holding of this peer; 0 before one. */
   removedAt: Revision;
   readonly feed: Feed;
+  /** The holdings digest by prefix (§4.7.6): the root and each node of more than 16 ids' children. */
+  readonly digest: Index<DigestRow>;
+  root: DigestNode;
 };
 
 // The default histories: one counter for every memory store in this copy of the module, so two
@@ -251,7 +265,7 @@ class MemoryStore implements Store {
         journal: false,
         views: false,
         derivedIndexes: false,
-        digest: false,
+        digest: true,
         erasure: "unprovable",
       },
       indexedValueRoles: [],
@@ -322,6 +336,8 @@ class MemoryStore implements Store {
       removedAt: 0,
       // A new peer's feed is empty, and its floor is its first revision.
       feed: { records: [], start: 0, floor: 0 },
+      digest: new Index(this.#meter),
+      root: EMPTY_DIGEST,
     };
     this.#peers.set(id, state);
     return this.#handle(state);
@@ -460,6 +476,7 @@ class MemoryStore implements Store {
     const head = state.head;
     const count = state.count;
     const bound = state.lastSequence;
+    const root = state.root.hash;
     let released = false;
     // An append gives each new holding a sequence past `bound`, so the holdings with a sequence
     // of at most `bound` are the snapshot's own until the peer releases one. From that purge on,
@@ -486,6 +503,23 @@ class MemoryStore implements Store {
       count,
       lastSequence: bound,
       lastTransfer: state.lastTransfer,
+      root,
+      // The digest keeps no sequence, so the call is strict: it answers only while the held set
+      // is the snapshot's (§4.13 reading 140).
+      digest: async (prefix) => {
+        if (!isDigestPrefix(prefix))
+          throw new StoreError(
+            "invalid-request",
+            "digest: the prefix is a string of lowercase hex digits",
+          );
+        guard();
+        if (state.lastSequence !== bound)
+          throw new StoreError(
+            "snapshot-moved",
+            "digest: the peer's holdings moved past this snapshot, and a digest call is strict",
+          );
+        return this.#digestAt(state, prefix);
+      },
       arrivals: async (ids) => {
         const asked = sorted(strings(ids, "arrivals: ids"));
         guard();
@@ -526,6 +560,59 @@ class MemoryStore implements Store {
       release: () => {
         released = true;
       },
+    };
+  }
+
+  /**
+   * The node of `prefix`: its row, or, below a leaf, the leaf over the leaf's ids that start with
+   * it. A prefix whose nearest row above it is a node of more than 16 ids holds no id.
+   */
+  #digestAt(state: PeerState, prefix: string): DigestNode {
+    const row = state.digest.get(prefix);
+    if (row !== undefined) return Object.freeze({ count: row.count, hash: row.hash });
+    for (let k = prefix.length - 1; k >= 0; k--) {
+      const above = state.digest.get(prefix.slice(0, k));
+      if (above === undefined) continue;
+      const ids = above.ids?.filter((id) => id.startsWith(prefix)) ?? [];
+      return Object.freeze({ count: ids.length, hash: leafHash(ids) });
+    }
+    return EMPTY_DIGEST;
+  }
+
+  /**
+   * The peer's digest rows for `updateDigest`. A leaf row keeps its ids, so the ids under a
+   * prefix are read from the rows as they were before the change, with the ids `added`, and kept
+   * when the peer holds them now.
+   */
+  #digestStore(state: PeerState, added: readonly Id[]): DigestStore {
+    const rows = state.digest;
+    const before = (prefix: string): Id[] => {
+      const row = rows.get(prefix);
+      if (row !== undefined)
+        return row.ids !== undefined ? [...row.ids] : childrenOf(prefix).flatMap(before);
+      for (let k = prefix.length - 1; k >= 0; k--) {
+        const above = rows.get(prefix.slice(0, k));
+        if (above !== undefined) return above.ids?.filter((id) => id.startsWith(prefix)) ?? [];
+      }
+      return [];
+    };
+    const dropUnder = (prefix: string): void => {
+      for (const child of childrenOf(prefix))
+        if (rows.get(child) !== undefined) {
+          dropUnder(child);
+          rows.delete(child);
+        }
+    };
+    return {
+      rows: (prefixes) => prefixes.map((prefix) => rows.get(prefix)),
+      held: (prefix) =>
+        sorted([...before(prefix), ...added.filter((id) => id.startsWith(prefix))]).filter(
+          (id) => state.holdings.get(id) !== undefined,
+        ),
+      put: (prefix, { count, hash }, leaf) =>
+        rows.set(prefix, leaf === undefined ? { count, hash } : { count, hash, ids: [...leaf] }),
+      drop: (prefix) => rows.delete(prefix),
+      dropUnder,
     };
   }
 
@@ -614,6 +701,7 @@ class MemoryStore implements Store {
     }
     state.lastTransfer = lastTransfer;
     const ids = sorted(fresh.keys());
+    if (ids.length > 0) state.root = updateDigest(this.#digestStore(state, ids), ids, []);
     const advanced = fresh.size > 0 || state.head !== nextHead;
     state.head = nextHead;
     if (advanced) {
@@ -694,6 +782,7 @@ class MemoryStore implements Store {
       targets.push({ id, outcome });
     }
     if (released.length > 0) {
+      state.root = updateDigest(this.#digestStore(state, []), [], released);
       state.revision++;
       state.removedAt = state.revision;
       this.#record(state, [], released);
@@ -862,6 +951,35 @@ class MemoryStore implements Store {
         fault({
           kind: "feed-gap",
           detail: `memory store: the peer keeps ${kept.length} change records at floor ${floor} and revision ${state.revision}`,
+        });
+      // The digest against the tree its holdings give (§4.13 reading 141).
+      const want = digestRows(holdings.map(([id]) => id));
+      const root = want.get("")?.hash ?? EMPTY_DIGEST.hash;
+      const same = (a: DigestRow, b: DigestRow | undefined): boolean =>
+        b !== undefined &&
+        a.count === b.count &&
+        a.hash === b.hash &&
+        JSON.stringify(a.ids) === JSON.stringify(b.ids);
+      for (const [prefix, row] of state.digest.scan()) {
+        if (!same(row, want.get(prefix)))
+          fault({
+            kind: "digest-mismatch",
+            key: `digest:${prefix}`,
+            detail: "memory store: a stored digest node is not the node the holdings give",
+          });
+        want.delete(prefix);
+      }
+      for (const prefix of want.keys())
+        fault({
+          kind: "digest-mismatch",
+          key: `digest:${prefix}`,
+          detail: "memory store: a digest node the holdings give is not stored",
+        });
+      if (state.root.hash !== root || state.root.count !== holdings.length)
+        fault({
+          kind: "digest-mismatch",
+          key: "root",
+          detail: "memory store: the peer's root is not the root its holdings give",
         });
     }
     for (const [id, row] of this.#rows.scan()) {

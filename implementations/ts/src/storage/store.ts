@@ -5,6 +5,7 @@
 import { DeltaSet } from "../delta/set.js";
 import type { Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
+import type { DigestNode } from "./digest.js";
 
 /** A delta's content address. */
 export type Id = string;
@@ -106,7 +107,9 @@ export class StoreFaultError extends Error {
  * - `sequence-mismatch`: a holding's sequence or transfer passes the peer's last one;
  * - `feed-gap`: a peer's change records do not run from its floor to its revision;
  * - `orphan-bytes`: bytes that no peer holds;
- * - `engine`: the engine's own check of the file failed.
+ * - `engine`: the engine's own check of the file failed;
+ * - `digest-mismatch`: a stored node of the holdings digest, or the stored root, is not the one
+ *   the peer's holdings give (`key` names the node, `digest:<prefix>`, or the root).
  */
 export type IntegrityFaultKind =
   | "claims-mismatch"
@@ -118,7 +121,8 @@ export type IntegrityFaultKind =
   | "sequence-mismatch"
   | "feed-gap"
   | "orphan-bytes"
-  | "engine";
+  | "engine"
+  | "digest-mismatch";
 
 export type IntegrityFault = {
   readonly kind: IntegrityFaultKind;
@@ -326,7 +330,7 @@ export type ChangePage =
  * answers from a later state. After an append, a store may answer as at `revision` or refuse.
  * Once the peer has released a holding since `revision`, or has a new history, every operation
  * refuses `snapshot-moved` (§4.13 reading 130). `revision`, `history`, `head`, `count`,
- * `lastSequence` and `lastTransfer` are fixed when the snapshot is read and never refuse.
+ * `lastSequence`, `lastTransfer` and `root` are fixed when the snapshot is read and never refuse.
  */
 export interface Snapshot {
   readonly revision: Revision;
@@ -347,6 +351,19 @@ export interface Snapshot {
    * reading 135).
    */
   readonly lastTransfer: number;
+  /**
+   * The root hash of the holdings digest at this revision (§4.7.6, §4.13 reading 139): one value
+   * that names the exact set of ids the peer holds, its version address. Null when the store's
+   * profile has no `digest` capability.
+   */
+  readonly root: string | null;
+  /**
+   * The node of the holdings digest at `prefix`, a string of lowercase hex digits: how many held
+   * ids start with it, and its hash. A strict call (§4.13 reading 140): it refuses
+   * `snapshot-moved` once the peer's held set differs from the snapshot's, after an append too.
+   * Refuses `capability-absent` when the profile has no `digest` capability.
+   */
+  digest(prefix: string): Promise<DigestNode>;
   /** The held deltas among `ids`, each as this peer admitted it. */
   get(ids: readonly Id[]): Promise<readonly Delta[]>;
   /** This peer's arrival record for each held id among `ids`. */
