@@ -331,7 +331,8 @@ fn unproven_does_not_stand_in_for_nothing_removed() {
     );
 }
 
-/// §3.7: with `orError`, only that one refusal conforms. "Any other answer or refusal fails."
+/// §3.7: with `orError` or `error`, only that one refusal conforms. "Any other answer or refusal
+/// fails." `a-snapshot-across-a-purge` expects `error`; the other two expect `orError`.
 #[test]
 fn or_error_accepts_one_code_only() {
     let names = failed(Quirk::WrongCodeWhenMoved, "the store refused `peer-absent`");

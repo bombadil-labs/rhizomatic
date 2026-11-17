@@ -1225,7 +1225,10 @@ const TABLE: &[Row] = &[
         "query: a refusal where an answer is expected",
         W::TargetsRefuse,
         PLAIN,
-        &["targets: the store refused `invalid-request`"],
+        &[
+            "targets: the store refused `invalid-request`",
+            "targets: expected a refusal `snapshot-moved`, the store refused `invalid-request`",
+        ],
         S,
     ),
     row(
