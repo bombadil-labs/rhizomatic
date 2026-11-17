@@ -112,6 +112,9 @@ function auditedStore(store: Store, path: string): Store {
     id: p.id,
     history: p.history,
     erasure: p.erasure,
+    get appFormat() {
+      return p.appFormat;
+    },
     read: async () => snapshot(await after(p.read())),
     append: (batch) => after(p.append(batch)),
     purge: (ids) => after(p.purge(ids)),

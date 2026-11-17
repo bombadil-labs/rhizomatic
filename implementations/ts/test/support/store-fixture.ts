@@ -110,6 +110,7 @@ export function countingPeer(peer: PeerStore, trace: StoreCall[]): PeerStore {
     id: peer.id,
     history: peer.history,
     erasure: peer.erasure,
+    appFormat: peer.appFormat,
     read: async () => {
       trace.push({ op: "read", keyCount: 0, excludeCount: 0 });
       return countingSnapshot(await peer.read(), trace);

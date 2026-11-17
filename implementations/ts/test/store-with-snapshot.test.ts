@@ -88,6 +88,9 @@ function withRead(peer: PeerStore, read: () => Promise<Snapshot>): PeerStore {
       return peer.history;
     },
     erasure: peer.erasure,
+    get appFormat() {
+      return peer.appFormat;
+    },
     read,
     append: (batch) => peer.append(batch),
     purge: (ids) => peer.purge(ids),

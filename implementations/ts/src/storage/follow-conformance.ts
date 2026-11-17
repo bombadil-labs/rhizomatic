@@ -110,6 +110,7 @@ function logged(peer: PeerStore, sink: Sink): PeerStore {
     id: peer.id,
     history: peer.history,
     erasure: peer.erasure,
+    appFormat: peer.appFormat,
     read: async () => {
       // Written when the call is made, so a call no one awaits is seen too.
       const call = { op: "read", revision: -1, history: "" };

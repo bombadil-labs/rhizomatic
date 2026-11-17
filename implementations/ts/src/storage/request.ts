@@ -142,6 +142,29 @@ export function takeAppend(batch: unknown): {
   return { expectedHead, nextHead, added };
 }
 
+/** The most UTF-8 bytes an application format string holds (§4.13 reading 134). */
+export const APP_FORMAT_MAX_BYTES = 256;
+
+/**
+ * A peer's application format string from `createPeer`'s options, or null when it is absent.
+ * Refuses `invalid-request` for anything else that is not a well-formed string of 1 to
+ * `APP_FORMAT_MAX_BYTES` UTF-8 bytes, null included.
+ */
+export function takeAppFormat(given: unknown): string | null {
+  if (given === undefined) return null;
+  if (
+    typeof given !== "string" ||
+    given.length === 0 ||
+    !wellFormed(given) ||
+    new TextEncoder().encode(given).length > APP_FORMAT_MAX_BYTES
+  )
+    throw new StoreError(
+      "invalid-request",
+      `createPeer: appFormat is a well-formed string of 1 to ${APP_FORMAT_MAX_BYTES} UTF-8 bytes`,
+    );
+  return given;
+}
+
 /** A scope request in values the store owns, each read from the caller once. */
 export type OwnScope = {
   /** An anchor of kind `entity` holds a string. Another kind is refused when the scope runs. */

@@ -209,6 +209,7 @@ function logged(peer: PeerStore, sink: Sink): PeerStore {
     id: peer.id,
     history: peer.history,
     erasure: peer.erasure,
+    appFormat: peer.appFormat,
     read: async () => {
       const call = { op: "read" as const, revision: -1, history: "" };
       sink.log.push(call);

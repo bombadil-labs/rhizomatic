@@ -182,6 +182,12 @@ export interface Store {
 export type CreatePeerOptions = {
   /** `unproven` is the operator's acknowledgement that erasure reports may say `unproven`. */
   readonly erasure: ErasurePosture;
+  /**
+   * The application format string (§4.13 reading 134): a host's own marker for the format of
+   * what it keeps in this peer, 1 to 256 UTF-8 bytes. Absent, the peer has none. It is fixed
+   * here and never changes.
+   */
+  readonly appFormat?: string;
 };
 
 /**
@@ -198,6 +204,11 @@ export interface PeerStore {
   readonly history: History;
   /** The posture declared at creation, and the store's erasure class recorded with it. */
   readonly erasure: { readonly posture: ErasurePosture; readonly storeClass: ErasureClass };
+  /**
+   * The application format string given at `createPeer`, or null when none was given (§4.13
+   * reading 134). Every handle of the peer, in any process, reads the same value. O(1).
+   */
+  readonly appFormat: string | null;
   /** A consistent view of this peer at one revision. */
   read(): Promise<Snapshot>;
   append(batch: Admission): Promise<AppendResult>;

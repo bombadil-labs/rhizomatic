@@ -7,7 +7,15 @@ import type { Claims, Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
 import { copyArrival, copyClaims, isPlainObject, ownFields } from "./copy.js";
 import { LOCAL_HISTORY_PREFIX } from "./freshness.js";
-import { admit, strings, takeAppend, takeScope, wellFormed, type OwnScope } from "./request.js";
+import {
+  admit,
+  strings,
+  takeAppend,
+  takeAppFormat,
+  takeScope,
+  wellFormed,
+  type OwnScope,
+} from "./request.js";
 import {
   PURGE_BOUNDARY,
   StoreError,
@@ -121,6 +129,7 @@ type PeerState = {
   readonly id: PeerId;
   readonly history: History;
   readonly posture: ErasurePosture;
+  readonly appFormat: string | null;
   readonly holdings: Index<Holding>;
   readonly targets: Index<Set<Id>>;
   readonly negators: Index<Set<Id>>;
@@ -267,13 +276,15 @@ class MemoryStore implements Store {
     // The options are a plain object, read once. A getter that throws is a posture not
     // declared, as is anything that is not a plain object (a list included).
     let posture: unknown;
+    let format: unknown;
     try {
-      if (isPlainObject(options)) posture = ownFields(options)["erasure"];
+      if (isPlainObject(options)) ({ erasure: posture, appFormat: format } = ownFields(options));
     } catch {
       posture = undefined;
     }
     if (posture !== "proven" && posture !== "unproven")
       throw new StoreError("invalid-request", "createPeer: declare the erasure posture");
+    const appFormat = takeAppFormat(format);
     const storeClass: ErasureClass = this.#own.capabilities.erasure;
     if (posture === "proven" && storeClass !== "proven")
       throw new StoreError(
@@ -286,6 +297,7 @@ class MemoryStore implements Store {
       id,
       history: this.#mint(id),
       posture,
+      appFormat,
       holdings: new Index(this.#meter),
       targets: new Index(this.#meter),
       negators: new Index(this.#meter),
@@ -314,6 +326,9 @@ class MemoryStore implements Store {
       id: state.id,
       history: state.history,
       erasure: { posture: state.posture, storeClass: this.#own.capabilities.erasure },
+      get appFormat() {
+        return state.appFormat;
+      },
       read: async () => {
         this.#open();
         return this.#snapshot(state);
