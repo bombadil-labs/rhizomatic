@@ -211,6 +211,15 @@ describe("fsck finds each kind of fault that a second connection makes", () => {
     ]);
   });
 
+  it("a damaged change record past the first page of 256 (revision 300) gives one column-mismatch", async () => {
+    const { a, damage, fsck } = await filled();
+    for (let i = 0; i < 297; i++) await add(a, []);
+    damage("UPDATE change SET added = 'garbage' WHERE peer = 'peer:a' AND revision = 300");
+    expect(places(await fsck())).toEqual([
+      { kind: "column-mismatch", peer: "peer:a", id: undefined, key: "change.added" },
+    ]);
+  });
+
   it("bytes no peer holds give one orphan-bytes", async () => {
     const { damage, fsck } = await filled();
     const loose = fact("entity:loose");

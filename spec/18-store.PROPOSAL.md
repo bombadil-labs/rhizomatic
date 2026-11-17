@@ -2619,6 +2619,22 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      - **Change record** (SQLite, `changes`). `column-mismatch` (key `change.added` or
        `change.removed`, no `id`) for a list that is not a JSON list of texts; the detail names
        the revision. The ids in it are not compared with the holdings.
+     - **Rows dropped before they are read** (SQLite). In two cases a statement drops a row
+       before the store reads it, and the read answers without a fault. First, the snapshot's
+       bound, `arrivalAtMost` and `excludeIds` drop a holding by its `seq` or its id, also a
+       holding whose `delta` row is gone. Second, `exclude` in `scope` drops a member whose
+       `delta` row is there, so a member with changed claims, a bad signature or a bad arrival
+       record is not read. `exclude` does not drop a member whose `delta` row is gone, and
+       `timestampAtMost` keeps it, so the walk fails on it. The memory store reads the row of a
+       held id before it applies the bound. So its `get` and `scope` throw for a lost row of a
+       holding past the snapshot's bound, and its `scope` throws for a lost row that
+       `excludeIds` or `arrivalAtMost` drops. No call can lose a memory row, so no host meets
+       this difference.
+     - **A lowered last transfer** (SQLite). When a peer row's `max_transfer` is below the
+       transfer of a holding, `arrivals` and `scope` fail for each such holding
+       (`sequence-mismatch`, key `transfer`). `purge([id])` is no remedy here: the fault is in
+       the peer row, which no call writes back, and a purge removes a sound delta. The host
+       restores the file. `fsck` names each holding above the peer's last transfer.
      A lost index row is not seen by a read (reading 138). The memory store keeps its rows in
      process memory, where no call can damage them; it throws `claims-unreadable` for a held id
      with no stored claims, in `get`, `arrivals`, `targets`, `negators` and `scope`. A host
@@ -2646,11 +2662,14 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `orphan-bytes` (no `peer`) and `engine` (SQLite's `integrity_check` and
      `foreign_key_check`). `digest-mismatch` and `journal-broken` come with the digest and the
      journal. Every check that a read makes (reading 136) is also a check of `fsck`, with the
-     same fault. The SQLite store works in steps, and each step is one short read transaction:
-     the engine's checks; per peer, its count and change records against its row; per page of
-     256 of a peer's change records, the form of each record; per page of 256 of a peer's
-     holdings, each holding's claims, signature, columns, arrival record, sequence, transfer and
-     index rows against the peer's row; per page of 256 stored deltas, whether a peer holds it.
+     same fault. `fsck` reports every fault of a holding, not the first: a fault of the claims
+     ends only the checks that read the claims (the authors, the timestamp and the index rows),
+     and the signature, the arrival record and the sequence are checked still. The SQLite store
+     works in steps, and each step is one short read transaction: the engine's checks; per
+     peer, its count and change records against its row; per page of 256 of a peer's change
+     records, the form of each record; per page of 256 of a peer's holdings, each holding's
+     claims, signature, columns, arrival record, sequence, transfer and index rows against the
+     peer's row; per page of 256 stored deltas, whether a peer holds it.
      A holding whose `delta` row is gone is reported `claims-unreadable` with its peer and id,
      beside the `engine` fault of `foreign_key_check`. Between steps it holds no transaction and
      yields to the host's event loop. So a write by this store or by another process commits

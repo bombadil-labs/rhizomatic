@@ -137,6 +137,13 @@ Step 4d adds more, listed under Breaking.
   A memory-store purge that completes is proposed in its own pull request (reading 136).
 - Tests: rails for every `fsck` check that had none, two repaired rails of the transfer ordinal,
   and a timeout of its own for the statement-list rail, which runs the whole store conformance.
+- Follow-ups of PR #98. `fsck` reports every fault of a holding: a holding whose claims are
+  wrong still gets the checks of its signature, its arrival record and its sequence (reading
+  137). The memory store's test meter `StoreMeter.lookups` rises by one for each id that
+  `arrivals`, `targets` and `negators` answer, because each looks up the id's row (reading 136).
+  Reading 136 states when a damaged row is dropped before it is read, where the memory store
+  differs, and that a lowered `max_transfer` has no purge remedy. Rails hold `fsck` on a change
+  record past the first page and on a file whose header is not a database header.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.

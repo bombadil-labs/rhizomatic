@@ -1524,25 +1524,26 @@ class SqliteFileStore implements SqliteStore {
       const fault = (kind: IntegrityFault["kind"], key: string, detail: string): void => {
         faults.push({ kind, peer, id, key, detail: `sqlite store: ${detail}` });
       };
-      let claims: Claims;
+      // A fault of the claims ends only the checks that read the claims: the signature, the
+      // arrival record and the sequence are checked for every holding (§4.13 reading 137).
+      let claims: Claims | undefined;
       try {
         claims = storedClaims(held.claims && new Uint8Array(held.claims), id, peer);
       } catch (error) {
         if (!(error instanceof StoreIntegrityError)) throw error;
         faults.push(error.fault);
-        continue;
       }
       const sig = sigFault(held.sig, peer, id);
       if (sig !== undefined) faults.push(sig);
-      if (held.heldAuthor !== claims.author)
+      if (claims !== undefined && held.heldAuthor !== claims.author)
         fault(
           "column-mismatch",
           "holding.author",
           "the holding's author is not the claims' author",
         );
-      if (held.author !== claims.author)
+      if (claims !== undefined && held.author !== claims.author)
         fault("column-mismatch", "delta.author", "the stored author is not the claims' author");
-      if (held.timestamp !== claims.timestamp)
+      if (claims !== undefined && held.timestamp !== claims.timestamp)
         fault("column-mismatch", "delta.timestamp", "the stored timestamp is not the claims'");
       const arrival = arrivalOf(held.arrival, peer, id, held.seq, row.maxTransfer);
       if ("kind" in arrival && arrival.kind === "column-mismatch") faults.push(arrival);
@@ -1553,6 +1554,7 @@ class SqliteFileStore implements SqliteStore {
           `sequence ${held.seq} passes the peer's last ${row.maxSeq}`,
         );
       if ("kind" in arrival && arrival.kind === "sequence-mismatch") faults.push(arrival);
+      if (claims === undefined) continue;
       const entities = new Set<string>();
       const references = new Map<string, string>();
       for (const { role, target } of claims.pointers)
