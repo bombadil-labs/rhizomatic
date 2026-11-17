@@ -1,9 +1,9 @@
 // A child of the many-process rails (sqlite-store-processes.test.ts). It runs one job on the store
 // at a path, given as JSON in its first argument, and prints its answer as one line
 // `<word> <json>`. A job can wait for a go file before it starts (`go`), so that several
-// children start together; it prints `waiting go` first. A go file that holds a time in ms
-// since the epoch makes the child wait until that time, so that several children start within
-// a millisecond.
+// children start together; it prints `waiting go` first. The go file holds a time in ms since
+// the epoch, and the child waits until that time, so that several children start within a
+// millisecond. A missing or empty go file is "not yet".
 //
 // A job can also hold at one point, from the test side: the child wraps the statements of
 // `better-sqlite3` in this process only, and the store has no hook for it. A hold prints
@@ -34,7 +34,8 @@
 // - `follow`: follows the peer's feed from revision 0 until revision `until`, with the
 //   contract's `followFeed`. A pull that throws `snapshot-moved` is asked again. Prints
 //   `followed {revisions, added, delivered, pulls, moved}`.
-// - `open`: opens the store (with `restored` when asked) and prints `histories {peer: history}`.
+// - `open`: opens the store (with `restored` when asked) and prints `histories {peer: history}`,
+//   then `refused-after [ms]`: the time each refused try of the open took.
 // - `read`: takes a snapshot, then gets `ids` on it, holding at `checked`. Prints
 //   `got {revision, ids}` or `refused <code>`.
 // - `append`: appends one batch of `size` new deltas whose arrivals start after `after`,
@@ -95,6 +96,17 @@ const waitFor = (file: string): void => {
   }
 };
 
+/** The start time in a go file; a missing or empty file, or one with no number, is "not yet". */
+const startTime = (file: string): number => {
+  const deadline = Date.now() + 60_000;
+  for (;;) {
+    const text = existsSync(file) ? readFileSync(file, "utf8").trim() : "";
+    if (text !== "" && Number.isFinite(Number(text))) return Number(text);
+    if (Date.now() > deadline) process.exit(3);
+    sleep(2);
+  }
+};
+
 let armed = false;
 function at(point: string): void {
   if (!armed || job.hold !== point) return;
@@ -145,9 +157,11 @@ const refused = (error: unknown): string => {
 
 const ASK_AGAIN_MS = 60_000;
 let asked = 0;
+const refusedAfter: number[] = [];
 async function again<T>(what: string, call: () => Promise<T>): Promise<T> {
   const started = Date.now();
   for (let tries = 1; ; tries++) {
+    const tried = performance.now();
     try {
       return await call();
     } catch (error) {
@@ -156,6 +170,7 @@ async function again<T>(what: string, call: () => Promise<T>): Promise<T> {
         !error.message.endsWith("ask again")
       )
         throw error;
+      refusedAfter.push(performance.now() - tried);
       const spent = Date.now() - started;
       if (spent > ASK_AGAIN_MS)
         throw new Error(
@@ -168,8 +183,7 @@ async function again<T>(what: string, call: () => Promise<T>): Promise<T> {
 
 if (job.go !== undefined) {
   print("waiting", "go");
-  waitFor(job.go);
-  const at = Number(readFileSync(job.go, "utf8"));
+  const at = startTime(job.go);
   while (Date.now() < at);
 }
 armed = job.hold === "identity" || job.hold === "lock";
@@ -188,6 +202,7 @@ try {
       for await (const id of store.openAdmin().peers())
         histories[id] = (await store.peer(id)).history;
       print("histories", histories);
+      print("refused-after", refusedAfter);
       break;
     }
     case "create":

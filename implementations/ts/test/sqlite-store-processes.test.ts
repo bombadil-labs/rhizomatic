@@ -322,6 +322,40 @@ describe("busy: a write that cannot take the lock within busyTimeoutMs", () => {
 
 // ---- the open of a new file ---------------------------------------------------------------------
 
+const UNAVAILABLE =
+  "store-unavailable: the SQLite store cannot serve this call now (SQLITE_BUSY); ask again";
+
+/** The answer of an open of `path` (closed again when it opened) and its time in ms. */
+async function timedOpen(path: string, busyTimeoutMs: number) {
+  const started = performance.now();
+  const answer = await openSqliteStore(path, { busyTimeoutMs }).then(
+    async (store) => {
+      await store.close();
+      return "opened";
+    },
+    (error: unknown) =>
+      error instanceof StoreError ? `${error.code}: ${error.message}` : String(error),
+  );
+  return { answer, ms: performance.now() - started };
+}
+
+/**
+ * Runs `body` while each `pragma` call of `better-sqlite3` in this process first runs `before`.
+ * The hook lives in the test process only; the store has none.
+ */
+async function hooked<T>(before: (source: string) => void, body: () => Promise<T>): Promise<T> {
+  const pragma = Database.prototype.pragma;
+  Database.prototype.pragma = function (this: Database.Database, source, options) {
+    before(source);
+    return pragma.call(this, source, options);
+  } as typeof pragma;
+  try {
+    return await body();
+  } finally {
+    Database.prototype.pragma = pragma;
+  }
+}
+
 describe("the open of a new file that other connections open at the same time", () => {
   it("while another connection holds the write lock of the new file, open waits busyTimeoutMs and refuses store-unavailable, not open-failed at once; a later open makes the store", async () => {
     const path = storePath();
@@ -345,17 +379,70 @@ describe("the open of a new file that other connections open at the same time", 
     audit(path);
   }, 60_000);
 
-  it("four processes that open one new path together all open it, with no refusal to ask again, and the file is one sound store", async () => {
+  it("while another connection holds an exclusive lock on the new file, the open's first read waits and refuses store-unavailable after busyTimeoutMs and within twice it, not open-failed", async () => {
+    const path = storePath();
+    const holder = new Database(path);
+    holder.prepare("BEGIN EXCLUSIVE").run();
+    const { answer, ms } = await timedOpen(path, 200);
+    holder.prepare("ROLLBACK").run();
+    holder.close();
+    expect(answer).toBe(UNAVAILABLE);
+    expect(ms).toBeGreaterThanOrEqual(200);
+    expect(ms).toBeLessThan(2 * 200 + 600);
+  }, 60_000);
+
+  it("when another connection takes an exclusive lock after the open's first read, so each journal mode switch waits busyTimeoutMs in the engine, the open refuses store-unavailable within twice busyTimeoutMs", async () => {
+    const path = storePath();
+    let holder: Database.Database | undefined;
+    let switches = 0;
+    const { answer, ms } = await hooked(
+      (source) => {
+        if (!source.startsWith("journal_mode")) return;
+        switches++;
+        if (holder !== undefined) return;
+        holder = new Database(path);
+        holder.prepare("BEGIN EXCLUSIVE").run();
+      },
+      () => timedOpen(path, 200),
+    );
+    holder?.prepare("ROLLBACK").run();
+    holder?.close();
+    expect(answer).toBe(UNAVAILABLE);
+    expect(switches).toBeGreaterThanOrEqual(1);
+    expect(ms).toBeGreaterThanOrEqual(200);
+    expect(ms).toBeLessThan(2 * 200 + 600);
+  }, 60_000);
+
+  it("an error of a connection rule that is not busy passes up as open-failed with its code, after one try", async () => {
+    const path = storePath();
+    let switches = 0;
+    const { answer } = await hooked(
+      (source) => {
+        if (!source.startsWith("journal_mode")) return;
+        switches++;
+        throw new Database.SqliteError("disk I/O error", "SQLITE_IOERR");
+      },
+      () => timedOpen(path, 200),
+    );
+    expect([answer, switches]).toEqual([
+      "open-failed: sqlite store: the file did not open (SQLITE_IOERR)",
+      1,
+    ]);
+  }, 60_000);
+
+  it("four processes that open one new path together all open it, no open is refused before the default busyTimeoutMs of 5000 ms, and the file is one sound store", async () => {
     for (let round = 0; round < 10; round++) {
       const path = storePath();
       const go = `${path}.go-start`;
       const openers = Array.from({ length: 4 }, () => child({ op: "open", path, go }));
       for (const opener of openers) await opener.printed("waiting");
-      writeFileSync(go, String(Date.now() + 100));
+      writeFileSync(`${go}.part`, String(Date.now() + 100));
+      renameSync(`${go}.part`, go);
       for (const opener of openers) {
         expect(await opener.json("histories")).toEqual({});
         expect(await opener.ended).toBe("0");
-        expect(opener.output()).not.toContain("busy ");
+        for (const ms of await opener.json<number[]>("refused-after"))
+          expect(ms).toBeGreaterThanOrEqual(5000);
       }
       const db = new Database(path, { readonly: true });
       try {

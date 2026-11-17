@@ -207,22 +207,29 @@ function unavailable(error: unknown): unknown {
   );
 }
 
+/** The cell that `waiting` pauses on, made at its first pause. */
+let pause: Int32Array | undefined;
+
 /**
- * Runs `body`, and runs it again while the engine answers `SQLITE_BUSY`, for at most `timeoutMs`.
- * The switch to the `wal` journal mode answers busy at once, without the busy handler, while
- * another connection opens the same new file. After the wait the refusal is `store-unavailable`,
- * as for any lock held past the wait (reading 105). Any other error passes up unchanged.
+ * Runs `body`, and runs it again while the engine answers `SQLITE_BUSY`, until `timeoutMs` has
+ * passed since the first try. The switch to the `wal` journal mode answers busy at once, without
+ * the busy handler, while another connection opens the same new file. Each statement in `body`
+ * can also wait `timeoutMs` in the busy handler, so a try that starts just before the end can
+ * take that long again. After the wait the refusal is `store-unavailable`, as for any lock held
+ * past the wait (reading 105). Any other error passes up unchanged.
  */
 function waiting<T>(timeoutMs: number, body: () => T): T {
-  const pause = new Int32Array(new SharedArrayBuffer(4));
-  for (let waited = 0; ; waited += BUSY_PAUSE_MS) {
+  const start = performance.now();
+  for (;;) {
     try {
       return body();
     } catch (error) {
       if (!(error instanceof Database.SqliteError && error.code.startsWith("SQLITE_BUSY")))
         throw error;
-      if (waited >= timeoutMs) throw unavailable(error);
-      Atomics.wait(pause, 0, 0, BUSY_PAUSE_MS);
+      const left = timeoutMs - (performance.now() - start);
+      if (left <= 0) throw unavailable(error);
+      pause ??= new Int32Array(new SharedArrayBuffer(4));
+      Atomics.wait(pause, 0, 0, Math.min(BUSY_PAUSE_MS, left));
     }
   }
 }
@@ -442,9 +449,10 @@ class SqliteFileStore implements SqliteStore {
     // The journal mode pragma writes the file's header and makes the -wal and -shm files. So a
     // file that is not a store is refused first, by reads only (§4.13 reading 126).
     db.pragma(`busy_timeout = ${options.busyTimeoutMs}`);
-    isEmpty(db);
-    for (const [name, value] of this.#rules)
-      waiting(options.busyTimeoutMs, () => db.pragma(`${name} = ${value}`));
+    waiting(options.busyTimeoutMs, () => {
+      isEmpty(db);
+      for (const [name, value] of this.#rules) db.pragma(`${name} = ${value}`);
+    });
     const now = this.#connection();
     for (const [name, value, expected] of this.#rules)
       if (now[name] !== expected)
