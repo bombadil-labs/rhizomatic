@@ -2769,10 +2769,18 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      exists for the whole scan. A fault that a write makes or removes during the scan may be
      missed; no fault is invented by a write. It holds because the digest rows and the
      holdings change in one transaction, so every read transaction sees them agree. The memory
-     store compares its rows with the tree its holdings give. A damaged digest has no remedy by
-     a call: the host restores the file. A damaged digest does not stop a write: the update gives
-     each leaf the count of the holdings it reads, so an append or a purge completes, and the
-     damage stays for `fsck` to report. No purge waits on the digest.
+     store compares its rows with the tree its holdings give. A stored row that no parent
+     accounts for (a stray row) is reported `digest-mismatch` on both stores. The memory store
+     names the row. On SQLite the row, its parent or a row below it fails its check, because a
+     leaf is checked against held ids and every other row against its parent and its children.
+     A damaged digest has no remedy by a call: the host restores the file. A damaged digest does
+     not stop a write: the update gives each leaf the count of the holdings it reads, so an
+     append or a purge completes. Each leaf the update writes drops every row of the peer below
+     its prefix, whatever the stored counts say, so a damaged count or a lost row on the path
+     keeps no row below a rewritten leaf (reading 142). The update does not repair the digest:
+     a rewritten node can be a leaf of more than 16 ids, or a node of more than 16 ids whose
+     children it does not find. The damage stays for `fsck` to report. No purge waits on the
+     digest.
 142. **Format `/6`, and the digest under erasure** (slice 4, step 4d). The `peer` table gains
      `root TEXT NOT NULL`, and the `digest (peer, prefix, count, hash)` table keeps one row per
      stored node, keyed `(peer, prefix)`, without a rowid. Open refuses a `/1` to `/5` file with
@@ -2784,8 +2792,19 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      and that transaction deletes a `holding` row, which raises `residue.dirty`. A rebuild that
      makes `clean = dirty` begins after that commit and rewrites every page. So a `proven` report
      stays true: after it no file holds a digest row or a hash that existed only because of a
-     purged id. A rail scans the files for every hash a node on the id's path ever had. Nothing
-     can be removed now that could not be removed before.
+     purged id. The update rewrites every node on the path of each released id, and each leaf it
+     writes drops every row of the peer below its prefix, also when damage changed a stored
+     count or lost a row (reading 141). Rails scan every file of the store for the hashes of the
+     id's path: on a sound digest (every hash the path ever had), after a damaged root count,
+     after a lost internal row, after a damaged leaf count, after a merge of 17 ids into a leaf
+     of 16, and with a second peer that holds the id. **The limit.** The claim covers the digest
+     rows at the prefixes the store wrote. A row that damage moved to a prefix off the purged
+     id's path is outside the claim: the purge finds rows by an index search on the path and
+     below a rewritten leaf, and it does not scan the table. `fsck` reports such a row as a
+     stray row (reading 141). The host restores the file. The drop removes only digest rows of
+     the purging peer, below a prefix that the update rewrites; it removes no holding, delta or
+     index row, and no row of another peer. Nothing can be removed now that could not be removed
+     before.
 
 ## 5. Architectures
 

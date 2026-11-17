@@ -150,12 +150,16 @@ Step 4d adds more, listed under Breaking.
   a 16-way tree whose leaves hold at most 16 ids. `digest` is a strict call: it refuses
   `snapshot-moved` once the peer's held set differs from the snapshot's. Both TypeScript stores
   keep the tree and declare `digest: true`. An append and a purge change it in their own
-  transaction, at O(depth) rows per changed id. `fsck` reports `digest-mismatch`. The package root
+  transaction, at O(depth) rows per changed id. Each leaf the update writes drops every digest
+  row of the peer below it, so a damaged count or a lost row keeps no hash of a purged id below
+  a rewritten leaf. `fsck` reports `digest-mismatch`, also for a stray row. A row that damage
+  moved off a purged id's path is outside a `proven` claim (reading 142). The package root
   exports `digestOf`, `EMPTY_DIGEST`, `DigestNode`, `runDigestConformance`, `digestVectors` and
   `STORE_DIGEST_FORMAT`. New shared vectors: `vectors/store/digest.json` (README §12). The Rust
   witness checks the file's trees byte for byte, and takes the digest in its stores in step 4e.
-- The memory store's test meter counts the digest's path in `append` and `purge`: a few rows
-  per level of the tree for each changed id.
+- The memory store's test meter counts the digest's path in `append` and `purge`. A rail bounds
+  their lookups by a fixed cost per level of the tree for each changed id, with the levels
+  counted from the ids.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
