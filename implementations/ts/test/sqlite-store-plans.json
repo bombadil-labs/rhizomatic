@@ -104,6 +104,16 @@
     "  CREATE BLOOM FILTER",
     "USE TEMP B-TREE FOR ORDER BY"
   ],
+  "digestRows": [
+    "SCAN asked VIRTUAL TABLE INDEX 1:",
+    "SEARCH digest USING PRIMARY KEY (peer=? AND prefix=?)"
+  ],
+  "digestHeld": [
+    "SEARCH holding USING COVERING INDEX sqlite_autoindex_holding_1 (peer=? AND delta>? AND delta<?)"
+  ],
+  "digestPut": [],
+  "digestDrop": ["SEARCH digest USING PRIMARY KEY (peer=? AND prefix=?)"],
+  "digestDropUnder": ["SEARCH digest USING PRIMARY KEY (peer=? AND prefix>? AND prefix<?)"],
   "changes": [
     "SEARCH change USING INDEX sqlite_autoindex_change_1 (peer=? AND revision>? AND revision<?)"
   ],
@@ -128,6 +138,7 @@
     "SEARCH reference USING COVERING INDEX reference_by_delta (peer=? AND delta=?)"
   ],
   "fsckCount": ["SEARCH holding USING COVERING INDEX sqlite_autoindex_holding_2 (peer=?)"],
+  "fsckDigest": ["SEARCH digest USING PRIMARY KEY (peer=? AND prefix>?)"],
   "fsckFeed": ["SEARCH change USING COVERING INDEX sqlite_autoindex_change_1 (peer=?)"],
   "trigger holding_delete_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
   "trigger holding_update_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],

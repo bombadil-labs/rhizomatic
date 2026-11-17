@@ -11,6 +11,7 @@ import {
   type SqliteStore,
   type SqliteStoreOptions,
 } from "../../src/storage/sqlite-store.js";
+import { EMPTY_DIGEST, digestRows } from "../../src/storage/digest.js";
 import type { PeerStore, Snapshot, Store } from "../../src/storage/store.js";
 
 export type SqliteFixture = {
@@ -29,13 +30,16 @@ export type SqliteFixture = {
  * do not bound exactly the change records it keeps. Throws too when a holding's `seq` is not the
  * sequence of its arrival record or passes the peer's `max_seq`, or when `removed_at` is not the
  * revision of the last kept record that removes an id (§4.13 readings 130 and 131), or when a
- * holding's transfer passes `max_transfer` (reading 135).
+ * holding's transfer passes `max_transfer` (reading 135), or when the digest rows and `root` are
+ * not the tree that the peer's holdings give (reading 139).
  */
 export function audit(path: string): void {
   const db = new Database(path, { readonly: true, fileMustExist: true });
   try {
     const peers = db
-      .prepare("SELECT id, revision, floor, count, max_seq, removed_at, max_transfer FROM peer")
+      .prepare(
+        "SELECT id, revision, floor, count, max_seq, removed_at, max_transfer, root FROM peer",
+      )
       .all() as {
       id: string;
       revision: number;
@@ -44,6 +48,7 @@ export function audit(path: string): void {
       max_seq: number;
       removed_at: number;
       max_transfer: number;
+      root: string;
     }[];
     for (const peer of peers) {
       const { held } = db
@@ -85,6 +90,25 @@ export function audit(path: string): void {
         throw new Error(
           `peer ${peer.id}: removed_at ${peer.removed_at}, and the last kept record that removes is at ${removal}`,
         );
+      const ids = db
+        .prepare("SELECT delta FROM holding WHERE peer = ?")
+        .pluck()
+        .all(peer.id) as string[];
+      const want = digestRows(ids);
+      const stored = db
+        .prepare("SELECT prefix, count, hash FROM digest WHERE peer = ?")
+        .all(peer.id) as { prefix: string; count: number; hash: string }[];
+      const root = want.get("")?.hash ?? EMPTY_DIGEST.hash;
+      if (
+        peer.root !== root ||
+        stored.length !== want.size ||
+        stored.some(
+          (r) => want.get(r.prefix)?.hash !== r.hash || want.get(r.prefix)?.count !== r.count,
+        )
+      )
+        throw new Error(
+          `peer ${peer.id}: the digest rows or the root are not the tree of its holdings`,
+        );
       const floor = feed.kept === 0 ? peer.revision : feed.low! - 1;
       const top = feed.kept === 0 ? peer.revision : feed.high!;
       if (floor !== peer.floor || top !== peer.revision || feed.kept !== peer.revision - peer.floor)
@@ -113,6 +137,8 @@ function auditedStore(store: Store, path: string): Store {
     count: s.count,
     lastSequence: s.lastSequence,
     lastTransfer: s.lastTransfer,
+    root: s.root,
+    digest: (prefix) => after(s.digest(prefix)),
     get: (ids) => after(s.get(ids)),
     arrivals: (ids) => after(s.arrivals(ids)),
     targets: (entities) => after(s.targets(entities)),

@@ -44,7 +44,7 @@ describe("registering the sqlite scheme by import", () => {
     await evaluate("alone");
     await evaluate("alone-again");
     const store = await openStore(url(fixture.path()));
-    expect(store.profile.formatVersion).toBe("rhizomatic-store-sqlite/5");
+    expect(store.profile.formatVersion).toBe("rhizomatic-store-sqlite/6");
     await store.close();
   });
 });

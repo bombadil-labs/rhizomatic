@@ -17,6 +17,7 @@ import { contentAddress } from "../src/delta/hash.js";
 import { makeDelta } from "../src/delta/set.js";
 import type { Delta } from "../src/delta/types.js";
 import { admissionOf } from "../src/storage/admission.js";
+import { EMPTY_DIGEST, digestRows } from "../src/storage/digest.js";
 import { openSqliteStore } from "../src/storage/sqlite-store.js";
 import {
   StoreIntegrityError,
@@ -92,9 +93,34 @@ async function filled() {
       db.close();
     }
   };
+  /** Writes the digest rows and root that the peer's holdings give, as the store writes them. */
+  const redigest = (peer: string): void => {
+    const db = new Database(path);
+    try {
+      const ids = db
+        .prepare("SELECT delta FROM holding WHERE peer = ?")
+        .pluck()
+        .all(peer) as string[];
+      const rows = digestRows(ids);
+      db.prepare("DELETE FROM digest WHERE peer = ?").run(peer);
+      for (const [prefix, { count, hash }] of rows)
+        db.prepare("INSERT INTO digest (peer, prefix, count, hash) VALUES (?, ?, ?, ?)").run(
+          peer,
+          prefix,
+          count,
+          hash,
+        );
+      db.prepare("UPDATE peer SET root = ? WHERE id = ?").run(
+        rows.get("")?.hash ?? EMPTY_DIGEST.hash,
+        peer,
+      );
+    } finally {
+      db.close();
+    }
+  };
   const fsck = () => store.openAdmin().fsck();
   expect(await fsck()).toEqual({ checked: { peers: 2, holdings: 5, deltas: 4 }, faults: [] });
-  return { path, store, a, atE, atF, neg, bystander, damage, fsck };
+  return { path, store, a, atE, atF, neg, bystander, damage, redigest, fsck };
 }
 
 describe("fsck finds each kind of fault that a second connection makes", () => {
@@ -157,7 +183,7 @@ describe("fsck finds each kind of fault that a second connection makes", () => {
   });
 
   it("bytes that hash to their id and are not claims give one claims-unreadable, and a read of the id throws it", async () => {
-    const { a, damage, fsck } = await filled();
+    const { a, damage, redigest, fsck } = await filled();
     const bytes = new Uint8Array([0xf6]);
     const id = contentAddress(bytes);
     damage("INSERT INTO delta (id, claims, author, timestamp) VALUES (?, ?, 'x', 0)", id, bytes);
@@ -169,6 +195,7 @@ describe("fsck finds each kind of fault that a second connection makes", () => {
       id,
     );
     damage("UPDATE peer SET count = count + 1, max_seq = max_seq + 1 WHERE id = 'peer:a'");
+    redigest("peer:a");
     expect(places(await fsck())).toEqual([
       { kind: "claims-unreadable", peer: "peer:a", id, key: undefined },
     ]);

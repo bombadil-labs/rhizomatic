@@ -82,7 +82,7 @@ const code = async (action: () => Promise<unknown>): Promise<string> =>
   );
 
 describe("the memory store's profile", () => {
-  it("claims only what slices 1 to 3 implement", () => {
+  it("claims only what slices 1 to 3 and step 4d implement: the digest, and no other new capability", () => {
     expect(createMemoryStore().profile).toEqual({
       capabilities: {
         values: false,
@@ -90,7 +90,7 @@ describe("the memory store's profile", () => {
         journal: false,
         views: false,
         derivedIndexes: false,
-        digest: false,
+        digest: true,
         erasure: "unprovable",
       },
       indexedValueRoles: [],
@@ -129,7 +129,7 @@ describe("the memory store's profile", () => {
         "purge",
         "erasure-proven",
       ]),
-    ).toEqual(["values", "journal", "views", "derivedIndexes", "digest", "erasure-proven"]);
+    ).toEqual(["values", "journal", "views", "derivedIndexes", "erasure-proven"]);
   });
 });
 
@@ -1963,8 +1963,11 @@ describe("cost rail: an operation costs its footprint, not the store", () => {
   const baseStrike = strike(base, 2);
   const footprint = [base, baseStrike, strike(baseStrike, 3), fact("plant", 4), fact("bed", 5)];
   const fresh = [fact("plant", 6), strike(base, 7)];
-  const unrelated = Array.from({ length: N }, (_, i) => fact(`other:${i % 7}`, 100 + i));
-  const unrelatedStrikes = unrelated.slice(0, 50).map((d, i) => strike(d, 1000 + i));
+  /** `n` unrelated facts, and strikes of the first 50. */
+  const unrelatedOf = (n: number): Delta[] => {
+    const facts = Array.from({ length: n }, (_, i) => fact(`other:${i % 7}`, 100 + i));
+    return [...facts, ...facts.slice(0, 50).map((d, i) => strike(d, 1000 + i))];
+  };
 
   /** The work each core operation does over the same footprint, with `extra` deltas around it. */
   async function measure(extra: readonly Delta[]): Promise<Record<string, StoreMeter>> {
@@ -2032,17 +2035,38 @@ describe("cost rail: an operation costs its footprint, not the store", () => {
     return costs;
   }
 
-  it("the same operations make the same index calls with 0 and with N unrelated deltas", async () => {
+  it("the same operations make the same index calls with 0, N and 4N unrelated deltas, but append and purge, whose digest path grows with its depth only", async () => {
     const alone = await measure([]);
-    const crowded = await measure([...unrelated, ...unrelatedStrikes]);
-    expect(crowded).toEqual(alone);
+    const crowded = await measure(unrelatedOf(N));
+    const four = await measure(unrelatedOf(4 * N));
+    // Append and purge walk the path of each changed id in the holdings digest (§4.13 reading
+    // 139): 16 rows per level, and a level per hex digit that more than 16 held ids share.
+    const pathless = (costs: Record<string, StoreMeter>) =>
+      Object.fromEntries(
+        Object.entries(costs).filter(([name]) => name !== "append" && name !== "purge"),
+      );
+    expect(pathless(crowded)).toEqual(pathless(alone));
+    expect(pathless(four)).toEqual(pathless(alone));
+    for (const name of ["append", "purge"]) {
+      const [a, n, f] = [alone[name]!, crowded[name]!, four[name]!];
+      console.log(`memory cost, ${name}: ${a.lookups}, ${n.lookups} and ${f.lookups} lookups`);
+      expect([n.visited, n.scans, f.visited, f.scans]).toEqual([
+        a.visited,
+        a.scans,
+        a.visited,
+        a.scans,
+      ]);
+      // From N to 4N ids the digest gains at most one level, so the cost grows by less than it
+      // did from 0 to N. A cost that grows with the held set grows by three times as much.
+      expect(f.lookups - n.lookups).toBeLessThan(n.lookups - a.lookups);
+    }
     // The rail measures something: a scope read does index work, and more than a point read.
     expect(alone["scope"]!.lookups).toBeGreaterThan(alone["targets"]!.lookups);
     expect(alone["scope"]!.visited).toBeGreaterThan(0);
   });
 
   it("no core operation walks a whole map", async () => {
-    const costs = await measure([...unrelated, ...unrelatedStrikes]);
+    const costs = await measure(unrelatedOf(N));
     for (const [name, cost] of Object.entries(costs)) expect([name, cost.scans]).toEqual([name, 0]);
   });
 
@@ -2050,7 +2074,7 @@ describe("cost rail: an operation costs its footprint, not the store", () => {
     const meter: StoreMeter = { lookups: 0, visited: 0, scans: 0 };
     const store = createMemoryStore({ meter });
     const peer = await store.createPeer(A, { erasure: "unproven" });
-    await fill(peer, unrelated);
+    await fill(peer, unrelatedOf(N).slice(0, N));
     const admin = store.openAdmin();
     expect(meter.scans).toBe(0);
     const ids: string[] = [];

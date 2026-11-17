@@ -1,7 +1,7 @@
 // The query-plan rail of the SQLite store (slice 4 plan §5), parts 1 and 2. Part 1: the full plan
 // of every statement the store prepares equals the plan committed in sqlite-store-plans.json, so
 // a changed plan fails until a person reads it. Part 2: no plan scans a base table, builds an
-// automatic index, or searches `holding`, `target` or `reference` by the peer alone. A plan does
+// automatic index, or searches `holding`, `target`, `reference` or `digest` by the peer alone. A plan does
 // not show what a foreign-key action costs; the timing rail (part 3) covers that. `VACUUM` has an
 // empty plan and reads every page by definition: it is the rebuild of plan §7, whose cost is
 // O(store) per purge of a peer that asks for proof.
@@ -48,6 +48,7 @@ const BASE_TABLES = [
   "target",
   "reference",
   "change",
+  "digest",
   "debt",
   "surface_debt",
   "residue",
@@ -61,7 +62,7 @@ const TRIGGERS = Object.fromEntries(
     .filter((m) => !m[2]!.startsWith("SELECT RAISE("))
     .map((m) => [`trigger ${m[1]!}`, m[2]!]),
 );
-const PER_PEER = ["holding", "target", "reference"];
+const PER_PEER = ["holding", "target", "reference", "digest"];
 
 /** The plan of one statement, as lines indented by depth. */
 function planOf(db: Database.Database, sql: string): string[] {

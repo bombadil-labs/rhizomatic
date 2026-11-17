@@ -3,7 +3,8 @@
 // peer with 32,000, each in its own store. The time at the larger size may be at most four times
 // the time at the smaller: an indexed statement grows by a logarithm, a scan of the peer by 16.
 // A plan shows no foreign-key action, so the append and the purge are timed too: a cascade
-// without its index reads the whole peer.
+// without its index reads the whole peer. The append and the purge also write the path of each
+// changed id in the holdings digest, whose depth grows by a logarithm.
 //
 // Timed from outside with a monotonic clock, as the slice 3 rails are (§4.11 reading 36). Each
 // size is measured as the fastest of three runs. The rail measures again when the ratio passes
@@ -151,6 +152,13 @@ describe("the query-plan rail, part 3: the time of each operation does not grow 
       const r = (await at(s)).revision;
       await s.peer.changes(r - 1, r);
     }),
+    // The digest's root node, and the node of the hot facts' first two digits after `1e20`.
+    digest: calls(async (s) => {
+      const snapshot = await at(s);
+      await snapshot.digest("");
+      await snapshot.digest(s.hot[0]!.id.slice(0, 6));
+    }),
+    // An append and a purge write the digest's path in their transaction (§4.13 reading 139).
     append: calls(async (s) => s.append([linked(`new:${s.next()}`, s.next())]), WRITES),
     purge: calls(async (s) => {
       await s.peer.purge([s.victims.pop()!.id]);

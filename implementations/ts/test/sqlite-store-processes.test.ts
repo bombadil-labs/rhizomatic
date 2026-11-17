@@ -24,6 +24,7 @@ import { makeDelta } from "../src/delta/set.js";
 import type { Delta } from "../src/delta/types.js";
 import { captureScope, fetchScope } from "../src/reactor/store-read.js";
 import { admissionOf } from "../src/storage/admission.js";
+import { EMPTY_DIGEST, digestOf } from "../src/storage/digest.js";
 import { checkFresh } from "../src/storage/freshness.js";
 import { followFeed, positionOf } from "../src/storage/follow.js";
 import { openStore } from "../src/storage/open-store.js";
@@ -801,6 +802,26 @@ describe("each value a process could keep in memory is read from the file in the
     );
     expect([snapshot.revision, snapshot.count, snapshot.lastSequence]).toEqual([0, 0, 0]);
     await store.close();
+  }, 60_000);
+
+  it("after another process appends, a snapshot's root stays the root at its revision and its digest refuses snapshot-moved; a new snapshot's root is the model's over every held id", async () => {
+    const path = await made();
+    const store = await openSqliteStore(path);
+    const peer = await store.peer("peer:a");
+    const snapshot = await peer.read();
+    expect(snapshot.root).toBe(EMPTY_DIGEST.hash);
+    expect(await snapshot.digest("")).toEqual(EMPTY_DIGEST);
+    const other = child({ op: "append", path, peer: "peer:a", tag: "O", size: 3, after: 0 });
+    expect(await other.printed("appended")).toBe("committed");
+    expect(snapshot.root).toBe(EMPTY_DIGEST.hash);
+    expect(await refusal(snapshot.digest(""))).toBe("snapshot-moved");
+    const ids: string[] = [];
+    for await (const id of store.openAdmin().peer("peer:a").ids()) ids.push(id);
+    const now = await peer.read();
+    expect([ids.length, now.root]).toEqual([3, digestOf(ids).hash]);
+    expect(await now.digest("")).toEqual(digestOf(ids));
+    await store.close();
+    audit(path);
   }, 60_000);
 
   it("after another process purges, a snapshot refuses snapshot-moved on every call, also where it would find no rows", async () => {
