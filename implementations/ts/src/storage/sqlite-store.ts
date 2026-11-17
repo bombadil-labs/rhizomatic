@@ -98,7 +98,7 @@ function loadDriver(): typeof BetterSqlite3 {
 }
 const Database = loadDriver();
 
-export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/4";
+export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/5";
 
 export type SqliteStoreOptions = {
   /** How long a call waits for a lock another connection holds, in ms. Default 5000. */
@@ -193,6 +193,7 @@ type PeerRow = {
   count: number;
   maxSeq: number;
   removedAt: Revision;
+  maxTransfer: number;
   appFormat: string | null;
 };
 type DeltaRow = { id: Id; claims: Uint8Array; sig: string | null };
@@ -773,6 +774,7 @@ class SqliteFileStore implements SqliteStore {
       head: row.head,
       count: row.count,
       lastSequence: bound,
+      lastTransfer: row.maxTransfer,
       get: async (ids) => {
         const asked = sorted(strings(ids, "get: ids"));
         return at(() => (this.#s.get.all(keys(asked)) as DeltaRow[]).map((r) => this.#delta(r)));
@@ -879,8 +881,8 @@ class SqliteFileStore implements SqliteStore {
       next.floor = row.floor + 1;
       this.#s.changeDrop.run(peer, next.floor);
     }
-    const { revision, floor, head, count, maxSeq, removedAt } = next;
-    this.#s.peerAdvance.run({ peer, revision, floor, head, count, maxSeq, removedAt });
+    const { revision, floor, head, count, maxSeq, removedAt, maxTransfer } = next;
+    this.#s.peerAdvance.run({ peer, revision, floor, head, count, maxSeq, removedAt, maxTransfer });
   }
 
   #append(peer: PeerId, batch: unknown): AppendResult {
@@ -905,6 +907,7 @@ class SqliteFileStore implements SqliteStore {
         const fresh = new Map<Id, Admitted>();
         const sequences = new Set<number>();
         let maxSeq = row.maxSeq;
+        let maxTransfer = row.maxTransfer;
         for (const entry of entries) {
           if (fresh.has(entry.id) || this.#s.holdingFind.get(peer, entry.id) !== undefined)
             continue;
@@ -914,8 +917,14 @@ class SqliteFileStore implements SqliteStore {
               "invalid-admission",
               "append: an arrival sequence does not pass the peer's last sequence",
             );
+          if (entry.arrival.transfer <= row.maxTransfer)
+            throw new StoreError(
+              "invalid-admission",
+              "append: a transfer ordinal does not pass the peer's last transfer",
+            );
           sequences.add(sequence);
           maxSeq = Math.max(maxSeq, sequence);
+          maxTransfer = Math.max(maxTransfer, entry.arrival.transfer);
           fresh.set(entry.id, entry);
         }
         for (const { id, claims, sig, arrival } of fresh.values()) {
@@ -945,6 +954,7 @@ class SqliteFileStore implements SqliteStore {
           head: nextHead,
           count: row.count + ids.length,
           maxSeq,
+          maxTransfer,
         };
         this.#advance(peer, row, next, ids, []);
         return { status: "committed", revision: next.revision, added: ids };

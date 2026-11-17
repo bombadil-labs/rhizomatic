@@ -63,7 +63,13 @@ async function fill(peer: PeerStore, deltas: readonly Delta[]): Promise<void> {
     frame: null,
     added: deltas.map((delta, i) => ({
       delta,
-      arrival: { id: delta.id, at: 1, sequence: count + i + 1, transfer: 1, sender: "local" },
+      arrival: {
+        id: delta.id,
+        at: 1,
+        sequence: count + i + 1,
+        transfer: count + i + 1,
+        sender: "local",
+      },
     })),
   });
   expect(result.status).toBe("committed");
@@ -716,7 +722,7 @@ describe("a store owns what it holds", () => {
       frame: null,
       added: [one, two].map((delta, i) => ({
         delta,
-        arrival: { id: delta.id, at: 1, sequence: i + 1, transfer: 1, sender: "local" },
+        arrival: { id: delta.id, at: 1, sequence: i + 1, transfer: i + 1, sender: "local" },
       })),
     });
     type Open = Record<string, unknown>;
@@ -1768,7 +1774,7 @@ describe("scopeSource: a synchronous delta source over a fetched scope", () => {
     const negation = strike(delta, 2);
     const member = (d: Delta, sequence: number): VerifiedDelta => ({
       delta: d,
-      arrival: { id: d.id, at: 1, sequence, transfer: 1, sender: "local" },
+      arrival: { id: d.id, at: 1, sequence, transfer: sequence, sender: "local" },
     });
     const given = [member(delta, 1), member(negation, 2)];
     const source = scopeSource(given);
@@ -1855,7 +1861,7 @@ describe("cost rail: scopeSource builds in the size of its members", () => {
   const BOUND = 24;
   const member = (delta: Delta, sequence: number): VerifiedDelta => ({
     delta,
-    arrival: { id: delta.id, at: 1, sequence, transfer: 1, sender: "local" },
+    arrival: { id: delta.id, at: 1, sequence, transfer: sequence, sender: "local" },
   });
   const struck = fact("struck", 0);
   /** The first `n` of a list built on demand, `make(i)` at index i. */
@@ -2009,7 +2015,13 @@ describe("cost rail: an operation costs its footprint, not the store", () => {
         frame: null,
         added: fresh.map((delta, i) => ({
           delta,
-          arrival: { id: delta.id, at: 1, sequence: count + i + 1, transfer: 9, sender: "local" },
+          arrival: {
+            id: delta.id,
+            at: 1,
+            sequence: count + i + 1,
+            transfer: count + i + 1,
+            sender: "local",
+          },
         })),
       }),
     );

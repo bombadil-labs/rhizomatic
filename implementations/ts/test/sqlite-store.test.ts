@@ -163,7 +163,7 @@ async function writer(store: Store, id = "peer:a") {
   let head: string | null = null;
   const member = (delta: Delta): VerifiedDelta => ({
     delta,
-    arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: 1, sender: "fixture" },
+    arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: sequence, sender: "fixture" },
   });
   return {
     peer,
@@ -202,7 +202,7 @@ describe("the SQLite store's profile and scheme", () => {
       writers: "many-processes",
       atRest: "trusted",
       changeRetention: { revisions: 1024 },
-      formatVersion: "rhizomatic-store-sqlite/4",
+      formatVersion: "rhizomatic-store-sqlite/5",
     });
     expect(Object.isFrozen(store.profile)).toBe(true);
     // The posture gate on a store of class unprovable: sqlite-store-erasure.test.ts, rail 6.
@@ -272,11 +272,12 @@ describe("the SQLite store's profile and scheme", () => {
     );
   });
 
-  it("refuses a file of format /1, /2 or /3, which steps 4a to 4c wrote, naming both formats; no migration ships", async () => {
+  it("refuses a file of format /1 to /4, which steps 4a to 4d wrote, naming both formats; no migration ships", async () => {
     for (const old of [
       "rhizomatic-store-sqlite/1",
       "rhizomatic-store-sqlite/2",
       "rhizomatic-store-sqlite/3",
+      "rhizomatic-store-sqlite/4",
     ]) {
       const path = fixture.path();
       await (await openSqliteStore(path)).close();
@@ -286,7 +287,7 @@ describe("the SQLite store's profile and scheme", () => {
       const error = (await openSqliteStore(path).catch((e: unknown) => e)) as StoreError;
       expect([error.code, error.message]).toEqual([
         "open-failed",
-        `sqlite store: the file holds format ${old}, and this store reads rhizomatic-store-sqlite/4`,
+        `sqlite store: the file holds format ${old}, and this store reads rhizomatic-store-sqlite/5`,
       ]);
     }
   });
@@ -664,7 +665,7 @@ describe("an engine error that is not a lock does not invite a retry", () => {
         expectedHead: "head-1",
         nextHead: "head-2",
         frame: null,
-        added: [{ delta: y, arrival: { id: y.id, at: 1, sequence: 1, transfer: 1, sender: "f" } }],
+        added: [{ delta: y, arrival: { id: y.id, at: 1, sequence: 1, transfer: 2, sender: "f" } }],
       })
       .catch((e: unknown) => e)) as StoreError;
     expect(error.code).toBe("store-unavailable");

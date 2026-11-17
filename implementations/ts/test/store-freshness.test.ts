@@ -815,7 +815,7 @@ async function writer(options: MemoryStoreOptions = {}) {
       const nextHead = `h${++n}`;
       const added = deltas.map((delta) => ({
         delta,
-        arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: 1, sender: "local" },
+        arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: sequence, sender: "local" },
       }));
       const result = await peer.append({ expectedHead: head, nextHead, frame: null, added });
       if (result.status !== "committed") throw new Error(`append answered ${result.status}`);

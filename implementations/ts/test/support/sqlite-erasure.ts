@@ -77,7 +77,7 @@ export async function writerOf(peer: PeerStore, after = 0) {
     const added = deltas.map(
       ({ delta, sender }): VerifiedDelta => ({
         delta,
-        arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: 1, sender },
+        arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: sequence, sender },
       }),
     );
     const result = await peer.append({ expectedHead: head, nextHead: next, frame: null, added });

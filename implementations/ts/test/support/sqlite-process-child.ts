@@ -154,7 +154,7 @@ const fact = (entity: string): Delta =>
   });
 const member = (delta: Delta, sequence: number): VerifiedDelta => ({
   delta,
-  arrival: { id: delta.id, at: 1, sequence, transfer: 1, sender: "child" },
+  arrival: { id: delta.id, at: 1, sequence, transfer: sequence, sender: "child" },
 });
 const refused = (error: unknown): string => {
   if (error instanceof StoreError) return error.code;

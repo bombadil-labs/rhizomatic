@@ -42,7 +42,13 @@ function writer(peer: PeerStore) {
         frame: null,
         added: deltas.map((delta) => ({
           delta,
-          arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: 1, sender: "local" },
+          arrival: {
+            id: delta.id,
+            at: 1,
+            sequence: ++sequence,
+            transfer: sequence,
+            sender: "local",
+          },
         })),
       });
       if (result.status !== "committed") throw new Error(`append answered ${result.status}`);
@@ -145,7 +151,7 @@ describe("the change feed: the records", () => {
         added: [
           {
             delta: forged,
-            arrival: { id: forged.id, at: 1, sequence: 9, transfer: 1, sender: "x" },
+            arrival: { id: forged.id, at: 1, sequence: 9, transfer: 9, sender: "x" },
           },
         ],
       }),

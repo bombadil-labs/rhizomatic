@@ -457,7 +457,7 @@ async function interleave(
               id: delta.id,
               at: 0,
               sequence: now.lastSequence + 1,
-              transfer: 1,
+              transfer: now.lastTransfer + 1,
               sender: "s",
             },
           },

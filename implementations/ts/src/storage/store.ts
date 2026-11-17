@@ -259,8 +259,8 @@ export type ChangePage =
  * Every operation on one snapshot answers at `revision`, or refuses `snapshot-moved`; it never
  * answers from a later state. After an append, a store may answer as at `revision` or refuse.
  * Once the peer has released a holding since `revision`, or has a new history, every operation
- * refuses `snapshot-moved` (§4.13 reading 130). `revision`, `history`, `head`, `count` and
- * `lastSequence` are fixed when the snapshot is read and never refuse.
+ * refuses `snapshot-moved` (§4.13 reading 130). `revision`, `history`, `head`, `count`,
+ * `lastSequence` and `lastTransfer` are fixed when the snapshot is read and never refuse.
  */
 export interface Snapshot {
   readonly revision: Revision;
@@ -275,6 +275,12 @@ export interface Snapshot {
    * purge does not lower it. The next append's sequences must pass it (§4.13 reading 131).
    */
   readonly lastSequence: ArrivalSeq;
+  /**
+   * The highest transfer ordinal of a holding the peer has committed at this revision, 0 before
+   * the first. A purge does not lower it. The next append's new holdings must pass it (§4.13
+   * reading 135).
+   */
+  readonly lastTransfer: number;
   /** The held deltas among `ids`, each as this peer admitted it. */
   get(ids: readonly Id[]): Promise<readonly Delta[]>;
   /** This peer's arrival record for each held id among `ids`. */

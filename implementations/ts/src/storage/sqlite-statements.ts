@@ -27,7 +27,8 @@ CREATE TABLE peer (
   count INTEGER NOT NULL CHECK (count >= 0),
   max_seq INTEGER NOT NULL CHECK (max_seq >= 0),
   removed_at INTEGER NOT NULL CHECK (removed_at >= 0 AND removed_at <= revision),
-  app_format TEXT
+  max_transfer INTEGER NOT NULL CHECK (max_transfer >= 0),
+  app_format TEXT CHECK (app_format IS NULL OR length(CAST(app_format AS BLOB)) BETWEEN 1 AND 256)
 ) STRICT;
 CREATE TABLE delta (
   id TEXT PRIMARY KEY,
@@ -120,13 +121,15 @@ export const SQLITE_STATEMENTS = {
   historyFind: "SELECT 1 FROM history WHERE value = ?",
   historyAdd: "INSERT INTO history (value) VALUES (?)",
   peerRead: `SELECT posture, store_class AS storeClass, history, revision, floor, head, count,
-    max_seq AS maxSeq, removed_at AS removedAt, app_format AS appFormat FROM peer WHERE id = ?`,
+    max_seq AS maxSeq, removed_at AS removedAt, max_transfer AS maxTransfer,
+    app_format AS appFormat FROM peer WHERE id = ?`,
   peerAdd: `INSERT INTO peer
-    (id, posture, store_class, history, revision, floor, head, count, max_seq, removed_at, app_format)
-    VALUES (?, ?, ?, ?, 0, 0, NULL, 0, 0, 0, ?)`,
+    (id, posture, store_class, history, revision, floor, head, count, max_seq, removed_at,
+    max_transfer, app_format)
+    VALUES (?, ?, ?, ?, 0, 0, NULL, 0, 0, 0, 0, ?)`,
   peerHistory: "UPDATE peer SET history = ? WHERE id = ?",
   peerAdvance: `UPDATE peer SET revision = @revision, floor = @floor, head = @head, count = @count,
-    max_seq = @maxSeq, removed_at = @removedAt WHERE id = @peer`,
+    max_seq = @maxSeq, removed_at = @removedAt, max_transfer = @maxTransfer WHERE id = @peer`,
 
   holdingFind: "SELECT 1 FROM holding WHERE peer = ? AND delta = ?",
   heldElsewhere: "SELECT 1 FROM holding WHERE delta = ? LIMIT 1",

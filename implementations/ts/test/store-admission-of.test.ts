@@ -3,6 +3,7 @@
 // the application format string it was created with. The processes are in
 // sqlite-store-processes.test.ts.
 
+import Database from "better-sqlite3";
 import { afterAll, describe, expect, it } from "vitest";
 import { makeDelta } from "../src/delta/set.js";
 import type { Delta } from "../src/delta/types.js";
@@ -35,7 +36,6 @@ let heads = 0;
 const options = (over: Partial<AdmissionOptions> = {}): AdmissionOptions => ({
   at: 10,
   sender: "local",
-  transfer: 1,
   nextHead: `head-${++heads}`,
   ...over,
 });
@@ -93,7 +93,7 @@ describe.each(STORES)("admissionOf on %s", (_, open) => {
       Delta,
       Delta,
     ];
-    const built = admissionOf(await peer.read(), [high, low, high], options({ transfer: 7 }));
+    const built = admissionOf(await peer.read(), [high, low, high], options());
     expect([built.expectedHead, built.frame]).toEqual([null, null]);
     expect(built.added.map((m) => [m.delta.id, m.arrival.sequence])).toEqual([
       [low.id, 1],
@@ -105,7 +105,7 @@ describe.each(STORES)("admissionOf on %s", (_, open) => {
         id: d.id,
         at: 10,
         sequence: i + 1,
-        transfer: 7,
+        transfer: 1,
         sender: "local",
       })),
     );
@@ -158,10 +158,18 @@ describe("admissionOf refuses a malformed call invalid-request, before any store
     const snapshot = {
       head: "h",
       lastSequence: 4,
+      lastTransfer: 0,
       get: () => (touched.push("get"), Promise.resolve([])),
       arrivals: () => (touched.push("arrivals"), Promise.resolve([])),
     } as unknown as Snapshot;
     const x = fact("x");
+    const forged = { ...x, claims: { ...x.claims, timestamp: x.claims.timestamp + 1 } };
+    const at = (over: Partial<Pick<Snapshot, "head" | "lastSequence" | "lastTransfer">>) => ({
+      head: null,
+      lastSequence: 0,
+      lastTransfer: 0,
+      ...over,
+    });
     const headless: Record<string, unknown> = { ...options() };
     delete headless["nextHead"];
     const cases: Record<string, () => unknown> = {
@@ -174,21 +182,74 @@ describe("admissionOf refuses a malformed call invalid-request, before any store
       "at not finite": () => admissionOf(snapshot, [x], options({ at: Number.NaN })),
       "at a string": () => admissionOf(snapshot, [x], options({ at: "1" as never })),
       "sender empty": () => admissionOf(snapshot, [x], options({ sender: "" })),
-      "transfer 0": () => admissionOf(snapshot, [x], options({ transfer: 0 })),
-      "transfer 1.5": () => admissionOf(snapshot, [x], options({ transfer: 1.5 })),
+      "sender a lone surrogate": () => admissionOf(snapshot, [x], options({ sender: "\udc00" })),
+      "options a class instance": () =>
+        admissionOf(snapshot, [x], Object.assign(new (class Options {})(), options()) as never),
+      "a forged delta": () => admissionOf(snapshot, [forged], options()),
+      "a forged repeat of a delta": () => admissionOf(snapshot, [x, forged], options()),
+      "a malformed signature": () => admissionOf(snapshot, [{ ...x, sig: "AB" }], options()),
       "deltas not a list": () => admissionOf(snapshot, x as never, options()),
       "a delta without an id": () =>
         admissionOf(snapshot, [{ claims: x.claims } as never], options()),
       "a delta that is null": () => admissionOf(snapshot, [null as never], options()),
-      "lastSequence negative": () => admissionOf({ head: null, lastSequence: -1 }, [x], options()),
-      "a head that is empty": () => admissionOf({ head: "", lastSequence: 0 }, [x], options()),
+      "lastSequence negative": () => admissionOf(at({ lastSequence: -1 }), [x], options()),
+      "lastSequence a fraction": () => admissionOf(at({ lastSequence: 1.5 }), [x], options()),
+      "lastTransfer negative": () => admissionOf(at({ lastTransfer: -1 }), [x], options()),
+      "lastTransfer a fraction": () => admissionOf(at({ lastTransfer: 1.5 }), [x], options()),
+      "lastTransfer absent": () =>
+        admissionOf({ head: null, lastSequence: 0 } as never, [x], options()),
+      "a head that is empty": () => admissionOf(at({ head: "" }), [x], options()),
+      "a head with a lone surrogate": () => admissionOf(at({ head: "h\ud800" }), [x], options()),
       "sequences past 2^53 - 1": () =>
-        admissionOf({ head: null, lastSequence: Number.MAX_SAFE_INTEGER }, [x], options()),
+        admissionOf(at({ lastSequence: Number.MAX_SAFE_INTEGER }), [x], options()),
+      "a transfer past 2^53 - 1": () =>
+        admissionOf(at({ lastTransfer: Number.MAX_SAFE_INTEGER }), [x], options()),
     };
     for (const [name, call] of Object.entries(cases))
       expect([name, codeOf(call)]).toEqual([name, "invalid-request"]);
     expect(touched).toEqual([]);
     expect(codeOf(() => admissionOf(snapshot, [x], options()))).toBe("built");
+    expect(
+      codeOf(() => admissionOf(at({ lastTransfer: Number.MAX_SAFE_INTEGER }), [], options())),
+    ).toBe("built");
+  });
+});
+
+describe("what admissionOf builds, before any store", () => {
+  const snapshot = { head: "h", lastSequence: 4, lastTransfer: 9 };
+
+  it("numbers the transfer lastTransfer + 1 for every entry, and passes sender and at through", () => {
+    const [a, b] = [fact("a"), fact("b")];
+    const built = admissionOf(snapshot, [a, b], options({ sender: "peer:sender", at: 33.5 }));
+    expect(built.added.map((m) => [m.arrival.transfer, m.arrival.sender, m.arrival.at])).toEqual([
+      [10, "peer:sender", 33.5],
+      [10, "peer:sender", 33.5],
+    ]);
+  });
+
+  it("an at of -0 is +0 in every arrival record", () => {
+    const built = admissionOf(snapshot, [fact("a")], options({ at: -0 }));
+    expect(Object.is(built.added[0]!.arrival.at, 0)).toBe(true);
+  });
+
+  it("of a repeated id it keeps the first entry, also when the repeat carries another signature", () => {
+    const x = fact("x");
+    const first = { ...x, sig: "a".repeat(128) };
+    const second = { ...x, sig: "b".repeat(128) };
+    const built = admissionOf(snapshot, [first, second], options());
+    expect(built.added.map((m) => m.delta)).toEqual([first]);
+  });
+
+  it("keeps its own copy: a later change to a delta or to the options changes nothing built", () => {
+    const x = fact("x");
+    const given = { ...x, claims: { ...x.claims, pointers: [...x.claims.pointers] } };
+    const asked = options();
+    const built = admissionOf(snapshot, [given], asked);
+    (given.claims.pointers as unknown[]).length = 0;
+    (given as { id: string }).id = "changed";
+    (asked as { nextHead: string }).nextHead = "changed";
+    expect(built.added[0]!.delta).toEqual(x);
+    expect(built.nextHead).not.toBe("changed");
   });
 });
 
@@ -246,5 +307,155 @@ describe("the application format string in a SQLite file", () => {
       (await again.peer("peer:q")).appFormat,
     ]).toEqual(["host/1", null]);
     await again.close();
+  });
+});
+
+const entry = (delta: Delta, sequence: number, transfer: number) => ({
+  delta,
+  arrival: { id: delta.id, at: 1, sequence, transfer, sender: "local" },
+});
+
+describe.each(STORES)("the transfer ordinal on %s (§4.13 reading 135)", (_, open) => {
+  it("lastTransfer is 0 on a new peer, is the committed transfer after each append, is fixed on a snapshot, and stays after a head-only append and a purge", async () => {
+    const store = await open();
+    const peer = await store.createPeer("peer:p", { erasure: "unproven" });
+    const first = await peer.read();
+    expect(first.lastTransfer).toBe(0);
+    await peer.append(admissionOf(first, [fact("x"), sacrificial(1)], options()));
+    const second = await peer.read();
+    expect(second.lastTransfer).toBe(1);
+    await peer.append(admissionOf(second, [fact("y")], options()));
+    expect([first.lastTransfer, second.lastTransfer]).toEqual([0, 1]);
+    const third = await peer.read();
+    expect(third.lastTransfer).toBe(2);
+    await peer.append(admissionOf(third, [], options()));
+    await moveByPurge(peer);
+    const last = await peer.read();
+    expect([last.lastTransfer, last.head === third.head]).toEqual([2, false]);
+    expect(
+      (await last.arrivals(await last.targets(["x", "y"]))).map((a) => a.transfer).sort(),
+    ).toEqual([1, 2]);
+  });
+
+  it("refuses invalid-admission a new entry whose transfer does not pass the peer's last one, and changes nothing; a held entry's transfer is not compared; the last is the largest of an append", async () => {
+    const store = await open();
+    const peer = await store.createPeer("peer:p", { erasure: "unproven" });
+    const [x, y, z] = [fact("x"), fact("y"), fact("z")];
+    expect(
+      await peer.append({
+        expectedHead: null,
+        nextHead: "h1",
+        frame: null,
+        added: [entry(x, 1, 7), entry(y, 2, 3)],
+      }),
+    ).toMatchObject({ status: "committed" });
+    const before = await peer.read();
+    expect(before.lastTransfer).toBe(7);
+    for (const transfer of [3, 7]) {
+      const asked = {
+        expectedHead: "h1",
+        nextHead: "h2",
+        frame: null,
+        added: [entry(z, 3, transfer)],
+      };
+      expect([transfer, await refusal(peer.append(asked))]).toEqual([
+        transfer,
+        "invalid-admission",
+      ]);
+    }
+    const now = await peer.read();
+    expect([now.revision, now.head, now.lastTransfer, now.lastSequence]).toEqual([
+      before.revision,
+      "h1",
+      7,
+      2,
+    ]);
+    expect(await now.get([z.id])).toEqual([]);
+    expect(
+      await peer.append({
+        expectedHead: "h1",
+        nextHead: "h2",
+        frame: null,
+        added: [entry(x, 3, 1), entry(z, 4, 8)],
+      }),
+    ).toMatchObject({ status: "committed", added: [z.id] });
+    expect((await peer.read()).lastTransfer).toBe(8);
+  });
+});
+
+describe("a closed store's handle", () => {
+  it.each(STORES.map(([name]) => name))(
+    "on %s, history and appFormat refuse store-closed",
+    async (name) => {
+      const store = name === "the memory store" ? createMemoryStore() : await fixture.open();
+      const peer = await store.createPeer("peer:p", { erasure: "unproven", appFormat: "host/1" });
+      expect([peer.history.length > 0, peer.appFormat]).toEqual([true, "host/1"]);
+      await store.close();
+      const code = (read: () => unknown): string => {
+        try {
+          read();
+          return "answered";
+        } catch (error) {
+          return error instanceof StoreError ? error.code : String(error);
+        }
+      };
+      expect([code(() => peer.history), code(() => peer.appFormat)]).toEqual([
+        "store-closed",
+        "store-closed",
+      ]);
+    },
+  );
+});
+
+describe("the order of createPeer's refusals", () => {
+  it("a bad appFormat with a proven posture is refused invalid-request on the memory store, whose class refuses proven", async () => {
+    const store = createMemoryStore();
+    expect(await refusal(store.createPeer("peer:p", { erasure: "proven" }))).toBe(
+      "posture-refused",
+    );
+    expect(await refusal(store.createPeer("peer:p", { erasure: "proven", appFormat: "" }))).toBe(
+      "invalid-request",
+    );
+  });
+});
+
+describe("the application format string in the file", () => {
+  it("a handle reads the peer row at each ask: a change to the row is seen by an open handle", async () => {
+    const path = fixture.path();
+    const store = await openSqliteStore(path);
+    const peer = await store.createPeer("peer:p", { erasure: "unproven", appFormat: "host/1" });
+    expect(peer.appFormat).toBe("host/1");
+    const db = new Database(path);
+    db.prepare("UPDATE peer SET app_format = 'host/2' WHERE id = 'peer:p'").run();
+    db.close();
+    expect(peer.appFormat).toBe("host/2");
+    await store.close();
+  });
+
+  it("the file refuses a value outside 1 to 256 UTF-8 bytes by its own check, and keeps one inside", async () => {
+    const path = fixture.path();
+    const store = await openSqliteStore(path);
+    await store.createPeer("peer:p", { erasure: "unproven", appFormat: "host/1" });
+    await store.close();
+    const db = new Database(path);
+    const put = db.prepare("UPDATE peer SET app_format = ? WHERE id = 'peer:p'");
+    const answer = (value: string | null): string => {
+      try {
+        put.run(value);
+        return "kept";
+      } catch (error) {
+        return (error as { code?: string }).code ?? String(error);
+      }
+    };
+    expect(
+      ["", "x".repeat(257), "é".repeat(129), "é".repeat(128), null].map((v) => answer(v)),
+    ).toEqual([
+      "SQLITE_CONSTRAINT_CHECK",
+      "SQLITE_CONSTRAINT_CHECK",
+      "SQLITE_CONSTRAINT_CHECK",
+      "kept",
+      "kept",
+    ]);
+    db.close();
   });
 });

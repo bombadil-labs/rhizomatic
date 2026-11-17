@@ -276,9 +276,11 @@ describe("each own-fields site reads a field set only on Object.prototype as abs
 
   it("admissionOf: options with no own nextHead refuse invalid-request", async () => {
     const delta = fact("target", 1, "one");
-    const options = { at: 1, sender: "local", transfer: 1 };
+    const options = { at: 1, sender: "local" };
     const refused = await polluted("nextHead", "h1", () =>
-      outcome(async () => admissionOf({ head: null, lastSequence: 0 }, [delta], options as never)),
+      outcome(async () =>
+        admissionOf({ head: null, lastSequence: 0, lastTransfer: 0 }, [delta], options as never),
+      ),
     );
     expect(refused).toBe("invalid-request");
   });

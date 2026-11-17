@@ -64,7 +64,7 @@ for (const [name, open] of Object.entries(stores))
       let sequence = 0;
       const member = (delta: Delta, sender = "fixture"): VerifiedDelta => ({
         delta,
-        arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: 1, sender },
+        arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: sequence, sender },
       });
       const batch = (added: VerifiedDelta[], nextHead = "head"): Admission => ({
         expectedHead: null,

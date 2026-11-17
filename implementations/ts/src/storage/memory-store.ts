@@ -139,6 +139,8 @@ type PeerState = {
   count: number;
   revision: Revision;
   lastSequence: number;
+  /** The highest transfer ordinal of a committed new holding; 0 before the first. */
+  lastTransfer: number;
   /** The revision of the last purge that released a holding of this peer; 0 before one. */
   removedAt: Revision;
   readonly feed: Feed;
@@ -306,6 +308,7 @@ class MemoryStore implements Store {
       count: 0,
       revision: 0,
       lastSequence: 0,
+      lastTransfer: 0,
       removedAt: 0,
       // A new peer's feed is empty, and its floor is its first revision.
       feed: { records: [], start: 0, floor: 0 },
@@ -322,11 +325,17 @@ class MemoryStore implements Store {
   }
 
   #handle(state: PeerState): PeerStore {
+    // After `close`, `history` and `appFormat` refuse `store-closed`, as on the SQLite store.
+    const open = (): void => this.#open();
     return {
       id: state.id,
-      history: state.history,
+      get history() {
+        open();
+        return state.history;
+      },
       erasure: { posture: state.posture, storeClass: this.#own.capabilities.erasure },
       get appFormat() {
+        open();
         return state.appFormat;
       },
       read: async () => {
@@ -450,6 +459,7 @@ class MemoryStore implements Store {
       head,
       count,
       lastSequence: bound,
+      lastTransfer: state.lastTransfer,
       arrivals: async (ids) => {
         const asked = sorted(strings(ids, "arrivals: ids"));
         guard();
@@ -544,6 +554,7 @@ class MemoryStore implements Store {
       throw new StoreError("invalid-admission", "append: the added entries must be a list");
     const fresh = new Map<Id, { claims: Claims; holding: Holding }>();
     const sequences = new Set<number>();
+    let lastTransfer = state.lastTransfer;
     for (let i = 0; i < added.length; i++) {
       const { id, claims, sig, arrival } = admit(added[i]);
       const holding: Holding = { sig, arrival };
@@ -554,6 +565,12 @@ class MemoryStore implements Store {
           "invalid-admission",
           "append: an arrival sequence does not pass the peer's last sequence",
         );
+      if (holding.arrival.transfer <= state.lastTransfer)
+        throw new StoreError(
+          "invalid-admission",
+          "append: a transfer ordinal does not pass the peer's last transfer",
+        );
+      lastTransfer = Math.max(lastTransfer, holding.arrival.transfer);
       sequences.add(sequence);
       fresh.set(id, { claims, holding });
     }
@@ -570,6 +587,7 @@ class MemoryStore implements Store {
       for (const negated of keys.negated) this.#file(state.negators, negated, id);
       state.lastSequence = Math.max(state.lastSequence, holding.arrival.sequence);
     }
+    state.lastTransfer = lastTransfer;
     const ids = sorted(fresh.keys());
     const advanced = fresh.size > 0 || state.head !== nextHead;
     state.head = nextHead;
