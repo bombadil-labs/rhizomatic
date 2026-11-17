@@ -161,6 +161,11 @@ export { scopeSource, type ScopeSource } from "./storage/scope-source.js";
 export { createFetchCache, type FetchCache } from "./storage/fetch-cache.js";
 export {
   SNAPSHOT_RETRIES,
+  withSnapshot,
+  type OnSnapshot,
+  type SnapshotRetry,
+} from "./storage/with-snapshot.js";
+export {
   StoreReactor,
   UnanchoredTermError,
   captureScope,
