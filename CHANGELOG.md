@@ -165,6 +165,8 @@ Step 4d adds more, listed under Breaking.
   measurement gave 30 of 30 `proven`. The rule of the proof does not change, and no report can
   be false because of the tries. A checkpoint that stays busy past the bound still gives
   `unproven`, with every file surface `owed`.
+  One truncate can now take about two `busyTimeoutMs`, and the three truncates of one purge
+  about six. Before, they took about three.
 - The memory store's test meter counts the digest's path in `append` and `purge`. A rail bounds
   their lookups by a fixed cost per level of the tree for each changed id, with the levels
   counted from the ids.
