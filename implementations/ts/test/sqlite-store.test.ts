@@ -5,7 +5,15 @@
 // Not covered here: the plans of the statements (sqlite-store-plans.test.ts), their cost
 // (sqlite-store-timing.test.ts) and a crash during an append (sqlite-store-crash.test.ts).
 
-import { closeSync, openSync, readdirSync, readFileSync, statSync, writeSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeSync,
+} from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import Database from "better-sqlite3";
@@ -286,13 +294,18 @@ describe("the SQLite store's profile and scheme", () => {
       db.prepare("UPDATE meta SET value = ? WHERE key = 'format'").run(old);
       db.pragma("wal_checkpoint(TRUNCATE)");
       db.close();
-      const bytes = readFileSync(path);
+      // The file, its log and its shared-memory file: the bytes of each, or absent.
+      const files = (): (string | null)[] =>
+        ["", "-wal", "-shm"].map((end) =>
+          existsSync(path + end) ? readFileSync(path + end).toString("hex") : null,
+        );
+      const bytes = files();
       const error = (await openSqliteStore(path).catch((e: unknown) => e)) as StoreError;
       expect([error.code, error.message]).toEqual([
         "open-failed",
         `sqlite store: the file holds format ${old}, and this store reads rhizomatic-store-sqlite/6`,
       ]);
-      expect(readFileSync(path).equals(bytes)).toBe(true);
+      expect(files()).toEqual(bytes);
     }
   });
 

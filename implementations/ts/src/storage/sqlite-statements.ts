@@ -12,10 +12,11 @@
  * `recursive_triggers` is off, so no statement of the store uses it (a rail reads the list).
  *
  * The `digest` table and `peer.root` hold hashes over sets of held ids, so an old hash can confirm
- * that an id was held. They need no trigger of their own: a hash that depends on an id changes
- * only while a peer holds the id, or in the transaction that releases its last holding, and that
- * transaction deletes a `holding` row. So a rebuild that makes `clean = dirty` begins after every
- * such hash left the live rows, and it rewrites every page (§4.13 reading 142).
+ * that an id was held. They need no trigger of their own: a hash of a peer's digest that depends
+ * on an id changes only while the peer holds the id, or in the transaction that releases the
+ * peer's own holding of it, and that transaction deletes a `holding` row. So a rebuild that makes
+ * `clean = dirty` begins after every such hash left the live rows, and it rewrites every page
+ * (§4.13 reading 142).
  */
 const ERASABLE = ["holding", "delta", "target", "reference"] as const;
 
