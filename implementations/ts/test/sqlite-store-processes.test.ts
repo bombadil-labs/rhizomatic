@@ -88,8 +88,9 @@ function running(args: readonly string[], path: string) {
   const ended = new Promise<string>((done) =>
     proc.on("exit", (code, signal) => done(String(signal ?? code))),
   );
-  const line = (word: string): string | undefined =>
-    out
+  // Only a line that its newline ended, until the child ends: a chunk can end inside a line.
+  const line = (word: string, whole = false): string | undefined =>
+    (whole ? out : out.slice(0, out.lastIndexOf("\n") + 1))
       .split("\n")
       .find((l) => l.startsWith(`${word} `))
       ?.slice(word.length + 1);
@@ -102,7 +103,7 @@ function running(args: readonly string[], path: string) {
       };
       look();
       void ended.then((how) => {
-        const found = line(word);
+        const found = line(word, true);
         if (found !== undefined) done(found);
         else fail(new Error(`the child ended (${how}) before it printed ${word}: ${out}${errors}`));
       });
