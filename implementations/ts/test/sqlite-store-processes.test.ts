@@ -39,6 +39,12 @@ function storePath(): string {
   return join(dir, "store.db");
 }
 
+/** Starts the children waiting on `go` at time `at`: the file is whole when it appears. */
+function release(go: string, at: number): void {
+  writeFileSync(`${go}.part`, String(at));
+  renameSync(`${go}.part`, go);
+}
+
 /** A child running one job; its printed lines, and a wait for each. */
 function child(job: Record<string, unknown>) {
   const proc = spawn(process.execPath, ["--import", "tsx", childScript, JSON.stringify(job)], {
@@ -190,7 +196,7 @@ describe("the gate of step 4c: two writing processes and a follower in a third",
       go,
     });
     const follower = child({ op: "follow", path, peer: "peer:a", until: 2 * TURNS + 2 * FREE, go });
-    writeFileSync(go, "");
+    release(go, Date.now());
     const [wa1, wb1] = await Promise.all([a1.json<Written>("done"), b1.json<Written>("done")]);
     // Phase 2: both writers append as fast as they can; a lost race answers conflict, and the
     // writer reads again.
@@ -436,8 +442,7 @@ describe("the open of a new file that other connections open at the same time", 
       const go = `${path}.go-start`;
       const openers = Array.from({ length: 4 }, () => child({ op: "open", path, go }));
       for (const opener of openers) await opener.printed("waiting");
-      writeFileSync(`${go}.part`, String(Date.now() + 100));
-      renameSync(`${go}.part`, go);
+      release(go, Date.now() + 100);
       for (const opener of openers) {
         expect(await opener.json("histories")).toEqual({});
         expect(await opener.ended).toBe("0");
