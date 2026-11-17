@@ -56,7 +56,12 @@ async function add(peer: PeerStore, deltas: readonly Delta[]): Promise<void> {
   if (result.status !== "committed") throw new Error(`append answered ${result.status}`);
 }
 
-type Place = Pick<IntegrityFault, "kind" | "peer" | "id" | "key">;
+type Place = {
+  kind: IntegrityFault["kind"];
+  peer: string | undefined;
+  id: string | undefined;
+  key: string | undefined;
+};
 const place = ({ kind, peer, id, key }: IntegrityFault): Place => ({ kind, peer, id, key });
 const places = (report: FsckReport): Place[] => report.faults.map(place);
 /** The place of the fault a call throws, or what it did instead. */
