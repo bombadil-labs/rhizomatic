@@ -85,7 +85,7 @@ Step 4d adds three more, listed under Breaking.
   the store refused `invalid-request`" for its wrong store that refuses `targets`.
 - The `snapshots` script gains a second peer that holds the first peer's later ids, and a
   `scope` with `arrivalAtMost` above an old snapshot's own bound. Both stores must keep the old
-  snapshot's set. The Rust feed rules now expect a feed that mixes peers to fail this script.
+  snapshot's set, or refuse `snapshot-moved`. The Rust feed rules now expect a feed that mixes peers to fail this script.
 
 ### ⚠️ Breaking
 
