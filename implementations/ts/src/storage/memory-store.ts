@@ -130,6 +130,8 @@ type PeerState = {
   count: number;
   revision: Revision;
   lastSequence: number;
+  /** The revision of the last purge that released a holding of this peer; 0 before one. */
+  removedAt: Revision;
   readonly feed: Feed;
 };
 
@@ -292,6 +294,7 @@ class MemoryStore implements Store {
       count: 0,
       revision: 0,
       lastSequence: 0,
+      removedAt: 0,
       // A new peer's feed is empty, and its floor is its first revision.
       feed: { records: [], start: 0, floor: 0 },
     };
@@ -409,14 +412,20 @@ class MemoryStore implements Store {
     const revision = state.revision;
     const head = state.head;
     const count = state.count;
+    const bound = state.lastSequence;
     let released = false;
+    // An append gives each new holding a sequence past `bound`, so the holdings with a sequence
+    // of at most `bound` are the snapshot's own until the peer releases one. From that purge on,
+    // every call refuses (§4.13 reading 130).
     const guard = (): void => {
       this.#open();
       if (released) throw new StoreError("snapshot-released", "the snapshot was released");
-      // This store has no read transactions. Answering from a later revision would break
-      // repeatability, so a snapshot the peer has moved past refuses instead.
-      if (state.revision !== revision)
-        throw new StoreError("snapshot-moved", "the peer moved past this snapshot's revision");
+      if (state.removedAt > revision)
+        throw new StoreError("snapshot-moved", "the peer released a holding after this snapshot");
+    };
+    const within = (id: Id): boolean => {
+      const holding = state.holdings.get(id);
+      return holding !== undefined && holding.arrival.sequence <= bound;
     };
     // The shape of a request comes first, as in append: a malformed request is refused the
     // same way on a current, a moved and a released snapshot.
@@ -425,13 +434,15 @@ class MemoryStore implements Store {
       history: state.history,
       head,
       count,
+      lastSequence: bound,
       arrivals: async (ids) => {
         const asked = sorted(strings(ids, "arrivals: ids"));
         guard();
         const found: ArrivalRecord[] = [];
         for (const id of asked) {
           const holding = state.holdings.get(id);
-          if (holding !== undefined) found.push(copyArrival(holding.arrival));
+          if (holding !== undefined && holding.arrival.sequence <= bound)
+            found.push(copyArrival(holding.arrival));
         }
         return found;
       },
@@ -441,24 +452,26 @@ class MemoryStore implements Store {
         const found: Delta[] = [];
         for (const id of asked) {
           const entry = this.#held(state, id);
-          if (entry !== undefined) found.push(entry.delta);
+          if (entry !== undefined && entry.arrival.sequence <= bound) found.push(entry.delta);
         }
         return found;
       },
       targets: async (entities) => {
         const asked = sorted(strings(entities, "targets: entities"));
         guard();
-        return sorted(asked.flatMap((entity) => [...this.#members(state.targets, entity)]));
+        return sorted(
+          asked.flatMap((entity) => [...this.#members(state.targets, entity)].filter(within)),
+        );
       },
       negators: async (ids) => {
         const asked = sorted(strings(ids, "negators: ids"));
         guard();
-        return sorted(asked.flatMap((id) => [...this.#members(state.negators, id)]));
+        return sorted(asked.flatMap((id) => [...this.#members(state.negators, id)].filter(within)));
       },
       scope: async (request) => {
         const own = takeScope(request);
         guard();
-        return this.#scope(state, own);
+        return this.#scope(state, own, bound);
       },
       release: () => {
         released = true;
@@ -466,7 +479,7 @@ class MemoryStore implements Store {
     };
   }
 
-  #scope(state: PeerState, { anchors, asked, exclude }: OwnScope): ScopeResult {
+  #scope(state: PeerState, { anchors, asked, exclude }: OwnScope, bound: number): ScopeResult {
     const can = this.#own.pushdown;
     const applied: AppliedPushdown = {
       timestampAtMost: asked.timestampAtMost !== undefined && can.timestampAtMost,
@@ -475,6 +488,7 @@ class MemoryStore implements Store {
     };
     const dropped = new Set(applied.excludeIds ? asked.excludeIds : []);
     const admits = (entry: VerifiedDelta): boolean =>
+      entry.arrival.sequence <= bound &&
       !(applied.timestampAtMost && entry.delta.claims.timestamp > asked.timestampAtMost!) &&
       !(applied.arrivalAtMost && entry.arrival.sequence > asked.arrivalAtMost!) &&
       !dropped.has(entry.delta.id);
@@ -620,6 +634,7 @@ class MemoryStore implements Store {
     }
     if (released.length > 0) {
       state.revision++;
+      state.removedAt = state.revision;
       this.#record(state, [], released);
     }
     const removed = targets.some((target) => target.outcome === "removed");

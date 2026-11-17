@@ -185,7 +185,7 @@ async function writer(store: Store, id = "peer:a") {
 // ---- the store's own rules -------------------------------------------------------------------
 
 describe("the SQLite store's profile and scheme", () => {
-  it("declares what step 4c holds, and nothing more; the class is proven on Linux only", async () => {
+  it("declares what step 4d holds, and nothing more; the class is proven on Linux only", async () => {
     const store = await fixture.open();
     expect(store.profile).toEqual({
       capabilities: {
@@ -202,7 +202,7 @@ describe("the SQLite store's profile and scheme", () => {
       writers: "many-processes",
       atRest: "trusted",
       changeRetention: { revisions: 1024 },
-      formatVersion: "rhizomatic-store-sqlite/3",
+      formatVersion: "rhizomatic-store-sqlite/4",
     });
     expect(Object.isFrozen(store.profile)).toBe(true);
     // The posture gate on a store of class unprovable: sqlite-store-erasure.test.ts, rail 6.
@@ -272,8 +272,12 @@ describe("the SQLite store's profile and scheme", () => {
     );
   });
 
-  it("refuses a file of format /1 or /2, which steps 4a and 4b wrote, naming both formats; no migration ships", async () => {
-    for (const old of ["rhizomatic-store-sqlite/1", "rhizomatic-store-sqlite/2"]) {
+  it("refuses a file of format /1, /2 or /3, which steps 4a to 4c wrote, naming both formats; no migration ships", async () => {
+    for (const old of [
+      "rhizomatic-store-sqlite/1",
+      "rhizomatic-store-sqlite/2",
+      "rhizomatic-store-sqlite/3",
+    ]) {
       const path = fixture.path();
       await (await openSqliteStore(path)).close();
       const db = new Database(path);
@@ -282,7 +286,7 @@ describe("the SQLite store's profile and scheme", () => {
       const error = (await openSqliteStore(path).catch((e: unknown) => e)) as StoreError;
       expect([error.code, error.message]).toEqual([
         "open-failed",
-        `sqlite store: the file holds format ${old}, and this store reads rhizomatic-store-sqlite/3`,
+        `sqlite store: the file holds format ${old}, and this store reads rhizomatic-store-sqlite/4`,
       ]);
     }
   });
@@ -445,6 +449,33 @@ describe("snapshots on the SQLite store (decision S4-2)", () => {
     expect(await now.negators([x.id])).toEqual([negation.id]);
     old.release();
     expect(await refusal(old.get([]))).toBe("snapshot-released");
+  });
+
+  it("a snapshot refuses every call when the peer row stands at a lower revision, as after a restore in place without restored, and when the peer row is gone", async () => {
+    const path = fixture.path();
+    const store = await openSqliteStore(path);
+    const w = await writer(store);
+    const x = fact("x", 1);
+    await w.append([x]);
+    await w.append([fact("x", 2)]);
+    const back = await w.peer.read();
+    const empty = await store.createPeer("peer:e", { erasure: "unproven" });
+    const gone = await empty.read();
+    const other = new Database(path);
+    other.prepare("UPDATE peer SET revision = 1 WHERE id = 'peer:a'").run();
+    other.prepare("DELETE FROM peer WHERE id = 'peer:e'").run();
+    other.close();
+    for (const s of [back, gone])
+      for (const call of [
+        () => s.get([x.id]),
+        () => s.get([]),
+        () => s.arrivals([x.id]),
+        () => s.targets(["x"]),
+        () => s.negators([x.id]),
+        () => s.scope({ anchors: [{ kind: "entity", entity: "x" }] }),
+      ])
+        expect(await refusal(call())).toBe("snapshot-moved");
+    await store.close();
   });
 
   it("a refused call ends its transaction: the next write does not wait", async () => {

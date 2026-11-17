@@ -26,6 +26,7 @@ CREATE TABLE peer (
   head TEXT,
   count INTEGER NOT NULL CHECK (count >= 0),
   max_seq INTEGER NOT NULL CHECK (max_seq >= 0),
+  removed_at INTEGER NOT NULL CHECK (removed_at >= 0 AND removed_at <= revision),
   app_format TEXT
 ) STRICT;
 CREATE TABLE delta (
@@ -99,8 +100,10 @@ ${ERASABLE.flatMap((table) =>
 ).join("\n")}
 `;
 
-// The pushdown fields of a scope, as nullable parameters: a null bound keeps every delta.
-const PASSES = (id: string): string => `(@seq IS NULL OR holding.seq <= @seq)
+// A snapshot's statements keep the holdings with a sequence of at most `@bound`, the snapshot's
+// last sequence (§4.13 reading 131). A scope binds the lower of that and its `arrivalAtMost`. The
+// other pushdown fields are nullable parameters: a null keeps every delta.
+const PASSES = (id: string): string => `holding.seq <= @bound
     AND (@timestamp IS NULL OR delta.timestamp <= @timestamp)
     AND ${id} NOT IN (SELECT value FROM json_each(@drop))`;
 
@@ -117,12 +120,13 @@ export const SQLITE_STATEMENTS = {
   historyFind: "SELECT 1 FROM history WHERE value = ?",
   historyAdd: "INSERT INTO history (value) VALUES (?)",
   peerRead: `SELECT posture, store_class AS storeClass, history, revision, floor, head, count,
-    max_seq AS maxSeq FROM peer WHERE id = ?`,
-  peerAdd: `INSERT INTO peer (id, posture, store_class, history, revision, floor, head, count, max_seq)
-    VALUES (?, ?, ?, ?, 0, 0, NULL, 0, 0)`,
+    max_seq AS maxSeq, removed_at AS removedAt FROM peer WHERE id = ?`,
+  peerAdd: `INSERT INTO peer
+    (id, posture, store_class, history, revision, floor, head, count, max_seq, removed_at)
+    VALUES (?, ?, ?, ?, 0, 0, NULL, 0, 0, 0)`,
   peerHistory: "UPDATE peer SET history = ? WHERE id = ?",
   peerAdvance: `UPDATE peer SET revision = @revision, floor = @floor, head = @head, count = @count,
-    max_seq = @maxSeq WHERE id = @peer`,
+    max_seq = @maxSeq, removed_at = @removedAt WHERE id = @peer`,
 
   holdingFind: "SELECT 1 FROM holding WHERE peer = ? AND delta = ?",
   heldElsewhere: "SELECT 1 FROM holding WHERE delta = ? LIMIT 1",
@@ -161,19 +165,25 @@ export const SQLITE_STATEMENTS = {
     FROM json_each(@keys) AS asked
     CROSS JOIN holding ON holding.peer = @peer AND holding.delta = asked.value
     CROSS JOIN delta ON delta.id = holding.delta
+    WHERE holding.seq <= @bound
     ORDER BY holding.delta`,
   arrivals: `SELECT holding.arrival
     FROM json_each(@keys) AS asked
     CROSS JOIN holding ON holding.peer = @peer AND holding.delta = asked.value
+    WHERE holding.seq <= @bound
     ORDER BY holding.delta`,
   targets: `SELECT DISTINCT target.delta
     FROM json_each(@keys) AS asked
     CROSS JOIN target ON target.peer = @peer AND target.entity = asked.value
+    CROSS JOIN holding ON holding.peer = @peer AND holding.delta = target.delta
+    WHERE holding.seq <= @bound
     ORDER BY target.delta`,
   negators: `SELECT DISTINCT reference.delta
     FROM json_each(@keys) AS asked
     CROSS JOIN reference
       ON reference.peer = @peer AND reference.ref = asked.value AND reference.role = 'negates'
+    CROSS JOIN holding ON holding.peer = @peer AND holding.delta = reference.delta
+    WHERE holding.seq <= @bound
     ORDER BY reference.delta`,
   scope: `WITH RECURSIVE member (id) AS (
     SELECT target.delta

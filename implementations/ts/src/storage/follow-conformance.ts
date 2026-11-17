@@ -98,6 +98,7 @@ function logged(peer: PeerStore, sink: Sink): PeerStore {
     history: snapshot.history,
     head: snapshot.head,
     count: snapshot.count,
+    lastSequence: snapshot.lastSequence,
     get: (ids) => (sink.log.push({ op: "get", ids: [...ids] }), snapshot.get(ids)),
     arrivals: (ids) => (sink.log.push({ op: "arrivals", ids: [...ids] }), snapshot.arrivals(ids)),
     targets: (entities) => (note("targets"), snapshot.targets(entities)),

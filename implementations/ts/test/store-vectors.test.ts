@@ -638,15 +638,18 @@ describe("store vectors: each broken store fails", () => {
 
   it("a bound a 64-bit field can hold is refused before a moved snapshot's state", async () => {
     // 2^53 reaches the store in every witness; 1.5 and -1 stop at a typed runner's own
-    // boundary. This store refuses a moved snapshot before it looks at such a bound.
+    // boundary. This store refuses a snapshot the peer has moved past, after any write, before
+    // it looks at such a bound.
     const fault: Break = {
-      snapshot: (s) => ({
+      snapshot: (s, peer) => ({
         scope: async (request) => {
           const bound = request.pushdown?.arrivalAtMost;
-          if (bound !== undefined && Number.isInteger(bound) && bound > Number.MAX_SAFE_INTEGER)
-            await s.targets([]).catch((error: unknown) => {
-              if ((error as { code?: string }).code === "snapshot-moved") throw error;
-            });
+          if (bound !== undefined && Number.isInteger(bound) && bound > Number.MAX_SAFE_INTEGER) {
+            const now = await peer.read();
+            now.release();
+            if (now.revision !== s.revision)
+              throw new StoreError("snapshot-moved", "the peer moved past this snapshot");
+          }
           return s.scope(request);
         },
       }),

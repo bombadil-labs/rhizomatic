@@ -245,9 +245,11 @@ export type ChangePage =
   | { readonly status: "resync-required"; readonly current: Revision };
 
 /**
- * Every operation on one snapshot answers at `revision`. A store without read transactions
- * fails an operation with `snapshot-moved` once the peer's revision has passed it; it never
- * answers from the later state.
+ * Every operation on one snapshot answers at `revision`, or refuses `snapshot-moved`; it never
+ * answers from a later state. After an append, a store may answer as at `revision` or refuse.
+ * Once the peer has released a holding since `revision`, or has a new history, every operation
+ * refuses `snapshot-moved` (§4.13 reading 130). `revision`, `history`, `head`, `count` and
+ * `lastSequence` are fixed when the snapshot is read and never refuse.
  */
 export interface Snapshot {
   readonly revision: Revision;
@@ -257,6 +259,11 @@ export interface Snapshot {
   readonly head: Head | null;
   /** How many deltas the peer holds at this revision. Costs O(1). */
   readonly count: number;
+  /**
+   * The highest arrival sequence the peer has admitted at this revision, 0 before the first. A
+   * purge does not lower it. The next append's sequences must pass it (§4.13 reading 131).
+   */
+  readonly lastSequence: ArrivalSeq;
   /** The held deltas among `ids`, each as this peer admitted it. */
   get(ids: readonly Id[]): Promise<readonly Delta[]>;
   /** This peer's arrival record for each held id among `ids`. */

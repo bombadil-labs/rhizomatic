@@ -88,6 +88,7 @@ export function countingSnapshot(snapshot: Snapshot, trace: StoreCall[]): Snapsh
     history: snapshot.history,
     head: snapshot.head,
     count: snapshot.count,
+    lastSequence: snapshot.lastSequence,
     get: (ids) => (note("get", ids.length), snapshot.get(ids)),
     arrivals: (ids) => (note("arrivals", ids.length), snapshot.arrivals(ids)),
     targets: (entities) => (note("targets", entities.length), snapshot.targets(entities)),

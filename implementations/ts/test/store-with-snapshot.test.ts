@@ -521,7 +521,7 @@ for (const [name, open] of STORES)
   });
 
 describe("withSnapshot on the SQLite store holds no transaction between the body's calls", () => {
-  it("while the body is suspended at an await, an append through the same Store commits, and a second connection's checkpoint (TRUNCATE) is not busy and leaves no log", async () => {
+  it("while the body is suspended at an await, an append through the same Store commits, and a second connection's checkpoint (TRUNCATE) is not busy and leaves no log; the body does not see the append and runs once", async () => {
     const path = fixture.path();
     const store = await openSqliteStore(path);
     try {
@@ -550,8 +550,8 @@ describe("withSnapshot on the SQLite store holds no transaction between the body
         return { first, second: await snapshot.targets([X]) };
       });
       expect(seen).toEqual(["committed", [{ busy: 0, log: 0, checkpointed: 0 }]]);
-      expect(attempts).toBe(2);
-      expect(value).toEqual({ first: [delta.id], second: [delta.id] });
+      expect(attempts).toBe(1);
+      expect(value).toEqual({ first: [], second: [] });
     } finally {
       await store.close();
     }
