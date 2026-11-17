@@ -249,26 +249,41 @@ for (const [name, open] of STORES)
         expect(codeOf(await outcome(snapshot.targets([X])))).toBe("snapshot-released");
     });
 
-    it("withinMs bounds the snapshots after the first: 0 still runs the first; a body past the bound gets no second; a large bound reaches the count", async () => {
+    it("withinMs bounds the snapshots after the first by the host's clock: 0 still runs the first; a body that passes the bound gets no second; a bound not passed reaches the count", async () => {
       const { peer, write } = await seeded(open);
-      const still = await withSnapshot(peer, (s) => s.targets([X]), { withinMs: 0 });
-      expect(still.attempts).toBe(1);
-      const moves = (wait: number) => async (snapshot: Snapshot) => {
+      let now = 1_000;
+      let readings = 0;
+      const clock = (): number => {
+        readings += 1;
+        return now;
+      };
+      const still = await withSnapshot(peer, (s) => s.targets([X]), { withinMs: 0, clock });
+      expect([still.attempts, readings]).toEqual([1, 1]);
+      const moves = (step: number) => async (snapshot: Snapshot) => {
         await snapshot.targets([X]);
-        await sleep(wait);
+        now += step;
         await write(Y);
         return snapshot.targets([Y]);
       };
-      for (const [retry, wait, expected] of [
-        [{ withinMs: 0 }, 0, 1],
-        [{ withinMs: 10 }, 30, 1],
-        [{ withinMs: 3_600_000 }, 0, 4],
-        [{ withinMs: 3_600_000, snapshots: 2 }, 0, 2],
+      for (const [withinMs, step, snapshots, expected] of [
+        [0, 0, undefined, 1],
+        [10, 30, undefined, 1],
+        [10, 9, undefined, 2],
+        [10, 3, undefined, 4],
+        [100, 0, 2, 2],
       ] as const) {
         const { peer: watched, reads } = counted(peer);
-        const failure = await outcome(withSnapshot(watched, moves(wait), retry));
-        expect([codeOf(failure), reads()]).toEqual(["snapshot-moved", expected]);
+        const retry =
+          snapshots === undefined ? { withinMs, clock } : { withinMs, clock, snapshots };
+        const failure = await outcome(withSnapshot(watched, moves(step), retry));
+        expect([codeOf(failure), reads()], `${withinMs} ${step}`).toEqual([
+          "snapshot-moved",
+          expected,
+        ]);
       }
+      const { peer: watched, reads } = counted(peer);
+      const unbounded = await outcome(withSnapshot(watched, moves(1_000_000), { clock }));
+      expect([codeOf(unbounded), reads()]).toEqual(["snapshot-moved", 4]);
     });
 
     it("refuses a bad policy invalid-request before any store call, and reads policy fields as own fields", async () => {
@@ -294,6 +309,11 @@ for (const [name, open] of STORES)
         { withinMs: Number.POSITIVE_INFINITY },
         { withinMs: "10" },
         { withinMs: null },
+        { withinMs: 10 },
+        { withinMs: 10, clock: 5 },
+        { clock: "now" },
+        { withinMs: 10, clock: () => Number.NaN },
+        { withinMs: 10, clock: () => "1" },
       ];
       for (const retry of bad) {
         const { peer: watched, reads } = counted(peer);

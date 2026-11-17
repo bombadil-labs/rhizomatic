@@ -23,11 +23,16 @@ export type SnapshotRetry = {
   /** Snapshots in all, a refused `read()` included: an integer from 1 to 16. Default 4. */
   readonly snapshots?: number;
   /**
-   * No snapshot after the first starts once this many ms have passed since the call began: an
-   * integer of 0 or more. The first snapshot always starts, and a running body is never stopped.
-   * Default: no bound in time.
+   * No snapshot after the first starts once this many ms of `clock` have passed since the call
+   * began: an integer of 0 or more. The first snapshot always starts, and a running body is never
+   * stopped. It needs `clock`. Default: no bound in time.
    */
   readonly withinMs?: number;
+  /**
+   * The host's clock in ms, such as `() => performance.now()`, read only for `withinMs`. The
+   * package reads no clock of its own.
+   */
+  readonly clock?: () => number;
 };
 
 /** What `withSnapshot` answers: the body's value, and how many snapshots it took. */
@@ -53,15 +58,17 @@ export function revisionInRange(revision: Revision): void {
 const moved = (error: unknown): boolean =>
   error instanceof StoreError && error.code === "snapshot-moved";
 
-/** The bound of one call. Both fields are own fields, so neither reads from a prototype. */
+type Within = { readonly ms: number; readonly clock: () => number };
+
+/** The bound of one call. Its fields are own fields, so none reads from a prototype. */
 function policy(retry: SnapshotRetry | undefined): {
   snapshots: number;
-  withinMs: number | undefined;
+  within: Within | undefined;
 } {
-  if (retry === undefined) return { snapshots: SNAPSHOT_RETRIES + 1, withinMs: undefined };
+  if (retry === undefined) return { snapshots: SNAPSHOT_RETRIES + 1, within: undefined };
   if (!isPlainObject(retry))
     throw new StoreError("invalid-request", "withSnapshot: retry is a plain object");
-  const { snapshots = SNAPSHOT_RETRIES + 1, withinMs } = ownFields(retry);
+  const { snapshots = SNAPSHOT_RETRIES + 1, withinMs, clock } = ownFields(retry);
   if (!Number.isInteger(snapshots) || snapshots < 1 || snapshots > MOST_SNAPSHOTS)
     throw new StoreError(
       "invalid-request",
@@ -69,7 +76,25 @@ function policy(retry: SnapshotRetry | undefined): {
     );
   if (withinMs !== undefined && !(Number.isSafeInteger(withinMs) && withinMs >= 0))
     throw new StoreError("invalid-request", "withSnapshot: withinMs is an integer of 0 or more");
-  return { snapshots, withinMs };
+  if (clock !== undefined && typeof clock !== "function")
+    throw new StoreError("invalid-request", "withSnapshot: clock is a function");
+  if (withinMs !== undefined && clock === undefined)
+    throw new StoreError(
+      "invalid-request",
+      "withSnapshot: withinMs needs clock, the host's clock in ms, such as () => performance.now()",
+    );
+  return {
+    snapshots,
+    within: withinMs === undefined ? undefined : { ms: withinMs, clock: clock! },
+  };
+}
+
+/** One reading of the host's clock. A reading that is not a finite number is refused. */
+function reading(clock: () => number): number {
+  const at = clock();
+  if (typeof at !== "number" || !Number.isFinite(at))
+    throw new StoreError("invalid-request", "withSnapshot: clock answered no finite number");
+  return at;
 }
 
 /**
@@ -90,12 +115,12 @@ export async function withSnapshot<T>(
   body: (snapshot: Snapshot, attempt: number) => T | Promise<T>,
   retry?: SnapshotRetry,
 ): Promise<OnSnapshot<T>> {
-  const started = performance.now();
-  const { snapshots, withinMs } = policy(retry);
+  const { snapshots, within } = policy(retry);
   if (typeof body !== "function")
     throw new StoreError("invalid-request", "withSnapshot: body is a function");
+  const started = within === undefined ? 0 : reading(within.clock);
   const again = (attempts: number): boolean =>
-    attempts < snapshots && (withinMs === undefined || performance.now() - started < withinMs);
+    attempts < snapshots && (within === undefined || reading(within.clock) - started < within.ms);
   for (let attempts = 1; ; attempts += 1) {
     let snapshot: Snapshot;
     try {

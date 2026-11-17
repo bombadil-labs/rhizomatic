@@ -2424,12 +2424,15 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      105). Every other error passes up at once as the same object. The bound `snapshots` counts
      every snapshot, a refused `read()` included: 4 by default (`SNAPSHOT_RETRIES` + 1), at
      most 16. `withinMs` adds a bound in time: no snapshot after the first starts once
-     `withinMs` ms have passed since the call began. The first always starts, and a running
-     `body` is not stopped, so a call takes at most `withinMs` plus one `body`. No bound in time
-     is the default. Past either bound the last `snapshot-moved` passes up. A `retry` that is
+     `withinMs` ms have passed since the call began. The time is read from `clock`, the host's
+     clock in ms (`() => performance.now()`, for example), because the package reads no ambient
+     clock; `withinMs` without `clock` is refused. The first snapshot always starts, and a
+     running `body` is not stopped, so a call takes at most `withinMs` plus one `body`. No bound
+     in time is the default. Past either bound the last `snapshot-moved` passes up. A `retry` that is
      not a plain object, a `snapshots` that is not an integer from 1 to 16, a `withinMs` that is
-     not an integer of 0 or more, and a `body` that is not a function are refused
-     `invalid-request` before the first store call. `retry`'s fields are read as own fields
+     not an integer of 0 or more, a `clock` that is not a function, and a `body` that is not a
+     function are refused `invalid-request` before the first store call. A clock reading that is
+     not a finite number is refused `invalid-request` when it is read. `retry`'s fields are read as own fields
      (reading 126). Under a steady writer in another process a body can fail every try; the
      count bounds it, and the host chooses the count.
 129. **`body` and transactions.** `body` may be synchronous or asynchronous, because a snapshot

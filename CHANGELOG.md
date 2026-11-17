@@ -14,8 +14,8 @@ new text, a busy open of a SQLite file refuses `store-unavailable` where it refu
 - The package root exports `withSnapshot(peer, body, retry?)`, with the types `SnapshotRetry`
   and `OnSnapshot`. It runs several reads on one snapshot and runs them all again on a new
   snapshot after `snapshot-moved`. It answers `{value, attempts}`. It starts at most
-  `retry.snapshots` snapshots (default 4, at most 16), and with `retry.withinMs` it starts no
-  new snapshot after that many ms. It never retries `store-unavailable`. `StoreReactor.read`
+  `retry.snapshots` snapshots (default 4, at most 16). With `retry.withinMs` and
+  `retry.clock` (the host's clock in ms) it starts no new snapshot after that many ms. It never retries `store-unavailable`. `StoreReactor.read`
   and `fetch`, `checkFresh`, a feed pull and a pass of held views now use it, with the same
   behavior as before. `SNAPSHOT_RETRIES` is still exported, with the same value (§4.13
   readings 127 to 129).

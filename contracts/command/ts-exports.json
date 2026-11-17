@@ -40701,6 +40701,26 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API OnSnapshot.attempts implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/with-snapshot.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:SnapshotRetry#clock",
+      "owner": "storage",
+      "symbol": "SnapshotRetry.clock",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/with-snapshot.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API SnapshotRetry.clock implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/with-snapshot.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/with-snapshot.ts:SnapshotRetry#clock",
+      "owner": "storage",
+      "symbol": "SnapshotRetry.clock",
+      "source": "implementations/ts/src/storage/with-snapshot.ts",
+      "definition": "implementations/ts/src/storage/with-snapshot.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API SnapshotRetry.clock implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/with-snapshot.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }

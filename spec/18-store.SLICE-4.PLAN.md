@@ -430,7 +430,7 @@ follows per S4-10.
 | Release-mode cost rails | 4e |
 | A refused open of a file that is not a whole store writes nothing: the schema, format and retention check before the journal mode (proposal §4.13 reading 126) | 4e |
 | The open asks again while the switch to WAL answers busy, then refuses `store-unavailable` (proposal §4.13 reading 126) | 4e |
-| `with_snapshot`: the public form of `on_snapshots`, with `SnapshotRetry { snapshots, within }`, and its tests: the contract tests 1 to 12 over both stores and the process tests M1 to M5 (proposal §4.13 readings 127 to 129) | 4e |
+| `with_snapshot`: the public form of `on_snapshots`, with `SnapshotRetry { snapshots, within, clock }` (the host gives the clock), and its tests: the contract tests 1 to 12 over both stores and the process tests M1 to M5 (proposal §4.13 readings 127 to 129) | 4e |
 
 ## 11. Risks
 
