@@ -160,7 +160,7 @@ export interface SqliteStore extends Store {
 }
 
 // The connection rules: each pragma is set, then read back, and open refuses a difference. The
-// wait comes first: `journal_mode` reads the file, and must wait only as long as the host asked.
+// open sets the wait itself, before each statement, to the time left of the host's wait.
 const RULES = (
   busyTimeoutMs: number,
 ): readonly (readonly [keyof SqliteConnection, string, unknown])[] => [
@@ -213,22 +213,20 @@ function unavailable(error: unknown): unknown {
 let pause: Int32Array | undefined;
 
 /**
- * Runs `body`, and runs it again while the engine answers `SQLITE_BUSY`, until `timeoutMs` has
- * passed since the first try. The switch to the `wal` journal mode answers busy at once, without
- * the busy handler, while another connection opens the same new file. Each statement in `body`
- * can also wait `timeoutMs` in the busy handler, so a try that starts just before the end can
- * take that long again. After the wait the refusal is `store-unavailable`, as for any lock held
- * past the wait (reading 105). Any other error passes up unchanged.
+ * Runs `body`, and runs it again while the engine answers `SQLITE_BUSY`, until `deadline` (a
+ * time of `performance.now`). The switch to the `wal` journal mode answers busy at once, without
+ * the busy handler, while another connection opens the same new file. After the deadline the
+ * refusal is `store-unavailable`, as for any lock held past the wait (reading 105). Any other
+ * error passes up unchanged.
  */
-function waiting<T>(timeoutMs: number, body: () => T): T {
-  const start = performance.now();
+function waiting<T>(deadline: number, body: () => T): T {
   for (;;) {
     try {
       return body();
     } catch (error) {
       if (!(error instanceof Database.SqliteError && error.code.startsWith("SQLITE_BUSY")))
         throw error;
-      const left = timeoutMs - (performance.now() - start);
+      const left = deadline - performance.now();
       if (left <= 0) throw unavailable(error);
       pause ??= new Int32Array(new SharedArrayBuffer(4));
       Atomics.wait(pause, 0, 0, Math.min(BUSY_PAUSE_MS, left));
@@ -373,20 +371,21 @@ const SCHEMA_NAMES = [...SQLITE_SCHEMA.matchAll(/CREATE (?:TABLE|INDEX|TRIGGER) 
 
 /**
  * True when the file holds no schema at all, as a new file does. Refuses `open-failed` for a file
- * that holds a schema but not a whole store of this format: another format, no `format` row, or a
- * missing table, index, trigger or `retention` row. It only reads.
+ * that holds a schema but not a whole store of this format: no `meta` table, another format, no
+ * `format` row, or a missing table, index, trigger or `retention` row. It only reads, and runs
+ * `before` before each statement. An engine error of a read passes up.
  */
-function isEmpty(db: BetterSqlite3.Database): boolean {
+function isEmpty(db: BetterSqlite3.Database, before: () => void = () => {}): boolean {
+  const read = (key: string): string | undefined => {
+    before();
+    return metaOf(db, key);
+  };
+  before();
   const names = new Set(
     (db.prepare(SQLITE_STATEMENTS.schemaNames).all() as { name: string }[]).map((r) => r.name),
   );
   if (names.size === 0) return true;
-  let format: string | undefined;
-  try {
-    format = metaOf(db, "format");
-  } catch {
-    format = undefined;
-  }
+  const format = names.has("meta") ? read("format") : undefined;
   if (format !== SQLITE_STORE_FORMAT)
     throw new StoreError(
       "open-failed",
@@ -394,7 +393,7 @@ function isEmpty(db: BetterSqlite3.Database): boolean {
         ? "sqlite store: the file is not a rhizomatic store"
         : `sqlite store: the file holds format ${format}, and this store reads ${SQLITE_STORE_FORMAT}`,
     );
-  if (!SCHEMA_NAMES.every((name) => names.has(name)) || metaOf(db, "retention") === undefined)
+  if (!SCHEMA_NAMES.every((name) => names.has(name)) || read("retention") === undefined)
     throw new StoreError(
       "open-failed",
       "sqlite store: the file holds the store's format but not the whole store",
@@ -448,13 +447,27 @@ class SqliteFileStore implements SqliteStore {
   constructor(db: BetterSqlite3.Database, options: OwnOptions) {
     this.#db = db;
     this.#rules = RULES(options.busyTimeoutMs);
+    // Before each statement of the open, the engine waits only for the time left of one
+    // `busyTimeoutMs`, so a holder that takes the lock again before each statement cannot make the
+    // open wait longer. The host's value is set again before the rules are checked, and at the end.
+    const deadline = performance.now() + options.busyTimeoutMs;
+    const left = (): void => {
+      db.pragma(`busy_timeout = ${Math.max(0, Math.ceil(deadline - performance.now()))}`);
+    };
+    const configured = (): void => {
+      db.pragma(`busy_timeout = ${options.busyTimeoutMs}`);
+    };
     // The journal mode pragma writes the file's header and makes the -wal and -shm files. So a
     // file that is not a store is refused first, by reads only (§4.13 reading 126).
-    db.pragma(`busy_timeout = ${options.busyTimeoutMs}`);
-    waiting(options.busyTimeoutMs, () => {
-      isEmpty(db);
-      for (const [name, value] of this.#rules) db.pragma(`${name} = ${value}`);
+    waiting(deadline, () => {
+      isEmpty(db, left);
+      for (const [name, value] of this.#rules)
+        if (name !== "busy_timeout") {
+          left();
+          db.pragma(`${name} = ${value}`);
+        }
     });
+    configured();
     const now = this.#connection();
     for (const [name, value, expected] of this.#rules)
       if (now[name] !== expected)
@@ -469,6 +482,7 @@ class SqliteFileStore implements SqliteStore {
     this.#beginWrite = db.prepare("BEGIN IMMEDIATE");
     this.#commit = db.prepare("COMMIT");
     this.#rollback = db.prepare("ROLLBACK");
+    left();
     const retention = this.#run("write", () => this.#format(options.changeRetention));
     this.#s = Object.fromEntries(
       Object.entries(SQLITE_STATEMENTS).map(([name, sql]) => [name, db.prepare(sql)]),
@@ -476,7 +490,9 @@ class SqliteFileStore implements SqliteStore {
     this.#keep = retention === "unbounded" ? Number.POSITIVE_INFINITY : retention.revisions;
     this.#pageSize = options.pageSize;
     this.#mint = options.mint;
+    left();
     this.#run("write", () => this.#identify(options.restored));
+    configured();
     this.profile = profileOf(retention);
   }
 
