@@ -243,7 +243,7 @@ describe("the SQLite store's profile and scheme", () => {
     expect(await refusal(openSqliteStore(other))).toBe("open-failed");
   });
 
-  it("decides not-a-store by the tables that the names read finds: a file with no meta table, or with only an index named meta, is not a rhizomatic store; a meta table of other columns did not open (SQLITE_ERROR)", async () => {
+  it("decides not-a-store by the tables that the names read finds: a file with no meta table, or with only an index, a view or a trigger named meta, is not a rhizomatic store; a meta table of other columns did not open (SQLITE_ERROR)", async () => {
     const answer = async (schema: string): Promise<string> => {
       const path = fixture.path();
       const db = new Database(path);
@@ -260,6 +260,12 @@ describe("the SQLite store's profile and scheme", () => {
     const NOT_A_STORE = "open-failed: sqlite store: the file is not a rhizomatic store";
     expect(await answer("CREATE TABLE t (x)")).toBe(NOT_A_STORE);
     expect(await answer("CREATE TABLE t (x); CREATE INDEX meta ON t (x)")).toBe(NOT_A_STORE);
+    expect(await answer("CREATE TABLE t (x); CREATE VIEW meta AS SELECT x AS value FROM t")).toBe(
+      NOT_A_STORE,
+    );
+    expect(
+      await answer("CREATE TABLE t (x); CREATE TRIGGER meta AFTER INSERT ON t BEGIN SELECT 1; END"),
+    ).toBe(NOT_A_STORE);
     expect(await answer("CREATE TABLE meta (a, b)")).toBe(
       "open-failed: sqlite store: the file did not open (SQLITE_ERROR)",
     );

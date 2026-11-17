@@ -628,29 +628,36 @@ describe("the open of a store whose lock another connection takes between the op
     ]);
   }, 60_000);
 
-  for (const [code, expected] of [
-    ["SQLITE_CORRUPT", "open-failed: sqlite store: the file did not open (SQLITE_CORRUPT)"],
-    ["SQLITE_BUSY", UNAVAILABLE],
+  for (const [read, at] of [
+    [3, "format read of the second pass"],
+    [4, "retention read of the second pass"],
+    [5, "retention read after the second pass"],
   ] as const)
-    it(`an engine error ${code} at the format read of the second pass, in the open's write transaction, answers ${expected.split(":")[0]} after one try`, async () => {
-      const path = await made();
-      let reads = 0;
-      const { answer } = await hooked(
-        "prepare",
-        (source) => {
-          if (source !== SQLITE_STATEMENTS.metaGet) return;
-          // The first pass reads format and retention; the third read is the second pass.
-          if (++reads === 3) throw new Database.SqliteError("the engine failed", code);
-        },
-        () => timedOpen(path, BOUND_MS),
-      );
-      expect([answer, reads]).toEqual([expected, 3]);
-      const store = await openSqliteStore(path);
-      const peers: string[] = [];
-      for await (const id of store.openAdmin().peers()) peers.push(id);
-      expect(peers).toEqual(["peer:a"]);
-      await store.close();
-    }, 60_000);
+    for (const [code, expected] of [
+      ["SQLITE_CORRUPT", "open-failed: sqlite store: the file did not open (SQLITE_CORRUPT)"],
+      ["SQLITE_IOERR_READ", "open-failed: sqlite store: the file did not open (SQLITE_IOERR_READ)"],
+      ["SQLITE_BUSY", UNAVAILABLE],
+    ] as const)
+      it(`an engine error ${code} at the ${at}, in the open's write transaction, answers ${expected.split(":")[0]} after one try`, async () => {
+        const path = await made();
+        let reads = 0;
+        const { answer } = await hooked(
+          "prepare",
+          (source) => {
+            if (source !== SQLITE_STATEMENTS.metaGet) return;
+            // The first pass reads format and retention; reads 3 and 4 are the second pass, and
+            // read 5 is the retention the open keeps.
+            if (++reads === read) throw new Database.SqliteError("the engine failed", code);
+          },
+          () => timedOpen(path, BOUND_MS),
+        );
+        expect([answer, reads]).toEqual([expected, read]);
+        const store = await openSqliteStore(path);
+        const peers: string[] = [];
+        for await (const id of store.openAdmin().peers()) peers.push(id);
+        expect(peers).toEqual(["peer:a"]);
+        await store.close();
+      }, 60_000);
 
   for (const file of ["a new file", "a rollback-journal store"] as const)
     it(`a holder that takes an exclusive lock again before each statement of the open of ${file}, and holds it for most of busyTimeoutMs, cannot make the open take more than one and a half times busyTimeoutMs`, async () => {

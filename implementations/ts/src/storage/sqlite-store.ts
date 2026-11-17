@@ -509,17 +509,17 @@ class SqliteFileStore implements SqliteStore {
   /** Creates the schema in an empty file, or checks the format and retention of a store. */
   #format(asked: Retention | undefined): Retention {
     const db = this.#db;
-    let empty: boolean;
+    let kept: string | undefined;
     try {
-      empty = isEmpty(db);
+      kept = isEmpty(db) ? undefined : metaOf(db, "retention")!;
     } catch (error) {
-      // The second pass, in the write transaction, refuses as the first does: only busy is
-      // `store-unavailable` (§4.13 reading 126).
+      // The second pass and its retention read, in the write transaction, refuse as the first
+      // pass does: only busy is `store-unavailable` (§4.13 reading 126).
       if (error instanceof Database.SqliteError && !error.code.startsWith("SQLITE_BUSY"))
         throw notOpened(error);
       throw error;
     }
-    if (empty) {
+    if (kept === undefined) {
       const retention = asked ?? DEFAULT_RETENTION;
       db.exec(SQLITE_SCHEMA);
       const put = db.prepare(SQLITE_STATEMENTS.metaSet);
@@ -527,7 +527,6 @@ class SqliteFileStore implements SqliteStore {
       put.run("retention", JSON.stringify(retention));
       return retention;
     }
-    const kept = metaOf(db, "retention")!;
     if (asked !== undefined && JSON.stringify(asked) !== kept)
       throw new StoreError(
         "invalid-request",
