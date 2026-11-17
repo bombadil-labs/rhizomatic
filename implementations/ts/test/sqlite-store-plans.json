@@ -1,5 +1,5 @@
 {
-  "schemaSize": ["SCAN sqlite_master"],
+  "schemaNames": ["SCAN sqlite_schema"],
   "files": [],
   "metaGet": ["SEARCH meta USING INDEX sqlite_autoindex_meta_1 (key=?)"],
   "metaSet": [],

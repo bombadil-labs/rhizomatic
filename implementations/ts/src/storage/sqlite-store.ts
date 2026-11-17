@@ -342,13 +342,21 @@ function metaOf(db: BetterSqlite3.Database, key: string): string | undefined {
   return (db.prepare(SQLITE_STATEMENTS.metaGet).get(key) as { value: string } | undefined)?.value;
 }
 
+/** The name of each table, index and trigger that the store's schema creates. */
+const SCHEMA_NAMES = [...SQLITE_SCHEMA.matchAll(/CREATE (?:TABLE|INDEX|TRIGGER) (\w+)/g)].map(
+  (m) => m[1]!,
+);
+
 /**
  * True when the file holds no schema at all, as a new file does. Refuses `open-failed` for a file
- * that holds a schema but not a store of this format. It only reads.
+ * that holds a schema but not a whole store of this format: another format, no `format` row, or a
+ * missing table, index, trigger or `retention` row. It only reads.
  */
 function isEmpty(db: BetterSqlite3.Database): boolean {
-  const { size } = db.prepare(SQLITE_STATEMENTS.schemaSize).get() as { size: number };
-  if (size === 0) return true;
+  const names = new Set(
+    (db.prepare(SQLITE_STATEMENTS.schemaNames).all() as { name: string }[]).map((r) => r.name),
+  );
+  if (names.size === 0) return true;
   let format: string | undefined;
   try {
     format = metaOf(db, "format");
@@ -361,6 +369,11 @@ function isEmpty(db: BetterSqlite3.Database): boolean {
       format === undefined
         ? "sqlite store: the file is not a rhizomatic store"
         : `sqlite store: the file holds format ${format}, and this store reads ${SQLITE_STORE_FORMAT}`,
+    );
+  if (!SCHEMA_NAMES.every((name) => names.has(name)) || metaOf(db, "retention") === undefined)
+    throw new StoreError(
+      "open-failed",
+      "sqlite store: the file holds the store's format but not the whole store",
     );
   return false;
 }

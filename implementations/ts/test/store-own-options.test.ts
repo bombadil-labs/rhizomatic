@@ -22,7 +22,7 @@ import { readAnchored } from "../src/reactor/store-read.js";
 import { StoreViews } from "../src/reactor/store-views.js";
 import { createMemoryStore } from "../src/storage/memory-store.js";
 import { openStore } from "../src/storage/open-store.js";
-import { openSqliteStore } from "../src/storage/sqlite-store.js";
+import { SQLITE_STORE_FORMAT, openSqliteStore } from "../src/storage/sqlite-store.js";
 import { StoreError, type PeerStore } from "../src/storage/store.js";
 import { space } from "./support/sqlite-erasure.js";
 
@@ -261,6 +261,12 @@ describe("a refused open of a file that is not a store leaves the file as it was
     "a SQLite file with one unrelated table": (path: string) => {
       const db = new Database(path);
       db.exec("CREATE TABLE notes (body TEXT); INSERT INTO notes VALUES ('kept');");
+      db.close();
+    },
+    "a SQLite file whose meta table holds only the store's format row": (path: string) => {
+      const db = new Database(path);
+      db.exec("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT");
+      db.prepare("INSERT INTO meta VALUES ('format', ?)").run(SQLITE_STORE_FORMAT);
       db.close();
     },
     "a file that is not SQLite": (path: string) =>

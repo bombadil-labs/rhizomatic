@@ -29,7 +29,7 @@ afterAll(() => fixture.cleanup());
 
 /** Statements that may read without an index, each with its reason. */
 const EXEMPT: Readonly<Record<string, string>> = {
-  schemaSize:
+  schemaNames:
     "open reads the catalog once to tell an empty file from a store; its size is the schema's, not the data's",
 };
 const BASE_TABLES = [
