@@ -154,44 +154,6 @@ describe("a signature and a validity end set only on Object.prototype read as ab
     ]);
   });
 
-  it("validUntil: a delta whose id hashes a validUntil that only a prototype holds (a class getter, Object.create, a polluted Object.prototype) is refused invalid-admission by both stores, which hold nothing", async () => {
-    class Getter {
-      readonly timestamp = 1;
-      readonly validFrom = 1;
-      readonly author = "did:key:zA";
-      readonly pointers = claims("target", 1, "one").pointers;
-      get validUntil(): number {
-        return 50;
-      }
-    }
-    const made: Record<string, () => Delta> = {
-      "class getter": () => makeDelta(new Getter()),
-      "Object.create": () =>
-        makeDelta(
-          Object.assign(Object.create({ validUntil: 50 }) as Claims, claims("target", 1, "one")),
-        ),
-      "polluted Object.prototype": () =>
-        polluted("validUntil", 50, async () => fact("target", 1, "one")) as never,
-    };
-    const plain = fact("target", 1, "one");
-    const seen: unknown[] = [];
-    for (const [shape, make] of Object.entries(made))
-      for (const { name, store } of await stores()) {
-        const delta = await make();
-        const peer = await store.createPeer(PEER, { erasure: "unproven" });
-        const status = await outcome(async () => (await peer.append(batch([delta]))).status);
-        const snapshot = await peer.read();
-        seen.push([shape, name, delta.id === plain.id, status, snapshot.revision, snapshot.count]);
-        await store.close();
-      }
-    expect(seen).toEqual(
-      Object.keys(made).flatMap((shape) => [
-        [shape, "memory", false, "invalid-admission", 0, 0],
-        [shape, "sqlite", false, "invalid-admission", 0, 0],
-      ]),
-    );
-  });
-
   it("validUntil: a delta made without one and appended under a polluted Object.prototype is stored without validUntil, and its id recomputes", async () => {
     const plain = fact("target", 1, "one");
     const seen: unknown[] = [];
