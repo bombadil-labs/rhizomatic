@@ -163,13 +163,34 @@ Step 4d adds more, listed under Breaking.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
+- **Peer delete** (step 4d, §4.13 reading 143). `Store.deletePeer(id)` deletes a peer: its
+  holdings, index entries, change records, purge debts, records of removals and digest, then the
+  peer. Bytes that another peer holds stay. It answers a `DeleteReport`
+  `{claim, boundary, surfaces, retains, released, keptByOtherPeers}`, in the purge report's
+  words, with two counts and no ids. The SQLite store marks the peer first, releases its
+  holdings in pages of 256, one write transaction each, removes the peer row last, and then
+  rebuilds and decides the report as a purge does. A delete that dies leaves the mark, and the
+  next `deletePeer` of the id finishes it. From the mark on, every call on the peer refuses
+  `peer-absent`, every snapshot refuses `snapshot-moved`, and `createPeer` of the id refuses
+  `peer-exists`. A history is never issued again, so a peer created later under the id gets a
+  new one. The memory store deletes all at once, and its claim is always `unproven`. The package
+  root exports `DeleteReport`. Rust takes peer delete in step 4e.
+- What can now be deleted that could not be deleted before: every holding, index entry, change
+  record, purge debt, record of a removal, digest row and peer row of one peer, and the bytes of
+  each delta that no other peer holds, by one call.
 
 ### ⚠️ Breaking
 
-- **SQLite format `rhizomatic-store-sqlite/6`.** The `peer` table gains `removed_at`,
-  `max_transfer` and `root`, `app_format` gains a check, and the `digest` table is new. Open
-  refuses a file of format `/1` to `/5` with `open-failed`, names both formats and changes no
-  byte. No migration ships: create a new file and append again.
+- **SQLite format `rhizomatic-store-sqlite/7`.** The `peer` table gains `removed_at`,
+  `max_transfer`, `root` and `state`, `app_format` gains a check, the `digest` table is new, and
+  a trigger counts the delete of a `peer` row in `residue.dirty`. Open refuses a file of format
+  `/1` to `/6` with `open-failed`, names both formats and changes no byte. No migration ships:
+  create a new file and append again.
+- **`Store` has a new member, `deletePeer`.** A host that builds its own `Store` object must
+  give one.
+- **`IntegrityFaultKind` has a new kind, `peer-deleting`.** `fsck` reports it for a peer whose
+  delete did not end, and checks no other row of that peer. A host that matches every kind must
+  add it.
 - **`Snapshot` has two more new members, `root` and `digest`.** A host that builds its own
   `Snapshot` object must pass them through. A store without the digest gives `root` null and
   refuses `digest` with `capability-absent`.
