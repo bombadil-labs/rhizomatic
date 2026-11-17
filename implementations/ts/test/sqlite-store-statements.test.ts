@@ -3,6 +3,9 @@
 // side, while the shared store vectors run and while the store opens, reads its connection rules
 // and closes. Transaction control and the connection pragmas are listed here by name.
 
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { makeDelta } from "../src/delta/set.js";
 import { afterAll, describe, expect, it } from "vitest";
@@ -10,6 +13,7 @@ import { SQLITE_SCHEMA, SQLITE_STATEMENTS } from "../src/storage/sqlite-statemen
 import { runStoreConformance } from "../src/storage/store-conformance.js";
 import { sqliteFixture } from "./support/sqlite-fixture.js";
 
+const here = dirname(fileURLToPath(import.meta.url));
 const fixture = sqliteFixture("rhizomatic-sqlite-statements");
 afterAll(() => fixture.cleanup());
 
@@ -105,5 +109,33 @@ describe("the statement list", () => {
       "PRAGMA synchronous",
     ])
       expect(seen.has(text), text).toBe(true);
+  });
+});
+
+describe("the statements a snapshot runs", () => {
+  // A snapshot answers after appends because each of its statements keeps the holdings with a
+  // sequence of at most the snapshot's last sequence (§4.13 readings 130 and 131). A statement
+  // over a per-peer table with no sequence cannot do that, so a snapshot call that runs one must
+  // be strict: it refuses snapshot-moved when the peer's max_seq is not the snapshot's bound.
+  // None exists yet; such a statement goes in STRICT with its check.
+  const BOUND = "holding.seq <= @bound";
+  const STRICT: readonly string[] = [];
+  const source = readFileSync(resolve(here, "../src/storage/sqlite-store.ts"), "utf8");
+  const body = source.slice(source.indexOf("  #snapshot("), source.indexOf("  #changes("));
+  const used = [...new Set([...body.matchAll(/this\.#s\.(\w+)/g)].map((m) => m[1]!))].sort();
+
+  it("are the five reads, each found in the snapshot's own code", () => {
+    expect(body.length).toBeGreaterThan(0);
+    expect(used).toEqual(["arrivals", "get", "negators", "scope", "targets"]);
+  });
+
+  it("each keeps the holdings at or below the bound, in every branch of the scope walk, or is strict", () => {
+    const statements = SQLITE_STATEMENTS as Record<string, string>;
+    for (const name of used) {
+      if (STRICT.includes(name)) continue;
+      const text = statements[name]!;
+      const branches = name === "scope" ? 2 : 1;
+      expect(text.split(BOUND).length - 1, name).toBe(branches);
+    }
   });
 });

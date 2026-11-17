@@ -140,8 +140,10 @@ interface Snapshot {
 - **Probes.** "Does this peer hold x" and "which of these does it hold" are `get` or `arrivals`
   with those ids. "Does it hold anything" is `count`.
 - Every operation on one snapshot sees the same revision. An implementation without native
-  read transactions meets this with a revision check after each batch, failing with
-  `snapshot-moved`.
+  read transactions meets this with a check of the peer in each call. After an append it may
+  answer as at the snapshot's revision, or fail with `snapshot-moved`. Once the peer has
+  released a holding since the snapshot, or has a new history, every call fails with
+  `snapshot-moved` (§4.13 reading 130).
 - A synchronous implementation MAY also expose the SPEC-17 `DeltaSource` directly.
 - `scopeSource(members)` builds a synchronous `DeltaSource` over the members one read has
   fetched (`ScopeResult.deltas`, from one or several rounds). It answers `get`, `targets` and
@@ -1131,9 +1133,11 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
 6. **The scope bounds** use the applied selection for the upper bound (§4.3). The first draft's
    upper bound, `S(A over H)`, let a store report a field applied and still return members that
    fail it; the trim lemma is false for such a store.
-7. **A moved snapshot** refuses with `snapshot-moved` on the memory store. A store with read
-   transactions answers at the snapshot's revision instead. Both conform; answering from the
-   later state does not. `head` and `count` are fixed at read and never refuse.
+7. **A moved snapshot** refuses with `snapshot-moved` on the Rust memory store. A store with read
+   transactions answers at the snapshot's revision instead, and so do the TypeScript stores
+   after appends (§4.13 reading 130). Both conform; answering from the later state does not. A
+   snapshot older than a purge that released a holding must refuse (amended in slice 4, step
+   4d). `head` and `count` are fixed at read and never refuse.
 8. **Removal** has one path, `purge` (§4.5).
 9. **Purge debts** and `not-held` (§4.7.2). The memory store declares three surfaces: `rows`,
    `index-entries` (targets, negators and arrival rows) and `process-memory`. `process-memory` is
@@ -2274,9 +2278,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      transaction; every read is one read transaction. What a `Store` object keeps in process
      memory, and why none of it can answer for a state another process changed:
      - the peer row (revision, head, count, floor, last arrival): read in the transaction of each
-       call, never kept between calls. A snapshot keeps its history and revision and checks both
-       in the transaction of each call (decision S4-2); its head and count belong to that
-       revision;
+       call, never kept between calls. A snapshot keeps its history, revision and last sequence,
+       and checks the peer row in the transaction of each call (decision S4-2, reading 130); its
+       head and count belong to that revision;
      - the history on a peer handle: read from the file at each ask (reading 121);
      - the retention, the format and the erasure posture: written once, at the creation of the
        file or the peer, under the write lock, and never changed. A copy kept in memory equals
@@ -2399,13 +2403,15 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      before each statement. Before this, that holder made an open of a rollback-journal file take
      about five times `busyTimeoutMs`, and of a new file about three times. A busy read of the
      `format` row is part of the try, so it ends as `store-unavailable` too. Only a file with no
-     `meta` table is "not a rhizomatic store"; an index or a view named `meta` is not that table.
-     Any other engine error of the reads refuses `open-failed` with its code, so a `meta` table of
-     other columns refuses `open-failed` with `SQLITE_ERROR`. The open reads the schema a second
-     time in its write transaction, and the same rule holds there: an engine error that is not
-     busy refuses `open-failed` with its code, and a busy error refuses `store-unavailable`.
-     Measured with one holder that keeps its lock, and with a holder
-     that takes an exclusive lock again before each statement: 0, 50, 200 and 1000 ms of wait gave
+     `meta` table is "not a rhizomatic store"; an index, a view or a trigger named `meta` is not
+     that table. Any other engine error of the reads refuses `open-failed` with its code, so a
+     `meta` table of other columns refuses `open-failed` with `SQLITE_ERROR`. The open reads the
+     schema and the `retention` row a second time in its write transaction, and the same rule
+     holds there: an engine error that is not busy refuses `open-failed` with its code, and a
+     busy error refuses `store-unavailable`. Before, an error that was not busy at that second
+     `retention` read refused `store-unavailable`. Measured with one holder that keeps its lock,
+     and with a holder that takes an exclusive lock again before each statement: 0, 50, 200 and
+     1000 ms of wait gave
      the refusal after at most 1, 53, 202 and 1003 ms, on a new file and on a rollback-journal
      store. With `busyTimeoutMs` 0 the open makes one try.
 127. **`withSnapshot`** (slice 4, after the first Loam trial). A host that needs several reads at
@@ -2414,10 +2420,14 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      releases it on every path. It answers `{value, attempts}`. On `snapshot-moved`, from
      `read()` itself or from `body`, it runs `body` again on a new snapshot. Nothing of one
      snapshot is used with another: `body` keeps nothing between attempts, and its side effects
-     go after `withSnapshot` returns. `StoreReactor.read` and `fetch`, `checkFresh`, a pull of a
+     go after `withSnapshot` returns. The `attempt` that `body` gets counts snapshots the way
+     `attempts` does, a refused `read()` included: after one refused `read()` the first run of
+     `body` gets 2. `StoreReactor.read` and `fetch`, `checkFresh`, a pull of a
      feed cursor and a pass of held views are this function with the default bound; their
      behavior did not change. It is a reader over the contract: a store implements nothing for
-     it. Rust gets `with_snapshot` in step 4e.
+     it. Rust gets `with_snapshot` in step 4e. Since step 4d an append does not move a snapshot
+     of the TypeScript stores (reading 130), so `body` starts again there only after a purge
+     that released a holding, a new history, or a peer row at a lower revision.
 128. **What starts again, and the bound.** Only `snapshot-moved` starts `body` again, also one
      that `body` met on the snapshot of another peer. `store-unavailable` does not: the engine
      has already waited `busyTimeoutMs`, and the code also names errors that repeat (reading
@@ -2427,21 +2437,83 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `withinMs` ms have passed since the call began. The time is read from `clock`, the host's
      clock in ms (`() => performance.now()`, for example), because the package reads no ambient
      clock; `withinMs` without `clock` is refused. The first snapshot always starts, and a
-     running `body` is not stopped, so a call takes at most `withinMs` plus one `body`. No bound
-     in time is the default. Past either bound the last `snapshot-moved` passes up. A `retry` that is
-     not a plain object, a `snapshots` that is not an integer from 1 to 16, a `withinMs` that is
-     not an integer of 0 or more, a `clock` that is not a function, and a `body` that is not a
-     function are refused `invalid-request` before the first store call. A clock reading that is
-     not a finite number is refused `invalid-request` when it is read. `retry`'s fields are read as own fields
-     (reading 126). Under a steady writer in another process a body can fail every try; the
-     count bounds it, and the host chooses the count.
+     running `body` is not stopped. So a call takes at most `withinMs`, plus one `body`, plus
+     the wait of one `read()` for the engine, which can be `busyTimeoutMs`. No bound in time is
+     the default. Past either bound the last `snapshot-moved` passes up, as the same object. A
+     `retry` that is not a plain object, a `retry` with an own field other than `snapshots`,
+     `withinMs` and `clock`, a `snapshots` that is not an integer from 1 to 16, a `withinMs`
+     that is not an integer of 0 or more, a `clock` that is not a function, and a `body` that
+     is not a function are refused `invalid-request` before the first store call. The clock is
+     read once at the start, and once after each move while the count allows another
+     snapshot. A reading that is not a finite number, or that is below the reading at the start,
+     is refused `invalid-request` when it is read; a clock that goes back would otherwise give a
+     call more snapshots than `withinMs` allows. An error that the clock throws passes up
+     unchanged. In both cases a snapshot that the attempt took is released first. `retry`'s fields
+     are read as own fields (reading 126). Under steady purges in another process a body can
+     fail every try, and so can a body on a store that refuses after an append (the Rust memory
+     store until step 4e); the count bounds it, and the host chooses the count. Steady appends
+     no longer make a body on a TypeScript store fail: the M2 measurement of step 4d had no
+     failure in 3,200 runs (reading 130).
 129. **`body` and transactions.** `body` may be synchronous or asynchronous, because a snapshot
      holds no engine transaction between its calls (decision S4-2). A store never holds an
      engine transaction across a return to its caller. If a store ever pins a snapshot, it pins
      a revision, never a transaction. So while `body` waits, a write through the same store
      commits, a checkpoint by another connection is not held back, and a purge by another
-     process reports the same surfaces as with no reader. `body` reads only. An append or a
-     purge of the same peer inside it moves its own snapshot.
+     process reports the same surfaces as with no reader. `body` reads only. A purge of the same
+     peer inside it that releases a holding moves its own snapshot. An append inside it does not
+     on a TypeScript store: `body` does not see its own append, and does not run again for it
+     (reading 130). On a store that refuses after an append it runs again.
+
+130. **What moves a snapshot** (slice 4, step 4d). Before, every revision advance moved a
+     snapshot, and each later call refused `snapshot-moved`. Under a writer in another process
+     that commits every few ms, a six-call read then failed 147 of 200 times (the M2 measurement
+     of step 4c's follow-up). Now a snapshot of the memory store and of the SQLite store answers
+     after appends as at its own revision. A call refuses `snapshot-moved` when, in the
+     transaction of the call:
+     - the peer row is absent;
+     - the peer's history differs from the snapshot's (a new file identity, `restored`);
+     - the peer's revision is below the snapshot's (a file restored in place without
+       `restored`, when the restored revision is lower);
+     - the peer released a holding after the snapshot was read: `removed_at` is above the
+       snapshot's revision.
+     These no longer move a snapshot: an append that adds ids, a head-only append, a purge that
+     released nothing, a purge of another peer, and the trim of change records. `removed_at` is
+     the revision of the last purge of the peer that released at least one holding, 0 before
+     one. The purge writes it in its first transaction, the one that deletes, with the change
+     record. So from the commit of the delete every call on an older snapshot refuses, also
+     when the purge later reports `owed`, and also when the purging process dies before its last
+     transaction. No purged byte is served to an older snapshot. A pull, `checkFresh` and a pass
+     of held views on one snapshot answer at that snapshot's position; a retention that trimmed
+     the records after it answers `resync-required` as before, because `changes` is a peer call.
+     A file restored in place with no `restored` flag, at a revision equal to or higher than
+     the snapshot's, is not seen. Before this step only an equal revision was not seen: any
+     other revision moved the snapshot (decision S4-8). The wider limit stays, because a store
+     cannot tell a restored file at a higher revision from a legal later append by the peer
+     row alone; a host that restores in place passes `restored` (reading 123). The shared
+     contract is tightened with it: a snapshot older than a purge that released a holding must
+     refuse, and the vector `a-snapshot-across-a-purge` expects `snapshot-moved` there, not an
+     answer. The Rust memory store refuses after any advance, so the store conforms unchanged;
+     the Rust runner's rule table gains the refusal text that this vector now gives. The store
+     becomes tolerant in step 4e.
+131. **The bound and `lastSequence`** (slice 4, step 4d). `Snapshot.lastSequence` is the highest
+     arrival sequence the peer had admitted at the snapshot's revision, 0 before the first. It
+     is fixed when the snapshot is read and never refuses, as `revision`, `history`, `head` and
+     `count` are. An append gives each new holding a sequence past the peer's last one (reading
+     32), so until a holding is released the holdings with a sequence of at most
+     `lastSequence` are exactly the snapshot's. Each call keeps only those. The SQLite store
+     reads `holding.seq` for it: `get` and `arrivals` filter the holding rows they find,
+     `targets` and `negators` join each `target` or `reference` row to its holding by the
+     primary key `(peer, delta)`, and `scope` filters each step of its walk. `scope` binds the
+     lower of the bound and the request's `arrivalAtMost`, and reports `arrivalAtMost` applied
+     exactly as before. A call on an old snapshot reads the present rows of the entity and
+     filters them, so its cost is bounded by the present rows, not by the answer. A later call
+     over a per-peer table that has no sequence (a digest, a value index, a derived index, a
+     stored view) cannot filter so. Such a call is strict: it refuses `snapshot-moved` when the
+     peer's last sequence is not the snapshot's. None exists yet; a static rail holds that every
+     statement a snapshot runs carries the bound or is listed strict.
+132. **Format `/4`** (slice 4, step 4d). The `peer` table gains `removed_at INTEGER NOT NULL`,
+     checked `0 <= removed_at <= revision`. Open refuses a `/1`, `/2` or `/3` file with
+     `open-failed` and names both formats. No migration ships: the work is greenfield.
 
 ## 5. Architectures
 

@@ -51,6 +51,7 @@ import {
   type VerifiedDelta,
 } from "../src/storage/store.js";
 import { broken, sparse, type Break } from "./support/broken-store.js";
+import { moveByPurge, sacrificial } from "./support/move-snapshot.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const committed = readFileSync(resolve(here, "../../../vectors/store/follow.json"), "utf8");
@@ -650,16 +651,18 @@ describe("pull", () => {
   it("starts again on a new snapshot when the peer moves, at most four, each released", async () => {
     const w = await writer();
     const from = await w.position();
-    await w.append([fact("plant:a", 1)]);
+    await w.append([
+      fact("plant:a", 1),
+      ...Array.from({ length: 5 }, (_, i) => sacrificial(i + 1)),
+    ]);
     let moves = 1;
-    let t = 10;
     const trace: string[] = [];
     const moving = traced(
       {
         ...w.peer,
         changes: async (f, to) => {
           const page = await w.peer.changes(f, to);
-          if (moves-- > 0) await w.append([fact("plant:b", t++)]);
+          if (moves-- > 0) await moveByPurge(w.peer);
           return page;
         },
       },

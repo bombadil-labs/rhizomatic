@@ -39,6 +39,7 @@ import {
   type VerifiedDelta,
 } from "../src/storage/store.js";
 import { sqliteFixture } from "./support/sqlite-fixture.js";
+import { moveByPurge, sacrificial } from "./support/move-snapshot.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const load = <T>(name: string): T =>
@@ -184,7 +185,7 @@ async function writer(store: Store, id = "peer:a") {
 // ---- the store's own rules -------------------------------------------------------------------
 
 describe("the SQLite store's profile and scheme", () => {
-  it("declares what step 4c holds, and nothing more; the class is proven on Linux only", async () => {
+  it("declares what step 4d holds, and nothing more; the class is proven on Linux only", async () => {
     const store = await fixture.open();
     expect(store.profile).toEqual({
       capabilities: {
@@ -201,7 +202,7 @@ describe("the SQLite store's profile and scheme", () => {
       writers: "many-processes",
       atRest: "trusted",
       changeRetention: { revisions: 1024 },
-      formatVersion: "rhizomatic-store-sqlite/3",
+      formatVersion: "rhizomatic-store-sqlite/4",
     });
     expect(Object.isFrozen(store.profile)).toBe(true);
     // The posture gate on a store of class unprovable: sqlite-store-erasure.test.ts, rail 6.
@@ -243,7 +244,7 @@ describe("the SQLite store's profile and scheme", () => {
     expect(await refusal(openSqliteStore(other))).toBe("open-failed");
   });
 
-  it("decides not-a-store by the tables that the names read finds: a file with no meta table, or with only an index named meta, is not a rhizomatic store; a meta table of other columns did not open (SQLITE_ERROR)", async () => {
+  it("decides not-a-store by the tables that the names read finds: a file with no meta table, or with only an index, a view or a trigger named meta, is not a rhizomatic store; a meta table of other columns did not open (SQLITE_ERROR)", async () => {
     const answer = async (schema: string): Promise<string> => {
       const path = fixture.path();
       const db = new Database(path);
@@ -260,13 +261,23 @@ describe("the SQLite store's profile and scheme", () => {
     const NOT_A_STORE = "open-failed: sqlite store: the file is not a rhizomatic store";
     expect(await answer("CREATE TABLE t (x)")).toBe(NOT_A_STORE);
     expect(await answer("CREATE TABLE t (x); CREATE INDEX meta ON t (x)")).toBe(NOT_A_STORE);
+    expect(await answer("CREATE TABLE t (x); CREATE VIEW meta AS SELECT x AS value FROM t")).toBe(
+      NOT_A_STORE,
+    );
+    expect(
+      await answer("CREATE TABLE t (x); CREATE TRIGGER meta AFTER INSERT ON t BEGIN SELECT 1; END"),
+    ).toBe(NOT_A_STORE);
     expect(await answer("CREATE TABLE meta (a, b)")).toBe(
       "open-failed: sqlite store: the file did not open (SQLITE_ERROR)",
     );
   });
 
-  it("refuses a file of format /1 or /2, which steps 4a and 4b wrote, naming both formats; no migration ships", async () => {
-    for (const old of ["rhizomatic-store-sqlite/1", "rhizomatic-store-sqlite/2"]) {
+  it("refuses a file of format /1, /2 or /3, which steps 4a to 4c wrote, naming both formats; no migration ships", async () => {
+    for (const old of [
+      "rhizomatic-store-sqlite/1",
+      "rhizomatic-store-sqlite/2",
+      "rhizomatic-store-sqlite/3",
+    ]) {
       const path = fixture.path();
       await (await openSqliteStore(path)).close();
       const db = new Database(path);
@@ -275,7 +286,7 @@ describe("the SQLite store's profile and scheme", () => {
       const error = (await openSqliteStore(path).catch((e: unknown) => e)) as StoreError;
       expect([error.code, error.message]).toEqual([
         "open-failed",
-        `sqlite store: the file holds format ${old}, and this store reads rhizomatic-store-sqlite/3`,
+        `sqlite store: the file holds format ${old}, and this store reads rhizomatic-store-sqlite/4`,
       ]);
     }
   });
@@ -440,12 +451,39 @@ describe("snapshots on the SQLite store (decision S4-2)", () => {
     expect(await refusal(old.get([]))).toBe("snapshot-released");
   });
 
+  it("a snapshot refuses every call when the peer row stands at a lower revision, as after a restore in place without restored, and when the peer row is gone", async () => {
+    const path = fixture.path();
+    const store = await openSqliteStore(path);
+    const w = await writer(store);
+    const x = fact("x", 1);
+    await w.append([x]);
+    await w.append([fact("x", 2)]);
+    const back = await w.peer.read();
+    const empty = await store.createPeer("peer:e", { erasure: "unproven" });
+    const gone = await empty.read();
+    const other = new Database(path);
+    other.prepare("UPDATE peer SET revision = 1 WHERE id = 'peer:a'").run();
+    other.prepare("DELETE FROM peer WHERE id = 'peer:e'").run();
+    other.close();
+    for (const s of [back, gone])
+      for (const call of [
+        () => s.get([x.id]),
+        () => s.get([]),
+        () => s.arrivals([x.id]),
+        () => s.targets(["x"]),
+        () => s.negators([x.id]),
+        () => s.scope({ anchors: [{ kind: "entity", entity: "x" }] }),
+      ])
+        expect(await refusal(call())).toBe("snapshot-moved");
+    await store.close();
+  });
+
   it("a refused call ends its transaction: the next write does not wait", async () => {
     const store = await fixture.open({ busyTimeoutMs: 0 });
     const w = await writer(store);
-    await w.append([fact("x", 1)]);
+    await w.append([fact("x", 1), sacrificial(1)]);
     const old = await w.peer.read();
-    await w.append([fact("x", 2)]);
+    await moveByPurge(w.peer);
     expect(await refusal(old.get([]))).toBe("snapshot-moved");
     expect(await refusal(old.scope({ anchors: [{ kind: "value" } as never] }))).toBe(
       "snapshot-moved",

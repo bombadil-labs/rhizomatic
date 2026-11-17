@@ -10,6 +10,7 @@ Follow-ups from the reviews of slice 4 and from the first Loam trial on `0.11.0-
 (TypeScript). Three changes can need action from a consumer: the `unknown-scheme` message has
 new text, a busy open of a SQLite file refuses `store-unavailable` where it refused
 `open-failed`, and a host that runs the SQLite subpath with no module location gets an error.
+Step 4d adds three more, listed under Breaking.
 
 - The package root exports `withSnapshot(peer, body, retry?)`, with the types `SnapshotRetry`
   and `OnSnapshot`. It runs several reads on one snapshot and runs them all again on a new
@@ -17,8 +18,11 @@ new text, a busy open of a SQLite file refuses `store-unavailable` where it refu
   `retry.snapshots` snapshots (default 4, at most 16). With `retry.withinMs` and
   `retry.clock` (the host's clock in ms) it starts no new snapshot after that many ms. It never
   retries `store-unavailable`. `StoreReactor.read` and `fetch`, `checkFresh`, a feed pull and a
-  pass of held views now use it, with the same behavior as before. `SNAPSHOT_RETRIES` is still exported, with the same value (§4.13
-  readings 127 to 129).
+  pass of held views now use it, with the same behavior as before. `SNAPSHOT_RETRIES` is still
+  exported, with the same value. A `retry` with an own field of another name is refused
+  `invalid-request`. A clock reading below the reading at the start of the call is refused
+  `invalid-request`, as a reading that is not a finite number is. An error that the clock throws
+  passes up unchanged, after the snapshot is released (§4.13 readings 127 to 129).
 - The package root exports the store's id types: `Id`, `Entity`, `Head` and `ArrivalSeq`.
 - A store reads a delta's `sig` and `validUntil` as own fields. Before, an append of an unsigned
   delta stored a `sig` that only `Object.prototype` held. The core's delta id does not change.
@@ -38,9 +42,9 @@ new text, a busy open of a SQLite file refuses `store-unavailable` where it refu
   refuses `store-unavailable` too, and an engine error there that is not busy refuses
   `open-failed` with its code. Only a file with no `meta` table is "not a rhizomatic store"; an
   index or a view named `meta` is not that table. A `meta` table of other columns refuses
-  `open-failed` with `SQLITE_ERROR`. The second read of the schema, in the open's write
-  transaction, refuses by the same rule; before, any error there refused `store-unavailable`
-  (reading 126).
+  `open-failed` with `SQLITE_ERROR`. A trigger named `meta` is not that table either. The second
+  read of the schema and of the `retention` row, in the open's write transaction, refuses by the
+  same rule; before, any error there refused `store-unavailable` (reading 126).
 - The SQLite subpath refuses to load when it cannot find its own module location. The released
   `0.11.0-next.11` imported `better-sqlite3` statically. So a host with no module location, such
   as an IIFE bundle run through `vm`, loaded it; that host now gets the location error. The
@@ -66,6 +70,33 @@ new text, a busy open of a SQLite file refuses `store-unavailable` where it refu
   eight rails, not six as its text said. Rails now hold the answer "not a rhizomatic store", the
   wait before the open's second write transaction, the case of the `file:` scheme, and that no
   statement after the open sets `busy_timeout`.
+- A snapshot of the memory store and of the SQLite store answers after appends as at its own
+  revision (step 4d, §4.13 readings 130 to 132). Before, every append moved a snapshot, and a read
+  of six calls under a writer in another process failed 147 of 200 times. The same measurement
+  now has no failure in 3,200 runs. A
+  purge that releases a holding of the peer still moves every older snapshot, from the commit of
+  its delete. So do a new history and a peer row at a lower revision. A purge that releases
+  nothing, another peer's purge and the trim of records do not. `Snapshot.lastSequence` is new:
+  the peer's last arrival sequence at the snapshot's revision, fixed when the snapshot is read.
+- The shared store vectors are tightened: a snapshot older than a purge that released a holding
+  must refuse `snapshot-moved`. Five steps of `a-snapshot-across-a-purge` expect the refusal, not
+  an answer. The Rust memory store refuses after any advance and conforms unchanged. The Rust
+  tests change: the runner's rule table accepts the text "expected a refusal `snapshot-moved`,
+  the store refused `invalid-request`" for its wrong store that refuses `targets`.
+- The `snapshots` script gains a second peer that holds the first peer's later ids, and a
+  `scope` with `arrivalAtMost` above an old snapshot's own bound. Both stores must keep the old
+  snapshot's set. The Rust feed rules now expect a feed that mixes peers to fail this script.
+
+### ⚠️ Breaking
+
+- **SQLite format `rhizomatic-store-sqlite/4`.** The `peer` table gains `removed_at`. Open refuses
+  a file of format `/1`, `/2` or `/3` with `open-failed` and names both formats. No migration
+  ships: create a new file and append again.
+- **A body no longer runs again after its own append.** A `withSnapshot` body, a held-views pass
+  or a `StoreReactor.read` that appends to its own peer does not see the append and is not run
+  again for it. A host that read its own write through an old snapshot must take a new one.
+- **`Snapshot` has a new member, `lastSequence`.** A host that builds its own `Snapshot` object,
+  such as a wrapper over a store's snapshot, must pass it through.
 
 ## 0.11.0-next.11 — 2026-11-16
 

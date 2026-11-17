@@ -284,7 +284,10 @@ the bound that pins this order for a typed store.
 
 **Repeatability.** When the peer's revision has passed the snapshot's, an operation MUST either
 refuse `snapshot-moved` or answer exactly as it would have at the snapshot's revision. It MUST NOT
-answer from the later state. The memory reference store refuses.
+answer from the later state. Once the peer has released a holding by a purge after the snapshot
+was read, every operation on the snapshot MUST refuse `snapshot-moved`, also one that would find
+nothing. The TypeScript memory reference store answers after appends and refuses after such a
+purge; the Rust memory store refuses after any advance. Both conform.
 
 #### 1.4.1 Scope
 
@@ -596,9 +599,11 @@ a refusal fails for that, whatever it answered.
 
 1. A result, as below. The operation must answer, and the answer must match.
 2. A result with `"orError": "snapshot-moved"`. The operation either refuses `snapshot-moved`, or
-   answers and the answer matches. Any other answer or refusal fails.
+   answers and the answer matches. Any other answer or refusal fails. A snapshot that the peer
+   has moved past by appends only carries this shape.
 3. `{"error": …}`. The operation must refuse (see "Refusals"). A snapshot that is both released
-   and moved carries `["snapshot-released", "snapshot-moved"]`.
+   and moved carries `["snapshot-released", "snapshot-moved"]`. A snapshot older than a purge
+   that released a holding carries `"snapshot-moved"`.
 
 Result checks:
 
@@ -1234,12 +1239,13 @@ change. The read MUST end in one of two ways:
   snapshot it started on.
 
 Anything else fails, in particular `expect.after` from a reader given one snapshot, and any
-answer that is neither. The appended deltas are chosen so that a reader which goes on against the
-later state shows some of them and not others, which is neither answer. The purged delta is one
-that round 1 fetches. A store without read
-transactions (the memory reference) refuses when a store call follows the append, and answers
-`before` when `afterRound` is the last round. A store with read transactions answers `before`
-every time.
+answer that is neither. After a purge that a store call follows, only the refusal conforms
+(§1.4, "Repeatability"). The appended deltas are chosen so that a reader which goes on against
+the later state shows some of them and not others, which is neither answer. The purged delta is
+one that round 1 fetches. The TypeScript memory reference answers `before` after an append, and
+refuses when a store call follows the purge. The Rust memory store refuses when a store call
+follows either change. Each answers `before` when `afterRound` is the last round. A store with
+read transactions answers `before` after an append every time.
 
 A witness that offers a wrapper which opens the snapshot itself and starts again on
 `snapshot-moved` (TypeScript: `StoreReactor.read`) runs each case through it too. It MUST answer

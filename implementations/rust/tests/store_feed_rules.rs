@@ -1292,6 +1292,7 @@ fn the_broken_feeds_fail_where_their_fault_first_shows() {
         [
             "scripts/two-peers-share-bytes",
             "scripts/purge",
+            "scripts/snapshots",
             "scripts/feed-purge-and-debts",
             "scripts/feed-a-debt-ends-on-append",
             "scripts/feed-two-peers-interleaved",

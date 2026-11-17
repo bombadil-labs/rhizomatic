@@ -65,6 +65,7 @@ import { parseTerm } from "../src/syntax/term-json.js";
 import { roundVectors } from "../tools/store-round-vectors.js";
 import { broken, sparse, type Break } from "./support/broken-store.js";
 import { countingSnapshot, type StoreCall } from "./support/store-fixture.js";
+import { moveByPurge, sacrificial } from "./support/move-snapshot.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const committed = readFileSync(resolve(here, "../../../vectors/store/freshness.json"), "utf8");
@@ -1295,7 +1296,7 @@ describe("checkFresh", () => {
   it("starts again on a new snapshot when the peer moves during the check", async () => {
     const w = await writer();
     const a = fact("plant:a", 1);
-    await w.append([a]);
+    await w.append([a, sacrificial(1)]);
     const capture = await w.capture(["plant:a"]);
     await w.append([fact("plant:b", 2)]);
     let moved = false;
@@ -1311,6 +1312,7 @@ describe("checkFresh", () => {
         if (!moved) {
           moved = true;
           await w.append([fact("plant:a", 3)]);
+          await moveByPurge(w.peer);
         }
         return page;
       },
@@ -1323,14 +1325,18 @@ describe("checkFresh", () => {
 
   it("passes snapshot-moved up after four snapshots", async () => {
     const w = await writer();
-    await w.append([fact("plant:a", 1)]);
+    await w.append([
+      fact("plant:a", 1),
+      ...Array.from({ length: 4 }, (_, i) => sacrificial(i + 1)),
+    ]);
     const capture = await w.capture(["plant:a"]);
     let t = 10;
     const peer: PeerStore = {
       ...w.peer,
       changes: async (from, to) => {
         const page = await w.peer.changes(from, to);
-        await w.append([fact("plant:z", t++)]);
+        t += 1;
+        await moveByPurge(w.peer);
         return page;
       },
     };

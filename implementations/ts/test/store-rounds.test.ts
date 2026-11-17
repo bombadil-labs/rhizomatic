@@ -78,6 +78,7 @@ import {
   type StoreRoundsDocument,
 } from "../tools/store-round-vectors.js";
 import { countingPeer, countingSnapshot, type StoreCall } from "./support/store-fixture.js";
+import { moveByPurge, sacrificial } from "./support/move-snapshot.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const document = JSON.parse(
@@ -424,10 +425,15 @@ async function change(peer: PeerStore, c: Interleaved): Promise<void> {
   expect(report.targets).toEqual(ids.map((id) => ({ id, outcome: "removed" })));
 }
 
-/** Runs the read with the case's change made once, after round `afterRound` of the first pass. */
+/**
+ * Runs the read with the case's change made once, after round `afterRound` of the first pass.
+ * With `move`, a purge of a sacrificial delta follows the change, so every older snapshot moves
+ * also when the change is an append (§4.13 reading 130).
+ */
 async function interleave(
   c: Interleaved,
   read: (peer: PeerStore, request: StoreReadRequest) => Promise<StoreRead>,
+  { move = false }: { move?: boolean } = {},
 ): Promise<{ outcome: Outcome; start: number; end: number; loaded: Loaded }> {
   const loaded = await load();
   const start = await onSnapshot(loaded.peer, async (snapshot) => snapshot.revision);
@@ -439,6 +445,31 @@ async function interleave(
       // The append lands a turn later: a read that does not wait for its hook misses it.
       await new Promise((done) => setImmediate(done));
       await change(loaded.peer, c);
+      if (move) {
+        // One sacrificial delta, admitted at the peer's head and last sequence, then purged.
+        const now = await loaded.peer.read();
+        now.release();
+        const delta = sacrificial(1);
+        const added = [
+          {
+            delta,
+            arrival: {
+              id: delta.id,
+              at: 0,
+              sequence: now.lastSequence + 1,
+              transfer: 1,
+              sender: "s",
+            },
+          },
+        ];
+        await loaded.peer.append({
+          expectedHead: now.head,
+          nextHead: now.head!,
+          frame: null,
+          added,
+        });
+        await moveByPurge(loaded.peer);
+      }
     },
   });
   const outcome = await read(loaded.peer, request).then(
@@ -527,29 +558,36 @@ describe("round vectors: a change between two rounds", () => {
   for (const c of document.interleaved) {
     const last = c.afterRound === c.expect.before.rounds.length;
 
-    it(`${c.name}: readAnchored answers snapshot-moved or the old answer`, async () => {
+    // The memory store answers an older snapshot after an append as at its own revision, and
+    // refuses it once the peer has released a holding (§4.13 reading 130).
+    it(`${c.name}: readAnchored answers the old answer after an append, and snapshot-moved after a purge that another call follows`, async () => {
       const { outcome, start } = await interleave(c, (peer, request) =>
         onSnapshot(peer, (snapshot) => readAnchored(snapshot, request)),
       );
-      // The memory store has no read transactions: it refuses when another call follows.
-      if (last) expect(outcome).toEqual({ answer: c.expect.before, revision: start });
+      if (last || c.append !== undefined)
+        expect(outcome).toEqual({ answer: c.expect.before, revision: start });
       else expect(outcome).toEqual({ refused: "snapshot-moved" });
     });
 
-    it(`${c.name}: StoreReactor.read answers one snapshot whole`, async () => {
+    it(`${c.name}: StoreReactor.read answers one snapshot whole: the old one after an append, the new one after a purge`, async () => {
       const { outcome, start, end } = await interleave(c, (peer, request) =>
         StoreReactor.open(peer).read(request),
       );
-      if (last) expect(outcome).toEqual({ answer: c.expect.before, revision: start });
+      if (last || c.append !== undefined)
+        expect(outcome).toEqual({ answer: c.expect.before, revision: start });
       else expect(outcome).toEqual({ answer: c.expect.after, revision: end });
     });
 
     // A reader that goes on mid-read on a new snapshot, with its cache and its anchors. An
-    // append below the anchors already fetched is what shows it.
+    // append below the anchors already fetched is what shows it; the purge after it moves the
+    // snapshot.
     if (c.append !== undefined)
       it(`${c.name}: a read that goes on with its cache on a new snapshot is caught`, async () => {
-        const { outcome } = await interleave(c, (peer, request) =>
-          onSnapshot(peer, (snapshot) => readAnchored(driftingSnapshot(peer, snapshot), request)),
+        const { outcome } = await interleave(
+          c,
+          (peer, request) =>
+            onSnapshot(peer, (snapshot) => readAnchored(driftingSnapshot(peer, snapshot), request)),
+          { move: true },
         );
         if (!("answer" in outcome)) throw new Error("the drifting read refused");
         if (last) {
@@ -562,9 +600,10 @@ describe("round vectors: a change between two rounds", () => {
       });
 
     // A reader that starts again on a new snapshot but keeps the cache of the first. Appends
-    // alone cannot show it: what it kept is still held. A purge can.
+    // alone cannot show it: what it kept is still held. A purge can. A sacrificial purge moves
+    // the snapshot after an append.
     it(`${c.name}: a read that starts again with its old cache`, async () => {
-      const { outcome, start, end } = await interleave(c, staleRestart);
+      const { outcome, start, end } = await interleave(c, staleRestart, { move: true });
       if (last) expect(outcome).toEqual({ answer: c.expect.before, revision: start });
       else if (c.append !== undefined)
         expect(outcome).toEqual({ answer: c.expect.after, revision: end });
@@ -587,7 +626,7 @@ describe("round vectors: a change between two rounds", () => {
 
   it("retries three times, then passes snapshot-moved up; every snapshot is released", async () => {
     const c = document.interleaved[0]!;
-    const loaded = await load();
+    const loaded = await load({ extra: Array.from({ length: 4 }, (_, i) => sacrificial(i + 1)) });
     const trace: StoreCall[] = [];
     let moves = 0;
     // The peer moves after the first round of every attempt.
@@ -595,13 +634,7 @@ describe("round vectors: a change between two rounds", () => {
       onRound: async (round) => {
         if (round.round !== 1) return;
         moves += 1;
-        const result = await loaded.peer.append({
-          expectedHead: moves === 1 ? "rounds-head-2" : `move-${moves - 1}`,
-          nextHead: `move-${moves}`,
-          frame: null,
-          added: [],
-        });
-        expect(result.status).toBe("committed");
+        await moveByPurge(loaded.peer);
       },
     });
     const reactor = StoreReactor.open(countingPeer(loaded.peer, trace));
@@ -618,7 +651,7 @@ describe("round vectors: a change between two rounds", () => {
   });
 
   it("a second attempt that holds still answers, and says it took two", async () => {
-    const c = document.interleaved[0]!;
+    const c = document.interleaved.find((i) => i.purge !== undefined && i.afterRound === 1)!;
     const reports: StoreRoundReport[] = [];
     let rounds: readonly StoreRoundReport[] = [];
     const { outcome, start, end } = await interleave(c, async (peer, request) => {
@@ -1213,9 +1246,9 @@ describe("the evaluation memo", () => {
       };
     for (const c of document.interleaved) {
       if (c.afterRound === c.expect.before.rounds.length) continue;
-      const right = await interleave(c, restart(false));
+      const right = await interleave(c, restart(false), { move: true });
       expect(right.outcome, c.name).toEqual({ answer: c.expect.after, revision: right.end });
-      const { outcome } = await interleave(c, restart(true));
+      const { outcome } = await interleave(c, restart(true), { move: true });
       if (!("answer" in outcome)) throw new Error(`${c.name}: the read refused`);
       expect(outcome.answer.members, c.name).toEqual(c.expect.after.members);
       if (c.afterRound === 1) {

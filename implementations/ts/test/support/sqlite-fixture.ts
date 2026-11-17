@@ -26,16 +26,22 @@ export type SqliteFixture = {
 
 /**
  * Throws when a peer's `count` is not the number of its holdings, or its `floor` and revision
- * do not bound exactly the change records it keeps.
+ * do not bound exactly the change records it keeps. Throws too when a holding's `seq` is not the
+ * sequence of its arrival record or passes the peer's `max_seq`, or when `removed_at` is not the
+ * revision of the last kept record that removes an id (§4.13 readings 130 and 131).
  */
 export function audit(path: string): void {
   const db = new Database(path, { readonly: true, fileMustExist: true });
   try {
-    const peers = db.prepare("SELECT id, revision, floor, count FROM peer").all() as {
+    const peers = db
+      .prepare("SELECT id, revision, floor, count, max_seq, removed_at FROM peer")
+      .all() as {
       id: string;
       revision: number;
       floor: number;
       count: number;
+      max_seq: number;
+      removed_at: number;
     }[];
     for (const peer of peers) {
       const { held } = db
@@ -48,6 +54,26 @@ export function audit(path: string): void {
         .get(peer.id) as { kept: number; low: number | null; high: number | null };
       if (held !== peer.count)
         throw new Error(`peer ${peer.id}: count ${peer.count}, and it holds ${held} rows`);
+      const { wrong, top: seq } = db
+        .prepare(
+          `SELECT count(*) FILTER (WHERE seq IS NOT json_extract(arrival, '$.sequence')) AS wrong,
+            max(seq) AS top FROM holding WHERE peer = ?`,
+        )
+        .get(peer.id) as { wrong: number; top: number | null };
+      if (wrong > 0 || (seq ?? 0) > peer.max_seq)
+        throw new Error(
+          `peer ${peer.id}: ${wrong} holdings with a seq that is not their arrival's, and seq up to ${seq} past max_seq ${peer.max_seq}`,
+        );
+      const { removal } = db
+        .prepare("SELECT max(revision) AS removal FROM change WHERE peer = ? AND removed != '[]'")
+        .get(peer.id) as { removal: number | null };
+      if (
+        peer.removed_at < (removal ?? 0) ||
+        (peer.removed_at > peer.floor && removal !== peer.removed_at)
+      )
+        throw new Error(
+          `peer ${peer.id}: removed_at ${peer.removed_at}, and the last kept record that removes is at ${removal}`,
+        );
       const floor = feed.kept === 0 ? peer.revision : feed.low! - 1;
       const top = feed.kept === 0 ? peer.revision : feed.high!;
       if (floor !== peer.floor || top !== peer.revision || feed.kept !== peer.revision - peer.floor)
@@ -74,6 +100,7 @@ function auditedStore(store: Store, path: string): Store {
     history: s.history,
     head: s.head,
     count: s.count,
+    lastSequence: s.lastSequence,
     get: (ids) => after(s.get(ids)),
     arrivals: (ids) => after(s.arrivals(ids)),
     targets: (entities) => after(s.targets(entities)),

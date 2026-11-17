@@ -18,7 +18,10 @@ export const SNAPSHOT_RETRIES = 3;
 /** The most snapshots one call of `withSnapshot` may take. */
 const MOST_SNAPSHOTS = 16;
 
-/** How far `withSnapshot` tries. A field that only a prototype holds reads as absent. */
+/**
+ * How far `withSnapshot` tries. A field that only a prototype holds reads as absent, and an own
+ * field of another name is refused.
+ */
 export type SnapshotRetry = {
   /** Snapshots in all, a refused `read()` included: an integer from 1 to 16. Default 4. */
   readonly snapshots?: number;
@@ -30,7 +33,7 @@ export type SnapshotRetry = {
   readonly withinMs?: number;
   /**
    * The host's clock in ms, such as `() => performance.now()`, read only for `withinMs`. The
-   * package reads no clock of its own.
+   * package reads no clock of its own. A reading below the first is refused.
    */
   readonly clock?: () => number;
 };
@@ -38,7 +41,10 @@ export type SnapshotRetry = {
 /** What `withSnapshot` answers: the body's value, and how many snapshots it took. */
 export type OnSnapshot<T> = {
   readonly value: T;
-  /** Snapshots taken, a `read()` that the peer refused included. 1 when the first held still. */
+  /**
+   * Snapshots taken, a `read()` that the peer refused included. 1 when the first held still. The
+   * `attempt` that `body` gets counts the same way, so a body after a refused `read()` gets 2.
+   */
   readonly attempts: number;
 };
 
@@ -60,6 +66,8 @@ const moved = (error: unknown): boolean =>
 
 type Within = { readonly ms: number; readonly clock: () => number };
 
+const FIELDS: ReadonlySet<string> = new Set(["snapshots", "withinMs", "clock"]);
+
 /** The bound of one call. Its fields are own fields, so none reads from a prototype. */
 function policy(retry: SnapshotRetry | undefined): {
   snapshots: number;
@@ -68,7 +76,14 @@ function policy(retry: SnapshotRetry | undefined): {
   if (retry === undefined) return { snapshots: SNAPSHOT_RETRIES + 1, within: undefined };
   if (!isPlainObject(retry))
     throw new StoreError("invalid-request", "withSnapshot: retry is a plain object");
-  const { snapshots = SNAPSHOT_RETRIES + 1, withinMs, clock } = ownFields(retry);
+  const fields = ownFields(retry);
+  const other = Object.keys(fields).find((key) => !FIELDS.has(key));
+  if (other !== undefined)
+    throw new StoreError(
+      "invalid-request",
+      `withSnapshot: retry has no field ${JSON.stringify(other)}; its fields are snapshots, withinMs and clock`,
+    );
+  const { snapshots = SNAPSHOT_RETRIES + 1, withinMs, clock } = fields;
   if (!Number.isInteger(snapshots) || snapshots < 1 || snapshots > MOST_SNAPSHOTS)
     throw new StoreError(
       "invalid-request",
@@ -89,11 +104,19 @@ function policy(retry: SnapshotRetry | undefined): {
   };
 }
 
-/** One reading of the host's clock. A reading that is not a finite number is refused. */
-function reading(clock: () => number): number {
+/**
+ * One reading of the host's clock. A reading that is not a finite number, or that is below
+ * `since`, is refused. An error that the clock throws passes up unchanged.
+ */
+function reading(clock: () => number, since = Number.NEGATIVE_INFINITY): number {
   const at = clock();
   if (typeof at !== "number" || !Number.isFinite(at))
     throw new StoreError("invalid-request", "withSnapshot: clock answered no finite number");
+  if (at < since)
+    throw new StoreError(
+      "invalid-request",
+      `withSnapshot: clock answered ${at}, below ${since}, its reading when the call began`,
+    );
   return at;
 }
 
@@ -103,7 +126,8 @@ function reading(clock: () => number): number {
  * or from `body`, it runs `body` again on a new snapshot, within `retry`; past the bound the last
  * `snapshot-moved` passes up. Any other error passes up at once, unchanged: `store-unavailable`
  * too, because the engine has already waited. A `snapshot-moved` of another peer's snapshot that
- * `body` reads starts it again too.
+ * `body` reads starts it again too. A refused clock reading, and an error the clock throws, pass
+ * up after the snapshot is released.
  *
  * `body` reads only, through the snapshot it is given. It keeps nothing from an earlier attempt,
  * and its side effects go after this returns: it can run up to `retry.snapshots` times. An append
@@ -120,7 +144,8 @@ export async function withSnapshot<T>(
     throw new StoreError("invalid-request", "withSnapshot: body is a function");
   const started = within === undefined ? 0 : reading(within.clock);
   const again = (attempts: number): boolean =>
-    attempts < snapshots && (within === undefined || reading(within.clock) - started < within.ms);
+    attempts < snapshots &&
+    (within === undefined || reading(within.clock, started) - started < within.ms);
   for (let attempts = 1; ; attempts += 1) {
     let snapshot: Snapshot;
     try {

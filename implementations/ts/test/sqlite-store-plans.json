@@ -66,11 +66,13 @@
   "targets": [
     "SCAN asked VIRTUAL TABLE INDEX 1:",
     "SEARCH target USING PRIMARY KEY (peer=? AND entity=?)",
+    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "USE TEMP B-TREE FOR DISTINCT"
   ],
   "negators": [
     "SCAN asked VIRTUAL TABLE INDEX 1:",
     "SEARCH reference USING PRIMARY KEY (peer=? AND ref=? AND role=?)",
+    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta=?)",
     "USE TEMP B-TREE FOR DISTINCT"
   ],
   "scope": [

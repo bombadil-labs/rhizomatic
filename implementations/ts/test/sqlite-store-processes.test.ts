@@ -65,7 +65,12 @@ function release(go: string, at: number): void {
 
 /** A child running one job; its printed lines, and a wait for each. */
 function child(job: Record<string, unknown>) {
-  const proc = spawn(process.execPath, ["--import", "tsx", childScript, JSON.stringify(job)], {
+  return running([childScript, JSON.stringify(job)], job["path"] as string);
+}
+
+/** A child process of `args`; its printed lines, a wait for each, and the go file of `path`. */
+function running(args: readonly string[], path: string) {
+  const proc = spawn(process.execPath, ["--import", "tsx", ...args], {
     cwd: pkg,
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -108,7 +113,7 @@ function child(job: Record<string, unknown>) {
     /** The JSON the child printed after `word`. */
     json: async <T>(word: string): Promise<T> => JSON.parse(await printed(word)) as T,
     held: (point: string) => printed("held").then((p) => expect(p).toBe(point)),
-    go: (point: string) => writeFileSync(`${job["path"] as string}.go-${point}`, ""),
+    go: (point: string) => writeFileSync(`${path}.go-${point}`, ""),
   };
 }
 
@@ -133,6 +138,19 @@ const refusal = async (call: Promise<unknown>): Promise<string> =>
       throw error;
     },
   );
+
+/** Every call of a snapshot, the ones that would find no rows included, each with its code. */
+const everyCall = async (s: Snapshot, id: string): Promise<string[]> => [
+  await refusal(s.get([id])),
+  await refusal(s.get([])),
+  await refusal(s.arrivals([id])),
+  await refusal(s.targets(["X"])),
+  await refusal(s.targets([])),
+  await refusal(s.negators([id])),
+  await refusal(s.scope({ anchors: [{ kind: "entity", entity: "X" }] })),
+  await refusal(s.scope({ anchors: [] })),
+];
+const MOVED = Array.from({ length: 8 }, () => "snapshot-moved");
 
 /** A store at a new path with one peer of posture unproven; it is closed again. */
 async function made(options: SqliteStoreOptions = {}, peers = ["peer:a"]): Promise<string> {
@@ -628,29 +646,36 @@ describe("the open of a store whose lock another connection takes between the op
     ]);
   }, 60_000);
 
-  for (const [code, expected] of [
-    ["SQLITE_CORRUPT", "open-failed: sqlite store: the file did not open (SQLITE_CORRUPT)"],
-    ["SQLITE_BUSY", UNAVAILABLE],
+  for (const [read, at] of [
+    [3, "format read of the second pass"],
+    [4, "retention read of the second pass"],
+    [5, "retention read after the second pass"],
   ] as const)
-    it(`an engine error ${code} at the format read of the second pass, in the open's write transaction, answers ${expected.split(":")[0]} after one try`, async () => {
-      const path = await made();
-      let reads = 0;
-      const { answer } = await hooked(
-        "prepare",
-        (source) => {
-          if (source !== SQLITE_STATEMENTS.metaGet) return;
-          // The first pass reads format and retention; the third read is the second pass.
-          if (++reads === 3) throw new Database.SqliteError("the engine failed", code);
-        },
-        () => timedOpen(path, BOUND_MS),
-      );
-      expect([answer, reads]).toEqual([expected, 3]);
-      const store = await openSqliteStore(path);
-      const peers: string[] = [];
-      for await (const id of store.openAdmin().peers()) peers.push(id);
-      expect(peers).toEqual(["peer:a"]);
-      await store.close();
-    }, 60_000);
+    for (const [code, expected] of [
+      ["SQLITE_CORRUPT", "open-failed: sqlite store: the file did not open (SQLITE_CORRUPT)"],
+      ["SQLITE_IOERR_READ", "open-failed: sqlite store: the file did not open (SQLITE_IOERR_READ)"],
+      ["SQLITE_BUSY", UNAVAILABLE],
+    ] as const)
+      it(`an engine error ${code} at the ${at}, in the open's write transaction, answers ${expected.split(":")[0]} after one try`, async () => {
+        const path = await made();
+        let reads = 0;
+        const { answer } = await hooked(
+          "prepare",
+          (source) => {
+            if (source !== SQLITE_STATEMENTS.metaGet) return;
+            // The first pass reads format and retention; reads 3 and 4 are the second pass, and
+            // read 5 is the retention the open keeps.
+            if (++reads === read) throw new Database.SqliteError("the engine failed", code);
+          },
+          () => timedOpen(path, BOUND_MS),
+        );
+        expect([answer, reads]).toEqual([expected, read]);
+        const store = await openSqliteStore(path);
+        const peers: string[] = [];
+        for await (const id of store.openAdmin().peers()) peers.push(id);
+        expect(peers).toEqual(["peer:a"]);
+        await store.close();
+      }, 60_000);
 
   for (const file of ["a new file", "a rollback-journal store"] as const)
     it(`a holder that takes an exclusive lock again before each statement of the open of ${file}, and holds it for most of busyTimeoutMs, cannot make the open take more than one and a half times busyTimeoutMs`, async () => {
@@ -756,19 +781,37 @@ describe("each value a process could keep in memory is read from the file in the
     audit(path);
   }, 60_000);
 
-  it("a snapshot refuses snapshot-moved after another process writes, also where it would find no rows", async () => {
+  it("after another process appends, a snapshot answers the state of its revision: the new id is in no answer, and nothing refuses", async () => {
     const path = await made();
     const store = await openSqliteStore(path);
     const peer = await store.peer("peer:a");
     const snapshot = await peer.read();
     const other = child({ op: "append", path, peer: "peer:a", tag: "O", size: 1, after: 0 });
     expect(await other.printed("appended")).toBe("committed");
-    for (const call of [
-      snapshot.get([fact("O-0").id]),
-      snapshot.get([]),
-      snapshot.targets(["O-0"]),
-    ])
-      expect(await refusal(call)).toBe("snapshot-moved");
+    const now = await peer.read();
+    const [id] = await now.targets(["O-0"]);
+    expect([now.revision, id === undefined]).toEqual([1, false]);
+    expect(await snapshot.get([id!])).toEqual([]);
+    expect(await snapshot.get([])).toEqual([]);
+    expect(await snapshot.arrivals([id!])).toEqual([]);
+    expect(await snapshot.targets(["O-0"])).toEqual([]);
+    expect((await snapshot.scope({ anchors: [{ kind: "entity", entity: "O-0" }] })).deltas).toEqual(
+      [],
+    );
+    expect([snapshot.revision, snapshot.count, snapshot.lastSequence]).toEqual([0, 0, 0]);
+    await store.close();
+  }, 60_000);
+
+  it("after another process purges, a snapshot refuses snapshot-moved on every call, also where it would find no rows", async () => {
+    const [gone, kept] = [about("X", 1), about("X", 2)];
+    const path = await holding("unproven", [gone, kept]);
+    const store = await openSqliteStore(path);
+    const peer = await store.peer("peer:a");
+    const snapshot = await peer.read();
+    expect((await purgedBy(path, "peer:a", [gone.id])).targets).toEqual([
+      { id: gone.id, outcome: "removed" },
+    ]);
+    expect(await everyCall(snapshot, kept.id)).toEqual(MOVED);
     await store.close();
   }, 60_000);
 
@@ -1098,7 +1141,7 @@ async function holding(posture: "proven" | "unproven", deltas: Delta[]): Promise
 }
 
 describe("withSnapshot with a writer in another process", () => {
-  it("a child appends between the body's first and second call: the body runs again, and both parts are at the child's revision", async () => {
+  it("a child appends between the body's first and second call: the body runs once, and both parts stand at the snapshot's revision without the child's delta", async () => {
     const path = await made();
     const store = await openSqliteStore(path);
     const peer = await store.peer("peer:a");
@@ -1113,13 +1156,11 @@ describe("withSnapshot with a writer in another process", () => {
       return { at: snapshot.revision, first, second: [...second.source.ids()] };
     });
     await store.close();
-    expect(attempts).toBe(2);
-    expect(value.at).toBe(1);
-    expect(value.first).toHaveLength(1);
-    expect(value.second).toEqual(value.first);
+    expect(attempts).toBe(1);
+    expect(value).toEqual({ at: 0, first: [], second: [] });
   }, 60_000);
 
-  it("a child that appends a delta about X and one about Y in each admission never makes an answer hold more of one than the other; a run that fails, fails with snapshot-moved", async () => {
+  it("a child that appends a delta about X and one about Y in each admission never makes an answer hold more of one than the other, and no run fails or starts again", async () => {
     const path = await made();
     const store = await openSqliteStore(path);
     const peer = await store.peer("peer:a");
@@ -1149,12 +1190,13 @@ describe("withSnapshot with a writer in another process", () => {
       },
     };
     const answers: number[][] = [];
+    const attempts: number[] = [];
     const failures: string[] = [];
     for (const body of Object.values(bodies))
       for (let run = 0; run < 100; run++) {
         await tick();
         await withSnapshot(peer, body).then(
-          ({ value }) => answers.push(value),
+          ({ value, attempts: took }) => (answers.push(value), attempts.push(took)),
           (error: unknown) =>
             failures.push(error instanceof StoreError ? error.code : String(error)),
         );
@@ -1164,7 +1206,8 @@ describe("withSnapshot with a writer in another process", () => {
     expect(await writer.ended).toBe("0");
     await store.close();
     expect(answers.filter((answer) => new Set(answer).size !== 1)).toEqual([]);
-    expect(failures.filter((code) => code !== "snapshot-moved")).toEqual([]);
+    expect(failures).toEqual([]);
+    expect(attempts.filter((took) => took !== 1)).toEqual([]);
     // The child wrote while the parent read: the answers stand at more than one revision.
     expect(batches).toBeGreaterThan(1);
     expect(new Set(answers.map((answer) => answer[0])).size).toBeGreaterThan(1);
@@ -1239,6 +1282,74 @@ describe("withSnapshot with a writer in another process", () => {
       const alone = await report(false);
       expect(alone.claim).toBe("proven");
       expect(await report(true)).toEqual(alone);
+    },
+    120_000,
+  );
+});
+
+describe("a purge in another process moves every older snapshot from the commit of its delete", () => {
+  /** The erasure rails' child, purging `ids` for peer:a in `mode`. */
+  const purging = (path: string, ids: string[], mode: string) =>
+    running([erasureChild, path, "peer:a", mode, JSON.stringify(ids)], path);
+
+  it("while the purge waits just after its first transaction commits, every call on an older snapshot refuses, and a newer snapshot answers without the id", async () => {
+    const [gone, kept] = [about("X", 1), about("X", 2)];
+    const path = await holding("unproven", [gone, kept]);
+    const store = await openSqliteStore(path);
+    const peer = await store.peer("peer:a");
+    const old = await peer.read();
+    const run = purging(path, [gone.id], "hold-delete-commit");
+    await run.held("delete-commit");
+    expect(await everyCall(old, kept.id)).toEqual(MOVED);
+    const now = await peer.read();
+    expect(await now.targets(["X"])).toEqual([kept.id]);
+    run.go("delete-commit");
+    expect(await run.ended).toBe("0");
+    expect(await everyCall(old, kept.id)).toEqual(MOVED);
+    await store.close();
+    audit(path);
+  }, 60_000);
+
+  it("a purging process killed just after its delete commits leaves every older snapshot refusing", async () => {
+    const [gone, kept] = [about("X", 1), about("X", 2)];
+    const path = await holding("unproven", [gone, kept]);
+    const store = await openSqliteStore(path);
+    const peer = await store.peer("peer:a");
+    const old = await peer.read();
+    const run = purging(path, [gone.id], "kill-delete-commit");
+    expect(await run.ended).toBe("SIGKILL");
+    expect(await everyCall(old, kept.id)).toEqual(MOVED);
+    const now = await peer.read();
+    expect([now.count, await now.targets(["X"])]).toEqual([1, [kept.id]]);
+    await store.close();
+    audit(path);
+  }, 60_000);
+
+  it.runIf(process.platform === "linux")(
+    "a proven purge that a reader of the log makes report owed still moves every older snapshot, and the bystander survives",
+    async () => {
+      const [gone, kept] = [about("X", 1), about("X", 2)];
+      const path = await holding("proven", [gone, kept]);
+      const store = await openSqliteStore(path);
+      const peer = await store.peer("peer:a");
+      const old = await peer.read();
+      const holder = new Database(path);
+      holder.exec("BEGIN");
+      holder.prepare("SELECT count(*) FROM meta").get();
+      let report: PurgeReport;
+      try {
+        report = await purgedBy(path, "peer:a", [gone.id]);
+      } finally {
+        holder.exec("COMMIT");
+        holder.close();
+      }
+      expect(report.claim).toBe("unproven");
+      expect(report.surfaces.some((surface) => surface.state === "owed")).toBe(true);
+      expect(report.targets).toEqual([{ id: gone.id, outcome: "removed" }]);
+      expect(await everyCall(old, kept.id)).toEqual(MOVED);
+      const now = await peer.read();
+      expect((await now.get([gone.id, kept.id])).map((d) => d.id)).toEqual([kept.id]);
+      await store.close();
     },
     120_000,
   );

@@ -134,6 +134,8 @@ export type ModelPeer = {
   head: string | null;
   revision: number;
   lastSequence: number;
+  /** The revision of the last purge that released a holding; 0 before one. */
+  removedAt: number;
   held: Entry[];
   owed: Set<string>;
 };
@@ -281,6 +283,7 @@ export class Model {
         head: null,
         revision: 0,
         lastSequence: 0,
+        removedAt: 0,
         held: [],
         owed: new Set(),
       });
@@ -409,6 +412,7 @@ export class Model {
     }
     const changed = released.length > 0;
     const revisionAs = changed ? this.advance(state, [], this.names(released)) : undefined;
+    if (changed) state.removedAt = state.revision;
     // The claim speaks only for targets this report removed. With none, it asserts nothing.
     const removed = targets.some((t) => t.outcome === "removed");
     this.steps.push({
@@ -452,19 +456,21 @@ export class Model {
     this.steps.push({ op: "head", snapshot, expect: { head: this.snapshots.get(snapshot)!.head } });
   }
 
-  // A released snapshot refuses. A snapshot the peer has moved past either refuses with
-  // `snapshot-moved` or answers as it would have at its own revision. One that is both may
-  // refuse with either code.
+  // A released snapshot refuses. A snapshot older than a purge that released a holding refuses
+  // `snapshot-moved`. A snapshot the peer has moved past only by appends either refuses with
+  // `snapshot-moved` or answers as it would have at its own revision. One that is released and
+  // moved may refuse with either code.
   private answer<T extends object>(
     snapshot: string,
     answer: (held: readonly Entry[]) => T,
   ):
     | (T & { orError?: "snapshot-moved" })
-    | { error: "snapshot-released" | ["snapshot-released", "snapshot-moved"] } {
+    | { error: "snapshot-moved" | "snapshot-released" | ["snapshot-released", "snapshot-moved"] } {
     const state = this.snapshots.get(snapshot)!;
     const moved = state.peer.revision !== state.revision;
     if (state.released)
       return { error: moved ? ["snapshot-released", "snapshot-moved"] : "snapshot-released" };
+    if (state.peer.removedAt > state.revision) return { error: "snapshot-moved" };
     return { ...answer(state.held), ...(moved ? { orError: "snapshot-moved" as const } : {}) };
   }
 
@@ -976,6 +982,18 @@ function scripts(named: readonly Named[]): StoreScript[] {
       m.release("s1");
       m.targets("s1", ["plant:a"]);
       m.scope("s1", ["plant:a"]);
+      // Another peer holds A's later deltas at sequences inside s1b's bound, and an older delta
+      // past it. B's holdings neither add to nor remove from A's old snapshot.
+      m.createPeer("B", "unproven");
+      m.append("B", null, "b-1", [
+        { delta: "bed-link", sequence: 1 },
+        { delta: "a-height-neg", sequence: 2 },
+        { delta: "a-name", sequence: 100 },
+      ]);
+      m.targets("s1b", ["plant:a"]);
+      m.negators("s1b", ["a-height"]);
+      // A bound above the snapshot's own keeps the snapshot's set.
+      m.scope("s1b", ["plant:a"], { arrivalAtMost: 2 ** 53 - 1 });
     }),
     s(
       "a-snapshot-across-a-purge",

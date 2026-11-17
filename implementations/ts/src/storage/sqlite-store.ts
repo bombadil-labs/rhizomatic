@@ -90,7 +90,7 @@ function loadDriver(): typeof BetterSqlite3 {
 }
 const Database = loadDriver();
 
-export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/3";
+export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/4";
 
 export type SqliteStoreOptions = {
   /** How long a call waits for a lock another connection holds, in ms. Default 5000. */
@@ -184,6 +184,7 @@ type PeerRow = {
   head: string | null;
   count: number;
   maxSeq: number;
+  removedAt: Revision;
 };
 type DeltaRow = { id: Id; claims: Uint8Array; sig: string | null };
 
@@ -509,17 +510,17 @@ class SqliteFileStore implements SqliteStore {
   /** Creates the schema in an empty file, or checks the format and retention of a store. */
   #format(asked: Retention | undefined): Retention {
     const db = this.#db;
-    let empty: boolean;
+    let kept: string | undefined;
     try {
-      empty = isEmpty(db);
+      kept = isEmpty(db) ? undefined : metaOf(db, "retention")!;
     } catch (error) {
-      // The second pass, in the write transaction, refuses as the first does: only busy is
-      // `store-unavailable` (§4.13 reading 126).
+      // The second pass and its retention read, in the write transaction, refuse as the first
+      // pass does: only busy is `store-unavailable` (§4.13 reading 126).
       if (error instanceof Database.SqliteError && !error.code.startsWith("SQLITE_BUSY"))
         throw notOpened(error);
       throw error;
     }
-    if (empty) {
+    if (kept === undefined) {
       const retention = asked ?? DEFAULT_RETENTION;
       db.exec(SQLITE_SCHEMA);
       const put = db.prepare(SQLITE_STATEMENTS.metaSet);
@@ -527,7 +528,6 @@ class SqliteFileStore implements SqliteStore {
       put.run("retention", JSON.stringify(retention));
       return retention;
     }
-    const kept = metaOf(db, "retention")!;
     if (asked !== undefined && JSON.stringify(asked) !== kept)
       throw new StoreError(
         "invalid-request",
@@ -729,26 +729,30 @@ class SqliteFileStore implements SqliteStore {
   }
 
   #snapshot(peer: PeerId, row: PeerRow): Snapshot {
-    const { history, revision } = row;
+    const { history, revision, maxSeq: bound } = row;
     let released = false;
-    // One short read transaction per call: the revision is checked first, so a call on a moved
-    // snapshot refuses also when it would find no rows (decision S4-2).
+    // One short read transaction per call. The peer row is checked first, so a call on a moved
+    // snapshot refuses also when it would find no rows (decision S4-2). An append gives each new
+    // holding a sequence past `bound`, and every statement keeps the holdings at or below it, so
+    // a call after appends answers as at `revision`. A release of a holding since `revision`, a
+    // new history, or a revision below `revision` refuses (§4.13 reading 130).
     const at = <T>(body: () => T): T => {
       this.#open();
       if (released) throw new StoreError("snapshot-released", "the snapshot was released");
       return this.#run("read", () => {
         const now = this.#peerRow(peer);
-        if (now?.history !== history || now.revision !== revision)
+        if (now?.history !== history || now.revision < revision || now.removedAt > revision)
           throw new StoreError("snapshot-moved", "the peer moved past this snapshot's revision");
         return body();
       });
     };
-    const keys = (ids: readonly Id[]) => ({ peer, keys: JSON.stringify(ids) });
+    const keys = (ids: readonly Id[]) => ({ peer, keys: JSON.stringify(ids), bound });
     return {
       revision,
       history,
       head: row.head,
       count: row.count,
+      lastSequence: bound,
       get: async (ids) => {
         const asked = sorted(strings(ids, "get: ids"));
         return at(() => (this.#s.get.all(keys(asked)) as DeltaRow[]).map((r) => this.#delta(r)));
@@ -784,7 +788,7 @@ class SqliteFileStore implements SqliteStore {
           const rows = this.#s.scope.all({
             peer,
             anchors: JSON.stringify(entities),
-            seq: asked.arrivalAtMost ?? null,
+            bound: Math.min(bound, asked.arrivalAtMost ?? bound),
             timestamp: asked.timestampAtMost ?? null,
             drop: JSON.stringify(asked.excludeIds ?? []),
             exclude: JSON.stringify(exclude),
@@ -855,8 +859,8 @@ class SqliteFileStore implements SqliteStore {
       next.floor = row.floor + 1;
       this.#s.changeDrop.run(peer, next.floor);
     }
-    const { revision, floor, head, count, maxSeq } = next;
-    this.#s.peerAdvance.run({ peer, revision, floor, head, count, maxSeq });
+    const { revision, floor, head, count, maxSeq, removedAt } = next;
+    this.#s.peerAdvance.run({ peer, revision, floor, head, count, maxSeq, removedAt });
   }
 
   #append(peer: PeerId, batch: unknown): AppendResult {
@@ -964,7 +968,12 @@ class SqliteFileStore implements SqliteStore {
         this.#advance(
           peer,
           row,
-          { ...row, revision: row.revision + 1, count: row.count - released.length },
+          {
+            ...row,
+            revision: row.revision + 1,
+            count: row.count - released.length,
+            removedAt: row.revision + 1,
+          },
           [],
           released,
         );
