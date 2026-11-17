@@ -428,12 +428,12 @@ class MemoryStore implements Store {
     return bucket;
   }
 
-  #held(state: PeerState, id: Id): VerifiedDelta | undefined {
-    const holding = state.holdings.get(id);
-    if (holding === undefined) return undefined;
+  /**
+   * The stored row of a held id. A holding without its row means the reference count is wrong.
+   * Serving nothing would hide it, so the read fails (§4.13 reading 136).
+   */
+  #row(state: PeerState, id: Id): Row {
     const row = this.#rows.get(id);
-    // A holding without its row means the reference count is wrong. Serving nothing would
-    // hide it, so the read fails (§4.13 reading 136).
     if (row === undefined)
       throw new StoreIntegrityError({
         kind: "claims-unreadable",
@@ -441,6 +441,13 @@ class MemoryStore implements Store {
         id,
         detail: "memory store: a held delta has no stored claims",
       });
+    return row;
+  }
+
+  #held(state: PeerState, id: Id): VerifiedDelta | undefined {
+    const holding = state.holdings.get(id);
+    if (holding === undefined) return undefined;
+    const row = this.#row(state, id);
     // What a reader receives is a copy. The stored claims and arrival stay the store's own.
     const claims = copyClaims(row.claims);
     const delta: Delta =
@@ -463,9 +470,12 @@ class MemoryStore implements Store {
       if (state.removedAt > revision)
         throw new StoreError("snapshot-moved", "the peer released a holding after this snapshot");
     };
+    // An id it answers must have its row, as in `get` (reading 136).
     const within = (id: Id): boolean => {
       const holding = state.holdings.get(id);
-      return holding !== undefined && holding.arrival.sequence <= bound;
+      if (holding === undefined || holding.arrival.sequence > bound) return false;
+      this.#row(state, id);
+      return true;
     };
     // The shape of a request comes first, as in append: a malformed request is refused the
     // same way on a current, a moved and a released snapshot.
@@ -482,8 +492,7 @@ class MemoryStore implements Store {
         const found: ArrivalRecord[] = [];
         for (const id of asked) {
           const holding = state.holdings.get(id);
-          if (holding !== undefined && holding.arrival.sequence <= bound)
-            found.push(copyArrival(holding.arrival));
+          if (holding !== undefined && within(id)) found.push(copyArrival(holding.arrival));
         }
         return found;
       },
@@ -791,7 +800,7 @@ class MemoryStore implements Store {
           fault({
             kind: "column-mismatch",
             id,
-            key: "arrival",
+            key: "holding.arrival",
             detail: "memory store: the arrival record names another id",
           });
         const row = this.#rows.get(id);

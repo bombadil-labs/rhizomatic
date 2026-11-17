@@ -100,8 +100,8 @@ export class StoreFaultError extends Error {
  * - `index-missing`: a held delta's claims name an index entry (an entity, or a referenced id
  *   with its role) that the store does not keep;
  * - `index-stray`: the store keeps an index entry that the delta's claims do not name;
- * - `column-mismatch`: a stored column differs from the claims or from the arrival record (`key`
- *   names the column);
+ * - `column-mismatch`: a stored column differs from the claims or from the holding, or does not
+ *   have its form: an arrival record, a signature, a change record (`key` names the column);
  * - `count-mismatch`: a peer's count is not the number of its holdings;
  * - `sequence-mismatch`: a holding's sequence or transfer passes the peer's last one;
  * - `feed-gap`: a peer's change records do not run from its floor to its revision;

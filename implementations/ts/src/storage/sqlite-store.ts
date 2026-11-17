@@ -36,6 +36,7 @@ import {
   takeAppFormat,
   takeScope,
   wellFormed,
+  wellFormedSig,
   type Admitted,
 } from "./request.js";
 import { SQLITE_SCHEMA, SQLITE_STATEMENTS } from "./sqlite-statements.js";
@@ -142,6 +143,11 @@ const EXPORT_PAGE = 256;
 const LAST_TRIES = 3;
 const LOG_NOT_EMPTY = new Error("the log holds frames");
 
+/** A read of `fsck` met a page that the engine reports damaged, with the engine's code. */
+class Unreadable {
+  constructor(readonly code: string) {}
+}
+
 /**
  * The connection rules (plan §4), as the engine reports them: `foreign_keys` and `secure_delete`
  * 1 (on), `journal_mode` "wal", `synchronous` 2 (full), `temp_store` 1 (file), and
@@ -199,16 +205,15 @@ type PeerRow = {
   maxTransfer: number;
   appFormat: string | null;
 };
-type DeltaRow = { id: Id; claims: Uint8Array; sig: string | null };
-type FsckRow = {
-  id: Id;
+type DeltaRow = { id: Id; claims: Uint8Array | null; sig: string | null };
+type FsckRow = DeltaRow & {
   seq: number;
   arrival: string;
   heldAuthor: string;
-  claims: Uint8Array;
-  author: string;
-  timestamp: number;
+  author: string | null;
+  timestamp: number | null;
 };
+type ChangeRow = { revision: Revision; head?: string | null; added: string; removed: string };
 
 const sorted = (ids: Iterable<Id>): Id[] => [...new Set(ids)].sort(compareUtf8);
 
@@ -311,9 +316,18 @@ function claimsOf(bytes: Uint8Array): Claims {
   };
 }
 
-/** The claims of a stored row, or the fault of the row. */
-function storedClaims(bytes: Uint8Array, id: Id, peer?: PeerId): Claims {
+/**
+ * The claims of a stored row, or the fault of the row. No bytes (a holding whose `delta` row is
+ * gone) is `claims-unreadable`, as on the memory store.
+ */
+function storedClaims(bytes: Uint8Array | null, id: Id, peer?: PeerId): Claims {
   const at = { ...(peer === undefined ? {} : { peer }), id };
+  if (bytes === null)
+    throw new StoreIntegrityError({
+      kind: "claims-unreadable",
+      ...at,
+      detail: "sqlite store: a held delta has no stored claims",
+    });
   if (contentAddress(bytes) !== id)
     throw new StoreIntegrityError({
       kind: "claims-mismatch",
@@ -340,22 +354,113 @@ const arrivalText = (arrival: ArrivalRecord): string =>
     sender: arrival.sender,
   });
 
-/** The arrival record of a stored row. Text that is not one is a fault of the row. */
-function arrivalOf(text: string, peer: PeerId, id?: Id): ArrivalRecord {
+const ARRIVAL_FIELDS = new Set(["id", "at", "sequence", "transfer", "sender"]);
+
+/**
+ * The arrival record of a stored holding, or the fault of the row (§4.13 reading 136). The text
+ * must be a record of exactly the five fields the store writes. `id` and `sequence` must equal the
+ * holding's own columns. `transfer` must be an integer of 1 or more, and at most the peer's last
+ * transfer (`sequence-mismatch`, key `transfer`). `at` and `sender` have no second copy, so only
+ * their form is checked: a finite number, and a non-empty, well-formed text.
+ */
+function arrivalOf(
+  text: string,
+  peer: PeerId,
+  id: Id,
+  seq: number,
+  lastTransfer: number,
+): ArrivalRecord | IntegrityFault {
+  let arrival: unknown;
   try {
-    const arrival: unknown = JSON.parse(text);
-    if (isPlainObject(arrival) && (id === undefined || arrival["id"] === id))
-      return arrival as unknown as ArrivalRecord;
+    arrival = JSON.parse(text);
   } catch {
-    // Reported below.
+    arrival = undefined;
   }
-  throw new StoreIntegrityError({
+  const record = isPlainObject(arrival) ? (arrival as Partial<Record<string, unknown>>) : {};
+  const { at, sequence, transfer, sender } = record;
+  if (
+    !(
+      Object.keys(record).every((key) => ARRIVAL_FIELDS.has(key)) &&
+      record["id"] === id &&
+      sequence === seq &&
+      Number.isSafeInteger(transfer) &&
+      (transfer as number) >= 1 &&
+      typeof at === "number" &&
+      Number.isFinite(at) &&
+      typeof sender === "string" &&
+      sender !== "" &&
+      wellFormed(sender)
+    )
+  )
+    return {
+      kind: "column-mismatch",
+      peer,
+      id,
+      key: "holding.arrival",
+      detail: "sqlite store: a stored arrival record is not the record of its holding",
+    };
+  if ((transfer as number) > lastTransfer)
+    return {
+      kind: "sequence-mismatch",
+      peer,
+      id,
+      key: "transfer",
+      detail: `sqlite store: transfer ${transfer as number} passes the peer's last ${lastTransfer}`,
+    };
+  return { id, at, sequence, transfer: transfer as number, sender };
+}
+
+/** The arrival record of a stored holding. A fault of the row fails the read. */
+function arrivalRead(
+  text: string,
+  peer: PeerId,
+  id: Id,
+  seq: number,
+  lastTransfer: number,
+): ArrivalRecord {
+  const arrival = arrivalOf(text, peer, id, seq, lastTransfer);
+  if ("kind" in arrival) throw new StoreIntegrityError(arrival);
+  return arrival;
+}
+
+/** The fault of a stored signature that is not 128 lowercase hex digits, or none. */
+function sigFault(sig: string | null, peer: PeerId, id: Id): IntegrityFault | undefined {
+  if (sig === null || wellFormedSig(sig)) return undefined;
+  return {
     kind: "column-mismatch",
     peer,
-    ...(id === undefined ? {} : { id }),
-    key: "holding.arrival",
-    detail: "sqlite store: a stored arrival record is not the record of its delta",
-  });
+    id,
+    key: "holding.sig",
+    detail: "sqlite store: a stored signature is not 128 lowercase hex digits",
+  };
+}
+
+/**
+ * The ids of a stored change record, or the fault of the record: each list must be a JSON list
+ * of texts. The fault names the peer and the column; the detail names the revision.
+ */
+function changeOf(row: ChangeRow, peer: PeerId): { added: Id[]; removed: Id[] } | IntegrityFault {
+  const lists: Id[][] = [];
+  for (const [key, text] of [
+    ["change.added", row.added],
+    ["change.removed", row.removed],
+  ] as const) {
+    let ids: unknown;
+    try {
+      ids = JSON.parse(text);
+    } catch {
+      ids = undefined;
+    }
+    if (!(Array.isArray(ids) && ids.every((id) => typeof id === "string")))
+      return {
+        kind: "column-mismatch",
+        peer,
+        key,
+        detail: `sqlite store: the change record of revision ${row.revision} holds no list of ids`,
+      };
+    lists.push(ids as Id[]);
+  }
+  return { added: lists[0]!, removed: lists[1]! };
 }
 
 // ---- options --------------------------------------------------------------------------------
@@ -678,7 +783,9 @@ class SqliteFileStore implements SqliteStore {
    * claims, fail the read with `StoreIntegrityError` (§4.13 reading 136).
    */
   #delta(row: DeltaRow, peer: PeerId): Delta {
-    const claims = storedClaims(new Uint8Array(row.claims), row.id, peer);
+    const claims = storedClaims(row.claims && new Uint8Array(row.claims), row.id, peer);
+    const sig = sigFault(row.sig, peer, row.id);
+    if (sig !== undefined) throw new StoreIntegrityError(sig);
     return row.sig === null ? { id: row.id, claims } : { id: row.id, claims, sig: row.sig };
   }
 
@@ -807,16 +914,22 @@ class SqliteFileStore implements SqliteStore {
     // holding a sequence past `bound`, and every statement keeps the holdings at or below it, so
     // a call after appends answers as at `revision`. A release of a holding since `revision`, a
     // new history, or a revision below `revision` refuses (§4.13 reading 130).
-    const at = <T>(body: () => T): T => {
+    const at = <T>(body: (now: PeerRow) => T): T => {
       this.#open();
       if (released) throw new StoreError("snapshot-released", "the snapshot was released");
       return this.#run("read", () => {
         const now = this.#peerRow(peer);
         if (now?.history !== history || now.revision < revision || now.removedAt > revision)
           throw new StoreError("snapshot-moved", "the peer moved past this snapshot's revision");
-        return body();
+        return body(now);
       });
     };
+    // An id whose `delta` row is gone fails the read that would answer it (reading 136).
+    const found = (rows: { delta: Id; lost: number }[]): Id[] =>
+      rows.map((r) => {
+        if (r.lost === 1) storedClaims(null, r.delta, peer);
+        return r.delta;
+      });
     const keys = (ids: readonly Id[]) => ({ peer, keys: JSON.stringify(ids), bound });
     return {
       revision,
@@ -833,23 +946,31 @@ class SqliteFileStore implements SqliteStore {
       },
       arrivals: async (ids) => {
         const asked = sorted(strings(ids, "arrivals: ids"));
-        return at(() =>
-          (this.#s.arrivals.all(keys(asked)) as { arrival: string }[]).map((r) =>
-            arrivalOf(r.arrival, peer),
-          ),
+        return at((now) =>
+          (
+            this.#s.arrivals.all(keys(asked)) as {
+              id: Id;
+              seq: number;
+              arrival: string;
+              lost: number;
+            }[]
+          ).map((r) => {
+            if (r.lost === 1) storedClaims(null, r.id, peer);
+            return arrivalRead(r.arrival, peer, r.id, r.seq, now.maxTransfer);
+          }),
         );
       },
       targets: async (entities) => {
         const asked = sorted(strings(entities, "targets: entities"));
-        return at(() => (this.#s.targets.all(keys(asked)) as { delta: Id }[]).map((r) => r.delta));
+        return at(() => found(this.#s.targets.all(keys(asked)) as { delta: Id; lost: number }[]));
       },
       negators: async (ids) => {
         const asked = sorted(strings(ids, "negators: ids"));
-        return at(() => (this.#s.negators.all(keys(asked)) as { delta: Id }[]).map((r) => r.delta));
+        return at(() => found(this.#s.negators.all(keys(asked)) as { delta: Id; lost: number }[]));
       },
       scope: async (request) => {
         const { anchors, asked, exclude } = takeScope(request);
-        return at(() => {
+        return at((now) => {
           const entities: string[] = [];
           for (const anchor of anchors) {
             if (anchor.kind !== "entity")
@@ -866,11 +987,11 @@ class SqliteFileStore implements SqliteStore {
             timestamp: asked.timestampAtMost ?? null,
             drop: JSON.stringify(asked.excludeIds ?? []),
             exclude: JSON.stringify(exclude),
-          }) as (DeltaRow & { arrival: string })[];
+          }) as (DeltaRow & { seq: number; arrival: string })[];
           return {
             deltas: rows.map((r) => ({
               delta: this.#delta(r, peer),
-              arrival: arrivalOf(r.arrival, peer, r.id),
+              arrival: arrivalRead(r.arrival, peer, r.id, r.seq, now.maxTransfer),
             })),
             applied: {
               timestampAtMost: asked.timestampAtMost !== undefined,
@@ -900,18 +1021,17 @@ class SqliteFileStore implements SqliteStore {
       const { revision: current, floor } = this.#peerRow(peer)!;
       if (after > current || after < floor) return { status: "resync-required", current };
       const end = Math.min(upTo ?? current, current);
-      const rows = this.#s.changes.all({ peer, from: after, to: end, limit: this.#pageSize }) as {
-        revision: Revision;
-        head: string | null;
-        added: string;
-        removed: string;
-      }[];
-      const records: ChangeRecord[] = rows.map((r) => ({
-        revision: r.revision,
-        head: r.head,
-        added: JSON.parse(r.added) as Id[],
-        removed: JSON.parse(r.removed) as Id[],
-      }));
+      const rows = this.#s.changes.all({
+        peer,
+        from: after,
+        to: end,
+        limit: this.#pageSize,
+      }) as ChangeRow[];
+      const records: ChangeRecord[] = rows.map((r) => {
+        const ids = changeOf(r, peer);
+        if ("kind" in ids) throw new StoreIntegrityError(ids);
+        return { revision: r.revision, head: r.head ?? null, ...ids };
+      });
       const through = records.length === this.#pageSize ? records.at(-1)!.revision : end;
       return { status: "ok", records, through };
     });
@@ -1266,66 +1386,97 @@ class SqliteFileStore implements SqliteStore {
    * write by this store or another connection commits between them. A step reads every fact it
    * compares in its own transaction, so each fault held at that step's moment. Keyset pages visit
    * every row that exists for the whole scan. The steps: the engine's checks; for each peer, its
-   * count and change records against its row; for each page of 256 of its holdings, each
-   * holding's claims, columns, sequence, transfer and index entries; for each page of 256 stored
-   * deltas, whether any peer holds it.
+   * count and change records against its row; for each page of 256 of its change records, the
+   * form of each; for each page of 256 of its holdings, each holding's claims, signature,
+   * columns, arrival record, sequence, transfer and index entries; for each page of 256 stored
+   * deltas, whether any peer holds it. A step that meets a damaged page ends the scan, and the
+   * report names it as one `engine` fault.
    */
   async #fsck(): Promise<FsckReport> {
     this.#open();
     const s = this.#s;
     const faults: IntegrityFault[] = [];
     const checked = { peers: 0, holdings: 0, deltas: 0 };
+    // A step whose read meets a page the engine cannot read throws `Unreadable`; the scan stops
+    // there and the report names it as an `engine` fault. Any other error rejects as before.
     const step = async <T>(body: () => T): Promise<T> => {
       await new Promise<void>((resolve) => setImmediate(resolve));
       this.#open();
-      return this.#run("read", body);
-    };
-    await step(() => {
-      for (const row of s.fsckEngine.all() as Record<string, string>[]) {
-        const text = Object.values(row)[0];
-        if (text !== "ok")
-          faults.push({ kind: "engine", detail: `sqlite store: integrity_check: ${text}` });
-      }
-      for (const row of s.fsckForeignKeys.all() as { table: string; parent: string }[])
-        faults.push({
-          kind: "engine",
-          key: row.table,
-          detail: `sqlite store: foreign_key_check: a row of ${row.table} names no row of ${row.parent}`,
-        });
-    });
-    for (let after = "", found = EXPORT_PAGE; found === EXPORT_PAGE; ) {
-      const peers = await step(() =>
-        (s.exportPeers.all(after, EXPORT_PAGE) as { id: PeerId }[]).map((r) => r.id),
-      );
-      for (const peer of peers) {
-        if (!(await step(() => this.#fsckPeer(peer, faults)))) continue;
-        checked.peers++;
-        for (let from = "", page = EXPORT_PAGE; page === EXPORT_PAGE; ) {
-          const last = await step(() => this.#fsckHoldings(peer, from, faults));
-          if (last === undefined) break;
-          checked.holdings += last.count;
-          page = last.count;
-          from = last.id;
+      return this.#run("read", () => {
+        try {
+          return body();
+        } catch (error) {
+          if (error instanceof Database.SqliteError && /^SQLITE_(CORRUPT|NOTADB)/.test(error.code))
+            throw new Unreadable(error.code);
+          throw error;
         }
-      }
-      found = peers.length;
-      after = peers.at(-1) ?? after;
-    }
-    for (let after = "", found = EXPORT_PAGE; found === EXPORT_PAGE; ) {
-      const stored = await step(() => {
-        const ids = (s.exportStored.all(after, EXPORT_PAGE) as { id: Id }[]).map((r) => r.id);
-        for (const id of ids)
-          if (s.heldElsewhere.get(id) === undefined)
-            faults.push({
-              kind: "orphan-bytes",
-              id,
-              detail: "sqlite store: no peer holds these bytes",
-            });
-        return ids;
       });
-      checked.deltas += stored.length;
-      found = stored.length;
-      after = stored.at(-1) ?? after;
+    };
+    try {
+      await step(() => {
+        for (const row of s.fsckEngine.all() as Record<string, string>[]) {
+          const text = Object.values(row)[0];
+          if (text !== "ok")
+            faults.push({ kind: "engine", detail: `sqlite store: integrity_check: ${text}` });
+        }
+        for (const row of s.fsckForeignKeys.all() as { table: string; parent: string }[])
+          faults.push({
+            kind: "engine",
+            key: row.table,
+            detail: `sqlite store: foreign_key_check: a row of ${row.table} names no row of ${row.parent}`,
+          });
+      });
+      for (let after = "", found = EXPORT_PAGE; found === EXPORT_PAGE; ) {
+        const peers = await step(() =>
+          (s.exportPeers.all(after, EXPORT_PAGE) as { id: PeerId }[]).map((r) => r.id),
+        );
+        for (const peer of peers) {
+          if (!(await step(() => this.#fsckPeer(peer, faults)))) continue;
+          checked.peers++;
+          for (let from = Number.MIN_SAFE_INTEGER, page = EXPORT_PAGE; page === EXPORT_PAGE; ) {
+            const rows = await step(
+              () => s.fsckChanges.all(peer, from, EXPORT_PAGE) as ChangeRow[],
+            );
+            for (const r of rows) {
+              const ids = changeOf(r, peer);
+              if ("kind" in ids) faults.push(ids);
+            }
+            page = rows.length;
+            from = rows.at(-1)?.revision ?? from;
+          }
+          for (let from = "", page = EXPORT_PAGE; page === EXPORT_PAGE; ) {
+            const last = await step(() => this.#fsckHoldings(peer, from, faults));
+            if (last === undefined) break;
+            checked.holdings += last.count;
+            page = last.count;
+            from = last.id;
+          }
+        }
+        found = peers.length;
+        after = peers.at(-1) ?? after;
+      }
+      for (let after = "", found = EXPORT_PAGE; found === EXPORT_PAGE; ) {
+        const stored = await step(() => {
+          const ids = (s.exportStored.all(after, EXPORT_PAGE) as { id: Id }[]).map((r) => r.id);
+          for (const id of ids)
+            if (s.heldElsewhere.get(id) === undefined)
+              faults.push({
+                kind: "orphan-bytes",
+                id,
+                detail: "sqlite store: no peer holds these bytes",
+              });
+          return ids;
+        });
+        checked.deltas += stored.length;
+        found = stored.length;
+        after = stored.at(-1) ?? after;
+      }
+    } catch (error) {
+      if (!(error instanceof Unreadable)) throw error;
+      faults.push({
+        kind: "engine",
+        detail: `sqlite store: the engine cannot read a page of the file (${error.code}); the scan stopped there`,
+      });
     }
     return { checked, faults };
   }
@@ -1375,12 +1526,14 @@ class SqliteFileStore implements SqliteStore {
       };
       let claims: Claims;
       try {
-        claims = storedClaims(new Uint8Array(held.claims), id, peer);
+        claims = storedClaims(held.claims && new Uint8Array(held.claims), id, peer);
       } catch (error) {
         if (!(error instanceof StoreIntegrityError)) throw error;
         faults.push(error.fault);
         continue;
       }
+      const sig = sigFault(held.sig, peer, id);
+      if (sig !== undefined) faults.push(sig);
       if (held.heldAuthor !== claims.author)
         fault(
           "column-mismatch",
@@ -1391,26 +1544,15 @@ class SqliteFileStore implements SqliteStore {
         fault("column-mismatch", "delta.author", "the stored author is not the claims' author");
       if (held.timestamp !== claims.timestamp)
         fault("column-mismatch", "delta.timestamp", "the stored timestamp is not the claims'");
-      let arrival: ArrivalRecord | undefined;
-      try {
-        arrival = arrivalOf(held.arrival, peer, id);
-      } catch {
-        arrival = undefined;
-      }
-      if (arrival?.sequence !== held.seq)
-        fault("column-mismatch", "holding.arrival", "the arrival record is not the holding's");
+      const arrival = arrivalOf(held.arrival, peer, id, held.seq, row.maxTransfer);
+      if ("kind" in arrival && arrival.kind === "column-mismatch") faults.push(arrival);
       if (held.seq > row.maxSeq)
         fault(
           "sequence-mismatch",
           "seq",
           `sequence ${held.seq} passes the peer's last ${row.maxSeq}`,
         );
-      if (arrival !== undefined && arrival.transfer > row.maxTransfer)
-        fault(
-          "sequence-mismatch",
-          "transfer",
-          `transfer ${arrival.transfer} passes the peer's last ${row.maxTransfer}`,
-        );
+      if ("kind" in arrival && arrival.kind === "sequence-mismatch") faults.push(arrival);
       const entities = new Set<string>();
       const references = new Map<string, string>();
       for (const { role, target } of claims.pointers)
