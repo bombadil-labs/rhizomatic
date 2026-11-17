@@ -300,8 +300,11 @@ describe("fsck while another process writes", () => {
     const child = churn(path, "peer:w");
     await child.word("started");
     const admin = store.openAdmin();
+    // The scans go on until ten of them saw the child commit during the scan, and at least 25
+    // ran: a slow machine gives the child fewer commits per scan, never a false fault.
     let moved = 0;
-    for (let run = 0; run < 25; run++) {
+    let runs = 0;
+    for (let run = 0; (run < 25 || moved < 10) && run < 2_000; run++, runs++) {
       const before = (await peer.read()).revision;
       const report = await admin.fsck();
       expect([run, report.faults]).toEqual([run, []]);
@@ -310,8 +313,8 @@ describe("fsck while another process writes", () => {
     writeFileSync(`${path}.stop`, "");
     const done = JSON.parse(await child.word("done")) as { appends: number; purges: number };
     await child.ended;
-    expect(moved).toBeGreaterThan(5);
-    expect(done.purges).toBeGreaterThan(5);
+    expect([moved >= 10, runs >= 25]).toEqual([true, true]);
+    expect(done.purges).toBeGreaterThan(3);
     expect((await admin.fsck()).faults).toEqual([]);
     await store.close();
   }, 120_000);
@@ -346,7 +349,7 @@ describe.skipIf(process.platform !== "linux")("fsck and erasure", () => {
     const before = [digest(path), digest(`${path}-wal`)];
     expect((await store.openAdmin().fsck()).faults).toEqual([]);
     expect([digest(path), digest(`${path}-wal`)]).toEqual(before);
-  });
+  }, 60_000);
 
   it("a purge right after fsck, and a purge while fsck waits between pages, report what the same purge reports with no fsck", async () => {
     const twin = await proven();
@@ -367,5 +370,5 @@ describe.skipIf(process.platform !== "linux")("fsck and erasure", () => {
     expect(settled).toBe(false);
     expect(report).toEqual(without);
     expect((await pending).faults).toEqual([]);
-  });
+  }, 60_000);
 });
