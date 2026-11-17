@@ -2850,7 +2850,15 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      another peer held when this call released it; their bytes stay. The report names no id. The
      request is checked as `createPeer` checks it: `store-closed`, then `invalid-request` for an id
      that is not a non-empty, well-formed string. A peer that does not exist is refused
-     `peer-absent`. A busy engine refuses `store-unavailable` (reading 105).
+     `peer-absent`. A busy engine refuses `store-unavailable` (reading 105) until the transaction
+     that removes the `peer` row commits. After that commit the call does not refuse:
+     - a refusal before it leaves the mark and the rows the call has not reached. A repeat goes
+       on from there, as after a delete that dies. Its counts cover only what the repeat
+       released;
+     - after it, a repeat would answer `peer-absent`, and the host would have no report. So when
+       the last transaction cannot take the write lock or commit (`store-unavailable`), the call
+       answers its counts with every file surface `owed` and the claim `unproven`. That report is
+       true without the lock: `owed` claims no absence.
      - **The input is the peer's own rows.** The delete reads the peer's holdings by the peer's
        own key, never the store's list of stored ids. Each holding leaves through the purge's own
        release: the `holding` row, its index rows by the cascade, and the `delta` row when no
@@ -2928,18 +2936,35 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        removes nothing more and answers its own counts, decided by the same last transaction:
        a `peer` row of the id found there, of any state, makes every file surface `owed`. So
        each report is true at its commit.
-     - **Two deletes at once, and the proof.** SQLite answers busy at once to a
-       `wal_checkpoint(TRUNCATE)` while another connection checkpoints, without the busy handler.
-       So when the rebuilds of two deletes of one peer meet, one checkpoint answers busy, and
-       that delete has no proof. It answers `unproven` unless the log is empty and the file is
-       clean at its last transaction. The checkpoint that runs waits under the busy handler.
-       In rail R2, with no other reader or writer, at least one of the two answers `proven`.
-       A `proven` report covers the releases of both calls: its last transaction finds the
-       `peer` row gone, so every release of either call committed before it. No later call
-       gives a proof for a deleted peer. A late deleter of a `proven` peer also answers
-       `unproven` while a new peer of the id exists. A second `deletePeer` of the id refuses
-       `peer-absent`, or deletes the new peer. So a host must not repeat the call to get a
-       proof. The `proven` report of the other delete carries it.
+     - **When a delete of a `proven` peer answers `unproven`.** Also with one deleter. The proof
+       needs the rebuild, the truncate and the last transaction, as for a purge. The delete
+       answers `unproven`, with every file surface `owed`, when:
+       - a checkpoint of another connection stays busy past the truncate's bound (reading 143).
+         The automatic checkpoint after another process's ordinary commit is such a checkpoint;
+       - a reader in another connection holds the log, so the truncate cannot empty it (reading
+         111);
+       - a wait for a lock passes `busyTimeoutMs`: of `VACUUM`, of the checkpoint, or of the last
+         transaction;
+       - the log holds frames at each try of the last transaction (reading 119).
+       Another call's rebuild can still make the file clean before the last transaction; the
+       delete then answers `proven`, and that is true.
+     - **No call promises a later proof.** A purge keeps a record of each removal, so its next
+       ask can prove (reading 107). A deleted peer has no row to keep one. A later `proven` delete
+       or purge in the same file covers the earlier removals, because its rebuild begins after
+       them, but no call promises it, and a host must not rely on it. A second `deletePeer` of the
+       id refuses `peer-absent`, or deletes a new peer of the id. So a host must not repeat the
+       call to get a proof. A store-level proof call is owed (the slice 4 plan, §10).
+     - **Two deletes at once.** Both end, and each counts what it released. A `proven` report of
+       either covers the releases of both calls: its last transaction finds the `peer` row gone,
+       so every release of either call committed before it. The other delete's report carries
+       that proof only when that delete answered `proven`. When no wait passes `busyTimeoutMs`,
+       a retried truncate included, at least one of the two answers `proven`: a truncate that
+       meets the other's checkpoint tries again until that checkpoint ends, and a deleter whose
+       checkpoint ran has its proof. When a wait passes it, both can answer `unproven`. Rail R2
+       runs two deletes with `busyTimeoutMs` 5000 and asserts at least one `proven`. Measured with
+       the retried truncate: two `proven` reports in 40 of 40 runs, and in 40 of 40 under load.
+       The rail asserts only the one that is promised. A late deleter of a `proven` peer also answers `unproven` while a
+       new peer of the id exists.
      - **The memory store.** The same contract, all at once in one synchronous call. Its claim
        is always `unproven`; its surfaces are its purge's, from a second look. A held id whose
        row is gone throws `StoreIntegrityError` (`claims-unreadable`) before the delete removes
