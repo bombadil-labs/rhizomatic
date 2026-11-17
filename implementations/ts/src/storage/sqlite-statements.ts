@@ -105,7 +105,7 @@ const PASSES = (id: string): string => `(@seq IS NULL OR holding.seq <= @seq)
     AND ${id} NOT IN (SELECT value FROM json_each(@drop))`;
 
 export const SQLITE_STATEMENTS = {
-  schemaNames: "SELECT name FROM sqlite_schema",
+  schemaNames: "SELECT name, type FROM sqlite_schema",
   files: "PRAGMA database_list",
   metaGet: "SELECT value FROM meta WHERE key = ?",
   metaSet: `INSERT INTO meta (key, value) VALUES (?, ?)

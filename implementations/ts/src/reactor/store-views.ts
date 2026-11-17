@@ -30,12 +30,12 @@ import {
   advanceCapture,
   answeredOnly,
   checkedThrough,
-  onSnapshots,
   touching,
   type Capture,
 } from "../storage/freshness.js";
 import { ownFields } from "../storage/copy.js";
 import { positionOf, type Position } from "../storage/follow.js";
+import { withSnapshot } from "../storage/with-snapshot.js";
 import {
   StoreError,
   type ChangeRecord,
@@ -605,10 +605,11 @@ export class StoreViews {
   private async pass(now: number, want: ViewKey | undefined): Promise<Plan> {
     let last: Snapshot | undefined;
     try {
-      return await onSnapshots(this.peer, (snapshot) => {
+      const { value } = await withSnapshot(this.peer, (snapshot) => {
         last = snapshot;
         return this.passOn(snapshot, now, want);
       });
+      return value;
     } catch (error) {
       if (this.#quirks.advanceOnFailure === true && last !== undefined)
         this.processed = positionOf(last);

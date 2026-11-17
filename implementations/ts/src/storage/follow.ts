@@ -11,7 +11,8 @@
 
 import { compareUtf8 } from "../delta/cbor.js";
 import { ownFields } from "./copy.js";
-import { LOCAL_HISTORY_PREFIX, answeredOnly, checkedThrough, onSnapshots } from "./freshness.js";
+import { LOCAL_HISTORY_PREFIX, answeredOnly, checkedThrough } from "./freshness.js";
+import { withSnapshot } from "./with-snapshot.js";
 import {
   StoreError,
   StoreFaultError,
@@ -145,7 +146,7 @@ class Cursor implements FeedCursor {
     // The position no longer names a revision of this peer's feed. Asking the store again cannot
     // help, and a later answer could be read in another history: the caller reads again first.
     if (this.stopped !== undefined) return this.stopped;
-    const pull = await onSnapshots(this.peer, (snapshot) => this.pullOn(snapshot));
+    const { value: pull } = await withSnapshot(this.peer, (snapshot) => this.pullOn(snapshot));
     if (pull.status === "ok") this.at = pull.position;
     else this.stopped = pull;
     return pull;

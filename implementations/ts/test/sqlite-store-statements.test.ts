@@ -36,15 +36,29 @@ describe("the statement list", () => {
     const proto = Database.prototype as unknown as Record<"prepare" | "exec" | "pragma", Method>;
     const originals = { prepare: proto.prepare, exec: proto.exec, pragma: proto.pragma };
     const seen = new Set<string>();
+    const waits = { open: new Set<string>(), later: new Set<string>() };
+    let opening = false;
     for (const [name, original] of Object.entries(originals) as [keyof typeof originals, Method][])
       proto[name] = function (this: Database.Database, text, ...rest) {
-        seen.add(name === "pragma" ? `PRAGMA ${text}` : text);
+        const source = name === "pragma" ? `PRAGMA ${text}` : text;
+        if (/^PRAGMA busy_timeout = \d+$/.test(source))
+          (opening ? waits.open : waits.later).add(source);
+        else seen.add(source);
         return original.call(this, text, ...rest);
       };
+    // The open runs without an await up to its last statement, so the flag covers exactly it.
+    const open = (): ReturnType<typeof fixture.open> => {
+      opening = true;
+      try {
+        return fixture.open();
+      } finally {
+        opening = false;
+      }
+    };
     try {
-      const report = await runStoreConformance(() => fixture.open());
+      const report = await runStoreConformance(open);
       expect(report.skipped).toEqual([]);
-      const store = await fixture.open();
+      const store = await open();
       store.openAdmin().connection();
       // A peer of posture proven runs the rebuild on a store of class proven.
       if (store.profile.capabilities.erasure === "proven") {
@@ -68,10 +82,11 @@ describe("the statement list", () => {
     } finally {
       Object.assign(proto, originals);
     }
-    // The open sets the wait to the time left before each statement, so its value varies.
-    expect(
-      [...seen].filter((text) => !ALLOWED.has(text) && !/^PRAGMA busy_timeout = \d+$/.test(text)),
-    ).toEqual([]);
+    expect([...seen].filter((text) => !ALLOWED.has(text))).toEqual([]);
+    // The open sets the wait to the time left before each statement, so its value varies. No
+    // statement after the open sets the wait.
+    expect(waits.open.size).toBeGreaterThan(0);
+    expect([...waits.later]).toEqual([]);
     // The watch saw the store at work, not nothing.
     for (const text of [
       SQLITE_SCHEMA,

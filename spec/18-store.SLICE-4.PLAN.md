@@ -430,6 +430,7 @@ follows per S4-10.
 | Release-mode cost rails | 4e |
 | A refused open of a file that is not a whole store writes nothing: the schema, format and retention check before the journal mode (proposal §4.13 reading 126) | 4e |
 | The open asks again while the switch to WAL answers busy, then refuses `store-unavailable` (proposal §4.13 reading 126) | 4e |
+| `with_snapshot`: the public form of `on_snapshots`, with `SnapshotRetry { snapshots, within, clock }` (the host gives the clock), and its tests: the contract tests 1 to 12 over both stores and the process tests M1 to M5 (proposal §4.13 readings 127 to 129) | 4e |
 
 ## 11. Risks
 
@@ -439,7 +440,8 @@ follows per S4-10.
   it runs.
 - A reader under constant writes can meet `snapshot-moved` on every try. The readers stop after a
   fixed number of tries. A long pass of held views under a second writing process can fail all of
-  them, and that holds back a host's erasure report for those views. The trial measures it.
+  them, and that holds back a host's erasure report for those views. The trial measures it. The
+  measurement is in the pull request that added `withSnapshot` (readings 127 to 129).
 - Another process with an open statement can keep the log from truncating. The report then says
   `owed`. It must never say `proven`.
 - A rolled-back transaction leaves its pages in the log until a truncate. Append therefore checks

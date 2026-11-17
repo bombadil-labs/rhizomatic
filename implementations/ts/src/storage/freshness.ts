@@ -23,6 +23,7 @@ import {
   type Revision,
   type Snapshot,
 } from "./store.js";
+import { withSnapshot } from "./with-snapshot.js";
 
 declare const CAPTURE: unique symbol;
 
@@ -83,9 +84,6 @@ export type Freshness =
    * capture, or the capture is from a later revision.
    */
   | { readonly status: "resync-required"; readonly current: Revision };
-
-/** How many times `checkFresh` starts again on a new snapshot after `snapshot-moved`. */
-const SNAPSHOT_RETRIES = 3;
 
 function entitiesOf(anchors: readonly Anchor[]): Entity[] {
   for (const anchor of anchors)
@@ -440,52 +438,8 @@ async function check(
   built(capture);
   if (typeof now !== "number" || !Number.isFinite(now))
     throw new StoreError("invalid-request", "checkFresh: now must be a finite number");
-  return onSnapshots(peer, (snapshot) => checkOn(touch, peer, snapshot, capture, now));
-}
-
-const moved = (error: unknown): boolean =>
-  error instanceof StoreError && error.code === "snapshot-moved";
-
-/**
- * A snapshot's revision checked before anything uses it: an integer from 0 to 2^53 − 1, else the
- * store fault `revision-out-of-range`.
- */
-export function revisionInRange(revision: Revision): void {
-  if (!Number.isSafeInteger(revision) || revision < 0)
-    throw new StoreFaultError(
-      "revision-out-of-range",
-      { revision },
-      `the store's snapshot stands at revision ${revision}, not an integer from 0 to 2^53 - 1`,
-    );
-}
-
-/**
- * `body` on a new snapshot of `peer`, released after it. The snapshot's revision is checked first
- * (`revision-out-of-range`). On `snapshot-moved`, from `read()` itself or from a later call, it
- * starts again on a new snapshot, at most four snapshots in all; then `snapshot-moved` passes up.
- * `checkFresh`, a feed cursor's `pull` and a pass of held views share it.
- */
-export async function onSnapshots<T>(
-  peer: PeerStore,
-  body: (snapshot: Snapshot) => Promise<T>,
-): Promise<T> {
-  for (let attempts = 1; ; attempts += 1) {
-    let snapshot: Snapshot;
-    try {
-      snapshot = await peer.read();
-    } catch (error) {
-      if (moved(error) && attempts <= SNAPSHOT_RETRIES) continue;
-      throw error;
-    }
-    try {
-      revisionInRange(snapshot.revision);
-      return await body(snapshot);
-    } catch (error) {
-      if (!moved(error) || attempts > SNAPSHOT_RETRIES) throw error;
-    } finally {
-      snapshot.release();
-    }
-  }
+  return (await withSnapshot(peer, (snapshot) => checkOn(touch, peer, snapshot, capture, now)))
+    .value;
 }
 
 /**

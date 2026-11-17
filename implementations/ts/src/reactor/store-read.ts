@@ -24,12 +24,12 @@ import { createReadCache, type HeldMembers } from "../storage/fetch-cache.js";
 import {
   makeCapture,
   rawScope,
-  revisionInRange,
   validityWindow,
   type Capture,
   type ValidityWindow,
 } from "../storage/freshness.js";
 import { followFeed, positionOf, type FeedCursor, type Position } from "../storage/follow.js";
+import { withSnapshot } from "../storage/with-snapshot.js";
 import type { ScopeSource } from "../storage/scope-source.js";
 import {
   StoreError,
@@ -609,12 +609,6 @@ export async function captureScope(
   return makeCapture(snapshot, anchors, raw, fetched.validityAt(now));
 }
 
-const moved = (error: unknown): boolean =>
-  error instanceof StoreError && error.code === "snapshot-moved";
-
-/** How many times `StoreReactor` starts a read again after `snapshot-moved`. */
-export const SNAPSHOT_RETRIES = 3;
-
 /** A `StoreReactor` read: the read, and how many attempts it took. */
 export interface StoreReactorRead extends StoreRead {
   /**
@@ -649,7 +643,7 @@ export class StoreReactor {
     // An unanchored term is refused before the first store call; opening a snapshot is one.
     const analysis = anchorAnalysis(request.term, request.registry, request.bindings);
     if (!analysis.anchored) throw new UnanchoredTermError(analysis.reason);
-    const { value, attempts } = await this.onSnapshot((snapshot, attempt) =>
+    const { value, attempts } = await withSnapshot(this.peer, (snapshot, attempt) =>
       readAnchoredWith(snapshot, request, STANDARD_ROUNDS, attempt),
     );
     return { ...value, attempts };
@@ -658,7 +652,8 @@ export class StoreReactor {
   /** `fetchScope` on a new snapshot, with the same retry rule as `read`. */
   async fetch(entities: Iterable<Entity>, selection?: StoreSelection): Promise<FetchedScope> {
     const wanted = [...entities];
-    return (await this.onSnapshot((snapshot) => fetchScope(snapshot, wanted, selection))).value;
+    return (await withSnapshot(this.peer, (snapshot) => fetchScope(snapshot, wanted, selection)))
+      .value;
   }
 
   /**
@@ -668,27 +663,5 @@ export class StoreReactor {
    */
   follow(from: Position): FeedCursor {
     return followFeed(this.peer, from);
-  }
-
-  private async onSnapshot<T>(
-    run: (snapshot: Snapshot, attempt: number) => Promise<T>,
-  ): Promise<{ value: T; attempts: number }> {
-    for (let attempts = 1; ; attempts += 1) {
-      let snapshot: Snapshot;
-      try {
-        snapshot = await this.peer.read();
-      } catch (error) {
-        if (moved(error) && attempts <= SNAPSHOT_RETRIES) continue;
-        throw error;
-      }
-      try {
-        revisionInRange(snapshot.revision);
-        return { value: await run(snapshot, attempts), attempts };
-      } catch (error) {
-        if (!moved(error) || attempts > SNAPSHOT_RETRIES) throw error;
-      } finally {
-        snapshot.release();
-      }
-    }
   }
 }

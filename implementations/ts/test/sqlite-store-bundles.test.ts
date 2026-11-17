@@ -169,21 +169,23 @@ try {
     expect(result.status).toBe(1);
   }, 120_000);
 
-  it("a CommonJS bundle whose import.meta.url names another directory loads the driver from there, not from beside the bundle: import.meta.url comes before __filename", async () => {
-    const other = mkdtempSync(join(tmpdir(), "rhizomatic-sqlite-meta-"));
-    dirs.push(other);
-    stub(other, "meta driver ran");
-    const file = await bundle("cjs", pathToFileURL(join(other, "store.cjs")).href);
-    stub(dirname(file), "bundle driver ran");
-    const result = node(
-      ["-e", `require(${JSON.stringify(file)}); console.log("loaded");`],
-      planted(),
-    );
-    expect(result.output).toContain("meta driver ran");
-    expect(result.output).not.toContain("bundle driver ran");
-    expect(result.output).not.toContain("stub ran");
-    expect(result.status).toBe(0);
-  }, 120_000);
+  for (const scheme of ["file:", "FILE:"])
+    it(`a CommonJS bundle whose import.meta.url (${scheme}) names another directory loads the driver from there, not from beside the bundle: import.meta.url comes before __filename, and the scheme is read without case`, async () => {
+      const other = mkdtempSync(join(tmpdir(), "rhizomatic-sqlite-meta-"));
+      dirs.push(other);
+      stub(other, "meta driver ran");
+      const href = pathToFileURL(join(other, "store.cjs")).href.replace(/^file:/, scheme);
+      const file = await bundle("cjs", href);
+      stub(dirname(file), "bundle driver ran");
+      const result = node(
+        ["-e", `require(${JSON.stringify(file)}); console.log("loaded");`],
+        planted(),
+      );
+      expect(result.output).toContain("meta driver ran");
+      expect(result.output).not.toContain("bundle driver ran");
+      expect(result.output).not.toContain("stub ran");
+      expect(result.status).toBe(0);
+    }, 120_000);
 
   it("an ES module bundle whose import.meta.url is not a file: URL refuses with the message that the location is unknown, not ERR_INVALID_ARG_VALUE", async () => {
     const file = await bundle("esm", "https://example.invalid/store.mjs");
