@@ -7,9 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 ## Unreleased
 
 Follow-ups from the reviews of slice 4 and from the first Loam trial on `0.11.0-next.11`
-(TypeScript). Two changes can need action from a consumer: the `unknown-scheme` message has new
-text, and a busy open of a SQLite file refuses `store-unavailable` where it refused
-`open-failed`.
+(TypeScript). Three changes can need action from a consumer: the `unknown-scheme` message has
+new text, a busy open of a SQLite file refuses `store-unavailable` where it refused
+`open-failed`, and a host that runs the SQLite subpath with no module location gets an error.
 
 - The package root exports the store's id types: `Id`, `Entity`, `Head` and `ArrivalSeq`.
 - A store reads a delta's `sig` and `validUntil` as own fields. Before, an append of an unsigned
@@ -22,12 +22,19 @@ text, and a busy open of a SQLite file refuses `store-unavailable` where it refu
   bytes change when another process holds the file, and a hot `-journal` file that a killed
   writer left is rolled back by the first read. A SQLite file with no schema object still opens
   as a new store (reading 126).
-- An open of a SQLite file that another connection holds asks again while its first read or its
-  switch to WAL answers busy, until `busyTimeoutMs` has passed. After that it refuses
-  `store-unavailable`. Before, it refused `open-failed` at once. With one holder the refusal
-  comes within about twice `busyTimeoutMs` (reading 126).
-- The SQLite subpath refuses to load when it cannot find its own module location, such as a
-  bundle evaluated with no file. Before, it loaded `better-sqlite3` from the working directory.
+- An open of a SQLite file that another connection holds asks again while its first reads or its
+  switch to WAL answer busy, until `busyTimeoutMs` has passed. After that it refuses
+  `store-unavailable`. Before, it refused `open-failed` at once. Before each statement the open
+  sets the engine's wait to the time left, so the whole open takes about `busyTimeoutMs` at most,
+  also when a holder takes the lock again before each statement. A busy read of the `format` row
+  refuses `store-unavailable` too, and an engine error there that is not busy refuses
+  `open-failed` with its code. Only a file with no `meta` table is "not a rhizomatic store"
+  (reading 126).
+- The SQLite subpath refuses to load when it cannot find its own module location. The released
+  `0.11.0-next.11` imported `better-sqlite3` statically. So a host with no module location, such
+  as an IIFE bundle run through `vm`, loaded it; that host now gets the location error. The
+  subpath takes `import.meta.url` before `__filename`, and only when it is a `file:` URL. For
+  another URL, and with neither, it gives the location error.
 - The `unknown-scheme` message has new text: it says that the `sqlite` scheme is registered when
   the host imports `@bombadil/rhizomatic/store/sqlite`. A host that matches the old text must
   change its match. It is still one fixed message for every unrouted URL.
@@ -40,7 +47,9 @@ text, and a busy open of a SQLite file refuses `store-unavailable` where it refu
   them. The release-mode step of the Rust witness job runs the two cost rails by their full names.
   The boundary scan treats `__filename` and `__dirname` as a module location, as `import.meta`.
 - Tests: the many-process rails ask again on `store-unavailable`, and the crash rail no longer
-  needs a fast disk. Rails bound the busy open from above.
+  needs a fast disk. Rails bound the busy open from above at one and a half times
+  `busyTimeoutMs`, also under a holder that takes the lock again before each statement. A rail
+  holds that both stores refuse a delta whose id hashes an inherited `validUntil`.
 
 ## 0.11.0-next.11 — 2026-11-16
 
