@@ -42,6 +42,9 @@
 //   holding at `locked`. Prints `appended <status>` or `refused <code>`.
 // - `create`: creates the peer with the host mint `mint`. Prints `created <history>` or
 //   `refused <code>`.
+// - `pairs`: appends one batch of two new deltas, one about each of the two entities in `ids`,
+//   again and again, sleeping `pause` ms after each, until the file `<path>.stop` exists. It
+//   prints `started 1` after its first commit and `done {batches}` at its end.
 
 import { existsSync, readFileSync, writeSync } from "node:fs";
 import Database from "better-sqlite3";
@@ -53,7 +56,7 @@ import { openSqliteStore } from "../../src/storage/sqlite-store.js";
 import { StoreError, type VerifiedDelta } from "../../src/storage/store.js";
 
 type Job = {
-  op: "write" | "follow" | "open" | "read" | "append" | "create";
+  op: "write" | "follow" | "open" | "read" | "append" | "create" | "pairs";
   path: string;
   peer?: string;
   go?: string;
@@ -68,6 +71,7 @@ type Job = {
   after?: number;
   mint?: string;
   busyTimeoutMs?: number;
+  pause?: number;
 };
 
 const job = JSON.parse(process.argv[2]!) as Job;
@@ -279,6 +283,42 @@ try {
         if (pull.records.length === 0) sleep(1);
       }
       print("followed", { revisions, added, delivered, pulls, moved });
+      break;
+    }
+    case "pairs": {
+      const peer = await again("peer", () => store.peer(job.peer!));
+      const stop = `${job.path}.stop`;
+      const deadline = Date.now() + 300_000;
+      let batches = 0;
+      while (!existsSync(stop) && Date.now() < deadline) {
+        const now = await again("read", () => peer.read());
+        const { revision, head } = now;
+        now.release();
+        const added = job.ids!.map((entity, i) =>
+          member(
+            makeDelta({
+              timestamp: batches + 1,
+              validFrom: 0,
+              author: AUTHOR,
+              pointers: [{ role: "about", target: { kind: "entity", entity: { id: entity } } }],
+            }),
+            revision * job.ids!.length + i + 1,
+          ),
+        );
+        const result = await again("append", () =>
+          peer.append({
+            expectedHead: head,
+            nextHead: `${job.tag}-${batches}`,
+            frame: null,
+            added,
+          }),
+        );
+        if (result.status === "conflict") continue;
+        if (result.status !== "committed") throw new Error(`append answered ${result.status}`);
+        if (++batches === 1) print("started", 1);
+        if (job.pause! > 0) sleep(job.pause!);
+      }
+      print("done", { batches });
       break;
     }
     case "read": {
