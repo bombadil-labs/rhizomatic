@@ -120,10 +120,10 @@ export const SQLITE_STATEMENTS = {
   historyFind: "SELECT 1 FROM history WHERE value = ?",
   historyAdd: "INSERT INTO history (value) VALUES (?)",
   peerRead: `SELECT posture, store_class AS storeClass, history, revision, floor, head, count,
-    max_seq AS maxSeq, removed_at AS removedAt FROM peer WHERE id = ?`,
+    max_seq AS maxSeq, removed_at AS removedAt, app_format AS appFormat FROM peer WHERE id = ?`,
   peerAdd: `INSERT INTO peer
-    (id, posture, store_class, history, revision, floor, head, count, max_seq, removed_at)
-    VALUES (?, ?, ?, ?, 0, 0, NULL, 0, 0, 0)`,
+    (id, posture, store_class, history, revision, floor, head, count, max_seq, removed_at, app_format)
+    VALUES (?, ?, ?, ?, 0, 0, NULL, 0, 0, 0, ?)`,
   peerHistory: "UPDATE peer SET history = ? WHERE id = ?",
   peerAdvance: `UPDATE peer SET revision = @revision, floor = @floor, head = @head, count = @count,
     max_seq = @maxSeq, removed_at = @removedAt WHERE id = @peer`,

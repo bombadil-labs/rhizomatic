@@ -299,6 +299,9 @@ for (const [name, open] of STORES)
           return peer.history;
         },
         erasure: peer.erasure,
+        get appFormat() {
+          return peer.appFormat;
+        },
         read: () => ((reads += 1), peer.read()),
         append: (batch) => peer.append(batch),
         purge: (ids) => peer.purge(ids),

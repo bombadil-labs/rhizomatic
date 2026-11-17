@@ -29,7 +29,15 @@ import type { ArrivalRecord } from "./arrival-record.js";
 import { isPlainObject, ownFields } from "./copy.js";
 import { LOCAL_HISTORY_PREFIX } from "./freshness.js";
 import { refuseMissing, registerStoreScheme, type OpenOptions } from "./open-store.js";
-import { admit, strings, takeAppend, takeScope, wellFormed, type Admitted } from "./request.js";
+import {
+  admit,
+  strings,
+  takeAppend,
+  takeAppFormat,
+  takeScope,
+  wellFormed,
+  type Admitted,
+} from "./request.js";
 import { SQLITE_SCHEMA, SQLITE_STATEMENTS } from "./sqlite-statements.js";
 import {
   PURGE_BOUNDARY,
@@ -185,6 +193,7 @@ type PeerRow = {
   count: number;
   maxSeq: number;
   removedAt: Revision;
+  appFormat: string | null;
 };
 type DeltaRow = { id: Id; claims: Uint8Array; sig: string | null };
 
@@ -630,13 +639,15 @@ class SqliteFileStore implements SqliteStore {
         "createPeer: the peer id must be a non-empty, well-formed string",
       );
     let posture: unknown;
+    let format: unknown;
     try {
-      if (isPlainObject(options)) posture = ownFields(options)["erasure"];
+      if (isPlainObject(options)) ({ erasure: posture, appFormat: format } = ownFields(options));
     } catch {
       posture = undefined;
     }
     if (posture !== "proven" && posture !== "unproven")
       throw new StoreError("invalid-request", "createPeer: declare the erasure posture");
+    const appFormat = takeAppFormat(format);
     // The class is the store's own, never read back from the profile a caller can replace.
     const storeClass: ErasureClass = ERASURE_CLASS;
     if (posture === "proven" && storeClass !== "proven")
@@ -649,7 +660,7 @@ class SqliteFileStore implements SqliteStore {
         throw new StoreError("peer-exists", "createPeer: the peer already exists");
       const history = this.#history(id);
       this.#s.historyAdd.run(history);
-      this.#s.peerAdd.run(id, posture, storeClass, history);
+      this.#s.peerAdd.run(id, posture, storeClass, history, appFormat);
       return this.#peerRow(id)!;
     });
     return this.#handle(id, row);
@@ -700,10 +711,19 @@ class SqliteFileStore implements SqliteStore {
       this.#open();
       return this.#run("read", () => this.#peerRow(id)!.history);
     };
+    const appFormat = (): string | null => {
+      this.#open();
+      return this.#run("read", () => this.#peerRow(id)!.appFormat);
+    };
     return {
       id,
       get history() {
         return history();
+      },
+      // Fixed at creation, and read from the file like `history`: a file restored in place
+      // can hold another peer row.
+      get appFormat() {
+        return appFormat();
       },
       erasure: { posture: row.posture, storeClass: ERASURE_CLASS },
       read: async () => {

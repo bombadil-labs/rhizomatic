@@ -145,6 +145,7 @@ export {
   type SurfaceState,
   type VerifiedDelta,
 } from "./storage/store.js";
+export { admissionOf, type AdmissionOptions } from "./storage/admission.js";
 export {
   MEMORY_STORE_FORMAT,
   createMemoryStore,

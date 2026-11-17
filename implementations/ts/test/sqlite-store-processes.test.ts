@@ -23,6 +23,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { makeDelta } from "../src/delta/set.js";
 import type { Delta } from "../src/delta/types.js";
 import { captureScope, fetchScope } from "../src/reactor/store-read.js";
+import { admissionOf } from "../src/storage/admission.js";
 import { checkFresh } from "../src/storage/freshness.js";
 import { followFeed, positionOf } from "../src/storage/follow.js";
 import { openStore } from "../src/storage/open-store.js";
@@ -898,6 +899,53 @@ async function opened(
     await store.close();
   }
 }
+
+describe("the admission surface with another process (§4.13 readings 133 and 134)", () => {
+  const admit = (nextHead: string) => ({ at: 1, sender: "local", transfer: 1, nextHead });
+
+  it("an admission built on an old snapshot after another process appended answers conflict when the head moved and invalid-admission when it stayed, never a commit with a reused sequence", async () => {
+    const path = await made();
+    const store = await openSqliteStore(path);
+    const peer = await store.peer("peer:a");
+    const own = admissionOf(await peer.read(), [fact("p")], admit("P-head"));
+    expect(await peer.append(own)).toMatchObject({ status: "committed" });
+    const old = await peer.read();
+    expect([old.head, old.lastSequence]).toEqual(["P-head", 1]);
+    // The child appends from the same head and keeps it: its next head is `P-head` too.
+    const same = child({ op: "append", path, peer: "peer:a", tag: "P", size: 1, after: 1 });
+    expect(await same.printed("appended")).toBe("committed");
+    const q = fact("q");
+    expect(await refusal(peer.append(admissionOf(old, [q], admit("Q-head"))))).toBe(
+      "invalid-admission",
+    );
+    const moved = child({ op: "append", path, peer: "peer:a", tag: "O", size: 1, after: 2 });
+    expect(await moved.printed("appended")).toBe("committed");
+    expect(await peer.append(admissionOf(old, [q], admit("R-head")))).toEqual({
+      status: "conflict",
+    });
+    const now = await peer.read();
+    expect([now.revision, now.count, now.lastSequence, now.head]).toEqual([3, 3, 3, "O-head"]);
+    expect(await now.get([q.id])).toEqual([]);
+    const fresh = admissionOf(now, [q], admit("S-head"));
+    expect(await peer.append(fresh)).toEqual({ status: "committed", revision: 4, added: [q.id] });
+    expect((await (await peer.read()).arrivals([q.id])).map((a) => a.sequence)).toEqual([4]);
+    await store.close();
+    audit(path);
+  }, 60_000);
+
+  it("another process reads the application format string a peer was created with, and its create with another string is refused peer-exists", async () => {
+    const path = storePath();
+    const store = await openSqliteStore(path);
+    await store.createPeer("peer:a", { erasure: "unproven", appFormat: "host/1" });
+    await store.createPeer("peer:b", { erasure: "unproven" });
+    const reader = child({ op: "open", path });
+    expect(await reader.json("formats")).toEqual({ "peer:a": "host/1", "peer:b": null });
+    const creator = child({ op: "create", path, peer: "peer:a", appFormat: "host/2" });
+    expect(await creator.printed("refused")).toBe("peer-exists");
+    expect((await store.peer("peer:a")).appFormat).toBe("host/1");
+    await store.close();
+  }, 60_000);
+});
 
 describe("file identity: a copy, or a restore, opens under new histories", () => {
   it("a copied file opens under new histories, once; the original keeps its own; every history stays issued", async () => {

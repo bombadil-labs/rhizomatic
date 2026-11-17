@@ -478,6 +478,31 @@ describe("snapshots on the SQLite store (decision S4-2)", () => {
     await store.close();
   });
 
+  it("a peer row at a higher revision, as after a restore in place without restored, moves a snapshot only when its removed_at is above the snapshot's revision", async () => {
+    const path = fixture.path();
+    const store = await openSqliteStore(path);
+    const w = await writer(store);
+    const x = fact("x", 1);
+    await w.append([x]);
+    await w.append([fact("x", 2)]);
+    const old = await w.peer.read();
+    expect(old.revision).toBe(2);
+    const other = new Database(path);
+    other.prepare("UPDATE peer SET revision = 5, removed_at = 2 WHERE id = 'peer:a'").run();
+    expect(await old.get([x.id])).toEqual([x]);
+    other.prepare("UPDATE peer SET removed_at = 3 WHERE id = 'peer:a'").run();
+    other.close();
+    for (const call of [
+      () => old.get([x.id]),
+      () => old.arrivals([x.id]),
+      () => old.targets(["x"]),
+      () => old.negators([x.id]),
+      () => old.scope({ anchors: [{ kind: "entity", entity: "x" }] }),
+    ])
+      expect(await refusal(call())).toBe("snapshot-moved");
+    await store.close();
+  });
+
   it("a refused call ends its transaction: the next write does not wait", async () => {
     const store = await fixture.open({ busyTimeoutMs: 0 });
     const w = await writer(store);

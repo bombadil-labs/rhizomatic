@@ -18,6 +18,7 @@ import {
   readFullSurface,
   type RoundPolicy,
 } from "../src/reactor/store-read.js";
+import { admissionOf } from "../src/storage/admission.js";
 import { followFeed } from "../src/storage/follow.js";
 import { validityWindow } from "../src/storage/freshness.js";
 import { createMemoryStore } from "../src/storage/memory-store.js";
@@ -271,6 +272,30 @@ describe("each own-fields site reads a field set only on Object.prototype as abs
       ),
     );
     expect(refused).toBe("invalid-request");
+  });
+
+  it("admissionOf: options with no own nextHead refuse invalid-request", async () => {
+    const delta = fact("target", 1, "one");
+    const options = { at: 1, sender: "local", transfer: 1 };
+    const refused = await polluted("nextHead", "h1", () =>
+      outcome(async () => admissionOf({ head: null, lastSequence: 0 }, [delta], options as never)),
+    );
+    expect(refused).toBe("invalid-request");
+  });
+
+  it("createPeer: options with no own appFormat create a peer with none, on both stores", async () => {
+    const stores: Store[] = [createMemoryStore(), await openSqliteStore(newPath())];
+    const formats = await polluted("appFormat", "host/1", async () => {
+      const read: (string | null)[] = [];
+      for (const store of stores)
+        read.push((await store.createPeer(PEER, { erasure: "unproven" })).appFormat);
+      return read;
+    });
+    for (const store of stores) {
+      expect((await store.peer(PEER)).appFormat).toBeNull();
+      await store.close();
+    }
+    expect(formats).toEqual([null, null]);
   });
 
   it("append: a batch with no own nextHead refuses invalid-admission", async () => {
