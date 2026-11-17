@@ -10,7 +10,7 @@ Follow-ups from the reviews of slice 4 and from the first Loam trial on `0.11.0-
 (TypeScript). Three changes can need action from a consumer: the `unknown-scheme` message has
 new text, a busy open of a SQLite file refuses `store-unavailable` where it refused
 `open-failed`, and a host that runs the SQLite subpath with no module location gets an error.
-Step 4d adds four more, listed under Breaking.
+Step 4d adds more, listed under Breaking.
 
 - The package root exports `withSnapshot(peer, body, retry?)`, with the types `SnapshotRetry`
   and `OnSnapshot`. It runs several reads on one snapshot and runs them all again on a new
@@ -87,32 +87,62 @@ Step 4d adds four more, listed under Breaking.
   `scope` with `arrivalAtMost` above an old snapshot's own bound. Both stores must keep the old
   snapshot's set, or refuse `snapshot-moved`. The Rust feed rules now expect a feed that mixes
   peers to fail this script.
-- The package root exports `admissionOf(snapshot, deltas, {at, sender, transfer, nextHead})` and
-  its type `AdmissionOptions` (§4.13 reading 133). It builds an `Admission` for a host with no
-  journal: the snapshot's head as `expectedHead`, no frame, and sequences from
-  `snapshot.lastSequence + 1` in ascending id order. It calls no store. Every option is required.
-  It refuses `invalid-request` for a malformed call. A host that guessed the next sequence as
-  `count + 1` is refused after a purge; this helper is not.
+- The package root exports `admissionOf(snapshot, deltas, {at, sender, nextHead})` and its type
+  `AdmissionOptions` (§4.13 reading 133). It builds an `Admission` for a host with no journal:
+  the snapshot's head as `expectedHead`, no frame, sequences from `snapshot.lastSequence + 1` in
+  ascending id order, and the transfer ordinal `snapshot.lastTransfer + 1`. It calls no store.
+  Every option is required. It checks every entry as the store does, a repeated id too, and
+  refuses `invalid-request` for a malformed call or a forged delta. A host that guessed the next
+  sequence as `count + 1` is refused after a purge; this helper is not.
 - `createPeer(id, {erasure, appFormat})` takes an optional application format string, 1 to 256
   UTF-8 bytes, and `PeerStore.appFormat` reads it, or null (§4.13 reading 134). It is fixed at
-  creation. The SQLite store keeps it in the existing `peer.app_format` column, so the format
-  stays `/4`.
+  creation. The SQLite column checks the bound itself. The string lies outside erasure: put no
+  personal data in it. After `close`, `appFormat` and `history` refuse `store-closed` on both
+  stores; the memory store answered before.
+- The store keeps each peer's last transfer ordinal (§4.13 reading 135). `Snapshot.lastTransfer`
+  reads it, fixed when the snapshot is read. An append whose new entry's `transfer` does not pass
+  it is refused `invalid-admission`. A head-only append and a purge keep it.
+- The package root exports `StoreIntegrityError` and the types `IntegrityFault`,
+  `IntegrityFaultKind` and `FsckReport` (§4.13 reading 136). A read that meets a stored row that
+  is wrong throws `StoreIntegrityError` with one fault `{kind, peer, id, key, detail}`: claims
+  that do not hash to their id, bytes that are not claims, an arrival record that is not one. The
+  call answers nothing; other rows still read.
+- `Exporter.fsck()` checks every row of the store and answers `{checked: {peers, holdings,
+  deltas}, faults}` (§4.13 reading 137). It only reads, takes no write lock, and holds no
+  transaction between its steps. On the SQLite store each step is one read transaction over a
+  page of 256 rows, and a write by another process commits between steps. Every fault it reports
+  was true at the moment of the step that found it. It finds a lost `target` or `reference` row
+  (`index-missing`), which hides a delta from `targets` and `scope` without a failure (reading
+  138). Measured: 50 ms at 2,000 deltas and 730 ms at 32,000.
+- A read through `readAnchored`, `StoreReactor`, a pass of held views or `fetchScope` reports a
+  malformed `scope` member from the store as the store fault `malformed-member`
+  (`StoreFaultError`), not as `invalid-request` (§4.13 reading 21).
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
 
 ### ⚠️ Breaking
 
-- **SQLite format `rhizomatic-store-sqlite/4`.** The `peer` table gains `removed_at`. Open refuses
-  a file of format `/1`, `/2` or `/3` with `open-failed` and names both formats. No migration
-  ships: create a new file and append again.
+- **SQLite format `rhizomatic-store-sqlite/5`.** The `peer` table gains `removed_at` and
+  `max_transfer`, and `app_format` gains a check. Open refuses a file of format `/1` to `/4` with
+  `open-failed` and names both formats. No migration ships: create a new file and append again.
+- **The store checks transfer ordinals.** A new holding's `transfer` must pass the peer's last
+  one. A host that gave every append the same transfer, such as 1, is refused
+  `invalid-admission` at its second append. Number each transfer from `snapshot.lastTransfer + 1`.
+- **`admissionOf` has no `transfer` option.** It numbers the transfer itself. Drop the field. The
+  option shipped in no release.
 - **A body no longer runs again after its own append.** A `withSnapshot` body, a held-views pass
   or a `StoreReactor.read` that appends to its own peer does not see the append and is not run
   again for it. A host that read its own write through an old snapshot must take a new one.
-- **`Snapshot` has a new member, `lastSequence`.** A host that builds its own `Snapshot` object,
-  such as a wrapper over a store's snapshot, must pass it through.
+- **`Snapshot` has two new members, `lastSequence` and `lastTransfer`.** A host that builds its
+  own `Snapshot` object, such as a wrapper over a store's snapshot, must pass them through.
 - **`PeerStore` has a new member, `appFormat`.** A host that builds its own `PeerStore` object
   must pass it through.
+- **A bad stored row throws `StoreIntegrityError`, not a plain `Error`.** A host that caught the
+  plain `Error` of a read must catch `StoreIntegrityError`. It is not a `StoreError`.
+- **A malformed `scope` member is the store fault `malformed-member`.** A host that caught
+  `invalid-request` from a read for it must catch `StoreFaultError`.
+- **`Exporter` has a new member, `fsck`.** A host that builds its own `Exporter` must give one.
 
 ## 0.11.0-next.11 — 2026-11-16
 

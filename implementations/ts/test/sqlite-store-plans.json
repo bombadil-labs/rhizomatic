@@ -113,6 +113,18 @@
     "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)"
   ],
   "exportStored": ["SEARCH delta USING COVERING INDEX sqlite_autoindex_delta_1 (id>?)"],
+  "fsckEngine": [],
+  "fsckForeignKeys": [],
+  "fsckHoldings": [
+    "SEARCH holding USING INDEX sqlite_autoindex_holding_1 (peer=? AND delta>?)",
+    "SEARCH delta USING INDEX sqlite_autoindex_delta_1 (id=?)"
+  ],
+  "fsckTargets": ["SEARCH target USING COVERING INDEX target_by_delta (peer=? AND delta=?)"],
+  "fsckReferences": [
+    "SEARCH reference USING COVERING INDEX reference_by_delta (peer=? AND delta=?)"
+  ],
+  "fsckCount": ["SEARCH holding USING COVERING INDEX sqlite_autoindex_holding_2 (peer=?)"],
+  "fsckFeed": ["SEARCH change USING COVERING INDEX sqlite_autoindex_change_1 (peer=?)"],
   "trigger holding_delete_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
   "trigger holding_update_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],
   "trigger delta_delete_residue": ["SEARCH residue USING INTEGER PRIMARY KEY (rowid=?)"],

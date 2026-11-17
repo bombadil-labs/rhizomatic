@@ -62,7 +62,13 @@ async function sized(bulk: number): Promise<Sized> {
   let head: string | null = null;
   const member = (delta: Delta): VerifiedDelta => ({
     delta,
-    arrival: { id: delta.id, at: sequence + 1, sequence: ++sequence, transfer: 1, sender: "t" },
+    arrival: {
+      id: delta.id,
+      at: sequence + 1,
+      sequence: ++sequence,
+      transfer: sequence,
+      sender: "t",
+    },
   });
   const append = async (deltas: readonly Delta[]): Promise<void> => {
     const next = `head-${sequence + deltas.length}`;
@@ -198,7 +204,7 @@ describe("the time of a feed read does not grow with the size of the records bes
         frame: null,
         added: deltas.map((delta) => ({
           delta,
-          arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: 1, sender: "f" },
+          arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: sequence, sender: "f" },
         })),
       });
       if (result.status !== "committed") throw new Error(result.status);
@@ -248,7 +254,7 @@ describe("the time of a read does not grow with the size of the arrival records 
     let sequence = 0;
     const entry = (delta: Delta, from: string): VerifiedDelta => ({
       delta,
-      arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: 1, sender: from },
+      arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: sequence, sender: from },
     });
     const result = await peer.append({
       expectedHead: null,

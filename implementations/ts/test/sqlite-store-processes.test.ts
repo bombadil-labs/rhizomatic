@@ -128,7 +128,7 @@ const fact = (entity: string): Delta =>
   });
 const member = (delta: Delta, sequence: number): VerifiedDelta => ({
   delta,
-  arrival: { id: delta.id, at: 1, sequence, transfer: 1, sender: "parent" },
+  arrival: { id: delta.id, at: 1, sequence, transfer: sequence, sender: "parent" },
 });
 
 const refusal = async (call: Promise<unknown>): Promise<string> =>
@@ -901,9 +901,9 @@ async function opened(
 }
 
 describe("the admission surface with another process (§4.13 readings 133 and 134)", () => {
-  const admit = (nextHead: string) => ({ at: 1, sender: "local", transfer: 1, nextHead });
+  const admit = (nextHead: string) => ({ at: 1, sender: "local", nextHead });
 
-  it("an admission built on an old snapshot after another process appended answers conflict when the head moved and invalid-admission when it stayed, never a commit with a reused sequence", async () => {
+  it("an admission built on an old snapshot after another process appended answers conflict when the head moved; when the head stayed, this one, whose sequence the child took, is refused invalid-admission; no commit reuses a sequence", async () => {
     const path = await made();
     const store = await openSqliteStore(path);
     const peer = await store.peer("peer:a");

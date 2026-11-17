@@ -686,7 +686,7 @@ async function writer(options: MemoryStoreOptions = {}) {
       const nextHead = `h${++sequence}`;
       const added = deltas.map((delta) => ({
         delta,
-        arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: 1, sender: "local" },
+        arrival: { id: delta.id, at: 1, sequence: ++sequence, transfer: sequence, sender: "local" },
       }));
       const result = await peer.append({ expectedHead: head, nextHead, frame: null, added });
       if (result.status !== "committed") throw new Error(`append answered ${result.status}`);
@@ -1456,7 +1456,7 @@ async function fuzzOne(seed: number, stats: FuzzStats): Promise<void> {
         id: delta.id,
         at: 1000 + sequence,
         sequence: ++sequence,
-        transfer: 1,
+        transfer: sequence,
         sender: "f",
       },
     }));

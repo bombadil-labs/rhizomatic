@@ -3,6 +3,7 @@
 // arrivals, signatures, head and revision are per peer.
 
 import { compareUtf8 } from "../delta/cbor.js";
+import { computeId } from "../delta/delta.js";
 import type { Claims, Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
 import { copyArrival, copyClaims, isPlainObject, ownFields } from "./copy.js";
@@ -19,6 +20,7 @@ import {
 import {
   PURGE_BOUNDARY,
   StoreError,
+  StoreIntegrityError,
   type Admission,
   type AppendResult,
   type AppliedPushdown,
@@ -30,9 +32,11 @@ import {
   type ErasureClass,
   type ErasurePosture,
   type Exporter,
+  type FsckReport,
   type Head,
   type History,
   type Id,
+  type IntegrityFault,
   type PeerId,
   type PeerStore,
   type PurgeOutcome,
@@ -139,6 +143,8 @@ type PeerState = {
   count: number;
   revision: Revision;
   lastSequence: number;
+  /** The highest transfer ordinal of a committed new holding; 0 before the first. */
+  lastTransfer: number;
   /** The revision of the last purge that released a holding of this peer; 0 before one. */
   removedAt: Revision;
   readonly feed: Feed;
@@ -154,6 +160,12 @@ let minted = 0;
 const mintMemoryHistory = (): History => `${LOCAL_HISTORY_PREFIX}${++minted}`;
 
 const sorted = (ids: Iterable<Id>): Id[] => [...new Set(ids)].sort(compareUtf8);
+
+function file(index: Map<string, Set<Id>>, key: string, id: Id): void {
+  const bucket = index.get(key);
+  if (bucket === undefined) index.set(key, new Set([id]));
+  else bucket.add(id);
+}
 
 function indexKeys(claims: Claims): { entities: Entity[]; negated: Id[] } {
   const entities: Entity[] = [];
@@ -306,6 +318,7 @@ class MemoryStore implements Store {
       count: 0,
       revision: 0,
       lastSequence: 0,
+      lastTransfer: 0,
       removedAt: 0,
       // A new peer's feed is empty, and its floor is its first revision.
       feed: { records: [], start: 0, floor: 0 },
@@ -322,11 +335,17 @@ class MemoryStore implements Store {
   }
 
   #handle(state: PeerState): PeerStore {
+    // After `close`, `history` and `appFormat` refuse `store-closed`, as on the SQLite store.
+    const open = (): void => this.#open();
     return {
       id: state.id,
-      history: state.history,
+      get history() {
+        open();
+        return state.history;
+      },
       erasure: { posture: state.posture, storeClass: this.#own.capabilities.erasure },
       get appFormat() {
+        open();
         return state.appFormat;
       },
       read: async () => {
@@ -414,8 +433,14 @@ class MemoryStore implements Store {
     if (holding === undefined) return undefined;
     const row = this.#rows.get(id);
     // A holding without its row means the reference count is wrong. Serving nothing would
-    // hide it, so the read fails.
-    if (row === undefined) throw new Error("memory store: a held delta has no stored claims");
+    // hide it, so the read fails (§4.13 reading 136).
+    if (row === undefined)
+      throw new StoreIntegrityError({
+        kind: "claims-unreadable",
+        peer: state.id,
+        id,
+        detail: "memory store: a held delta has no stored claims",
+      });
     // What a reader receives is a copy. The stored claims and arrival stay the store's own.
     const claims = copyClaims(row.claims);
     const delta: Delta =
@@ -450,6 +475,7 @@ class MemoryStore implements Store {
       head,
       count,
       lastSequence: bound,
+      lastTransfer: state.lastTransfer,
       arrivals: async (ids) => {
         const asked = sorted(strings(ids, "arrivals: ids"));
         guard();
@@ -544,6 +570,7 @@ class MemoryStore implements Store {
       throw new StoreError("invalid-admission", "append: the added entries must be a list");
     const fresh = new Map<Id, { claims: Claims; holding: Holding }>();
     const sequences = new Set<number>();
+    let lastTransfer = state.lastTransfer;
     for (let i = 0; i < added.length; i++) {
       const { id, claims, sig, arrival } = admit(added[i]);
       const holding: Holding = { sig, arrival };
@@ -554,6 +581,12 @@ class MemoryStore implements Store {
           "invalid-admission",
           "append: an arrival sequence does not pass the peer's last sequence",
         );
+      if (holding.arrival.transfer <= state.lastTransfer)
+        throw new StoreError(
+          "invalid-admission",
+          "append: a transfer ordinal does not pass the peer's last transfer",
+        );
+      lastTransfer = Math.max(lastTransfer, holding.arrival.transfer);
       sequences.add(sequence);
       fresh.set(id, { claims, holding });
     }
@@ -570,6 +603,7 @@ class MemoryStore implements Store {
       for (const negated of keys.negated) this.#file(state.negators, negated, id);
       state.lastSequence = Math.max(state.lastSequence, holding.arrival.sequence);
     }
+    state.lastTransfer = lastTransfer;
     const ids = sorted(fresh.keys());
     const advanced = fresh.size > 0 || state.head !== nextHead;
     state.head = nextHead;
@@ -704,7 +738,138 @@ class MemoryStore implements Store {
       async *storedIds() {
         yield* keys(rows);
       },
+      fsck: async () => {
+        this.#open();
+        return this.#fsck();
+      },
     };
+  }
+
+  /**
+   * `fsck` over this store's own structures (§4.13 reading 137): each holding against its claims
+   * and the peer's indexes and counters, each index entry against a holding, each peer's change
+   * records, and each row's count of holders. It reads only. O(store).
+   */
+  #fsck(): FsckReport {
+    const faults: IntegrityFault[] = [];
+    const checked = { peers: 0, holdings: 0, deltas: 0 };
+    const holders = new Map<Id, number>();
+    for (const [, state] of this.#peers.scan()) {
+      const peer = state.id;
+      checked.peers++;
+      const fault = (f: Omit<IntegrityFault, "peer">): void => {
+        faults.push({ peer, ...f });
+      };
+      const expected = {
+        targets: new Map<string, Set<Id>>(),
+        negators: new Map<string, Set<Id>>(),
+      };
+      const holdings = state.holdings.scan();
+      if (holdings.length !== state.count)
+        fault({
+          kind: "count-mismatch",
+          detail: `memory store: the peer's count is ${state.count} and it holds ${holdings.length}`,
+        });
+      for (const [id, holding] of holdings) {
+        checked.holdings++;
+        holders.set(id, (holders.get(id) ?? 0) + 1);
+        if (holding.arrival.sequence > state.lastSequence)
+          fault({
+            kind: "sequence-mismatch",
+            id,
+            key: "seq",
+            detail: "memory store: a sequence passes the peer's last",
+          });
+        if (holding.arrival.transfer > state.lastTransfer)
+          fault({
+            kind: "sequence-mismatch",
+            id,
+            key: "transfer",
+            detail: "memory store: a transfer passes the peer's last",
+          });
+        if (holding.arrival.id !== id)
+          fault({
+            kind: "column-mismatch",
+            id,
+            key: "arrival",
+            detail: "memory store: the arrival record names another id",
+          });
+        const row = this.#rows.get(id);
+        if (row === undefined) {
+          fault({
+            kind: "claims-unreadable",
+            id,
+            detail: "memory store: a held delta has no stored claims",
+          });
+          continue;
+        }
+        let computed: Id | undefined;
+        try {
+          computed = computeId(row.claims);
+        } catch {
+          computed = undefined;
+        }
+        if (computed !== id)
+          fault({
+            kind: "claims-mismatch",
+            id,
+            detail: "memory store: stored claims do not hash to their id",
+          });
+        const keys = indexKeys(row.claims);
+        for (const entity of keys.entities) file(expected.targets, entity, id);
+        for (const negated of keys.negated) file(expected.negators, negated, id);
+      }
+      for (const [index, want, what] of [
+        [state.targets, expected.targets, "target"],
+        [state.negators, expected.negators, "negation"],
+      ] as const) {
+        for (const [key, bucket] of index.scan())
+          for (const id of bucket)
+            if (want.get(key)?.delete(id) !== true)
+              fault({
+                kind: "index-stray",
+                id,
+                key,
+                detail: `memory store: a ${what} entry that no held claims name`,
+              });
+        for (const [key, left] of want)
+          for (const id of left)
+            fault({
+              kind: "index-missing",
+              id,
+              key,
+              detail: `memory store: held claims name a ${what} entry that is missing`,
+            });
+      }
+      const { records, start, floor } = state.feed;
+      const kept = records.slice(start);
+      if (
+        kept.length !== state.revision - floor ||
+        kept.some((record, i) => record?.revision !== floor + 1 + i)
+      )
+        fault({
+          kind: "feed-gap",
+          detail: `memory store: the peer keeps ${kept.length} change records at floor ${floor} and revision ${state.revision}`,
+        });
+    }
+    for (const [id, row] of this.#rows.scan()) {
+      checked.deltas++;
+      const held = holders.get(id) ?? 0;
+      if (held === 0)
+        faults.push({
+          kind: "orphan-bytes",
+          id,
+          detail: "memory store: no peer holds these bytes",
+        });
+      else if (row.holders !== held)
+        faults.push({
+          kind: "count-mismatch",
+          id,
+          key: "holders",
+          detail: `memory store: the row counts ${row.holders} holders and ${held} peers hold it`,
+        });
+    }
+    return { checked, faults };
   }
 
   async close(): Promise<void> {

@@ -335,7 +335,7 @@ async function peerWith(deltas: readonly Delta[]): Promise<PeerStore> {
   const peer = await createMemoryStore().createPeer(PEER, { erasure: "unproven" });
   const added = deltas.map((delta, i) => ({
     delta,
-    arrival: { id: delta.id, at: 1, sequence: i + 1, transfer: 1, sender: "local" },
+    arrival: { id: delta.id, at: 1, sequence: i + 1, transfer: i + 1, sender: "local" },
   }));
   const result = await peer.append({ expectedHead: null, nextHead: "h1", frame: null, added });
   if (result.status !== "committed") throw new Error(`append answered ${result.status}`);

@@ -432,8 +432,8 @@ follows per S4-10.
 | Bounded default retention | 4c (S4-6), done |
 | Records visible in revision order; a second-process writer seen through the feed | 4c (S4-7), done |
 | Persisted history; new history on restore | 4c (S4-8), done; a new history at peer delete is 4d (G5 f) |
-| Lost index entries | 4d |
-| Frame and head (G11): done in TypeScript (proposal §4.13 reading 133); fault report (G6); peer delete (G5 f) | 4d |
+| Lost index entries | 4d, done in TypeScript: `fsck` finds them (proposal §4.13 readings 137 and 138) |
+| Frame and head (G11): done in TypeScript (proposal §4.13 reading 133); fault report (G6): done in TypeScript (readings 136 and 137); peer delete (G5 f) | 4d |
 | Whole-peer version address | 4d |
 | Journal frames and payload; purge and the head compare-and-set; arrival history after a purge | 4d |
 | Release-mode cost rails | 4e |
@@ -441,7 +441,11 @@ follows per S4-10.
 | The open asks again while the switch to WAL answers busy, then refuses `store-unavailable` (proposal §4.13 reading 126) | 4e |
 | `with_snapshot`: the public form of `on_snapshots`, with `SnapshotRetry { snapshots, within, clock }` (the host gives the clock), and its tests: the contract tests over both stores, the SQLite test that no transaction is held, and the process tests M1 to M5 (proposal §4.13 readings 127 to 129). Since step 4d, M1 expects one attempt at revision 0 without the child's delta, and M2 expects no failure and one attempt in every run | 4e |
 | The tolerant snapshot (step 4d, proposal §4.13 readings 130 to 132): `last_sequence` on a snapshot; `removed_at` in the peer row, written in the purge's first transaction; format `/4`; the bound in `get`, `arrivals`, `targets`, `negators` and `scope`; the memory store tolerant too; the scenario tests of `store-tolerant-snapshot.test.ts` and the delete-commit process tests | 4e |
-| The admission surface (step 4d, proposal §4.13 readings 133 and 134): `admission_of(snapshot, deltas, options)` with the same rules and refusals; `app_format` on `create_peer` and on the peer handle, 1 to 256 UTF-8 bytes, fixed at creation; the tests of `store-admission-of.test.ts` and the two process tests of the admission surface | 4e |
+| The admission surface (step 4d, proposal §4.13 readings 133 and 134): `admission_of(snapshot, deltas, options)` with the same rules and refusals, options `{at, sender, next_head}` only, every entry checked, a repeat too; `app_format` on `create_peer` and on the peer handle, 1 to 256 UTF-8 bytes, fixed at creation, refused `store-closed` after close; the tests of `store-admission-of.test.ts` and the two process tests of the admission surface | 4e |
+| The transfer ordinal (step 4d, proposal §4.13 reading 135): `last_transfer` on a snapshot, fixed at read; a new holding's transfer must pass the peer's last one, refused `invalid-admission`; a head-only append and a purge keep it; `max_transfer` in the peer row and the check on `app_format`, format `/5`; a shared vector of the rule in `scripts.json` | 4e |
+| The integrity fault (step 4d, proposal §4.13 reading 136): a read that meets claims that do not hash to their id, bytes that are not claims, or an arrival record that is not one gives the integrity error with one fault `{kind, peer, id, key, detail}`, never a smaller answer; the tests that damage a file through a second connection | 4e |
+| `fsck` on both Rust stores (step 4d, proposal §4.13 readings 137 and 138): the report `{checked, faults}`, the kinds, short read transactions with none held between steps, no write lock; the tests of `sqlite-store-fsck.test.ts` (one per kind, the gate, the scale rail, the child that appends and purges during the scan, and the erasure guard) and of `store-integrity.test.ts`; the static rail that no statement deletes or updates a `target` or `reference` row | 4e |
+| The store fault `malformed-member` (step 4d, proposal §4.13 reading 21): the Rust read checks each `scope` member's id and arrival record and reports a bad one as `StoreFault::MalformedMember`; then a shared vector for both witnesses | 4e |
 
 ## 11. Risks
 

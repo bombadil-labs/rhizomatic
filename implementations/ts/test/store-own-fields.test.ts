@@ -207,14 +207,14 @@ describe("a signature and a validity end set only on Object.prototype read as ab
     );
   });
 
-  it("validUntil: under a polluted Object.prototype, readAnchored and fetchScope refuse invalid-request, and neither answers a window from the inherited field", async () => {
+  it("validUntil: under a polluted Object.prototype, readAnchored and fetchScope throw the store fault malformed-member, and neither answers a window from the inherited field", async () => {
     const peer = await peerWith([fact("target", 1, "one")]);
     const snapshot = await peer.read();
     const answers = await polluted("validUntil", 50, async () => [
       await outcome(() => readAnchored(snapshot, { term: LEAF, root: "target", now: 10 })),
       await outcome(() => fetchScope(snapshot, ["target"])),
     ]);
-    expect(answers).toEqual(["invalid-request", "invalid-request"]);
+    expect(answers).toEqual(["StoreFaultError", "StoreFaultError"]);
   });
 
   it("validUntil: validityWindow reads a validUntil that only a prototype holds as absent", () => {
@@ -276,9 +276,11 @@ describe("each own-fields site reads a field set only on Object.prototype as abs
 
   it("admissionOf: options with no own nextHead refuse invalid-request", async () => {
     const delta = fact("target", 1, "one");
-    const options = { at: 1, sender: "local", transfer: 1 };
+    const options = { at: 1, sender: "local" };
     const refused = await polluted("nextHead", "h1", () =>
-      outcome(async () => admissionOf({ head: null, lastSequence: 0 }, [delta], options as never)),
+      outcome(async () =>
+        admissionOf({ head: null, lastSequence: 0, lastTransfer: 0 }, [delta], options as never),
+      ),
     );
     expect(refused).toBe("invalid-request");
   });

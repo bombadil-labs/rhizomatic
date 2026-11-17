@@ -67,7 +67,10 @@ async function seeded(open: () => Promise<Store>) {
     const next = `head-${sequence + 1}`;
     const added = deltas.map((delta) => {
       sequence += 1;
-      return { delta, arrival: { id: delta.id, at: 1, sequence, transfer: 1, sender: "test" } };
+      return {
+        delta,
+        arrival: { id: delta.id, at: 1, sequence, transfer: sequence, sender: "test" },
+      };
     });
     const result = await peer.append({ expectedHead: head, nextHead: next, frame: null, added });
     expect(result.status).toBe("committed");
@@ -577,7 +580,7 @@ describe("moveByPurge, the helper that moves a snapshot in these tests", () => {
     const kept = fact(X);
     const added = [kept, other, sacrificial(1)].map((delta, i) => ({
       delta,
-      arrival: { id: delta.id, at: 1, sequence: i + 1, transfer: 1, sender: "test" },
+      arrival: { id: delta.id, at: 1, sequence: i + 1, transfer: i + 1, sender: "test" },
     }));
     await peer.append({ expectedHead: null, nextHead: "h", frame: null, added });
     const held = async (): Promise<string[]> => {

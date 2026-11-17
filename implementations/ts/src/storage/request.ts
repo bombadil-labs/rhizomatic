@@ -65,6 +65,9 @@ export type Admitted = {
 
 const SIG = /^[0-9a-f]{128}$/;
 
+/** True when a signature has the form a store keeps: 128 lowercase hex characters. */
+export const wellFormedSig = (sig: string): boolean => SIG.test(sig);
+
 /**
  * A checked copy of one admitted entry. Refuses `invalid-admission`. The entry is copied
  * first, by a copy that converts nothing and throws for a value of the wrong type; every check

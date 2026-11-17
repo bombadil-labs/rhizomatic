@@ -35,7 +35,7 @@ export async function loadPeer(deltas: Iterable<Delta>): Promise<LoadedPeer> {
       frame: null,
       added: sorted.map((delta, i) => ({
         delta,
-        arrival: { id: delta.id, at: 0, sequence: i + 1, transfer: 1, sender: FIXTURE_SENDER },
+        arrival: { id: delta.id, at: 0, sequence: i + 1, transfer: i + 1, sender: FIXTURE_SENDER },
       })),
     });
     if (result.status !== "committed") throw new Error(`fixture load: ${result.status}`);
@@ -89,6 +89,7 @@ export function countingSnapshot(snapshot: Snapshot, trace: StoreCall[]): Snapsh
     head: snapshot.head,
     count: snapshot.count,
     lastSequence: snapshot.lastSequence,
+    lastTransfer: snapshot.lastTransfer,
     get: (ids) => (note("get", ids.length), snapshot.get(ids)),
     arrivals: (ids) => (note("arrivals", ids.length), snapshot.arrivals(ids)),
     targets: (entities) => (note("targets", entities.length), snapshot.targets(entities)),

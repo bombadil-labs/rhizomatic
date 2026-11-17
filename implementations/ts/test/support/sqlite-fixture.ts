@@ -28,13 +28,14 @@ export type SqliteFixture = {
  * Throws when a peer's `count` is not the number of its holdings, or its `floor` and revision
  * do not bound exactly the change records it keeps. Throws too when a holding's `seq` is not the
  * sequence of its arrival record or passes the peer's `max_seq`, or when `removed_at` is not the
- * revision of the last kept record that removes an id (§4.13 readings 130 and 131).
+ * revision of the last kept record that removes an id (§4.13 readings 130 and 131), or when a
+ * holding's transfer passes `max_transfer` (reading 135).
  */
 export function audit(path: string): void {
   const db = new Database(path, { readonly: true, fileMustExist: true });
   try {
     const peers = db
-      .prepare("SELECT id, revision, floor, count, max_seq, removed_at FROM peer")
+      .prepare("SELECT id, revision, floor, count, max_seq, removed_at, max_transfer FROM peer")
       .all() as {
       id: string;
       revision: number;
@@ -42,6 +43,7 @@ export function audit(path: string): void {
       count: number;
       max_seq: number;
       removed_at: number;
+      max_transfer: number;
     }[];
     for (const peer of peers) {
       const { held } = db
@@ -63,6 +65,15 @@ export function audit(path: string): void {
       if (wrong > 0 || (seq ?? 0) > peer.max_seq)
         throw new Error(
           `peer ${peer.id}: ${wrong} holdings with a seq that is not their arrival's, and seq up to ${seq} past max_seq ${peer.max_seq}`,
+        );
+      const { transfer } = db
+        .prepare(
+          "SELECT max(json_extract(arrival, '$.transfer')) AS transfer FROM holding WHERE peer = ?",
+        )
+        .get(peer.id) as { transfer: number | null };
+      if ((transfer ?? 0) > peer.max_transfer)
+        throw new Error(
+          `peer ${peer.id}: a holding's transfer ${transfer} passes max_transfer ${peer.max_transfer}`,
         );
       const { removal } = db
         .prepare("SELECT max(revision) AS removal FROM change WHERE peer = ? AND removed != '[]'")
@@ -101,6 +112,7 @@ function auditedStore(store: Store, path: string): Store {
     head: s.head,
     count: s.count,
     lastSequence: s.lastSequence,
+    lastTransfer: s.lastTransfer,
     get: (ids) => after(s.get(ids)),
     arrivals: (ids) => after(s.arrivals(ids)),
     targets: (entities) => after(s.targets(entities)),

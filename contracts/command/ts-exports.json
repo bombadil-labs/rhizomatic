@@ -40813,16 +40813,6 @@
       "semantics": "Native storage API AdmissionOptions.sender implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
-      "id": "ts:index.ts:AdmissionOptions#transfer",
-      "owner": "storage",
-      "symbol": "AdmissionOptions.transfer",
-      "source": "implementations/ts/src/index.ts",
-      "definition": "implementations/ts/src/storage/admission.ts",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "compatibility_reexport",
-      "semantics": "Native storage API AdmissionOptions.transfer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
-    },
-    {
       "id": "ts:index.ts:AdmissionOptions#nextHead",
       "owner": "storage",
       "symbol": "AdmissionOptions.nextHead",
@@ -40873,16 +40863,6 @@
       "semantics": "Native storage API AdmissionOptions.sender implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     },
     {
-      "id": "ts:storage/admission.ts:AdmissionOptions#transfer",
-      "owner": "storage",
-      "symbol": "AdmissionOptions.transfer",
-      "source": "implementations/ts/src/storage/admission.ts",
-      "definition": "implementations/ts/src/storage/admission.ts",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native storage API AdmissionOptions.transfer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/admission.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
-    },
-    {
       "id": "ts:storage/admission.ts:AdmissionOptions#nextHead",
       "owner": "storage",
       "symbol": "AdmissionOptions.nextHead",
@@ -40931,6 +40911,306 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API PeerStore.appFormat implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:StoreIntegrityError",
+      "owner": "storage",
+      "symbol": "StoreIntegrityError",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API StoreIntegrityError implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreIntegrityError#fault",
+      "owner": "storage",
+      "symbol": "StoreIntegrityError.fault",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API StoreIntegrityError.fault implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Exporter#fsck",
+      "owner": "storage",
+      "symbol": "Exporter.fsck",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API Exporter.fsck implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FsckReport",
+      "owner": "storage",
+      "symbol": "FsckReport",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FsckReport implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FsckReport#checked",
+      "owner": "storage",
+      "symbol": "FsckReport.checked",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FsckReport.checked implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FsckReport#faults",
+      "owner": "storage",
+      "symbol": "FsckReport.faults",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API FsckReport.faults implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:IntegrityFault",
+      "owner": "storage",
+      "symbol": "IntegrityFault",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API IntegrityFault implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:IntegrityFault#kind",
+      "owner": "storage",
+      "symbol": "IntegrityFault.kind",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API IntegrityFault.kind implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:IntegrityFault#peer",
+      "owner": "storage",
+      "symbol": "IntegrityFault.peer",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API IntegrityFault.peer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:IntegrityFault#id",
+      "owner": "storage",
+      "symbol": "IntegrityFault.id",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API IntegrityFault.id implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:IntegrityFault#key",
+      "owner": "storage",
+      "symbol": "IntegrityFault.key",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API IntegrityFault.key implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:IntegrityFault#detail",
+      "owner": "storage",
+      "symbol": "IntegrityFault.detail",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API IntegrityFault.detail implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:IntegrityFaultKind",
+      "owner": "storage",
+      "symbol": "IntegrityFaultKind",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API IntegrityFaultKind implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Snapshot#lastTransfer",
+      "owner": "storage",
+      "symbol": "Snapshot.lastTransfer",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API Snapshot.lastTransfer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/request.ts:wellFormedSig",
+      "owner": "storage",
+      "symbol": "wellFormedSig",
+      "source": "implementations/ts/src/storage/request.ts",
+      "definition": "implementations/ts/src/storage/request.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API wellFormedSig implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/request.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/sqlite-store.ts:SqliteExporter#fsck",
+      "owner": "storage",
+      "symbol": "SqliteExporter.fsck",
+      "source": "implementations/ts/src/storage/sqlite-store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API SqliteExporter.fsck implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/store.ts:IntegrityFaultKind",
+      "owner": "storage",
+      "symbol": "IntegrityFaultKind",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API IntegrityFaultKind implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:IntegrityFault",
+      "owner": "storage",
+      "symbol": "IntegrityFault",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API IntegrityFault implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:IntegrityFault#kind",
+      "owner": "storage",
+      "symbol": "IntegrityFault.kind",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API IntegrityFault.kind implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:IntegrityFault#peer",
+      "owner": "storage",
+      "symbol": "IntegrityFault.peer",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API IntegrityFault.peer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:IntegrityFault#id",
+      "owner": "storage",
+      "symbol": "IntegrityFault.id",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API IntegrityFault.id implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:IntegrityFault#key",
+      "owner": "storage",
+      "symbol": "IntegrityFault.key",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API IntegrityFault.key implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:IntegrityFault#detail",
+      "owner": "storage",
+      "symbol": "IntegrityFault.detail",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API IntegrityFault.detail implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:StoreIntegrityError",
+      "owner": "storage",
+      "symbol": "StoreIntegrityError",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreIntegrityError implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:StoreIntegrityError#fault",
+      "owner": "storage",
+      "symbol": "StoreIntegrityError.fault",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreIntegrityError.fault implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:FsckReport",
+      "owner": "storage",
+      "symbol": "FsckReport",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FsckReport implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:FsckReport#checked",
+      "owner": "storage",
+      "symbol": "FsckReport.checked",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FsckReport.checked implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:FsckReport#faults",
+      "owner": "storage",
+      "symbol": "FsckReport.faults",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FsckReport.faults implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:Snapshot#lastTransfer",
+      "owner": "storage",
+      "symbol": "Snapshot.lastTransfer",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API Snapshot.lastTransfer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:Exporter#fsck",
+      "owner": "storage",
+      "symbol": "Exporter.fsck",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API Exporter.fsck implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }
