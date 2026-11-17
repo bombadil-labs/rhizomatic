@@ -8,7 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 Follow-ups from the reviews of slice 4 and from the first Loam trial on `0.11.0-next.11`
 (TypeScript). Two changes can need action from a consumer: the `unknown-scheme` message has new
-text, and a busy open of a new SQLite file refuses `store-unavailable` where it refused
+text, and a busy open of a SQLite file refuses `store-unavailable` where it refused
 `open-failed`.
 
 - The package root exports the store's id types: `Id`, `Entity`, `Head` and `ArrivalSeq`.
@@ -17,13 +17,17 @@ text, and a busy open of a new SQLite file refuses `store-unavailable` where it 
   The store computes the id over its own copy of the claims, which has no prototype, so a delta
   whose id hashes an inherited `validUntil` is refused `invalid-admission` (§4.13 reading 126).
 - A refused open of a file that is not a whole SQLite store writes nothing. The open checks the
-  schema names, the `format` row and the `retention` row before it sets the journal mode. Two
-  exceptions remain: a leftover `-wal` file is checkpointed into the file at close, and the
-  `-shm` bytes change when another process holds the file. A SQLite file with no schema object
-  still opens as a new store (reading 126).
-- An open of a new SQLite file that another connection is creating asks again while the switch
-  to WAL answers busy, for `busyTimeoutMs`. After that it refuses `store-unavailable`. Before, it
-  refused `open-failed` at once (reading 126).
+  schema names, the `format` row and the `retention` row before it sets the journal mode. Three
+  exceptions remain: a leftover `-wal` file is checkpointed into the file at close, the `-shm`
+  bytes change when another process holds the file, and a hot `-journal` file that a killed
+  writer left is rolled back by the first read. A SQLite file with no schema object still opens
+  as a new store (reading 126).
+- An open of a SQLite file that another connection holds asks again while its first read or its
+  switch to WAL answers busy, until `busyTimeoutMs` has passed. After that it refuses
+  `store-unavailable`. Before, it refused `open-failed` at once. With one holder the refusal
+  comes within about twice `busyTimeoutMs` (reading 126).
+- The SQLite subpath refuses to load when it cannot find its own module location, such as a
+  bundle evaluated with no file. Before, it loaded `better-sqlite3` from the working directory.
 - The `unknown-scheme` message has new text: it says that the `sqlite` scheme is registered when
   the host imports `@bombadil/rhizomatic/store/sqlite`. A host that matches the old text must
   change its match. It is still one fixed message for every unrouted URL.
@@ -36,7 +40,7 @@ text, and a busy open of a new SQLite file refuses `store-unavailable` where it 
   them. The release-mode step of the Rust witness job runs the two cost rails by their full names.
   The boundary scan treats `__filename` and `__dirname` as a module location, as `import.meta`.
 - Tests: the many-process rails ask again on `store-unavailable`, and the crash rail no longer
-  needs a fast disk.
+  needs a fast disk. Rails bound the busy open from above.
 
 ## 0.11.0-next.11 — 2026-11-16
 
