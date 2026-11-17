@@ -35,13 +35,14 @@
 //   contract's `followFeed`. A pull that throws `snapshot-moved` is asked again. Prints
 //   `followed {revisions, added, delivered, pulls, moved}`.
 // - `open`: opens the store (with `restored` when asked) and prints `histories {peer: history}`,
-//   then `refused-after [ms]`: the time each refused try of the open took.
+//   then `formats {peer: appFormat}`, then `refused-after [ms]`: the time each refused try of the
+//   open took.
 // - `read`: takes a snapshot, then gets `ids` on it, holding at `checked`. Prints
 //   `got {revision, ids}` or `refused <code>`.
 // - `append`: appends one batch of `size` new deltas whose arrivals start after `after`,
 //   holding at `locked`. Prints `appended <status>` or `refused <code>`.
-// - `create`: creates the peer with the host mint `mint`. Prints `created <history>` or
-//   `refused <code>`.
+// - `create`: creates the peer with the host mint `mint`, and with `appFormat` when given.
+//   Prints `created <history>` or `refused <code>`.
 // - `pairs`: appends one batch of two new deltas, one about each of the two entities in `ids`,
 //   again and again, sleeping `pause` ms after each, until the file `<path>.stop` exists. It
 //   prints `started 1` after its first commit and `done {batches}` at its end.
@@ -72,6 +73,7 @@ type Job = {
   mint?: string;
   busyTimeoutMs?: number;
   pause?: number;
+  appFormat?: string;
 };
 
 const job = JSON.parse(process.argv[2]!) as Job;
@@ -203,15 +205,23 @@ try {
   switch (job.op) {
     case "open": {
       const histories: Record<string, string> = {};
-      for await (const id of store.openAdmin().peers())
-        histories[id] = (await store.peer(id)).history;
+      const formats: Record<string, string | null> = {};
+      for await (const id of store.openAdmin().peers()) {
+        const peer = await store.peer(id);
+        histories[id] = peer.history;
+        formats[id] = peer.appFormat;
+      }
       print("histories", histories);
+      print("formats", formats);
       print("refused-after", refusedAfter);
       break;
     }
     case "create":
       try {
-        const peer = await store.createPeer(job.peer!, { erasure: "unproven" });
+        const peer = await store.createPeer(job.peer!, {
+          erasure: "unproven",
+          ...(job.appFormat === undefined ? {} : { appFormat: job.appFormat }),
+        });
         print("created", peer.history);
       } catch (error) {
         print("refused", refused(error));
