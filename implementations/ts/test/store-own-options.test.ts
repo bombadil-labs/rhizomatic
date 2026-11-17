@@ -256,6 +256,16 @@ describe("a refused openStore changes nothing (reading 126)", () => {
   });
 });
 
+/** Makes a store at `path` with one peer, closes it, then runs `sql` on the file. */
+async function madeThen(path: string, sql: string): Promise<void> {
+  const store = await openSqliteStore(path);
+  await store.createPeer(PEER, { erasure: "unproven" });
+  await store.close();
+  const db = new Database(path);
+  db.exec(sql);
+  db.close();
+}
+
 describe("a refused open of a file that is not a store leaves the file as it was (reading 126)", () => {
   const foreign = {
     "a SQLite file with one unrelated table": (path: string) => {
@@ -271,13 +281,19 @@ describe("a refused open of a file that is not a store leaves the file as it was
     },
     "a file that is not SQLite": (path: string) =>
       writeFileSync(path, "not a database\n".repeat(400)),
+    "a store in rollback-journal mode without its retention row": (path: string) =>
+      madeThen(path, "PRAGMA journal_mode = DELETE; DELETE FROM meta WHERE key = 'retention'"),
+    "a store without the index holding_by_author": (path: string) =>
+      madeThen(path, "DROP INDEX holding_by_author"),
+    "a store without the trigger residue_kept": (path: string) =>
+      madeThen(path, "DROP TRIGGER residue_kept"),
   };
   for (const [what, make] of Object.entries(foreign))
     it(`${what}: openSqliteStore and openStore refuse open-failed, the bytes are the same and no -wal or -shm file is left`, async () => {
       const { dir: own, remove: drop } = space("rhizomatic-foreign-file");
       try {
         const path = join(own, "other.db");
-        make(path);
+        await make(path);
         const before = readFileSync(path);
         const refused = [
           await outcome(() => openSqliteStore(path)),
