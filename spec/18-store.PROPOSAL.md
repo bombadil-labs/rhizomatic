@@ -967,8 +967,10 @@ follows (decided 2026-11-09; greenfield, no migration):
 - **Open reads the head, the checkpoint and the frames after it.** Its cost is the tail.
 - **Verification moves from boot to use.** A missing or altered row is found when a read touches
   it (the read fails visibly; nothing is served silently) or by `fsck`, an explicit whole-surface
-  admin operation on the `Exporter`. A read MAY verify a row's Merkle proof in O(log N). A
-  read-only background scrub is a later option; it writes nothing on a quiet cycle.
+  admin operation on the `Exporter`. A lost index row is the exception: it hides its delta from
+  an indexed read without a failure, and only `fsck` finds it (§4.13 reading 138). A read MAY
+  verify a row's Merkle proof in O(log N). A read-only background scrub is a later option; it
+  writes nothing on a quiet cycle.
 - **A format-version marker** in the store replaces any boot-time scan for old record formats.
   Open checks it in O(1) and refuses an older format.
 - **A consumer keeps its own marker beside it.** Each peer holds one application format string,
@@ -1193,10 +1195,12 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     member whose id does not recompute, or a malformed member; and, in a dynamically typed
     witness, a request with a value that is not of its type (reading 34), an optional object
     field that is not a plain object (reading 40), and `openStore` options that are not of
-    their type (reading 41). Until a later change, a malformed member that a store returns
-    raises `invalid-request` too: a read, a pass and `fetchScope` refuse it through the fetch
-    cache. A fault rule `malformed-member` (reading 73) is planned in its own PR, for both
-    witnesses.
+    their type (reading 41). A malformed member that a store returns in a `scope` answer is not
+    the caller's error: since step 4d a read through `readAnchored`, `StoreReactor`, a pass of
+    held views or `fetchScope` reports it as the store fault `malformed-member` (reading 73),
+    and the fetch cache keeps its own `invalid-request` for a host that calls it directly. The
+    TypeScript witness has it; the Rust read does not check a member's id yet, and takes the rule
+    in step 4e.
 22. **Requirements are an allow-list.** A name outside it is refused and named, never looked up
     on the profile. A capability counts only when it is exactly true.
 23. **Handles.** An older `PeerStore` stays valid when the peer is opened again; both are views
@@ -2582,6 +2586,55 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      refuses a `/1` to `/4` file with `open-failed` and names both formats. No migration ships.
      The shared vectors do not yet hold a case of this rule; they and the Rust stores take it in
      step 4e.
+136. **The integrity fault** (slice 4, step 4d, gap G6). A read that meets a stored row that is
+     wrong throws `StoreIntegrityError`, whose `fault` is one `IntegrityFault = {kind, peer?, id?,
+     key?, detail}`. Before, it threw a plain `Error`. It is a third kind of failure: a refusal
+     (`StoreError`) is the store keeping its contract, a store fault (`StoreFaultError`) is an
+     answer that breaks a rule of the contract, and an integrity fault is damage in the store's
+     own data, found by the store. A read never answers less in its place: the call that meets
+     the row answers nothing, and other calls, and other rows, read as before. The SQLite store
+     throws `claims-mismatch` for claims that do not hash to their id, `claims-unreadable` for
+     bytes that hash to their id and are not claims, and `column-mismatch` (key
+     `holding.arrival`) for an arrival record that is not one or names another id. The memory
+     store throws `claims-unreadable` for a held id with no stored claims. `fault.peer` and
+     `fault.id` name the place. A host discards the delta with `purge([id])`, or restores the
+     file, and runs `fsck`. No call replaces a row; a replace stays with Loam's repair layer in
+     slice 5. Rust takes the error in step 4e.
+137. **`fsck`** (slice 4, step 4d, §4.7.3). `Exporter.fsck()` answers `{checked: {peers,
+     holdings, deltas}, faults}`. It is an admin call: O(store), and it only reads. It repairs,
+     replaces and deletes nothing, and takes no write lock. The kinds: `claims-mismatch`,
+     `claims-unreadable`, `index-missing` and `index-stray` (an entity, or a referenced id with
+     its role, that the claims name and the store does not keep, or the reverse; `key` names it),
+     `column-mismatch` (`key` names the column), `count-mismatch` (a peer's count; on the memory
+     store also a row's count of holders, key `holders`), `sequence-mismatch` (a holding's
+     sequence or transfer above the peer's last, key `seq` or `transfer`), `feed-gap`,
+     `orphan-bytes` (no `peer`) and `engine` (SQLite's `integrity_check` and
+     `foreign_key_check`). `digest-mismatch` and `journal-broken` come with the digest and the
+     journal. The SQLite store works in steps, and each step is one short read transaction: the
+     engine's checks; per peer, its count and change records against its row; per page of 256
+     of a peer's holdings, each holding's claims, columns, sequence, transfer and index rows
+     against the peer's row; per page of 256 stored deltas, whether a peer holds it. Between
+     steps it holds no transaction and yields to the host's event loop. So a write by this store
+     or by another process commits between steps, and a purge between steps reports the same
+     surfaces as with no `fsck` (reading 129). Each step reads every fact it compares in its own
+     transaction. **Guarantee under concurrent writes:** every fault that `fsck` reports was true
+     of the file at the moment of the read transaction of the step that found it; a fault in a
+     row or a peer that exists unchanged for the whole scan is reported, because a keyset page
+     visits every row whose key exists for the whole scan. A fault that a write makes or removes
+     during the scan may be missed; no fault is invented by a write. The engine's checks run in
+     one read transaction of O(file) bytes; during it a purge in another process reports its
+     file surfaces `owed`, as it does beside any reader. On the memory store `fsck` gives the
+     same report over its own structures, in one synchronous pass. Measured on WSL with the
+     test's deltas (one or two pointers each): 50 ms at 2,000 deltas and 730 ms at 32,000.
+138. **Lost index entries** (slice 4, step 4d). §4.7.3 said that nothing is served silently. That
+     holds for bytes: a read that meets bad claims fails (reading 136). It does not hold for an
+     index row. A lost `target` or `reference` row hides its delta from `targets`, `negators` and
+     `scope`, and the read answers without it and without a failure. Only `fsck` finds it
+     (`index-missing`). The store never removes an index row itself: a `target` or `reference`
+     row leaves only by the cascade from its holding, and no statement deletes or updates one or
+     replaces one on insert (a static rail reads the list). So a lost index row is damage from
+     outside the store. A read MAY later verify an entity's rows against a digest (§4.7.6); none
+     does yet.
 
 ## 5. Architectures
 
@@ -2912,7 +2965,8 @@ Slice 3 leaves these to later slices. Each was owed by the slice 3 build plan, w
   reader in another process keeps the log from truncating, so the report says `owed`
   (§4.13 reading 111).
 - "Nothing is served silently" (§4.7.3) covers lost rows. Slice 4 narrows it, or backs it, for lost
-  index entries: a lost index entry hides a delta without a read failing.
+  index entries: a lost index entry hides a delta without a read failing. Done in step 4d: narrowed
+  to bytes, and `fsck` finds a lost index row (§4.13 readings 137 and 138).
 - A cost rail that a debug build cannot see runs in release mode in CI, as the held-views wrong
   holders do (§4.13 reading 101). The cost rails of a durable store follow this rule.
 

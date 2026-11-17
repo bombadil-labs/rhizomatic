@@ -102,6 +102,21 @@ Step 4d adds more, listed under Breaking.
 - The store keeps each peer's last transfer ordinal (§4.13 reading 135). `Snapshot.lastTransfer`
   reads it, fixed when the snapshot is read. An append whose new entry's `transfer` does not pass
   it is refused `invalid-admission`. A head-only append and a purge keep it.
+- The package root exports `StoreIntegrityError` and the types `IntegrityFault`,
+  `IntegrityFaultKind` and `FsckReport` (§4.13 reading 136). A read that meets a stored row that
+  is wrong throws `StoreIntegrityError` with one fault `{kind, peer, id, key, detail}`: claims
+  that do not hash to their id, bytes that are not claims, an arrival record that is not one. The
+  call answers nothing; other rows still read.
+- `Exporter.fsck()` checks every row of the store and answers `{checked: {peers, holdings,
+  deltas}, faults}` (§4.13 reading 137). It only reads, takes no write lock, and holds no
+  transaction between its steps. On the SQLite store each step is one read transaction over a
+  page of 256 rows, and a write by another process commits between steps. Every fault it reports
+  was true at the moment of the step that found it. It finds a lost `target` or `reference` row
+  (`index-missing`), which hides a delta from `targets` and `scope` without a failure (reading
+  138). Measured: 50 ms at 2,000 deltas and 730 ms at 32,000.
+- A read through `readAnchored`, `StoreReactor`, a pass of held views or `fetchScope` reports a
+  malformed `scope` member from the store as the store fault `malformed-member`
+  (`StoreFaultError`), not as `invalid-request` (§4.13 reading 21).
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
@@ -123,6 +138,11 @@ Step 4d adds more, listed under Breaking.
   own `Snapshot` object, such as a wrapper over a store's snapshot, must pass them through.
 - **`PeerStore` has a new member, `appFormat`.** A host that builds its own `PeerStore` object
   must pass it through.
+- **A bad stored row throws `StoreIntegrityError`, not a plain `Error`.** A host that caught the
+  plain `Error` of a read must catch `StoreIntegrityError`. It is not a `StoreError`.
+- **A malformed `scope` member is the store fault `malformed-member`.** A host that caught
+  `invalid-request` from a read for it must catch `StoreFaultError`.
+- **`Exporter` has a new member, `fsck`.** A host that builds its own `Exporter` must give one.
 
 ## 0.11.0-next.11 — 2026-11-16
 
