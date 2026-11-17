@@ -41,12 +41,15 @@ Each is made here under the store-arc delegation. Each moves to §12 when its st
 - **S4-1. The binding is `better-sqlite3`,** an optional peer dependency behind the subpath
   `@bombadil/rhizomatic/store/sqlite` (§9). Rust uses `rusqlite` behind the cargo feature
   `sqlite`.
-- **S4-2. A snapshot never pins pages.** A `Snapshot` holds a peer id, a history and a revision,
-  not a read transaction. Each call runs one short read transaction: it reads the peer's history
-  and revision, refuses `snapshot-moved` when either differs, then runs the data statement, then
-  ends. A call that finds no rows is therefore still checked. No open snapshot can keep purged
-  bytes readable or block a truncate. The cost is a retry under write load; the readers already
-  retry (§4.13 reading 102).
+- **S4-2. A snapshot never pins pages.** A `Snapshot` holds a peer id, a history, a revision and
+  a last sequence, not a read transaction. Each call runs one short read transaction: it reads
+  the peer row, refuses `snapshot-moved` when the row is absent, the history differs, the
+  revision is lower, or the peer released a holding after the snapshot (`removed_at`), then runs
+  the data statement, which keeps the holdings at or below the last sequence, then ends. A call
+  that finds no rows is therefore still checked. No open snapshot can keep purged bytes readable
+  or block a truncate. Amended in step 4d: before, any advance refused, and the M2 measurement
+  showed a six-call read starve under a writer in another process. An append no longer moves a
+  snapshot; a purge that releases a holding still does (§4.13 readings 130 to 132).
 - **S4-3. Bytes are counted by rows, not by a counter.** The proposal's `delta.refs` column is
   dropped. A foreign key from `holding.delta` to `delta(id)` makes a holding without bytes
   impossible, and "does another peer hold this id" is an indexed `EXISTS`.
@@ -131,6 +134,7 @@ peer      (id TEXT PRIMARY KEY,
            history TEXT NOT NULL UNIQUE REFERENCES history,
            revision INTEGER NOT NULL, floor INTEGER NOT NULL, head TEXT,
            count INTEGER NOT NULL CHECK (count >= 0), max_seq INTEGER NOT NULL,
+           removed_at INTEGER NOT NULL,      -- step 4d: the last purge that released a holding
            app_format TEXT)
 
 delta     (id TEXT PRIMARY KEY, claims BLOB NOT NULL,   -- the canonical bytes the id hashes
@@ -181,6 +185,11 @@ residue   (one INTEGER PRIMARY KEY CHECK (one = 1),            -- step 4b: exact
   rows without a delete trigger while `recursive_triggers` is off.
 - `delta.timestamp` is `REAL`: a signed creation time is any finite number, and the memory store
   accepts one that is not whole.
+- `peer.removed_at` (step 4d, format `/4`) is the revision of the last purge of the peer that
+  released a holding. The purge writes it in its first transaction, with the deletes and the
+  change record, so every older snapshot refuses from that commit (proposal §4.13 reading 130).
+  `peer` is not an erasable table: its row holds counters and the peer's own names, no claim
+  and no delta id.
 - `peer.count` and `peer.floor` are written in the same transaction as the rows they summarize. A
   rail compares each with a count over the rows after every step of the conformance scripts.
 
@@ -198,12 +207,12 @@ which builds the list once.
 | Operation | Statement | Index used, with every key column bound |
 |---|---|---|
 | `read()` | one row of `peer` | primary key |
-| `get(ids)` | keys → `holding` → `delta` | `holding (peer, delta)`; `delta (id)` |
-| `arrivals(ids)` | keys → `holding` | `holding (peer, delta)` |
-| `targets(entities)` | keys → `target` | `target (peer, entity)` |
-| `negators(ids)` | keys → `reference` at role `negates` | `reference (peer, ref, role)` |
+| `get(ids)` | keys → `holding` → `delta`, `holding.seq` at most the snapshot's bound | `holding (peer, delta)`; `delta (id)` |
+| `arrivals(ids)` | keys → `holding`, `holding.seq` at most the bound | `holding (peer, delta)` |
+| `targets(entities)` | keys → `target` → `holding`, `holding.seq` at most the bound (step 4d) | `target (peer, entity)`; `holding (peer, delta)` |
+| `negators(ids)` | keys → `reference` at role `negates` → `holding`, `holding.seq` at most the bound (step 4d) | `reference (peer, ref, role)`; `holding (peer, delta)` |
 | `scope(request)` | a recursive common table expression: `target` rows at the anchors, then `reference` rows at role `negates` until none is new (`UNION` ends a cycle); joined to `holding` and `delta` | the keys above |
-| pushdown `arrivalAtMost` | `holding.seq <= ?` inside the recursion | `holding (peer, delta)` |
+| pushdown `arrivalAtMost` | `holding.seq <= ?` inside the recursion, bound to the lower of it and the snapshot's last sequence | `holding (peer, delta)` |
 | pushdown `timestampAtMost` | `delta.timestamp <= ?` inside the recursion | `delta (id)` |
 | `exclude` | filters the output only | none |
 | `excludeIds` | filters inside the recursion (§4.3) | none |
@@ -430,7 +439,8 @@ follows per S4-10.
 | Release-mode cost rails | 4e |
 | A refused open of a file that is not a whole store writes nothing: the schema, format and retention check before the journal mode (proposal §4.13 reading 126) | 4e |
 | The open asks again while the switch to WAL answers busy, then refuses `store-unavailable` (proposal §4.13 reading 126) | 4e |
-| `with_snapshot`: the public form of `on_snapshots`, with `SnapshotRetry { snapshots, within, clock }` (the host gives the clock), and its tests: the contract tests over both stores, the SQLite test that no transaction is held, and the process tests M1 to M5 (proposal §4.13 readings 127 to 129) | 4e |
+| `with_snapshot`: the public form of `on_snapshots`, with `SnapshotRetry { snapshots, within, clock }` (the host gives the clock), and its tests: the contract tests over both stores, the SQLite test that no transaction is held, and the process tests M1 to M5 (proposal §4.13 readings 127 to 129). Since step 4d, M1 expects one attempt at revision 0 without the child's delta, and M2 expects no failure and one attempt in every run | 4e |
+| The tolerant snapshot (step 4d, proposal §4.13 readings 130 to 132): `last_sequence` on a snapshot; `removed_at` in the peer row, written in the purge's first transaction; format `/4`; the bound in `get`, `arrivals`, `targets`, `negators` and `scope`; the memory store tolerant too; the scenario tests of `store-tolerant-snapshot.test.ts` and the delete-commit process tests | 4e |
 
 ## 11. Risks
 
@@ -438,10 +448,13 @@ follows per S4-10.
   host with a large store may batch purges; a cheaper method is a later question.
 - SQLite has one write lock per file. A rebuild or a truncate blocks every peer of the store while
   it runs.
-- A reader under constant writes can meet `snapshot-moved` on every try. The readers stop after a
-  fixed number of tries. A long pass of held views under a second writing process can fail all of
-  them, and that holds back a host's erasure report for those views. The trial measures it. The
-  measurement is in the pull request that added `withSnapshot` (readings 127 to 129).
+- A reader under constant purges can meet `snapshot-moved` on every try. The readers stop after a
+  fixed number of tries. Since step 4d appends do not move a snapshot, so a second appending
+  process no longer starves a read (reading 130); the M2 measurement before and after is in the
+  pull request of step 4d. A long pass of held views under a process that purges can still fail
+  all of its tries, and that holds back a host's erasure report for those views.
+- A call on an old snapshot reads the present rows of its entity and filters them by sequence. Its
+  cost is bounded by the entity's present rows, not by the answer (reading 131).
 - Another process with an open statement can keep the log from truncating. The report then says
   `owed`. It must never say `proven`.
 - A rolled-back transaction leaves its pages in the log until a truncate. Append therefore checks

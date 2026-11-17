@@ -10,6 +10,7 @@ Follow-ups from the reviews of slice 4 and from the first Loam trial on `0.11.0-
 (TypeScript). Three changes can need action from a consumer: the `unknown-scheme` message has
 new text, a busy open of a SQLite file refuses `store-unavailable` where it refused
 `open-failed`, and a host that runs the SQLite subpath with no module location gets an error.
+Step 4d adds three more, listed under Breaking.
 
 - The package root exports `withSnapshot(peer, body, retry?)`, with the types `SnapshotRetry`
   and `OnSnapshot`. It runs several reads on one snapshot and runs them all again on a new
@@ -69,6 +70,28 @@ new text, a busy open of a SQLite file refuses `store-unavailable` where it refu
   eight rails, not six as its text said. Rails now hold the answer "not a rhizomatic store", the
   wait before the open's second write transaction, the case of the `file:` scheme, and that no
   statement after the open sets `busy_timeout`.
+- A snapshot of the memory store and of the SQLite store answers after appends as at its own
+  revision (step 4d, §4.13 readings 130 to 132). Before, every append moved a snapshot, and a read
+  of six calls under a writer in another process failed 147 of 200 times. The same measurement
+  now has no failure in 3,200 runs. A
+  purge that releases a holding of the peer still moves every older snapshot, from the commit of
+  its delete. So do a new history and a peer row at a lower revision. A purge that releases
+  nothing, another peer's purge and the trim of records do not. `Snapshot.lastSequence` is new:
+  the peer's last arrival sequence at the snapshot's revision, fixed when the snapshot is read.
+- The shared store vectors are tightened: a snapshot older than a purge that released a holding
+  must refuse `snapshot-moved`. Five steps of `a-snapshot-across-a-purge` expect the refusal, not
+  an answer. The Rust memory store refuses after any advance and conforms unchanged.
+
+### ⚠️ Breaking
+
+- **SQLite format `rhizomatic-store-sqlite/4`.** The `peer` table gains `removed_at`. Open refuses
+  a file of format `/1`, `/2` or `/3` with `open-failed` and names both formats. No migration
+  ships: create a new file and append again.
+- **A body no longer runs again after its own append.** A `withSnapshot` body, a held-views pass
+  or a `StoreReactor.read` that appends to its own peer does not see the append and is not run
+  again for it. A host that read its own write through an old snapshot must take a new one.
+- **`Snapshot` has a new member, `lastSequence`.** A host that builds its own `Snapshot` object,
+  such as a wrapper over a store's snapshot, must pass it through.
 
 ## 0.11.0-next.11 — 2026-11-16
 
