@@ -17,8 +17,11 @@ new text, a busy open of a SQLite file refuses `store-unavailable` where it refu
   `retry.snapshots` snapshots (default 4, at most 16). With `retry.withinMs` and
   `retry.clock` (the host's clock in ms) it starts no new snapshot after that many ms. It never
   retries `store-unavailable`. `StoreReactor.read` and `fetch`, `checkFresh`, a feed pull and a
-  pass of held views now use it, with the same behavior as before. `SNAPSHOT_RETRIES` is still exported, with the same value (§4.13
-  readings 127 to 129).
+  pass of held views now use it, with the same behavior as before. `SNAPSHOT_RETRIES` is still
+  exported, with the same value. A `retry` with an own field of another name is refused
+  `invalid-request`. A clock reading below the reading at the start of the call is refused
+  `invalid-request`, as a reading that is not a finite number is. An error that the clock throws
+  passes up unchanged, after the snapshot is released (§4.13 readings 127 to 129).
 - The package root exports the store's id types: `Id`, `Entity`, `Head` and `ArrivalSeq`.
 - A store reads a delta's `sig` and `validUntil` as own fields. Before, an append of an unsigned
   delta stored a `sig` that only `Object.prototype` held. The core's delta id does not change.
@@ -38,9 +41,9 @@ new text, a busy open of a SQLite file refuses `store-unavailable` where it refu
   refuses `store-unavailable` too, and an engine error there that is not busy refuses
   `open-failed` with its code. Only a file with no `meta` table is "not a rhizomatic store"; an
   index or a view named `meta` is not that table. A `meta` table of other columns refuses
-  `open-failed` with `SQLITE_ERROR`. The second read of the schema, in the open's write
-  transaction, refuses by the same rule; before, any error there refused `store-unavailable`
-  (reading 126).
+  `open-failed` with `SQLITE_ERROR`. A trigger named `meta` is not that table either. The second
+  read of the schema and of the `retention` row, in the open's write transaction, refuses by the
+  same rule; before, any error there refused `store-unavailable` (reading 126).
 - The SQLite subpath refuses to load when it cannot find its own module location. The released
   `0.11.0-next.11` imported `better-sqlite3` statically. So a host with no module location, such
   as an IIFE bundle run through `vm`, loaded it; that host now gets the location error. The
