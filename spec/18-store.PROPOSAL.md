@@ -1182,7 +1182,10 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     member whose id does not recompute, or a malformed member; and, in a dynamically typed
     witness, a request with a value that is not of its type (reading 34), an optional object
     field that is not a plain object (reading 40), and `openStore` options that are not of
-    their type (reading 41).
+    their type (reading 41). Until a later change, a malformed member that a store returns
+    raises `invalid-request` too: a read, a pass and `fetchScope` refuse it through the fetch
+    cache. A fault rule `malformed-member` (reading 73) is planned in its own PR, for both
+    witnesses.
 22. **Requirements are an allow-list.** A name outside it is refused and named, never looked up
     on the profile. A capability counts only when it is exactly true.
 23. **Handles.** An older `PeerStore` stays valid when the peer is opened again; both are views
@@ -2344,19 +2347,57 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      and drops the oldest record when the peer keeps more than its retention, so two processes
      trim one floor. A follower whose position is below the floor gets `resync-required`, never a
      page with a gap. The rail writes past 1024 revisions from two processes.
-126. **A refused open changes nothing; options are own fields** (slice 4, step 4c follow-up).
-     `openStore(url, {requires, restored: true})` used to call the factory first and check
-     `requires` after. The SQLite factory had then already created a new file or given every peer
-     a new history, and the open still refused `capability-absent`. Now a factory that can change
-     its files at open checks `requires` before the first change, and `openStore` checks the
-     opened profile again. The SQLite factory checks against its fixed profile: no requirement
-     reads the retention, which is the one field a file sets. Two other shapes were set aside. A
-     profile declared at `registerStoreScheme` changes a public signature. A mint after the check
-     does not stop the creation of a new file. A store, a read, a held view and
-     `OrdinaryJournalPeer.open` read each option and request object of a caller as own fields
-     only. A field that only a prototype holds, also one set on `Object.prototype`, reads as
-     absent. So an options object made by a class with fields on its prototype gives none of
-     them.
+126. **A refused open checks `requires` first; options are own fields** (slice 4, step 4c
+     follow-up). `openStore(url, {requires, restored: true})` used to call the factory first and
+     check `requires` after. The SQLite factory had then already created a new file or given every
+     peer a new history, and the open still refused `capability-absent`. Now a factory that can
+     change its files at open checks `requires` before the first change, and `openStore` checks
+     the opened profile again. The SQLite factory checks against its fixed profile with the
+     default retention. Only the `changes` requirement reads the retention, and it fails only for
+     the retention `none`. No SQLite file that this store writes keeps `none`, so for each such
+     file the check before open and the check after open agree. A file whose `retention` row was
+     edited to `none` by hand passes the first check and fails the second; its open can then
+     already have given each peer a new history. Two other shapes were set aside. A profile
+     declared at `registerStoreScheme` changes a public signature. A mint after the check does not
+     stop the creation of a new file. A store, a read, a held view and `OrdinaryJournalPeer.open`
+     read each option and request object of a caller as own fields only. A field that only a
+     prototype holds, also one set on `Object.prototype`, reads as absent. So an options object
+     made by a class with fields on its prototype gives none of them. The store reads a delta's
+     `sig` and `validUntil` as own fields too: an absent `sig` is stored as absent. The core's
+     canonical encoding does not change, and it still reads an inherited `validUntil`. So the
+     store computes each id over its own copy of the claims, which has no prototype, and keeps
+     that copy. A delta whose id hashes a `validUntil` that only a prototype held (a class
+     getter, `Object.create`, a polluted `Object.prototype`) is refused `invalid-admission`, and
+     the store keeps nothing of it. A delta made without one and appended under a polluted
+     `Object.prototype` is stored as made, and its id recomputes. While `Object.prototype` holds a
+     `validUntil`, a read refuses `invalid-request`: the fetch cache hashes the members with the
+     core's encoding.
+     The SQLite store refuses a file that is not a whole store before any statement that can
+     write. The open reads the schema names, the `format` row and the `retention` row first, and
+     only then sets the journal mode, which writes the file's header and makes the `-wal` and
+     `-shm` files. It refuses a file of another format, a file with no `format` row, and a file
+     with the store's `format` row that lacks a table, index, trigger or the `retention` row. So
+     a refused open of such a file, or of a file that is not SQLite, changes no byte of the
+     file's content and leaves no `-wal` or `-shm` file, with three exceptions. A SQLite file left
+     in WAL mode with a `-wal` file: the close of the refused connection checkpoints that log into
+     the file and removes it, so the file's bytes change to what a clean close would give. A
+     file that another process holds open: the bytes of its `-shm` file change. A file in
+     rollback-journal mode with a hot `-journal` file that a killed writer left: the first read of
+     the refused open rolls that journal back and removes it, so the file returns to its state
+     before the killed transaction. No committed data is lost. One case is not
+     refused. A SQLite file with no schema object at all, such as an empty file or a file with
+     only a header, cannot be told from a new file without a write. The open makes it a store.
+     The switch to the WAL journal mode answers busy at once, without the engine's wait, while
+     another connection holds the write lock of a new file. The open's first read and its
+     connection rules run as one try, and the open runs the try again while it answers busy,
+     until `busyTimeoutMs` has passed since the first try. After that it refuses
+     `store-unavailable` (reading 105), as a busy write does. Before, it refused `open-failed` at
+     once. A try that starts just before the end can wait in the engine's busy handler, so with
+     one holder that keeps its lock the open refuses within about twice `busyTimeoutMs`. Each
+     statement of a try can wait `busyTimeoutMs`, so a holder that frees and takes the lock again
+     between statements can make the last try longer. Measured with one holder: 0, 50, 200 and
+     1000 ms of wait gave the refusal after 1, 51, 202 and 1003 ms. With `busyTimeoutMs` 0 the
+     open makes one try.
 
 ## 5. Architectures
 

@@ -33,7 +33,9 @@ export type StoreFactory = (url: string, options: OpenOptions) => Promise<Store>
 
 // RFC 3986 §3.1. A scheme is case-insensitive; lookups use its lowercase form.
 const SCHEME = /^([A-Za-z][A-Za-z0-9+.-]*):/;
-const UNKNOWN = "no store is registered for this URL's scheme";
+// One text for every unrouted URL; it names the built-in scheme that a host most often forgets.
+const UNKNOWN =
+  "no store is registered for this URL's scheme. The sqlite scheme is registered when the host imports @bombadil/rhizomatic/store/sqlite";
 const OPTIONS =
   "openStore: the options must be an object, requires a list of names, and restored a boolean";
 

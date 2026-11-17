@@ -228,6 +228,21 @@ try {
       /module location observation/,
     ],
     [
+      "host module location without the location permission",
+      { "federation/http.ts": "export const source=import.meta.url;" },
+      /module location observation/,
+    ],
+    [
+      "hidden module location by __filename",
+      { "delta/a.ts": "export const source=typeof __filename;" },
+      /module location observation/,
+    ],
+    [
+      "hidden module location by __dirname",
+      { "delta/a.ts": "export const source=typeof __dirname;" },
+      /module location observation/,
+    ],
+    [
       "host unresolved require",
       { "federation/http.ts": "const x=require(variable);" },
       /unsupported require import/,
@@ -282,6 +297,13 @@ try {
       {
         "federation/file-peer-state.ts":
           'import { readFileSync } from "node:fs"; export const read=readFileSync;',
+      },
+    ],
+    [
+      "declared module location",
+      {
+        "storage/sqlite-store.ts":
+          'export const source=typeof import.meta.url==="string"?import.meta.url:typeof __filename;',
       },
     ],
     [

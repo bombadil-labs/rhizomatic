@@ -1,7 +1,9 @@
 // A child of the many-process rails (sqlite-store-processes.test.ts). It runs one job on the store
 // at a path, given as JSON in its first argument, and prints its answer as one line
 // `<word> <json>`. A job can wait for a go file before it starts (`go`), so that several
-// children start together.
+// children start together; it prints `waiting go` first. The go file holds a time in ms since
+// the epoch, and the child waits until that time, so that several children start within a
+// millisecond. A missing or empty go file is "not yet".
 //
 // A job can also hold at one point, from the test side: the child wraps the statements of
 // `better-sqlite3` in this process only, and the store has no hook for it. A hold prints
@@ -17,16 +19,23 @@
 //
 // A hold that waits for a minute ends the child, so a failed rail leaves no process behind.
 //
+// The open, and each read, append and pull of `write` and `follow`, are asked again when the
+// store refuses `store-unavailable` and says "ask again" (reading 105): another process held a
+// lock past `busyTimeoutMs`, which a slow disk can make happen. The first such refusal prints
+// `busy <what>`. A call still refused after a minute ends the child with the count and the time.
+//
 // The jobs:
 //
 // - `write`: appends `batches` batches of `size` new deltas to the peer. Each batch reads the
 //   head and revision, appends from that head, and reads again on `conflict`. With `turn`, the
 //   child appends only at a revision r with r mod `turn.of` = `turn.mine`, so two children
-//   take turns in a fixed order. Prints `done {committed, conflicts}`.
+//   take turns in a fixed order. Prints `done {committed, conflicts, asked}`, where `asked` counts
+//   the calls asked again.
 // - `follow`: follows the peer's feed from revision 0 until revision `until`, with the
 //   contract's `followFeed`. A pull that throws `snapshot-moved` is asked again. Prints
 //   `followed {revisions, added, delivered, pulls, moved}`.
-// - `open`: opens the store (with `restored` when asked) and prints `histories {peer: history}`.
+// - `open`: opens the store (with `restored` when asked) and prints `histories {peer: history}`,
+//   then `refused-after [ms]`: the time each refused try of the open took.
 // - `read`: takes a snapshot, then gets `ids` on it, holding at `checked`. Prints
 //   `got {revision, ids}` or `refused <code>`.
 // - `append`: appends one batch of `size` new deltas whose arrivals start after `after`,
@@ -34,7 +43,7 @@
 // - `create`: creates the peer with the host mint `mint`. Prints `created <history>` or
 //   `refused <code>`.
 
-import { existsSync, writeSync } from "node:fs";
+import { existsSync, readFileSync, writeSync } from "node:fs";
 import Database from "better-sqlite3";
 import { makeDelta } from "../../src/delta/set.js";
 import type { Delta } from "../../src/delta/types.js";
@@ -58,18 +67,41 @@ type Job = {
   ids?: string[];
   after?: number;
   mint?: string;
+  busyTimeoutMs?: number;
 };
 
 const job = JSON.parse(process.argv[2]!) as Job;
 const sleep = (ms: number): void => {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 };
+// A write to a full pipe can take part of the line, or none (EAGAIN), so it writes until all is out.
 const print = (word: string, value: unknown): void => {
-  writeSync(1, `${word} ${typeof value === "string" ? value : JSON.stringify(value)}\n`);
+  const line = Buffer.from(
+    `${word} ${typeof value === "string" ? value : JSON.stringify(value)}\n`,
+  );
+  for (let at = 0; at < line.length; ) {
+    try {
+      at += writeSync(1, line, at);
+    } catch (error) {
+      if ((error as { code?: unknown }).code !== "EAGAIN") throw error;
+      sleep(1);
+    }
+  }
 };
 const waitFor = (file: string): void => {
   const deadline = Date.now() + 60_000;
   while (!existsSync(file)) {
+    if (Date.now() > deadline) process.exit(3);
+    sleep(2);
+  }
+};
+
+/** The start time in a go file; a missing or empty file, or one with no number, is "not yet". */
+const startTime = (file: string): number => {
+  const deadline = Date.now() + 60_000;
+  for (;;) {
+    const text = existsSync(file) ? readFileSync(file, "utf8").trim() : "";
+    if (text !== "" && Number.isFinite(Number(text))) return Number(text);
     if (Date.now() > deadline) process.exit(3);
     sleep(2);
   }
@@ -123,12 +155,45 @@ const refused = (error: unknown): string => {
   throw error;
 };
 
-if (job.go !== undefined) waitFor(job.go);
+const ASK_AGAIN_MS = 60_000;
+let asked = 0;
+const refusedAfter: number[] = [];
+async function again<T>(what: string, call: () => Promise<T>): Promise<T> {
+  const started = Date.now();
+  for (let tries = 1; ; tries++) {
+    const tried = performance.now();
+    try {
+      return await call();
+    } catch (error) {
+      if (
+        !(error instanceof StoreError && error.code === "store-unavailable") ||
+        !error.message.endsWith("ask again")
+      )
+        throw error;
+      refusedAfter.push(performance.now() - tried);
+      const spent = Date.now() - started;
+      if (spent > ASK_AGAIN_MS)
+        throw new Error(
+          `${what} refused store-unavailable ${tries} times in ${spent} ms, past the bound of ${ASK_AGAIN_MS} ms: ${error.message}`,
+        );
+      if (asked++ === 0) print("busy", what);
+    }
+  }
+}
+
+if (job.go !== undefined) {
+  print("waiting", "go");
+  const at = startTime(job.go);
+  while (Date.now() < at);
+}
 armed = job.hold === "identity" || job.hold === "lock";
-const store = await openSqliteStore(job.path, {
-  ...(job.restored === true ? { restored: true } : {}),
-  ...(job.mint === undefined ? {} : { mintHistory: () => job.mint! }),
-});
+const store = await again("open", () =>
+  openSqliteStore(job.path, {
+    ...(job.restored === true ? { restored: true } : {}),
+    ...(job.mint === undefined ? {} : { mintHistory: () => job.mint! }),
+    ...(job.busyTimeoutMs === undefined ? {} : { busyTimeoutMs: job.busyTimeoutMs }),
+  }),
+);
 armed = false;
 try {
   switch (job.op) {
@@ -137,6 +202,7 @@ try {
       for await (const id of store.openAdmin().peers())
         histories[id] = (await store.peer(id)).history;
       print("histories", histories);
+      print("refused-after", refusedAfter);
       break;
     }
     case "create":
@@ -150,12 +216,12 @@ try {
     case "write": {
       // Every batch has `size` deltas, so at revision r no arrival passes r × size: a batch
       // appended from revision r numbers its arrivals from r × size + 1.
-      const peer = await store.peer(job.peer!);
+      const peer = await again("peer", () => store.peer(job.peer!));
       const size = job.size!;
       const committed: { revision: number; added: string[] }[] = [];
       let conflicts = 0;
       for (let batch = 0; batch < job.batches!; ) {
-        const now = await peer.read();
+        const now = await again("read", () => peer.read());
         const { revision, head } = now;
         now.release();
         if (job.turn !== undefined && revision % job.turn.of !== job.turn.mine) {
@@ -165,12 +231,9 @@ try {
         const added = Array.from({ length: size }, (_, i) =>
           member(fact(`${job.tag}-${batch}-${i}`), revision * size + i + 1),
         );
-        const result = await peer.append({
-          expectedHead: head,
-          nextHead: `${job.tag}-${batch}`,
-          frame: null,
-          added,
-        });
+        const result = await again("append", () =>
+          peer.append({ expectedHead: head, nextHead: `${job.tag}-${batch}`, frame: null, added }),
+        );
         if (result.status === "conflict") {
           conflicts++;
           continue;
@@ -179,12 +242,12 @@ try {
         committed.push({ revision: result.revision, added: [...result.added] });
         batch++;
       }
-      print("done", { committed, conflicts });
+      print("done", { committed, conflicts, asked });
       break;
     }
     case "follow": {
-      const peer = await store.peer(job.peer!);
-      const first = await peer.read();
+      const peer = await again("peer", () => store.peer(job.peer!));
+      const first = await again("read", () => peer.read());
       const cursor = followFeed(peer, { history: first.history, revision: 0 });
       first.release();
       const revisions: number[] = [];
@@ -197,7 +260,7 @@ try {
         // (plan §11). A pull that fails does not move the cursor, so the follower pulls again.
         let pull;
         try {
-          pull = await cursor.pull();
+          pull = await again("pull", () => cursor.pull());
         } catch (error) {
           if (!(error instanceof StoreError && error.code === "snapshot-moved")) throw error;
           moved++;

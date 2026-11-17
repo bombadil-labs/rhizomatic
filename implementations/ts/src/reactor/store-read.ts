@@ -565,8 +565,11 @@ export async function fetchScope(
   const boundaries = [
     ...new Set(
       members.flatMap((id) => {
-        const { validFrom, validUntil } = held.get(id)!.claims;
-        return validUntil === undefined ? [validFrom] : [validFrom, validUntil];
+        const { claims } = held.get(id)!;
+        const { validFrom, validUntil } = claims;
+        return Object.hasOwn(claims, "validUntil") && validUntil !== undefined
+          ? [validFrom, validUntil]
+          : [validFrom];
       }),
     ),
   ].sort((a, b) => a - b);

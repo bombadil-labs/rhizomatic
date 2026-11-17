@@ -6,6 +6,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+Follow-ups from the reviews of slice 4 and from the first Loam trial on `0.11.0-next.11`
+(TypeScript). Two changes can need action from a consumer: the `unknown-scheme` message has new
+text, and a busy open of a SQLite file refuses `store-unavailable` where it refused
+`open-failed`.
+
+- The package root exports the store's id types: `Id`, `Entity`, `Head` and `ArrivalSeq`.
+- A store reads a delta's `sig` and `validUntil` as own fields. Before, an append of an unsigned
+  delta stored a `sig` that only `Object.prototype` held. The core's delta id does not change.
+  The store computes the id over its own copy of the claims, which has no prototype, so a delta
+  whose id hashes an inherited `validUntil` is refused `invalid-admission` (§4.13 reading 126).
+- A refused open of a file that is not a whole SQLite store writes nothing. The open checks the
+  schema names, the `format` row and the `retention` row before it sets the journal mode. Three
+  exceptions remain: a leftover `-wal` file is checkpointed into the file at close, the `-shm`
+  bytes change when another process holds the file, and a hot `-journal` file that a killed
+  writer left is rolled back by the first read. A SQLite file with no schema object still opens
+  as a new store (reading 126).
+- An open of a SQLite file that another connection holds asks again while its first read or its
+  switch to WAL answers busy, until `busyTimeoutMs` has passed. After that it refuses
+  `store-unavailable`. Before, it refused `open-failed` at once. With one holder the refusal
+  comes within about twice `busyTimeoutMs` (reading 126).
+- The SQLite subpath refuses to load when it cannot find its own module location, such as a
+  bundle evaluated with no file. Before, it loaded `better-sqlite3` from the working directory.
+- The `unknown-scheme` message has new text: it says that the `sqlite` scheme is registered when
+  the host imports `@bombadil/rhizomatic/store/sqlite`. A host that matches the old text must
+  change its match. It is still one fixed message for every unrouted URL.
+- Importing `@bombadil/rhizomatic/store/sqlite` without `better-sqlite3` fails with an error that
+  names the package and `npm install better-sqlite3`, with Node's error as its `cause`. Any other
+  error of the driver passes up unchanged. The subpath loads the driver with `require`, through
+  `createRequire`. It loads in an ES module, through `require()`, and in an ES module or a
+  CommonJS bundle that leaves `better-sqlite3` external.
+- Tools: the command acceptance check pins the ignored Rust tests by name, and its report lists
+  them. The release-mode step of the Rust witness job runs the two cost rails by their full names.
+  The boundary scan treats `__filename` and `__dirname` as a module location, as `import.meta`.
+- Tests: the many-process rails ask again on `store-unavailable`, and the crash rail no longer
+  needs a fast disk. Rails bound the busy open from above.
+
 ## 0.11.0-next.11 — 2026-11-16
 
 Release D: the store (SPEC-18 proposal), slices 1 to 3 in TypeScript and Rust, and slice 4 steps
@@ -52,7 +88,8 @@ The store, slice 4, step 4a (TypeScript): a SQLite store at `@bombadil/rhizomati
 the four shared suites. Its erasure class is `unprovable` until step 4b. `better-sqlite3` is an
 optional peer dependency. Three contract changes reach both stores: the refusal `store-unavailable`
 (§4.13 reading 105), strings must be well-formed (reading 104), and -0 answers as +0
-(reading 106). Rust follows in step 4e.
+(reading 106). Rust follows in step 4e for the first and the third. A Rust string is well-formed
+by its type, so the second needs no Rust work.
 
 The store, slice 4, step 4b (TypeScript): the SQLite store proves erasure. A purge by a peer of
 posture `proven` rebuilds the pages (`VACUUM`) and truncates the log, and the report says

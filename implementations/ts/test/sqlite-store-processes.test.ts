@@ -39,6 +39,12 @@ function storePath(): string {
   return join(dir, "store.db");
 }
 
+/** Starts the children waiting on `go` at time `at`: the file is whole when it appears. */
+function release(go: string, at: number): void {
+  writeFileSync(`${go}.part`, String(at));
+  renameSync(`${go}.part`, go);
+}
+
 /** A child running one job; its printed lines, and a wait for each. */
 function child(job: Record<string, unknown>) {
   const proc = spawn(process.execPath, ["--import", "tsx", childScript, JSON.stringify(job)], {
@@ -79,6 +85,8 @@ function child(job: Record<string, unknown>) {
   return {
     ended,
     printed,
+    /** Everything the child printed so far. */
+    output: () => out,
     /** The JSON the child printed after `word`. */
     json: async <T>(word: string): Promise<T> => JSON.parse(await printed(word)) as T,
     held: (point: string) => printed("held").then((p) => expect(p).toBe(point)),
@@ -188,7 +196,7 @@ describe("the gate of step 4c: two writing processes and a follower in a third",
       go,
     });
     const follower = child({ op: "follow", path, peer: "peer:a", until: 2 * TURNS + 2 * FREE, go });
-    writeFileSync(go, "");
+    release(go, Date.now());
     const [wa1, wb1] = await Promise.all([a1.json<Written>("done"), b1.json<Written>("done")]);
     // Phase 2: both writers append as fast as they can; a lost race answers conflict, and the
     // writer reads again.
@@ -285,6 +293,174 @@ describe("busy: a write that cannot take the lock within busyTimeoutMs", () => {
     await store.close();
     audit(path);
   }, 60_000);
+
+  it("a writing child refused store-unavailable while another process holds the write lock asks again, and commits after the lock is free", async () => {
+    const path = await made();
+    const holder = child({
+      op: "append",
+      path,
+      peer: "peer:a",
+      tag: "H",
+      size: 1,
+      after: 0,
+      hold: "locked",
+    });
+    await holder.held("locked");
+    const writer = child({
+      op: "write",
+      path,
+      peer: "peer:a",
+      tag: "W",
+      batches: 1,
+      size: 1,
+      busyTimeoutMs: 50,
+    });
+    expect(await writer.printed("busy")).toBe("open");
+    holder.go("locked");
+    expect(await holder.printed("appended")).toBe("committed");
+    const written = await writer.json<Written & { asked: number }>("done");
+    expect(await writer.ended).toBe("0");
+    expect(written.asked).toBeGreaterThan(0);
+    expect(written.committed.map((c) => c.revision)).toEqual([2]);
+    audit(path);
+  }, 60_000);
+});
+
+// ---- the open of a new file ---------------------------------------------------------------------
+
+const UNAVAILABLE =
+  "store-unavailable: the SQLite store cannot serve this call now (SQLITE_BUSY); ask again";
+
+/** The answer of an open of `path` (closed again when it opened) and its time in ms. */
+async function timedOpen(path: string, busyTimeoutMs: number) {
+  const started = performance.now();
+  const answer = await openSqliteStore(path, { busyTimeoutMs }).then(
+    async (store) => {
+      await store.close();
+      return "opened";
+    },
+    (error: unknown) =>
+      error instanceof StoreError ? `${error.code}: ${error.message}` : String(error),
+  );
+  return { answer, ms: performance.now() - started };
+}
+
+/**
+ * Runs `body` while each `pragma` call of `better-sqlite3` in this process first runs `before`.
+ * The hook lives in the test process only; the store has none.
+ */
+async function hooked<T>(before: (source: string) => void, body: () => Promise<T>): Promise<T> {
+  const pragma = Database.prototype.pragma;
+  Database.prototype.pragma = function (this: Database.Database, source, options) {
+    before(source);
+    return pragma.call(this, source, options);
+  } as typeof pragma;
+  try {
+    return await body();
+  } finally {
+    Database.prototype.pragma = pragma;
+  }
+}
+
+describe("the open of a new file that other connections open at the same time", () => {
+  it("while another connection holds the write lock of the new file, open waits busyTimeoutMs and refuses store-unavailable, not open-failed at once; a later open makes the store", async () => {
+    const path = storePath();
+    const holder = new Database(path);
+    holder.prepare("BEGIN IMMEDIATE").run();
+    const started = Date.now();
+    const refused = await openSqliteStore(path, { busyTimeoutMs: 200 }).then(
+      () => "opened",
+      (error: unknown) =>
+        error instanceof StoreError ? `${error.code}: ${error.message}` : String(error),
+    );
+    expect(refused).toBe(
+      "store-unavailable: the SQLite store cannot serve this call now (SQLITE_BUSY); ask again",
+    );
+    expect(Date.now() - started).toBeGreaterThanOrEqual(200);
+    holder.prepare("ROLLBACK").run();
+    holder.close();
+    const store = await openSqliteStore(path);
+    await store.createPeer("peer:a", { erasure: "unproven" });
+    await store.close();
+    audit(path);
+  }, 60_000);
+
+  it("while another connection holds an exclusive lock on the new file, the open's first read waits and refuses store-unavailable after busyTimeoutMs and within twice it, not open-failed", async () => {
+    const path = storePath();
+    const holder = new Database(path);
+    holder.prepare("BEGIN EXCLUSIVE").run();
+    const { answer, ms } = await timedOpen(path, 200);
+    holder.prepare("ROLLBACK").run();
+    holder.close();
+    expect(answer).toBe(UNAVAILABLE);
+    expect(ms).toBeGreaterThanOrEqual(200);
+    expect(ms).toBeLessThan(2 * 200 + 600);
+  }, 60_000);
+
+  it("when another connection takes an exclusive lock after the open's first read, so each journal mode switch waits busyTimeoutMs in the engine, the open refuses store-unavailable within twice busyTimeoutMs", async () => {
+    const path = storePath();
+    let holder: Database.Database | undefined;
+    let switches = 0;
+    const { answer, ms } = await hooked(
+      (source) => {
+        if (!source.startsWith("journal_mode")) return;
+        switches++;
+        if (holder !== undefined) return;
+        holder = new Database(path);
+        holder.prepare("BEGIN EXCLUSIVE").run();
+      },
+      () => timedOpen(path, 200),
+    );
+    holder?.prepare("ROLLBACK").run();
+    holder?.close();
+    expect(answer).toBe(UNAVAILABLE);
+    expect(switches).toBeGreaterThanOrEqual(1);
+    expect(ms).toBeGreaterThanOrEqual(200);
+    expect(ms).toBeLessThan(2 * 200 + 600);
+  }, 60_000);
+
+  it("an error of a connection rule that is not busy passes up as open-failed with its code, after one try", async () => {
+    const path = storePath();
+    let switches = 0;
+    const { answer } = await hooked(
+      (source) => {
+        if (!source.startsWith("journal_mode")) return;
+        switches++;
+        throw new Database.SqliteError("disk I/O error", "SQLITE_IOERR");
+      },
+      () => timedOpen(path, 200),
+    );
+    expect([answer, switches]).toEqual([
+      "open-failed: sqlite store: the file did not open (SQLITE_IOERR)",
+      1,
+    ]);
+  }, 60_000);
+
+  it("four processes that open one new path together all open it, no open is refused before the default busyTimeoutMs of 5000 ms, and the file is one sound store", async () => {
+    for (let round = 0; round < 10; round++) {
+      const path = storePath();
+      const go = `${path}.go-start`;
+      const openers = Array.from({ length: 4 }, () => child({ op: "open", path, go }));
+      for (const opener of openers) await opener.printed("waiting");
+      release(go, Date.now() + 100);
+      for (const opener of openers) {
+        expect(await opener.json("histories")).toEqual({});
+        expect(await opener.ended).toBe("0");
+        for (const ms of await opener.json<number[]>("refused-after"))
+          expect(ms).toBeGreaterThanOrEqual(5000);
+      }
+      const db = new Database(path, { readonly: true });
+      try {
+        expect([
+          db.pragma("integrity_check", { simple: true }),
+          db.pragma("journal_mode", { simple: true }),
+          db.prepare("SELECT key FROM meta ORDER BY key").all(),
+        ]).toEqual(["ok", "wal", [{ key: "format" }, { key: "identity" }, { key: "retention" }]]);
+      } finally {
+        db.close();
+      }
+    }
+  }, 120_000);
 });
 
 // ---- values a process could keep ---------------------------------------------------------------

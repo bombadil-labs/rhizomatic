@@ -1,6 +1,7 @@
 // The child of the crash rail (sqlite-store-crash.test.ts). It opens the store at the path it is
 // given and appends batches of eight deltas until it is killed. Batch n points at entity
-// `batch:n`, so the parent can tell a whole batch from a part of one.
+// `batch:n`, so the parent can tell a whole batch from a part of one. After each committed append
+// it prints `committed n`, so the parent knows which revisions the store acknowledged.
 
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,7 +38,6 @@ async function main(path: string, full: boolean): Promise<void> {
     if (!(error instanceof StoreError)) throw error;
     peer = await store.createPeer(CRASH_PEER, { erasure: "unproven" });
   }
-  process.stdout.write("ready\n");
   for (;;) {
     const snapshot = await peer.read();
     const n = snapshot.revision + 1;
@@ -63,7 +63,10 @@ async function main(path: string, full: boolean): Promise<void> {
       );
       process.exit(0);
     }
-    if (result.status === "committed") continue;
+    if (result.status === "committed") {
+      if (!full) process.stdout.write(`committed ${n}\n`);
+      continue;
+    }
     if (!full) throw new Error(`append answered ${result.status}`);
     process.stdout.write(`${JSON.stringify({ ...result, batch: n })}\n`);
     process.exit(0);

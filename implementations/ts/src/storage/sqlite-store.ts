@@ -17,8 +17,10 @@
 
 import { randomBytes } from "node:crypto";
 import { statSync } from "node:fs";
+import { createRequire } from "node:module";
+import { isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
-import Database from "better-sqlite3";
+import type BetterSqlite3 from "better-sqlite3";
 import { compareUtf8, decode, type CborValue } from "../delta/cbor.js";
 import { canonicalBytes } from "../delta/delta.js";
 import { contentAddress } from "../delta/hash.js";
@@ -50,6 +52,41 @@ import {
   type Store,
   type StoreProfile,
 } from "./store.js";
+
+/** The package that this module needs, named in the error when a host has not installed it. */
+const DRIVER = "better-sqlite3";
+
+/**
+ * Where `require` of the driver starts: this module in an ES module, the bundle in a CommonJS
+ * bundle (where `import.meta.url` is undefined). With neither, the load refuses: the working
+ * directory is not a location of this module, and a module there is not the host's driver.
+ */
+function location(): string {
+  if (typeof import.meta.url === "string") return import.meta.url;
+  if (typeof __filename === "string" && isAbsolute(__filename)) return __filename;
+  throw new Error(
+    `@bombadil/rhizomatic/store/sqlite cannot find its own module location, so it does not know where to load ${DRIVER} from. Load the package as a module, or as a CommonJS bundle from a file.`,
+  );
+}
+
+/**
+ * The driver, loaded when this module loads. When Node cannot find it, or a module it needs, the
+ * error names the package to install and keeps Node's error as its cause. A static import would
+ * fail with Node's message alone, which names neither this module nor the remedy. Any other
+ * error passes up unchanged.
+ */
+function loadDriver(): typeof BetterSqlite3 {
+  try {
+    return createRequire(location())(DRIVER) as typeof BetterSqlite3;
+  } catch (cause) {
+    if ((cause as { code?: unknown } | null)?.code !== "MODULE_NOT_FOUND") throw cause;
+    throw new Error(
+      `@bombadil/rhizomatic/store/sqlite needs the package ${DRIVER}, an optional peer dependency, and Node could not find it or a module it needs. Install it: npm install ${DRIVER}`,
+      { cause },
+    );
+  }
+}
+const Database = loadDriver();
 
 export const SQLITE_STORE_FORMAT = "rhizomatic-store-sqlite/3";
 
@@ -133,8 +170,9 @@ const RULES = (
   ["temp_store", "FILE", 1],
 ];
 const MAX_BUSY_TIMEOUT = 2 ** 31 - 1;
+const BUSY_PAUSE_MS = 5;
 
-type Statements = { readonly [K in keyof typeof SQLITE_STATEMENTS]: Database.Statement };
+type Statements = { readonly [K in keyof typeof SQLITE_STATEMENTS]: BetterSqlite3.Statement };
 type PeerRow = {
   posture: ErasurePosture;
   storeClass: ErasureClass;
@@ -167,6 +205,33 @@ function unavailable(error: unknown): unknown {
       ? `the SQLite store cannot serve this call now (${error.code}); ask again`
       : `the SQLite store failed: ${error.message} (${error.code}); this is not a lock, and the same call fails again until the cause is fixed`,
   );
+}
+
+/** The cell that `waiting` pauses on, made at its first pause. */
+let pause: Int32Array | undefined;
+
+/**
+ * Runs `body`, and runs it again while the engine answers `SQLITE_BUSY`, until `timeoutMs` has
+ * passed since the first try. The switch to the `wal` journal mode answers busy at once, without
+ * the busy handler, while another connection opens the same new file. Each statement in `body`
+ * can also wait `timeoutMs` in the busy handler, so a try that starts just before the end can
+ * take that long again. After the wait the refusal is `store-unavailable`, as for any lock held
+ * past the wait (reading 105). Any other error passes up unchanged.
+ */
+function waiting<T>(timeoutMs: number, body: () => T): T {
+  const start = performance.now();
+  for (;;) {
+    try {
+      return body();
+    } catch (error) {
+      if (!(error instanceof Database.SqliteError && error.code.startsWith("SQLITE_BUSY")))
+        throw error;
+      const left = timeoutMs - (performance.now() - start);
+      if (left <= 0) throw unavailable(error);
+      pause ??= new Int32Array(new SharedArrayBuffer(4));
+      Atomics.wait(pause, 0, 0, Math.min(BUSY_PAUSE_MS, left));
+    }
+  }
 }
 
 // ---- claims from their canonical bytes ----------------------------------------------------------
@@ -295,6 +360,46 @@ function identityOf(file: string): string {
   return `${stat.dev} ${stat.ino} ${stat.birthtimeNs}`;
 }
 
+function metaOf(db: BetterSqlite3.Database, key: string): string | undefined {
+  return (db.prepare(SQLITE_STATEMENTS.metaGet).get(key) as { value: string } | undefined)?.value;
+}
+
+/** The name of each table, index and trigger that the store's schema creates. */
+const SCHEMA_NAMES = [...SQLITE_SCHEMA.matchAll(/CREATE (?:TABLE|INDEX|TRIGGER) (\w+)/g)].map(
+  (m) => m[1]!,
+);
+
+/**
+ * True when the file holds no schema at all, as a new file does. Refuses `open-failed` for a file
+ * that holds a schema but not a whole store of this format: another format, no `format` row, or a
+ * missing table, index, trigger or `retention` row. It only reads.
+ */
+function isEmpty(db: BetterSqlite3.Database): boolean {
+  const names = new Set(
+    (db.prepare(SQLITE_STATEMENTS.schemaNames).all() as { name: string }[]).map((r) => r.name),
+  );
+  if (names.size === 0) return true;
+  let format: string | undefined;
+  try {
+    format = metaOf(db, "format");
+  } catch {
+    format = undefined;
+  }
+  if (format !== SQLITE_STORE_FORMAT)
+    throw new StoreError(
+      "open-failed",
+      format === undefined
+        ? "sqlite store: the file is not a rhizomatic store"
+        : `sqlite store: the file holds format ${format}, and this store reads ${SQLITE_STORE_FORMAT}`,
+    );
+  if (!SCHEMA_NAMES.every((name) => names.has(name)) || metaOf(db, "retention") === undefined)
+    throw new StoreError(
+      "open-failed",
+      "sqlite store: the file holds the store's format but not the whole store",
+    );
+  return false;
+}
+
 /**
  * The profile of a store that keeps `retention`. Every other field is the same for each file, so
  * `openStore` can check a host's requirements before it opens one (§4.13 reading 126).
@@ -325,12 +430,12 @@ function profileOf(retention: Retention): StoreProfile {
 
 class SqliteFileStore implements SqliteStore {
   readonly profile: StoreProfile;
-  readonly #db: Database.Database;
+  readonly #db: BetterSqlite3.Database;
   readonly #s: Statements;
-  readonly #begin: Database.Statement;
-  readonly #beginWrite: Database.Statement;
-  readonly #commit: Database.Statement;
-  readonly #rollback: Database.Statement;
+  readonly #begin: BetterSqlite3.Statement;
+  readonly #beginWrite: BetterSqlite3.Statement;
+  readonly #commit: BetterSqlite3.Statement;
+  readonly #rollback: BetterSqlite3.Statement;
   readonly #keep: number;
   readonly #pageSize: number;
   readonly #mint: ((peer: PeerId) => History) | undefined;
@@ -338,10 +443,16 @@ class SqliteFileStore implements SqliteStore {
   readonly #file: string;
   #closed = false;
 
-  constructor(db: Database.Database, options: OwnOptions) {
+  constructor(db: BetterSqlite3.Database, options: OwnOptions) {
     this.#db = db;
     this.#rules = RULES(options.busyTimeoutMs);
-    for (const [name, value] of this.#rules) db.pragma(`${name} = ${value}`);
+    // The journal mode pragma writes the file's header and makes the -wal and -shm files. So a
+    // file that is not a store is refused first, by reads only (§4.13 reading 126).
+    db.pragma(`busy_timeout = ${options.busyTimeoutMs}`);
+    waiting(options.busyTimeoutMs, () => {
+      isEmpty(db);
+      for (const [name, value] of this.#rules) db.pragma(`${name} = ${value}`);
+    });
     const now = this.#connection();
     for (const [name, value, expected] of this.#rules)
       if (now[name] !== expected)
@@ -370,10 +481,7 @@ class SqliteFileStore implements SqliteStore {
   /** Creates the schema in an empty file, or checks the format and retention of a store. */
   #format(asked: Retention | undefined): Retention {
     const db = this.#db;
-    const meta = (key: string): string | undefined =>
-      (db.prepare(SQLITE_STATEMENTS.metaGet).get(key) as { value: string } | undefined)?.value;
-    const { size } = db.prepare(SQLITE_STATEMENTS.schemaSize).get() as { size: number };
-    if (size === 0) {
+    if (isEmpty(db)) {
       const retention = asked ?? DEFAULT_RETENTION;
       db.exec(SQLITE_SCHEMA);
       const put = db.prepare(SQLITE_STATEMENTS.metaSet);
@@ -381,20 +489,7 @@ class SqliteFileStore implements SqliteStore {
       put.run("retention", JSON.stringify(retention));
       return retention;
     }
-    let format: string | undefined;
-    try {
-      format = meta("format");
-    } catch {
-      format = undefined;
-    }
-    if (format !== SQLITE_STORE_FORMAT)
-      throw new StoreError(
-        "open-failed",
-        format === undefined
-          ? "sqlite store: the file is not a rhizomatic store"
-          : `sqlite store: the file holds format ${format}, and this store reads ${SQLITE_STORE_FORMAT}`,
-      );
-    const kept = meta("retention")!;
+    const kept = metaOf(db, "retention")!;
     if (asked !== undefined && JSON.stringify(asked) !== kept)
       throw new StoreError(
         "invalid-request",
@@ -1005,7 +1100,7 @@ class SqliteFileStore implements SqliteStore {
       }
     }
     const ids =
-      (statement: Database.Statement, ...args: unknown[]) =>
+      (statement: BetterSqlite3.Statement, ...args: unknown[]) =>
       (after: string) =>
         read(() => statement.all(...args, after, EXPORT_PAGE) as Record<string, string>[]).map(
           (r) => {
@@ -1067,7 +1162,7 @@ export async function openSqliteStore(
       "invalid-request",
       "sqlite store: the path is a non-empty string without U+0000",
     );
-  let db: Database.Database;
+  let db: BetterSqlite3.Database;
   try {
     db = new Database(path);
   } catch {
@@ -1099,7 +1194,8 @@ const fromUrl = async (url: string, options: OpenOptions): Promise<Store> => {
     throw new StoreError("invalid-url", URL_FORM);
   }
   // Before the file opens: an open can create the file or give its peers new histories, and a
-  // refused open changes nothing. No requirement reads the retention.
+  // refused open changes nothing. Only `changes` reads the retention, and it fails only for
+  // `none`, which no file of this store keeps (§4.13 reading 126).
   refuseMissing("sqlite", profileOf(DEFAULT_RETENTION), options.requires ?? []);
   return openSqliteStore(path, options.restored === true ? { restored: true } : {});
 };

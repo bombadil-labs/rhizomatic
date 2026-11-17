@@ -139,7 +139,12 @@ jobs:
       - name: no public item accepts a wrong-holder quirk (the feature wrong-holders is off)
         run: cargo clippy --lib -- -D warnings
       - name: cost rails in release mode (the wrong holders that scan every held view go red)
-        run: cargo test --release --test witness -- --ignored per_view_scan
+        run: |
+          set -o pipefail
+          cargo test --release --test witness -- --ignored --exact \
+            store_views::a_per_view_scan_in_the_release_turns_rail_four_red \
+            store_views::a_per_view_scan_turns_the_held_views_rail_red | tee "$RUNNER_TEMP/cost-rails.log"
+          grep -q "^test result: ok\. 2 passed; 0 failed" "$RUNNER_TEMP/cost-rails.log"
       - name: WASM witness builds (the tour's second witness, docs/rust-witness.wasm)
         run: |
           rustup target add wasm32-unknown-unknown

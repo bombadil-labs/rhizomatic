@@ -317,7 +317,10 @@ export function validityWindow(deltas: Iterable<Delta>, now: number): ValidityWi
   let since: number | null = null;
   let expiresAt: number | null = null;
   for (const { claims } of deltas)
-    for (const at of [claims.validFrom, claims.validUntil]) {
+    for (const at of [
+      claims.validFrom,
+      Object.hasOwn(claims, "validUntil") ? claims.validUntil : undefined,
+    ]) {
       if (at === undefined) continue;
       if (at > now) {
         if (expiresAt === null || at < expiresAt) expiresAt = at;

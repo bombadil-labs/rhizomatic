@@ -1,7 +1,10 @@
 // The crash rail of the SQLite store (slice 4 plan §6 and §8 item 15). A child process appends
-// batches in a loop, and the parent kills it with SIGKILL after a varied delay, 50 times. After
-// each kill a reopen finds every batch whole or absent, and the count, the floor and the feed
-// agree with the rows. The store has no hook for this: the kill lands wherever the child is.
+// batches in a loop, and the parent kills it with SIGKILL after a varied delay, 50 times. Each
+// delay starts at the child's first acknowledged commit of that round, so every round kills the
+// child while it appends, on a fast disk or a slow one. After each kill a reopen finds every
+// batch whole or absent, every acknowledged commit present, and the count, the floor and the
+// feed in agreement with the rows. The store has no hook for this: the kill lands wherever the
+// child is.
 
 import { spawn, spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
@@ -21,27 +24,33 @@ afterAll(() => fixture.cleanup());
 
 const KILLS = 50;
 
-/** Starts the child, waits until it appends, kills it after `delay` ms, and waits for its end. */
-async function killDuringAppends(path: string, delay: number): Promise<void> {
+/**
+ * Starts the child, waits for its first acknowledged commit, kills it `delay` ms later, and waits
+ * for its end. Answers the last revision the child printed as committed.
+ */
+async function killDuringAppends(path: string, delay: number): Promise<number> {
   const proc = spawn(process.execPath, ["--import", "tsx", child, path], {
     cwd: pkg,
     stdio: ["ignore", "pipe", "pipe"],
   });
+  let out = "";
   let errors = "";
   proc.stderr.on("data", (chunk: Buffer) => (errors += chunk.toString()));
   const ended = new Promise<NodeJS.Signals | number | null>((done) =>
     proc.on("exit", (code, signal) => done(signal ?? code)),
   );
-  await new Promise<void>((ready, fail) => {
+  await new Promise<void>((committed, fail) => {
     proc.stdout.on("data", (chunk: Buffer) => {
-      if (chunk.toString().includes("ready")) ready();
+      out += chunk.toString();
+      if (out.includes("committed ")) committed();
     });
-    void ended.then(() => fail(new Error(`the child ended before it was ready: ${errors}`)));
+    void ended.then(() => fail(new Error(`the child ended before its first commit: ${errors}`)));
   });
   await new Promise((wait) => setTimeout(wait, delay));
   proc.kill("SIGKILL");
   const end = await ended;
   if (end !== "SIGKILL") throw new Error(`the child ended with ${String(end)}: ${errors}`);
+  return Math.max(...[...out.matchAll(/^committed (\d+)\n/gm)].map((m) => Number(m[1])));
 }
 
 /** Reopens the store and checks that every batch is whole or absent, with the feed and count. */
@@ -77,16 +86,19 @@ async function whole(path: string): Promise<number> {
 }
 
 describe("a crash during an append", () => {
-  it(`leaves every batch whole or absent, ${KILLS} kills at varied delays`, async () => {
+  it(`leaves every batch whole or absent and keeps every acknowledged commit, ${KILLS} kills at varied delays after a commit`, async () => {
     const path = fixture.path();
     const revisions: number[] = [];
     for (let kill = 0; kill < KILLS; kill++) {
-      await killDuringAppends(path, (kill * 7) % 41);
-      revisions.push(await whole(path));
+      const acknowledged = await killDuringAppends(path, (kill * 7) % 41);
+      const r = await whole(path);
+      expect(r, `kill ${kill}: the store lost an acknowledged commit`).toBeGreaterThanOrEqual(
+        acknowledged,
+      );
+      expect(r, `kill ${kill}: the round committed nothing`).toBeGreaterThan(revisions.at(-1) ?? 0);
+      revisions.push(r);
     }
     console.log(`crash rail: revisions after each kill: ${revisions.join(" ")}`);
-    // The kills landed while the child appended, not before its first append.
-    expect(revisions.at(-1)!).toBeGreaterThan(KILLS);
   }, 600_000);
 });
 

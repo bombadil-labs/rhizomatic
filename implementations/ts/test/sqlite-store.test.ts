@@ -465,7 +465,7 @@ describe("store-unavailable: the SQLite store cannot serve the call", () => {
     await store.close();
   });
 
-  it("open waits no longer than busyTimeoutMs while another connection holds the file", async () => {
+  it("open waits no longer than busyTimeoutMs while another connection holds the file, and refuses store-unavailable", async () => {
     const path = fixture.path();
     await (await openSqliteStore(path)).close();
     const other = new Database(path);
@@ -476,7 +476,7 @@ describe("store-unavailable: the SQLite store cannot serve the call", () => {
     const waited = performance.now() - start;
     other.exec("ROLLBACK");
     other.close();
-    expect([answer, waited < 1000]).toEqual(["open-failed", true]);
+    expect([answer, waited < 1000]).toEqual(["store-unavailable", true]);
     await (await openSqliteStore(path, { busyTimeoutMs: 0 })).close();
   });
 

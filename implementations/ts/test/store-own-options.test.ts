@@ -4,7 +4,7 @@
 // `finally`, and only then asserts. Every store file lives in this file's own `mkdtempSync`
 // directory.
 
-import { readdirSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import Database from "better-sqlite3";
@@ -22,7 +22,7 @@ import { readAnchored } from "../src/reactor/store-read.js";
 import { StoreViews } from "../src/reactor/store-views.js";
 import { createMemoryStore } from "../src/storage/memory-store.js";
 import { openStore } from "../src/storage/open-store.js";
-import { openSqliteStore } from "../src/storage/sqlite-store.js";
+import { SQLITE_STORE_FORMAT, openSqliteStore } from "../src/storage/sqlite-store.js";
 import { StoreError, type PeerStore } from "../src/storage/store.js";
 import { space } from "./support/sqlite-erasure.js";
 
@@ -254,6 +254,60 @@ describe("a refused openStore changes nothing (reading 126)", () => {
       drop();
     }
   });
+});
+
+/** Makes a store at `path` with one peer, closes it, then runs `sql` on the file. */
+async function madeThen(path: string, sql: string): Promise<void> {
+  const store = await openSqliteStore(path);
+  await store.createPeer(PEER, { erasure: "unproven" });
+  await store.close();
+  const db = new Database(path);
+  db.exec(sql);
+  db.close();
+}
+
+describe("a refused open of a file that is not a store leaves the file as it was (reading 126)", () => {
+  const foreign = {
+    "a SQLite file with one unrelated table": (path: string) => {
+      const db = new Database(path);
+      db.exec("CREATE TABLE notes (body TEXT); INSERT INTO notes VALUES ('kept');");
+      db.close();
+    },
+    "a SQLite file whose meta table holds only the store's format row": (path: string) => {
+      const db = new Database(path);
+      db.exec("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT");
+      db.prepare("INSERT INTO meta VALUES ('format', ?)").run(SQLITE_STORE_FORMAT);
+      db.close();
+    },
+    "a file that is not SQLite": (path: string) =>
+      writeFileSync(path, "not a database\n".repeat(400)),
+    "a store in rollback-journal mode without its retention row": (path: string) =>
+      madeThen(path, "PRAGMA journal_mode = DELETE; DELETE FROM meta WHERE key = 'retention'"),
+    "a store without the index holding_by_author": (path: string) =>
+      madeThen(path, "DROP INDEX holding_by_author"),
+    "a store without the trigger residue_kept": (path: string) =>
+      madeThen(path, "DROP TRIGGER residue_kept"),
+  };
+  for (const [what, make] of Object.entries(foreign))
+    it(`${what}: openSqliteStore and openStore refuse open-failed, the bytes are the same and no -wal or -shm file is left`, async () => {
+      const { dir: own, remove: drop } = space("rhizomatic-foreign-file");
+      try {
+        const path = join(own, "other.db");
+        await make(path);
+        const before = readFileSync(path);
+        const refused = [
+          await outcome(() => openSqliteStore(path)),
+          await outcome(() => openStore(urlOf(path))),
+        ];
+        expect({
+          refused,
+          same: readFileSync(path).equals(before),
+          files: readdirSync(own),
+        }).toEqual({ refused: ["open-failed", "open-failed"], same: true, files: ["other.db"] });
+      } finally {
+        drop();
+      }
+    });
 });
 
 const PEER = `ed25519:${"7e".repeat(32)}`;
