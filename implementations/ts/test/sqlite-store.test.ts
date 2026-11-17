@@ -39,6 +39,7 @@ import {
   type VerifiedDelta,
 } from "../src/storage/store.js";
 import { sqliteFixture } from "./support/sqlite-fixture.js";
+import { moveByPurge, sacrificial } from "./support/move-snapshot.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const load = <T>(name: string): T =>
@@ -449,9 +450,9 @@ describe("snapshots on the SQLite store (decision S4-2)", () => {
   it("a refused call ends its transaction: the next write does not wait", async () => {
     const store = await fixture.open({ busyTimeoutMs: 0 });
     const w = await writer(store);
-    await w.append([fact("x", 1)]);
+    await w.append([fact("x", 1), sacrificial(1)]);
     const old = await w.peer.read();
-    await w.append([fact("x", 2)]);
+    await moveByPurge(w.peer);
     expect(await refusal(old.get([]))).toBe("snapshot-moved");
     expect(await refusal(old.scope({ anchors: [{ kind: "value" } as never] }))).toBe(
       "snapshot-moved",

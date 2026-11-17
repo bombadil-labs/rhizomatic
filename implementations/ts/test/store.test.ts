@@ -34,6 +34,7 @@ import {
   type Store,
   type VerifiedDelta,
 } from "../src/storage/store.js";
+import { moveByPurge, sacrificial } from "./support/move-snapshot.js";
 
 const A = `ed25519:${"0a".repeat(32)}`;
 const B = `ed25519:${"0b".repeat(32)}`;
@@ -1563,8 +1564,9 @@ describe("numbers a store refuses", () => {
   it("a malformed bound is invalid-request on a moved and on a released snapshot too", async () => {
     const store = createMemoryStore();
     const peer = await store.createPeer(A, { erasure: "unproven" });
+    await fill(peer, [fact("e", 1), sacrificial(1)]);
     const moved = await peer.read();
-    await fill(peer, [fact("e", 1)]);
+    await moveByPurge(peer);
     const released = await peer.read();
     released.release();
     for (const snapshot of [moved, released])

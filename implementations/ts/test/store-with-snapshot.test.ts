@@ -1,7 +1,7 @@
 // `withSnapshot` (SPEC-18 proposal §4.13, readings 127 to 129) over the memory store and the
-// SQLite store, through one suite. Real movement is an append through the same peer between two
-// calls of the body. Refusals that a store cannot be made to give on demand come from a peer
-// whose `read` the test wraps; the function has no hook.
+// SQLite store, through one suite. Real movement is a purge of a sacrificial delta through the
+// same peer between two calls of the body (`moveByPurge`). Refusals that a store cannot be made
+// to give on demand come from a peer whose `read` the test wraps; the function has no hook.
 
 import Database from "better-sqlite3";
 import { afterAll, describe, expect, it } from "vitest";
@@ -18,6 +18,7 @@ import {
   type Store,
 } from "../src/storage/store.js";
 import { withSnapshot, type SnapshotRetry } from "../src/storage/with-snapshot.js";
+import { SACRIFICIAL, moveByPurge, sacrificial } from "./support/move-snapshot.js";
 import { sqliteFixture } from "./support/sqlite-fixture.js";
 
 const fixture = sqliteFixture("rhizomatic-with-snapshot");
@@ -50,16 +51,21 @@ const fact = (entity: string): Delta =>
     pointers: [{ role: "about", target: { kind: "entity", entity: { id: entity } } }],
   });
 
-/** A peer with one delta at X and one at Y, and a write that appends one more at each entity. */
+/** Sacrificial deltas each seeded peer holds: more than any test moves it. */
+const SACRIFICES = 40;
+
+/**
+ * A peer with one delta at X and one at Y, then SACRIFICES sacrificial deltas; a write that
+ * appends one more at each entity; and `move`, a purge of one sacrificial delta.
+ */
 async function seeded(open: () => Promise<Store>) {
   const store = await open();
   const peer = await store.createPeer("peer:p", { erasure: "unproven" });
   let head: string | null = null;
   let sequence = 0;
-  const write = async (...entities: string[]): Promise<void> => {
+  const admit = async (deltas: readonly Delta[]): Promise<void> => {
     const next = `head-${sequence + 1}`;
-    const added = entities.map((entity) => {
-      const delta = fact(entity);
+    const added = deltas.map((delta) => {
       sequence += 1;
       return { delta, arrival: { id: delta.id, at: 1, sequence, transfer: 1, sender: "test" } };
     });
@@ -67,8 +73,11 @@ async function seeded(open: () => Promise<Store>) {
     expect(result.status).toBe("committed");
     head = next;
   };
+  const write = async (...entities: string[]): Promise<void> =>
+    admit(entities.map((entity) => fact(entity)));
   await write(X, Y);
-  return { store, peer, write };
+  await admit(Array.from({ length: SACRIFICES }, (_, i) => sacrificial(i + 1)));
+  return { store, peer, write, move: () => moveByPurge(peer) };
 }
 
 /** The peer with its `read` replaced; every other member passes through. */
@@ -130,23 +139,23 @@ for (const [name, open] of STORES)
       expect(codeOf(await outcome(taken[0]!.targets([X])))).toBe("snapshot-released");
     });
 
-    it("a write between two calls of the body starts it again: attempts 2, and every part of the answer is at the new revision", async () => {
-      const { peer, write } = await seeded(open);
+    it("a purge between two calls of the body starts it again: attempts 2, and every part of the answer is at the new revision", async () => {
+      const { peer, move } = await seeded(open);
       const before = (await withSnapshot(peer, (s) => s.revision)).value;
       const { value, attempts } = await withSnapshot(peer, async (snapshot, attempt) => {
         const first = await snapshot.targets([X]);
-        if (attempt === 1) await write(X);
+        if (attempt === 1) await move();
         const fetched = await fetchScope(snapshot, [X]);
         return { at: snapshot.revision, first, fetched: [...fetched.source.ids()].sort() };
       });
       expect(attempts).toBe(2);
       expect(value.at).toBe(before + 1);
-      expect(value.first).toHaveLength(2);
+      expect(value.first).toHaveLength(1);
       expect(value.fetched).toEqual(value.first);
     });
 
     it("a body that the peer always moves takes exactly the bound: 4 snapshots by default, 1 and 16 when asked, then the last snapshot-moved passes up as the same object", async () => {
-      const { peer, write } = await seeded(open);
+      const { peer, move } = await seeded(open);
       for (const [retry, expected] of [
         [undefined, 4],
         [{ snapshots: 1 }, 1],
@@ -161,7 +170,7 @@ for (const [name, open] of STORES)
             async (snapshot) => {
               runs += 1;
               await snapshot.targets([X]);
-              await write(Y);
+              await move();
               return snapshot.targets([Y]).catch((error: unknown) => {
                 met.push(error);
                 throw error;
@@ -256,7 +265,7 @@ for (const [name, open] of STORES)
     });
 
     it("releases the snapshot of every attempt: on an answer, on a throw, and on a move", async () => {
-      const { peer, write } = await seeded(open);
+      const { peer, move } = await seeded(open);
       const { peer: watched, taken } = counted(peer);
       await withSnapshot(watched, (s) => s.targets([X]));
       await outcome(
@@ -266,7 +275,7 @@ for (const [name, open] of STORES)
       );
       await withSnapshot(watched, async (snapshot, attempt) => {
         await snapshot.targets([X]);
-        if (attempt === 1) await write(X);
+        if (attempt === 1) await move();
         return snapshot.targets([X]);
       });
       expect(taken).toHaveLength(4);
@@ -275,7 +284,7 @@ for (const [name, open] of STORES)
     });
 
     it("withinMs bounds the snapshots after the first by the host's clock: 0 still runs the first; a body that passes the bound gets no second; a bound not passed reaches the count", async () => {
-      const { peer, write } = await seeded(open);
+      const { peer, move } = await seeded(open);
       let now = 1_000;
       let readings = 0;
       const clock = (): number => {
@@ -287,7 +296,7 @@ for (const [name, open] of STORES)
       const moves = (step: number) => async (snapshot: Snapshot) => {
         await snapshot.targets([X]);
         now += step;
-        await write(Y);
+        await move();
         return snapshot.targets([Y]);
       };
       for (const [withinMs, step, snapshots, expected] of [
@@ -312,7 +321,7 @@ for (const [name, open] of STORES)
     });
 
     it("a clock reading below the first, or not a finite number, refuses invalid-request after the move, and a clock that throws passes its error up; one snapshot was taken and released in each case", async () => {
-      const { peer, write } = await seeded(open);
+      const { peer, move } = await seeded(open);
       const thrown = new Error("the clock failed");
       for (const [later, expected] of [
         [999, "invalid-request"],
@@ -334,7 +343,7 @@ for (const [name, open] of STORES)
             watched,
             async (snapshot) => {
               await snapshot.targets([X]);
-              await write(Y);
+              await move();
               return snapshot.targets([Y]);
             },
             { withinMs: 1_000_000, clock },
@@ -352,7 +361,7 @@ for (const [name, open] of STORES)
     });
 
     it("the clock is not read once the count ends the call: snapshots 1 reads it once, at the start", async () => {
-      const { peer, write } = await seeded(open);
+      const { peer, move } = await seeded(open);
       let readings = 0;
       const clock = (): number => {
         readings += 1;
@@ -363,7 +372,7 @@ for (const [name, open] of STORES)
           peer,
           async (snapshot) => {
             await snapshot.targets([X]);
-            await write(Y);
+            await move();
             return snapshot.targets([Y]);
           },
           { snapshots: 1, withinMs: 100, clock },
@@ -381,7 +390,7 @@ for (const [name, open] of STORES)
     });
 
     it("refuses a bad policy invalid-request before any store call, an unknown own field too, and reads policy fields as own fields", async () => {
-      const { peer, write } = await seeded(open);
+      const { peer, move } = await seeded(open);
       class Policy {
         readonly snapshots = 2;
       }
@@ -429,7 +438,7 @@ for (const [name, open] of STORES)
       ]);
       const always = async (snapshot: Snapshot) => {
         await snapshot.targets([X]);
-        await write(Y);
+        await move();
         return snapshot.targets([Y]);
       };
       const bare = Object.assign(Object.create(null) as SnapshotRetry, { snapshots: 2 });
@@ -507,7 +516,7 @@ for (const [name, open] of STORES)
         attempt,
       }));
       expect(answer).toBeInstanceOf(Promise);
-      expect(await answer).toEqual({ value: { count: 2, attempt: 1 }, attempts: 1 });
+      expect(await answer).toEqual({ value: { count: 2 + SACRIFICES, attempt: 1 }, attempts: 1 });
     });
   });
 
@@ -546,5 +555,41 @@ describe("withSnapshot on the SQLite store holds no transaction between the body
     } finally {
       await store.close();
     }
+  });
+});
+
+describe("moveByPurge, the helper that moves a snapshot in these tests", () => {
+  it("purges one sacrificial delta and nothing else, and never a delta at the sacrificial entity that is not one", async () => {
+    const store = createMemoryStore();
+    const peer = await store.createPeer("peer:p", { erasure: "unproven" });
+    const other = makeDelta({
+      timestamp: 1,
+      validFrom: 0,
+      author: AUTHOR,
+      pointers: [{ role: "sacrificial", target: { kind: "entity", entity: { id: SACRIFICIAL } } }],
+    });
+    const kept = fact(X);
+    const added = [kept, other, sacrificial(1)].map((delta, i) => ({
+      delta,
+      arrival: { id: delta.id, at: 1, sequence: i + 1, transfer: 1, sender: "test" },
+    }));
+    await peer.append({ expectedHead: null, nextHead: "h", frame: null, added });
+    const held = async (): Promise<string[]> => {
+      const snapshot = await peer.read();
+      try {
+        return (await snapshot.get(added.map((a) => a.delta.id))).map((d) => d.id).sort();
+      } finally {
+        snapshot.release();
+      }
+    };
+    const victim = sacrificial(1).id;
+    const before = await held();
+    const old = await peer.read();
+    await moveByPurge(peer);
+    expect(await held()).toEqual(before.filter((id) => id !== victim));
+    expect(codeOf(await outcome(old.get([])))).toBe("snapshot-moved");
+    const refused = await outcome(moveByPurge(peer));
+    expect(String(refused)).toContain("holds no sacrificial delta");
+    expect(await held()).toEqual([kept.id, other.id].sort());
   });
 });

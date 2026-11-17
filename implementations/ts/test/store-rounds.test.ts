@@ -78,6 +78,7 @@ import {
   type StoreRoundsDocument,
 } from "../tools/store-round-vectors.js";
 import { countingPeer, countingSnapshot, type StoreCall } from "./support/store-fixture.js";
+import { moveByPurge, sacrificial } from "./support/move-snapshot.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const document = JSON.parse(
@@ -587,7 +588,7 @@ describe("round vectors: a change between two rounds", () => {
 
   it("retries three times, then passes snapshot-moved up; every snapshot is released", async () => {
     const c = document.interleaved[0]!;
-    const loaded = await load();
+    const loaded = await load({ extra: Array.from({ length: 4 }, (_, i) => sacrificial(i + 1)) });
     const trace: StoreCall[] = [];
     let moves = 0;
     // The peer moves after the first round of every attempt.
@@ -595,13 +596,7 @@ describe("round vectors: a change between two rounds", () => {
       onRound: async (round) => {
         if (round.round !== 1) return;
         moves += 1;
-        const result = await loaded.peer.append({
-          expectedHead: moves === 1 ? "rounds-head-2" : `move-${moves - 1}`,
-          nextHead: `move-${moves}`,
-          frame: null,
-          added: [],
-        });
-        expect(result.status).toBe("committed");
+        await moveByPurge(loaded.peer);
       },
     });
     const reactor = StoreReactor.open(countingPeer(loaded.peer, trace));
@@ -618,7 +613,7 @@ describe("round vectors: a change between two rounds", () => {
   });
 
   it("a second attempt that holds still answers, and says it took two", async () => {
-    const c = document.interleaved[0]!;
+    const c = document.interleaved.find((i) => i.purge !== undefined && i.afterRound === 1)!;
     const reports: StoreRoundReport[] = [];
     let rounds: readonly StoreRoundReport[] = [];
     const { outcome, start, end } = await interleave(c, async (peer, request) => {
