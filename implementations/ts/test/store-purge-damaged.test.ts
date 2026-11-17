@@ -118,11 +118,11 @@ describe("a purge of a damaged id on the memory store", () => {
     await add(peer, [target, bystander]);
     const snapshot = await peer.read();
     const real = Map.prototype.get;
-    let rows: Map<unknown, unknown> | undefined;
+    const rows: Map<unknown, unknown>[] = [];
     Map.prototype.get = function (this: Map<unknown, unknown>, key: unknown) {
       const value: unknown = real.call(this, key);
       if (key === target.id && typeof value === "object" && value !== null && "holders" in value)
-        rows = this;
+        rows.push(this);
       return value;
     };
     let pending: Promise<unknown>;
@@ -132,7 +132,8 @@ describe("a purge of a damaged id on the memory store", () => {
       Map.prototype.get = real;
     }
     await pending;
-    rows!.delete(target.id);
+    expect(rows.length).toBe(1);
+    rows[0]!.delete(target.id);
     const report = await peer.purge([target.id]);
     expect([report.claim, report.targets, report.surfaces]).toEqual([
       "unproven",

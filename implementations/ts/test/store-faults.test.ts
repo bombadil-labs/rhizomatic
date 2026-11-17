@@ -121,7 +121,10 @@ const ARRIVAL_DAMAGE: readonly (readonly [string, (r: Record<string, unknown>) =
   ["an empty object", () => ({})],
   ["a list", () => []],
   ["a record that names another id", (r) => ({ ...r, id: `1e20${"0".repeat(64)}` })],
-  ["a record without its transfer", ({ transfer: _, ...rest }) => rest],
+  [
+    "a record without its transfer",
+    (r) => Object.fromEntries(Object.entries(r).filter(([key]) => key !== "transfer")),
+  ],
   ["a transfer of text", (r) => ({ ...r, transfer: "x" })],
   ["a transfer of 0", (r) => ({ ...r, transfer: 0 })],
   ["a transfer of 1.5", (r) => ({ ...r, transfer: 1.5 })],
@@ -213,7 +216,9 @@ describe("a holding whose delta row is gone, on the SQLite store", () => {
         ),
         faultOf(
           (async () => {
-            for await (const _ of store.openAdmin().peer("peer:a").deltas());
+            const read: Delta[] = [];
+            for await (const delta of store.openAdmin().peer("peer:a").deltas()) read.push(delta);
+            return read;
           })(),
         ),
       ]),
