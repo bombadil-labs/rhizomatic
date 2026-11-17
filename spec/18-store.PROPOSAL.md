@@ -2442,7 +2442,7 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      snapshot. A reading that is not a finite number, or that is below the reading at the start,
      is refused `invalid-request` when it is read; a clock that goes back would otherwise give a
      call more snapshots than `withinMs` allows. An error that the clock throws passes up
-     unchanged. In both cases the snapshot of that attempt is released first. `retry`'s fields
+     unchanged. In both cases a snapshot that the attempt took is released first. `retry`'s fields
      are read as own fields (reading 126). Under a steady writer in another process a body can
      fail every try; the count bounds it, and the host chooses the count.
 129. **`body` and transactions.** `body` may be synchronous or asynchronous, because a snapshot
