@@ -35,10 +35,12 @@ export function strings(given: unknown, what: string): string[] {
 
 /**
  * The claims with every -0 as +0, the value the canonical encoding writes (SPEC-1; §4.13 reading
- * 106). A store answers what the id hashes, so every store answers +0.
+ * 106). A store answers what the id hashes, so every store answers +0. The object has no
+ * prototype, so the canonical encoding of it reads no field that only `Object.prototype` holds:
+ * the id is computed over this object, and the store keeps exactly what the id hashes.
  */
 function positiveZero(claims: Claims): Claims {
-  return {
+  return Object.assign(Object.create(null) as Claims, {
     ...claims,
     timestamp: claims.timestamp + 0,
     validFrom: claims.validFrom + 0,
@@ -50,7 +52,7 @@ function positiveZero(claims: Claims): Claims {
         ? { role: pointer.role, target: { kind: "primitive", value: pointer.target.value + 0 } }
         : pointer,
     ),
-  };
+  });
 }
 
 /** One admitted entry, copied and checked: its id, claims, signature and arrival record. */
@@ -74,10 +76,12 @@ export function admit(entry: unknown): Admitted {
     throw new StoreError("invalid-admission", `append: ${what}`);
   };
   let own: VerifiedDelta;
+  let claims: Claims;
   let id: string;
   try {
     own = copyMember(entry as VerifiedDelta);
-    id = computeId(own.delta.claims);
+    claims = positiveZero(own.delta.claims);
+    id = computeId(claims);
   } catch {
     return refuse("an entry is malformed");
   }
@@ -101,7 +105,7 @@ export function admit(entry: unknown): Admitted {
     refuse("an arrival record is malformed");
   return {
     id,
-    claims: positiveZero(own.delta.claims),
+    claims,
     sig,
     arrival: { ...own.arrival, at: at + 0 },
   };

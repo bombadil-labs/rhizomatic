@@ -12,10 +12,14 @@ import {
   UnanchoredTermError,
   captureScope,
   fetchScope,
+  STANDARD_ROUNDS,
   readAnchored,
+  readAnchoredWith,
   readFullSurface,
+  type RoundPolicy,
 } from "../src/reactor/store-read.js";
 import { followFeed } from "../src/storage/follow.js";
+import { validityWindow } from "../src/storage/freshness.js";
 import { createMemoryStore } from "../src/storage/memory-store.js";
 import { scopeSource } from "../src/storage/scope-source.js";
 import { openSqliteStore } from "../src/storage/sqlite-store.js";
@@ -150,47 +154,102 @@ describe("a signature and a validity end set only on Object.prototype read as ab
     ]);
   });
 
-  it("validUntil: a delta made and appended under it holds no validUntil and its id recomputes", async () => {
+  it("validUntil: a delta whose id hashes a validUntil that only a prototype holds (a class getter, Object.create, a polluted Object.prototype) is refused invalid-admission by both stores, which hold nothing", async () => {
+    class Getter {
+      readonly timestamp = 1;
+      readonly validFrom = 1;
+      readonly author = "did:key:zA";
+      readonly pointers = claims("target", 1, "one").pointers;
+      get validUntil(): number {
+        return 50;
+      }
+    }
+    const made: Record<string, () => Delta> = {
+      "class getter": () => makeDelta(new Getter()),
+      "Object.create": () =>
+        makeDelta(
+          Object.assign(Object.create({ validUntil: 50 }) as Claims, claims("target", 1, "one")),
+        ),
+      "polluted Object.prototype": () =>
+        polluted("validUntil", 50, async () => fact("target", 1, "one")) as never,
+    };
+    const plain = fact("target", 1, "one");
+    const seen: unknown[] = [];
+    for (const [shape, make] of Object.entries(made))
+      for (const { name, store } of await stores()) {
+        const delta = await make();
+        const peer = await store.createPeer(PEER, { erasure: "unproven" });
+        const status = await outcome(async () => (await peer.append(batch([delta]))).status);
+        const snapshot = await peer.read();
+        seen.push([shape, name, delta.id === plain.id, status, snapshot.revision, snapshot.count]);
+        await store.close();
+      }
+    expect(seen).toEqual(
+      Object.keys(made).flatMap((shape) => [
+        [shape, "memory", false, "invalid-admission", 0, 0],
+        [shape, "sqlite", false, "invalid-admission", 0, 0],
+      ]),
+    );
+  });
+
+  it("validUntil: a delta made without one and appended under a polluted Object.prototype is stored without validUntil, and its id recomputes", async () => {
     const plain = fact("target", 1, "one");
     const seen: unknown[] = [];
     for (const { name, store } of await stores()) {
       const peer = await store.createPeer(PEER, { erasure: "unproven" });
-      const status = await polluted("validUntil", 50, async () => {
-        const delta = fact("target", 1, "one");
-        return [delta.id === plain.id, (await peer.append(batch([delta]))).status];
-      });
+      const status = await polluted(
+        "validUntil",
+        50,
+        async () => (await peer.append(batch([plain]))).status,
+      );
       const [held] = await (await peer.read()).get([plain.id]);
       seen.push([name, status, Object.hasOwn(held!.claims, "validUntil"), computeId(held!.claims)]);
       await store.close();
     }
     expect(seen).toEqual([
-      ["memory", [true, "committed"], false, plain.id],
-      ["sqlite", [true, "committed"], false, plain.id],
+      ["memory", "committed", false, plain.id],
+      ["sqlite", "committed", false, plain.id],
     ]);
   });
 
-  it("validUntil: makeDelta under a non-finite one makes the plain delta", async () => {
-    const plain = fact("target", 1, "one");
-    const made = await polluted("validUntil", Number.NaN, async () => fact("target", 1, "one").id);
-    expect(made).toBe(plain.id);
-  });
-
-  it("validUntil: readAnchored and fetchScope give no validity end", async () => {
+  it("validUntil: under a polluted Object.prototype, readAnchored and fetchScope refuse invalid-request, and neither answers a window from the inherited field", async () => {
     const peer = await peerWith([fact("target", 1, "one")]);
     const snapshot = await peer.read();
-    const windows = await polluted("validUntil", 50, async () => {
-      const read = await readAnchored(snapshot, { term: LEAF, root: "target", now: 10 });
-      const fetched = await fetchScope(snapshot, ["target"]);
-      return [{ since: read.since, expiresAt: read.expiresAt }, fetched.validityAt(10)];
-    });
-    expect(windows).toEqual([
-      { since: 1, expiresAt: null },
-      { since: 1, expiresAt: null },
+    const answers = await polluted("validUntil", 50, async () => [
+      await outcome(() => readAnchored(snapshot, { term: LEAF, root: "target", now: 10 })),
+      await outcome(() => fetchScope(snapshot, ["target"])),
     ]);
+    expect(answers).toEqual(["invalid-request", "invalid-request"]);
+  });
+
+  it("validUntil: validityWindow reads a validUntil that only a prototype holds as absent", () => {
+    const inherited = Object.assign(
+      Object.create({ validUntil: 50 }) as Claims,
+      claims("target", 1, "one"),
+    );
+    const delta = { id: fact("target", 1, "one").id, claims: inherited };
+    expect(validityWindow([delta], 10)).toEqual({ since: 1, expiresAt: null });
   });
 });
 
 describe("each own-fields site reads a field set only on Object.prototype as absent", () => {
+  it("readAnchored, round: a round request with no own pushdown sends none and applies none", async () => {
+    const peer = await peerWith([fact("target", 1, "one")]);
+    const snapshot = await peer.read();
+    const policy: RoundPolicy = {
+      ...STANDARD_ROUNDS,
+      request: (round) => {
+        const { anchors, exclude } = STANDARD_ROUNDS.request(round);
+        return { anchors, ...(exclude === undefined ? {} : { exclude }) };
+      },
+    };
+    const read = () => readAnchoredWith(snapshot, { term: LEAF, root: "target", now: 10 }, policy);
+    const plain = await read();
+    const under = await polluted("pushdown", { timestampAtMost: 0 }, read);
+    expect(under.members).toEqual(plain.members);
+    expect(plain.members).toHaveLength(1);
+  });
+
   it("follow: followFeed refuses a position with no own revision", async () => {
     const peer = await peerWith([fact("target", 1, "one")]);
     const { history } = await peer.read();

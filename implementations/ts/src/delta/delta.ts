@@ -44,8 +44,7 @@ export function claimsToCbor(claims: Claims): CborValue {
     ["timestamp", float(claims.timestamp)],
     ["validFrom", float(claims.validFrom)],
   ];
-  const validUntil = Object.hasOwn(claims, "validUntil") ? claims.validUntil : undefined;
-  if (validUntil !== undefined) entries.push(["validUntil", float(validUntil)]);
+  if (claims.validUntil !== undefined) entries.push(["validUntil", float(claims.validUntil)]);
   return map(entries);
 }
 
@@ -56,10 +55,9 @@ export function assertValidClaims(claims: Claims): void {
   if (claims.author.length === 0) throw new Error("author must be non-empty");
   if (!Number.isFinite(claims.timestamp)) throw new Error("timestamp must be finite");
   if (!Number.isFinite(claims.validFrom)) throw new Error("validFrom must be finite");
-  const validUntil = Object.hasOwn(claims, "validUntil") ? claims.validUntil : undefined;
-  if (validUntil !== undefined) {
-    if (!Number.isFinite(validUntil)) throw new Error("validUntil must be finite");
-    if (validUntil <= claims.validFrom)
+  if (claims.validUntil !== undefined) {
+    if (!Number.isFinite(claims.validUntil)) throw new Error("validUntil must be finite");
+    if (claims.validUntil <= claims.validFrom)
       throw new Error("validUntil must be greater than validFrom");
   }
   if (claims.pointers.length < 1) throw new Error("a delta MUST contain at least one pointer");
