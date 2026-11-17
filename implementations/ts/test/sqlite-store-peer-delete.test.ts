@@ -577,7 +577,7 @@ describe("a late deleter and a peer created again under the id", () => {
     }, 120_000);
 
   it.skipIf(!PROVEN_HERE)(
-    "R2: two deletes of one peer at once both end; their counts add up to the peer's holdings; no file holds the peer's bytes; the bystander reads back byte for byte",
+    "R2: two deletes of one peer at once both end; their counts add up to the peer's holdings; each claims proven or unproven, and at least one claims proven; no file holds the peer's bytes; the bystander reads back byte for byte",
     async () => {
       const { dir, path } = place();
       const name = "peer:Qdel7Twice";
@@ -603,12 +603,60 @@ describe("a late deleter and a peer created again under the id", () => {
         debt: 0,
         surface_debt: 0,
       });
-      expect(reports.map((r) => r.claim)).toEqual(["proven", "proven"]);
+      // SQLite answers busy at once to a checkpoint while another connection checkpoints, without
+      // the busy handler. A deleter whose rebuild meets the other's checkpoint so has no proof,
+      // and it answers unproven unless the log is empty and the file clean at its last
+      // transaction. The checkpoint that runs waits under the busy handler; with no other reader
+      // or writer here, its deleter answers proven, and that report carries the proof.
+      const claims = reports.map((r) => r.claim);
+      expect(claims.filter((claim) => claim !== "proven" && claim !== "unproven")).toEqual([]);
+      expect(claims).toContain("proven");
       expect(markersLeft(dir, path, markers)).toEqual([]);
       await bystanderHolds(store, b, bystander);
     },
     180_000,
   );
+
+  it("R6: deleter L marks the peer; another delete ends; the id is created again with three deltas, and deleter C marks the new peer; L goes on: it releases nothing and answers every file surface owed, the new peer's three holdings stay until C goes on, C releases 3, and the bystander reads back byte for byte", async () => {
+    const { path } = place();
+    const store = await open(path);
+    const d = await store.createPeer("peer:d", { erasure: POSTURE });
+    const b = await store.createPeer("peer:b", { erasure: POSTURE });
+    const y = marked("R6Y", 1);
+    await put(d, group("R6Old", 5), "HdR6OldZ");
+    await put(b, [y], "HdR6BZ");
+
+    const late = await heldDeleter(path, "peer:d");
+    expect((await store.deletePeer("peer:d")).released).toBe(5);
+    const fresh = await store.createPeer("peer:d", { erasure: POSTURE });
+    const news = group("R6New", 3);
+    await put(fresh, news, "HdR6NewZ");
+    const c = await heldDeleter(path, "peer:d");
+
+    late.go();
+    expect(await late.printed<DeleteReport>("report")).toEqual(owed(0, 0));
+    expect(await late.ended).toBe("0");
+    expect(rowsOf(path, "peer:d")).toMatchObject({ peer: 1, holding: 3 });
+    const held = read(path, (db) =>
+      db.prepare("SELECT delta FROM holding WHERE peer = ? ORDER BY delta").pluck().all("peer:d"),
+    );
+    expect(held).toEqual(idsOf(news));
+
+    c.go();
+    expect(await c.printed<DeleteReport>("report")).toEqual(
+      PROVEN_HERE ? proven(3, 0) : owed(3, 0),
+    );
+    expect(await c.ended).toBe("0");
+    expect(rowsOf(path, "peer:d")).toEqual({
+      peer: 0,
+      holding: 0,
+      change: 0,
+      digest: 0,
+      debt: 0,
+      surface_debt: 0,
+    });
+    await bystanderHolds(store, b, [y]);
+  }, 120_000);
 });
 
 describe.skipIf(!PROVEN_HERE)("a purge across a delete and a re-create (Linux)", () => {
@@ -774,6 +822,14 @@ describe("the statements that read a peer", () => {
     expect(unfiltered.sort()).toEqual(Object.keys(NOT_FILTERED).sort());
     expect(naming).toContain("peerRead");
     expect(naming).toContain("exportPeers");
+  });
+
+  it("only peerAdd writes the origin column: no other statement that inserts into or updates the peer table names origin before its WHERE", () => {
+    const writers = Object.entries(statements)
+      .filter(([, sql]) => /\b(UPDATE|INTO)\s+peer\b/.test(sql))
+      .filter(([, sql]) => /\borigin\b/.test(sql.split(/\bWHERE\b/)[0]!))
+      .map(([name]) => name);
+    expect(writers).toEqual(["peerAdd"]);
   });
 
   it("the store reads a peer row through one method, and no call assumes the row is there", () => {
