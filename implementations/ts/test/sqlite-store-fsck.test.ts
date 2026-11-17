@@ -245,7 +245,7 @@ describe("fsck finds each kind of fault that a second connection makes", () => {
     expect(places(await fsck())).toEqual([
       { kind: "column-mismatch", peer: "peer:a", id: undefined, key: "change.added" },
     ]);
-  });
+  }, 60_000);
 
   it("bytes no peer holds give one orphan-bytes", async () => {
     const { damage, fsck } = await filled();

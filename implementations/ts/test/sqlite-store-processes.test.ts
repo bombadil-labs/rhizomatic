@@ -86,7 +86,7 @@ function running(args: readonly string[], path: string) {
   });
   proc.stderr.on("data", (chunk: Buffer) => (errors += chunk.toString()));
   const ended = new Promise<string>((done) =>
-    proc.on("exit", (code, signal) => done(String(signal ?? code))),
+    proc.on("close", (code, signal) => done(String(signal ?? code))),
   );
   // Only a line that its newline ended, until the child ends: a chunk can end inside a line.
   const line = (word: string, whole = false): string | undefined =>

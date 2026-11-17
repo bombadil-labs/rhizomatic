@@ -150,7 +150,7 @@ Step 4d adds more, listed under Breaking.
   a 16-way tree whose leaves hold at most 16 ids. `digest` is a strict call: it refuses
   `snapshot-moved` once the peer's held set differs from the snapshot's. Both TypeScript stores
   keep the tree and declare `digest: true`. An append and a purge change it in their own
-  transaction, at O(depth) rows per changed id. Each leaf the update writes drops every digest
+  transaction, at O(depth) rows per changed id. On SQLite each leaf the update writes drops every digest
   row of the peer below it, so a damaged count or a lost row keeps no hash of a purged id below
   a rewritten leaf. `fsck` reports `digest-mismatch`, also for a stray row. A row that damage
   moved off a purged id's path is outside a `proven` claim (reading 142). The package root

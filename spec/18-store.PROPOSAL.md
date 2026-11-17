@@ -2775,9 +2775,11 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      leaf is checked against held ids and every other row against its parent and its children.
      A damaged digest has no remedy by a call: the host restores the file. A damaged digest does
      not stop a write: the update gives each leaf the count of the holdings it reads, so an
-     append or a purge completes. Each leaf the update writes drops every row of the peer below
-     its prefix, whatever the stored counts say, so a damaged count or a lost row on the path
-     keeps no row below a rewritten leaf (reading 142). The update does not repair the digest:
+     append or a purge completes. On SQLite, each leaf the update writes drops every row of the
+     peer below its prefix, whatever the stored counts say, so a damaged count or a lost row on
+     the path keeps no row below a rewritten leaf (reading 142). The memory store drops the rows
+     it reaches through child rows; no call can damage its digest, and it never reports
+     `proven`. The update does not repair the digest:
      a rewritten node can be a leaf of more than 16 ids, or a node of more than 16 ids whose
      children it does not find. The damage stays for `fsck` to report. No purge waits on the
      digest.
@@ -2792,8 +2794,8 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      and that transaction deletes a `holding` row, which raises `residue.dirty`. A rebuild that
      makes `clean = dirty` begins after that commit and rewrites every page. So a `proven` report
      stays true: after it no file holds a digest row or a hash that existed only because of a
-     purged id. The update rewrites every node on the path of each released id, and each leaf it
-     writes drops every row of the peer below its prefix, also when damage changed a stored
+     purged id. The update rewrites every node on the path of each released id, and on SQLite each
+     leaf it writes drops every row of the peer below its prefix, also when damage changed a stored
      count or lost a row (reading 141). Rails scan every file of the store for the hashes of the
      id's path: on a sound digest (every hash the path ever had), after a damaged root count,
      after a lost internal row, after a damaged leaf count, after a merge of 17 ids into a leaf
