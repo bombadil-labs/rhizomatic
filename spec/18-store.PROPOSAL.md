@@ -2408,6 +2408,37 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      that takes an exclusive lock again before each statement: 0, 50, 200 and 1000 ms of wait gave
      the refusal after at most 1, 53, 202 and 1003 ms, on a new file and on a rollback-journal
      store. With `busyTimeoutMs` 0 the open makes one try.
+127. **`withSnapshot`** (slice 4, after the first Loam trial). A host that needs several reads at
+     one revision calls `withSnapshot(peer, body, retry?)`. It takes one snapshot, checks its
+     revision (`revision-out-of-range`, reading 103), runs `body(snapshot, attempt)` on it, and
+     releases it on every path. It answers `{value, attempts}`. On `snapshot-moved`, from
+     `read()` itself or from `body`, it runs `body` again on a new snapshot. Nothing of one
+     snapshot is used with another: `body` keeps nothing between attempts, and its side effects
+     go after `withSnapshot` returns. `StoreReactor.read` and `fetch`, `checkFresh`, a pull of a
+     feed cursor and a pass of held views are this function with the default bound; their
+     behavior did not change. It is a reader over the contract: a store implements nothing for
+     it. Rust gets `with_snapshot` in step 4e.
+128. **What starts again, and the bound.** Only `snapshot-moved` starts `body` again, also one
+     that `body` met on the snapshot of another peer. `store-unavailable` does not: the engine
+     has already waited `busyTimeoutMs`, and the code also names errors that repeat (reading
+     105). Every other error passes up at once as the same object. The bound `snapshots` counts
+     every snapshot, a refused `read()` included: 4 by default (`SNAPSHOT_RETRIES` + 1), at
+     most 16. `withinMs` adds a bound in time: no snapshot after the first starts once
+     `withinMs` ms have passed since the call began. The first always starts, and a running
+     `body` is not stopped, so a call takes at most `withinMs` plus one `body`. No bound in time
+     is the default. Past either bound the last `snapshot-moved` passes up. A `retry` that is
+     not a plain object, a `snapshots` that is not an integer from 1 to 16, a `withinMs` that is
+     not an integer of 0 or more, and a `body` that is not a function are refused
+     `invalid-request` before the first store call. `retry`'s fields are read as own fields
+     (reading 126). Under a steady writer in another process a body can fail every try; the
+     count bounds it, and the host chooses the count.
+129. **`body` and transactions.** `body` may be synchronous or asynchronous, because a snapshot
+     holds no engine transaction between its calls (decision S4-2). A store never holds an
+     engine transaction across a return to its caller. If a store ever pins a snapshot, it pins
+     a revision, never a transaction. So while `body` waits, a write through the same store
+     commits, a checkpoint by another connection is not held back, and a purge by another
+     process reports the same surfaces as with no reader. `body` reads only. An append or a
+     purge of the same peer inside it moves its own snapshot.
 
 ## 5. Architectures
 
