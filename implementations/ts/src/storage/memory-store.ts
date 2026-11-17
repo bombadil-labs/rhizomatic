@@ -354,27 +354,21 @@ class MemoryStore implements Store {
     return this.#handle(state);
   }
 
-  #handle(created: PeerState): PeerStore {
+  #handle(state: PeerState): PeerStore {
     // After `close`, `history` and `appFormat` refuse `store-closed`, as on the SQLite store. A
-    // handle names its peer by id, as the SQLite store reads its row: after `deletePeer` every
-    // call refuses `peer-absent`, and after a `createPeer` of the id it reaches the new peer
-    // (§4.13 reading 143). Only a call after a delete looks the id up again.
-    let state = created;
+    // handle names the state it was made for: after `deletePeer` every call refuses
+    // `peer-absent`, also when a `createPeer` of the id made a new peer (§4.13 reading 143).
     const live = (): PeerState => {
       this.#open();
-      if (state.deleted) {
-        const now = this.#peers.get(state.id);
-        if (now === undefined) throw new StoreError("peer-absent", "the peer was deleted");
-        state = now;
-      }
+      if (state.deleted) throw new StoreError("peer-absent", "the peer was deleted");
       return state;
     };
     return {
-      id: created.id,
+      id: state.id,
       get history() {
         return live().history;
       },
-      erasure: { posture: created.posture, storeClass: this.#own.capabilities.erasure },
+      erasure: { posture: state.posture, storeClass: this.#own.capabilities.erasure },
       get appFormat() {
         return live().appFormat;
       },

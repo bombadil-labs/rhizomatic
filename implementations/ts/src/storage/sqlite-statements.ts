@@ -44,7 +44,8 @@ CREATE TABLE peer (
   max_transfer INTEGER NOT NULL CHECK (max_transfer >= 0),
   app_format TEXT CHECK (app_format IS NULL OR length(CAST(app_format AS BLOB)) BETWEEN 1 AND 256),
   root TEXT NOT NULL,
-  state TEXT NOT NULL CHECK (state IN ('live', 'deleting'))
+  state TEXT NOT NULL CHECK (state IN ('live', 'deleting')),
+  origin TEXT NOT NULL REFERENCES history
 ) STRICT;
 CREATE TABLE delta (
   id TEXT PRIMARY KEY,
@@ -149,17 +150,21 @@ export const SQLITE_STATEMENTS = {
   historyFind: "SELECT 1 FROM history WHERE value = ?",
   historyAdd: "INSERT INTO history (value) VALUES (?)",
   // A peer that a delete marked is absent to every call (§4.13 reading 143). Only `peerState`,
-  // `fsckPeers` and the delete's own statements read a marked row.
+  // `fsckPeers` and the delete's own statements read a marked row. `origin` is the history that
+  // `createPeer` issued. A minting open never changes it, and no peer gets it again, so it names
+  // this peer and not a later one of the same id.
   peerRead: `SELECT posture, store_class AS storeClass, history, revision, floor, head, count,
     max_seq AS maxSeq, removed_at AS removedAt, max_transfer AS maxTransfer,
-    app_format AS appFormat, root FROM peer WHERE id = ? AND state = 'live'`,
+    app_format AS appFormat, root, origin FROM peer WHERE id = ? AND state = 'live'`,
   peerAdd: `INSERT INTO peer
     (id, posture, store_class, history, revision, floor, head, count, max_seq, removed_at,
-    max_transfer, app_format, root, state)
-    VALUES (?, ?, ?, ?, 0, 0, NULL, 0, 0, 0, 0, ?, ?, 'live')`,
-  peerState: "SELECT state, posture FROM peer WHERE id = ?",
+    max_transfer, app_format, root, state, origin)
+    VALUES (@id, @posture, @storeClass, @history, 0, 0, NULL, 0, 0, 0, 0, @appFormat, @root,
+    'live', @history)`,
+  peerState: "SELECT state, posture, origin FROM peer WHERE id = ?",
   peerMark: "UPDATE peer SET state = 'deleting' WHERE id = ?",
-  peerDrop: "DELETE FROM peer WHERE id = ?",
+  // The delete's last removal. It removes only the row its first transaction marked.
+  peerDrop: "DELETE FROM peer WHERE id = ? AND state = 'deleting' AND origin = ?",
   peerHistory: "UPDATE peer SET history = ? WHERE id = ?",
   peerAdvance: `UPDATE peer SET revision = @revision, floor = @floor, head = @head, count = @count,
     max_seq = @maxSeq, removed_at = @removedAt, max_transfer = @maxTransfer, root = @root
@@ -265,14 +270,18 @@ export const SQLITE_STATEMENTS = {
     WHERE peer = @peer AND revision > @from AND revision <= @to
     ORDER BY revision LIMIT @limit`,
 
-  // A peer delete reads one page of each per-peer table by the peer's own key, and removes each
-  // row it read with that table's own delete. The peer's holdings are read by `exportIds`.
-  deleteChanges:
-    "SELECT revision FROM change WHERE peer = ? AND revision > ? ORDER BY revision LIMIT ?",
-  deleteDigest: "SELECT prefix FROM digest WHERE peer = ? AND prefix >= ? ORDER BY prefix LIMIT ?",
-  deleteDebts: "SELECT delta FROM debt WHERE peer = ? AND delta > ? ORDER BY delta LIMIT ?",
-  deleteSurfaceDebts: `SELECT delta FROM surface_debt WHERE peer = ? AND delta > ?
-    ORDER BY delta LIMIT ?`,
+  // A peer delete removes one page of each per-peer table at a time, by the peer's key alone and
+  // from the first row, so no key value of a row, damaged or not, keeps it out of a page. Each page
+  // removes the rows it reads; a page of fewer than the limit was the last.
+  deleteHoldings: "SELECT delta FROM holding WHERE peer = ? ORDER BY delta LIMIT ?",
+  deleteChanges: `DELETE FROM change WHERE peer = @peer AND revision IN
+    (SELECT revision FROM change WHERE peer = @peer ORDER BY revision LIMIT @limit)`,
+  deleteDigest: `DELETE FROM digest WHERE peer = @peer AND prefix IN
+    (SELECT prefix FROM digest WHERE peer = @peer ORDER BY prefix LIMIT @limit)`,
+  deleteDebts: `DELETE FROM debt WHERE peer = @peer AND delta IN
+    (SELECT delta FROM debt WHERE peer = @peer ORDER BY delta LIMIT @limit)`,
+  deleteSurfaceDebts: `DELETE FROM surface_debt WHERE peer = @peer AND delta IN
+    (SELECT delta FROM surface_debt WHERE peer = @peer ORDER BY delta LIMIT @limit)`,
 
   exportPeers: "SELECT id FROM peer WHERE id > ? AND state = 'live' ORDER BY id LIMIT ?",
   exportIds: "SELECT delta FROM holding WHERE peer = ? AND delta > ? ORDER BY delta LIMIT ?",

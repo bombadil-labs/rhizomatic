@@ -217,6 +217,8 @@ type PeerRow = {
   maxTransfer: number;
   appFormat: string | null;
   root: string;
+  /** The history `createPeer` issued. It names this peer, not a later one of the same id. */
+  origin: History;
 };
 type DeltaRow = { id: Id; claims: Uint8Array | null; sig: string | null };
 type FsckRow = DeltaRow & {
@@ -792,10 +794,14 @@ class SqliteFileStore implements SqliteStore {
     return this.#s.peerRead.get(id) as PeerRow | undefined;
   }
 
-  /** The row of a peer a handle names. Refuses `peer-absent` once a delete marked it. */
-  #live(id: PeerId): PeerRow {
+  /**
+   * The row of the peer a handle names: the live peer of the id that `createPeer` made under
+   * `origin`. Refuses `peer-absent` once a delete marked that peer, and for a peer created later
+   * under the same id (§4.13 reading 143). Every call of a handle reads its row through this.
+   */
+  #live(id: PeerId, origin: History): PeerRow {
     const row = this.#peerRow(id);
-    if (row === undefined) throw new StoreError("peer-absent", "the peer was deleted");
+    if (row?.origin !== origin) throw new StoreError("peer-absent", "the peer was deleted");
     return row;
   }
 
@@ -845,7 +851,7 @@ class SqliteFileStore implements SqliteStore {
         throw new StoreError("peer-exists", "createPeer: the peer already exists");
       const history = this.#history(id);
       this.#s.historyAdd.run(history);
-      this.#s.peerAdd.run(id, posture, storeClass, history, appFormat, EMPTY_DIGEST.hash);
+      this.#s.peerAdd.run({ id, posture, storeClass, history, appFormat, root: EMPTY_DIGEST.hash });
       return this.#peerRow(id)!;
     });
     return this.#handle(id, row);
@@ -891,14 +897,16 @@ class SqliteFileStore implements SqliteStore {
 
   #handle(id: PeerId, row: PeerRow): PeerStore {
     // Another process can give the peer a new history at its open (decision S4-8), so the handle
-    // reads it from the file at each ask.
+    // reads it from the file at each ask. The handle names its peer by `origin`, which no open
+    // changes: a peer created later under the id is another peer, and every call refuses.
+    const { origin } = row;
     const history = (): History => {
       this.#open();
-      return this.#run("read", () => this.#live(id).history);
+      return this.#run("read", () => this.#live(id, origin).history);
     };
     const appFormat = (): string | null => {
       this.#open();
-      return this.#run("read", () => this.#live(id).appFormat);
+      return this.#run("read", () => this.#live(id, origin).appFormat);
     };
     return {
       id,
@@ -915,20 +923,20 @@ class SqliteFileStore implements SqliteStore {
         this.#open();
         return this.#snapshot(
           id,
-          this.#run("read", () => this.#live(id)),
+          this.#run("read", () => this.#live(id, origin)),
         );
       },
       append: async (batch) => {
         this.#open();
-        return this.#append(id, batch);
+        return this.#append(id, origin, batch);
       },
       purge: async (ids) => {
         this.#open();
-        return this.#purge(id, strings(ids, "purge: ids"));
+        return this.#purge(id, origin, strings(ids, "purge: ids"));
       },
       changes: async (from, to) => {
         this.#open();
-        return this.#changes(id, from, to);
+        return this.#changes(id, origin, from, to);
       },
     };
   }
@@ -1089,7 +1097,7 @@ class SqliteFileStore implements SqliteStore {
     return Object.freeze({ count: ids.length, hash: leafHash(ids) });
   }
 
-  #changes(peer: PeerId, from: unknown, to: unknown): ChangePage {
+  #changes(peer: PeerId, origin: History, from: unknown, to: unknown): ChangePage {
     const revision = (value: unknown, what: string): Revision => {
       if (!(Number.isSafeInteger(value) && (value as number) >= 0))
         throw new StoreError("invalid-request", `changes: ${what} must be an integer, 0 or more`);
@@ -1100,7 +1108,7 @@ class SqliteFileStore implements SqliteStore {
     if (upTo !== undefined && upTo < after)
       throw new StoreError("invalid-request", "changes: to must not be less than from");
     return this.#run("read", () => {
-      const { revision: current, floor } = this.#live(peer);
+      const { revision: current, floor } = this.#live(peer, origin);
       if (after > current || after < floor) return { status: "resync-required", current };
       const end = Math.min(upTo ?? current, current);
       const rows = this.#s.changes.all({
@@ -1161,7 +1169,7 @@ class SqliteFileStore implements SqliteStore {
     });
   }
 
-  #append(peer: PeerId, batch: unknown): AppendResult {
+  #append(peer: PeerId, origin: History, batch: unknown): AppendResult {
     const { expectedHead, nextHead, added } = takeAppend(batch);
     // The entries are copied and checked before the write lock is taken. A refusal among them
     // still waits for the head compare-and-set, which answers first, as in the memory store.
@@ -1177,7 +1185,7 @@ class SqliteFileStore implements SqliteStore {
     return this.#run(
       "write",
       (): AppendResult => {
-        const row = this.#live(peer);
+        const row = this.#live(peer, origin);
         if (row.head !== expectedHead) return { status: "conflict" };
         if (entries === undefined) throw refusal;
         const fresh = new Map<Id, Admitted>();
@@ -1253,11 +1261,11 @@ class SqliteFileStore implements SqliteStore {
    * the log, a peer of posture `proven` lets go of the lock, empties the log and tries again; the
    * last try answers without the proof (reading 119).
    */
-  #purge(peer: PeerId, ids: readonly Id[]): PurgeReport {
+  #purge(peer: PeerId, origin: History, ids: readonly Id[]): PurgeReport {
     const s = this.#s;
     const asked = sorted(ids);
     const first = this.#run("write", () => {
-      const row = this.#live(peer);
+      const row = this.#live(peer, origin);
       const proving = ERASURE_CLASS === "proven" && row.posture === "proven";
       const released: Id[] = [];
       for (const id of asked) {
@@ -1287,10 +1295,11 @@ class SqliteFileStore implements SqliteStore {
     let proof = first.proving ? this.#rebuild(first.dirty) : undefined;
     for (let tries = 1; ; tries++) {
       try {
-        // A delete that marked the peer since the first transaction refuses the report: its
-        // delete has committed, as for any refused purge (reading 105).
+        // A delete that marked the peer since the first transaction, or a delete and a
+        // createPeer of the id, refuse the report before it writes anything: the first
+        // transaction's removals have committed, as for any refused purge (reading 105).
         return this.#run("write", () => {
-          this.#live(peer);
+          this.#live(peer, origin);
           return this.#decide(peer, asked, first, proof, tries);
         });
       } catch (error) {
@@ -1317,10 +1326,15 @@ class SqliteFileStore implements SqliteStore {
    * The peer delete (§4.13 reading 143). The first transaction marks the peer, and from its
    * commit every call on the peer refuses. Then the peer's holdings are released, and its change
    * records, debts, records and digest rows removed, a page of one table per write transaction,
-   * read by the peer's own key: no other peer's listing is read. A last transaction removes the
-   * peer row. A peer of posture `proven` then rebuilds and empties the log as a purge does, and
-   * the report is decided in one more transaction, from what it reads. A delete that dies leaves
-   * the mark, and the next delete of the peer goes on from where it stopped.
+   * by the peer's own key: no other peer's listing is read. A last transaction removes the peer
+   * row. A peer of posture `proven` then rebuilds and empties the log as a purge does, and the
+   * report is decided in one more transaction, from what it reads. A delete that dies leaves the
+   * mark, and the next delete of the peer goes on from where it stopped.
+   *
+   * The call works only on the peer its first transaction read: the row of the id, marked, with
+   * that row's `origin`. Each later transaction reads the row again under the write lock, and the
+   * last one removes it only on the same terms. When another delete of the peer has ended, or a
+   * peer was created again under the id, the call removes nothing more and answers what it did.
    */
   async deletePeer(id: PeerId): Promise<DeleteReport> {
     this.#open();
@@ -1330,44 +1344,47 @@ class SqliteFileStore implements SqliteStore {
         "deletePeer: the peer id must be a non-empty, well-formed string",
       );
     const s = this.#s;
-    const posture = this.#run("write", () => {
-      const found = s.peerState.get(id) as { state: string; posture: ErasurePosture } | undefined;
+    type Found = { state: "live" | "deleting"; posture: ErasurePosture; origin: History };
+    const { posture, origin } = this.#run("write", () => {
+      const found = s.peerState.get(id) as Found | undefined;
       if (found === undefined) throw new StoreError("peer-absent", "deletePeer: no such peer");
       if (found.state === "live") s.peerMark.run(id);
-      return found.posture;
+      return found;
     });
+    const marked = (): boolean => {
+      const now = s.peerState.get(id) as Found | undefined;
+      return now?.state === "deleting" && now.origin === origin;
+    };
     let released = 0;
     let kept = 0;
-    // Each page reads past the last key of the page before it, by the peer's own key.
-    const tables: [BetterSqlite3.Statement, string | number, BetterSqlite3.Statement | null][] = [
-      [s.exportIds, "", null],
-      [s.deleteChanges, -1, s.changeDrop],
-      [s.deleteDigest, "", s.digestDrop],
-      [s.deleteDebts, "", s.debtDrop],
-      [s.deleteSurfaceDebts, "", s.surfaceDebtDrop],
+    // Each page starts at the peer's first row and removes every row it reads, so the next page
+    // reads the rows after it. A page that removes fewer than EXPORT_PAGE rows was the last.
+    const pages: (() => number)[] = [
+      () => {
+        const page = s.deleteHoldings.all(id, EXPORT_PAGE) as { delta: Id }[];
+        for (const { delta } of page) {
+          released++;
+          if (!this.#release(id, delta)) kept++;
+        }
+        return page.length;
+      },
+      ...[s.deleteChanges, s.deleteDigest, s.deleteDebts, s.deleteSurfaceDebts].map(
+        (statement) => () => statement.run({ peer: id, limit: EXPORT_PAGE }).changes,
+      ),
     ];
-    for (const [list, start, drop] of tables)
-      for (let after = start, found = EXPORT_PAGE; found === EXPORT_PAGE; ) {
+    let mine = true;
+    for (const page of pages)
+      for (let found = EXPORT_PAGE; mine && found === EXPORT_PAGE; ) {
         await new Promise<void>((resolve) => setImmediate(resolve));
         this.#open();
-        const keys = this.#run("write", () => {
-          const page = (list.all(id, after, EXPORT_PAGE) as Record<string, string | number>[]).map(
-            (r) => Object.values(r)[0]!,
-          );
-          for (const key of page)
-            if (drop !== null) drop.run(id, key);
-            else {
-              released++;
-              if (!this.#release(id, key as Id)) kept++;
-            }
-          return page;
-        });
-        found = keys.length;
-        after = keys.at(-1) ?? after;
+        found = this.#run("write", () => ((mine = marked()) ? page() : 0));
       }
     this.#open();
+    // `peerDrop` removes the row only on the terms of `marked`. It removes nothing when another
+    // delete removed the row, or when the row is a peer created later under the id; the report
+    // then reads the row that is there.
     const dirty = this.#run("write", () => {
-      s.peerDrop.run(id);
+      s.peerDrop.run(id, origin);
       return !this.#clean();
     });
     const proving = ERASURE_CLASS === "proven" && posture === "proven";
@@ -1564,16 +1581,6 @@ class SqliteFileStore implements SqliteStore {
       this.#open();
       return this.#run("read", body);
     };
-    // Each page of a peer's listing reads the peer row in its own transaction, so a delete that
-    // marked the peer since the listing began ends it with `peer-absent` (reading 143).
-    const held = <T>(peer: PeerId, body: () => T): T => {
-      const absent = new StoreError("peer-absent", "export: no such peer");
-      if (!(typeof peer === "string" && wellFormed(peer))) throw absent;
-      return read(() => {
-        if (this.#peerRow(peer) === undefined) throw absent;
-        return body();
-      });
-    };
     // Each page is one short statement after the last key of the page before it, so a listing
     // never holds a transaction open between pages. `first` runs when the listing is first read.
     async function* pages<T>(
@@ -1588,6 +1595,26 @@ class SqliteFileStore implements SqliteStore {
         after = found.at(-1)!.key;
       }
     }
+    // A listing of one peer names the peer that its first read found, by its `origin`. Each page
+    // reads the peer row in its own transaction, so a delete that marked the peer since the
+    // listing began, or a peer created again under the id, ends it with `peer-absent` (reading
+    // 143).
+    const listing = <T>(peer: PeerId, page: (after: string) => { key: string; value: T }[]) => {
+      const absent = (): StoreError => new StoreError("peer-absent", "export: no such peer");
+      let origin: History | undefined;
+      return pages(
+        (after) =>
+          read(() => {
+            if (this.#peerRow(peer)?.origin !== origin) throw absent();
+            return page(after);
+          }),
+        () => {
+          if (typeof peer === "string" && wellFormed(peer))
+            origin = read(() => this.#peerRow(peer)?.origin);
+          if (origin === undefined) throw absent();
+        },
+      );
+    };
     const ids =
       (statement: BetterSqlite3.Statement, ...args: unknown[]) =>
       (after: string) =>
@@ -1601,20 +1628,18 @@ class SqliteFileStore implements SqliteStore {
       peers: () => pages(ids(s.exportPeers)),
       peer: (peer) => ({
         ids: () =>
-          pages(
-            (after) =>
-              held(peer, () => s.exportIds.all(peer, after, EXPORT_PAGE) as { delta: Id }[]).map(
-                (r) => ({ key: r.delta, value: r.delta }),
-              ),
-            () => held(peer, () => undefined),
+          listing(peer, (after) =>
+            (s.exportIds.all(peer, after, EXPORT_PAGE) as { delta: Id }[]).map((r) => ({
+              key: r.delta,
+              value: r.delta,
+            })),
           ),
         deltas: () =>
-          pages(
-            (after) =>
-              held(peer, () => s.exportDeltas.all(peer, after, EXPORT_PAGE) as DeltaRow[]).map(
-                (r) => ({ key: r.id, value: this.#delta(r, peer) }),
-              ),
-            () => held(peer, () => undefined),
+          listing(peer, (after) =>
+            (s.exportDeltas.all(peer, after, EXPORT_PAGE) as DeltaRow[]).map((r) => ({
+              key: r.id,
+              value: this.#delta(r, peer),
+            })),
           ),
       }),
       storedIds: () => pages(ids(s.exportStored)),

@@ -37,6 +37,10 @@ const EXEMPT: Readonly<Record<string, string>> = {
     "fsck is O(store) by definition: the engine checks every foreign key of every row once, in one read transaction",
   peerDrop:
     "a peer delete removes the peer row once, last (§4.13 reading 143); the engine's foreign-key check of that delete looks for one row of each table that names the peer, by the peer's key, and finds none",
+  deleteHoldings:
+    "a peer delete reads one page of the peer's holdings from the first, with a limit, and releases every holding it reads, so the next page starts after them: O(page) per page (§4.13 reading 143)",
+  deleteDigest:
+    "a peer delete removes one page of the peer's digest rows from the first, with a limit: O(page) per page (§4.13 reading 143)",
   fsckCount:
     "fsck counts one peer's holdings to compare them with the peer's count, in the transaction that reads the count; it reads each holding once per scan",
 };
