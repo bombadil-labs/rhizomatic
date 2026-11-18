@@ -940,6 +940,12 @@ impl Snapshot for SpySnapshot {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
+    fn root(&self) -> Option<&str> {
+        self.inner.root()
+    }
+    fn digest(&self, prefix: &str) -> Result<rhizomatic::store_digest::DigestNode, StoreFailure> {
+        self.inner.digest(prefix)
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.log("get");
         let mut got = self.inner.get(ids)?;

@@ -258,6 +258,15 @@ impl Snapshot for Fixed {
     fn last_transfer(&self) -> u64 {
         self.last_transfer
     }
+    fn root(&self) -> Option<&str> {
+        None
+    }
+    fn digest(&self, _: &str) -> Result<rhizomatic::store_digest::DigestNode, StoreFailure> {
+        Err(StoreFailure::Refused(StoreError::new(
+            StoreErrorCode::CapabilityAbsent,
+            "this double keeps no digest",
+        )))
+    }
     fn get(&self, _: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.touch(Vec::new())
     }
