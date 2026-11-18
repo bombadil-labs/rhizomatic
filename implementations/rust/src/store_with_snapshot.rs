@@ -141,6 +141,10 @@ impl Drop for Held {
 /// crate has two: [`FeedError`], the smallest, and `store_read::StoreReadError`. A body that
 /// only calls `Snapshot` methods uses `FeedError`, and `?` turns each `StoreFailure` into it. An
 /// integrity fault is no refusal, so it passes up after one run, as any other error does.
+///
+/// A host's own `E` also needs `From<StoreFailure>` when its body uses `?` on a snapshot call.
+/// That conversion must keep an integrity fault out of `store_code`: a fault that answers
+/// `snapshot-moved` there starts the body again.
 pub fn with_snapshot<T, E>(
     peer: &dyn PeerStore,
     mut body: impl FnMut(&dyn Snapshot, usize) -> Result<T, E>,

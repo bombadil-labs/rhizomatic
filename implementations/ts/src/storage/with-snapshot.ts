@@ -132,8 +132,9 @@ function reading(clock: () => number, since = Number.NEGATIVE_INFINITY): number 
  * `body` reads only, through the snapshot it is given. It keeps nothing from an earlier attempt,
  * and its side effects go after this returns: it can run up to `retry.snapshots` times. A purge
  * of the same peer inside it that releases a holding moves its own snapshot; an append does not
- * (§4.13 reading 130). It must not keep the snapshot: after each attempt that snapshot refuses
- * `snapshot-released`.
+ * (§4.13 reading 130). One call is the exception: `digest` is strict, so after an append inside
+ * `body` that adds an id, `digest` on its snapshot refuses `snapshot-moved` (reading 140). It must
+ * not keep the snapshot: after each attempt that snapshot refuses `snapshot-released`.
  */
 export async function withSnapshot<T>(
   peer: PeerStore,

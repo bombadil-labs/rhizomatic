@@ -20,12 +20,12 @@ use crate::delta::compute_id;
 use crate::store::{
     negated_ids, signature_form, target_entities, Admission, Anchor, AppendResult, ArrivalRecord,
     AtRest, ChangePage, ChangeRecord, ChangeRetention, CreatePeerOptions, ErasureClaim,
-    ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter, PeerStore,
-    PurgeOutcome, PurgeReport, PurgeSurface, PurgeTarget, Pushdown, PushdownFields, Retained,
-    RetainedSurface, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreCapabilities,
-    StoreError, StoreErrorCode, StoreFailure, StoreProfile, StoreWriters, SurfaceState,
-    VerifiedDelta, APP_FORMAT_MAX_BYTES, LOCAL_HISTORY_PREFIX, MAX_ARRIVAL_COUNTER, MAX_REVISION,
-    PURGE_BOUNDARY,
+    ErasureClass, ErasurePosture, Exporter, FsckChecked, FsckReport, IntegrityFault,
+    IntegrityFaultKind, Listing, PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport,
+    PurgeSurface, PurgeTarget, Pushdown, PushdownFields, Retained, RetainedSurface, Revision,
+    ScopeRequest, ScopeResult, Snapshot, Store, StoreCapabilities, StoreError, StoreErrorCode,
+    StoreFailure, StoreProfile, StoreWriters, SurfaceState, VerifiedDelta, APP_FORMAT_MAX_BYTES,
+    LOCAL_HISTORY_PREFIX, MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
 };
 use crate::types::{Claims, Delta};
 
@@ -252,6 +252,18 @@ fn refuse<T>(code: StoreErrorCode, message: impl Into<String>) -> Result<T, Stor
     Err(StoreError::new(code, message))
 }
 
+/// A held id whose stored claims are gone (§4.13 reading 136). A read that meets it answers
+/// nothing, so the lost row is not hidden.
+fn lost(peer: &str, id: &str) -> IntegrityFault {
+    IntegrityFault {
+        kind: IntegrityFaultKind::ClaimsUnreadable,
+        peer: Some(peer.to_string()),
+        id: Some(id.to_string()),
+        key: None,
+        detail: "memory store: a held delta has no stored claims".to_string(),
+    }
+}
+
 fn distinct(keys: &[String]) -> BTreeSet<&str> {
     keys.iter().map(String::as_str).collect()
 }
@@ -415,8 +427,8 @@ impl State {
         })
     }
 
-    fn purge(&mut self, peer_id: &str, ids: &[String]) -> Result<PurgeReport, StoreError> {
-        self.open()?;
+    fn purge(&mut self, peer_id: &str, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
+        self.open().map_err(StoreFailure::Refused)?;
         let State {
             meter,
             stored,
@@ -426,15 +438,24 @@ impl State {
             ..
         } = self;
         let Some(peer) = peers.get_mut(meter, peer_id) else {
-            return refuse(StoreErrorCode::PeerAbsent, "no such peer");
+            return refuse(StoreErrorCode::PeerAbsent, "no such peer")
+                .map_err(StoreFailure::Refused);
         };
+        // A held id without its stored claims fails the whole purge before it removes anything
+        // (§4.13 reading 136).
+        for id in distinct(ids) {
+            if peer.holdings.contains(meter, id) && !stored.contains(meter, id) {
+                return Err(StoreFailure::Integrity(lost(peer_id, id)));
+            }
+        }
         let mut targets = Vec::new();
         // The ids that leave this peer's holdings, ascending. A settled debt is not one of them.
         let mut released = Vec::new();
         for id in distinct(ids) {
             let outcome = if peer.holdings.remove(meter, id).is_some() {
                 released.push(id.to_string());
-                // The stored claims name the index entries this delta made for the peer.
+                // The stored claims name the index entries this delta made for the peer. The
+                // check above found them, and this loop removes no other id's claims.
                 let last_holder = match stored.get_mut(meter, id) {
                     Some(kept) => {
                         for entity in target_entities(&kept.claims) {
@@ -581,33 +602,34 @@ impl State {
         })
     }
 
-    /// One held delta as this peer admitted it, with its arrival record.
+    /// One held delta as this peer admitted it, with its arrival record. A holding whose stored
+    /// claims are gone is a fault: serving nothing would hide it (§4.13 reading 136).
     fn held(
-        meter: &mut StoreMeter,
-        stored: &Index<Stored>,
-        peer: &PeerState,
+        view: &mut SnapshotView<'_>,
         id: &str,
-    ) -> Option<VerifiedDelta> {
-        let holding = peer.holdings.get(meter, id)?;
-        let kept = stored.get(meter, id)?;
-        Some(VerifiedDelta {
+    ) -> Result<Option<VerifiedDelta>, IntegrityFault> {
+        let Some(holding) = view.peer.holdings.get(view.meter, id) else {
+            return Ok(None);
+        };
+        let Some(kept) = view.stored.get(view.meter, id) else {
+            return Err(lost(view.peer_id, id));
+        };
+        Ok(Some(VerifiedDelta {
             delta: Delta {
                 id: id.to_string(),
                 claims: kept.claims.clone(),
                 sig: holding.sig.clone(),
             },
             arrival: holding.arrival.clone(),
-        })
+        }))
     }
 
-    fn scope(view: SnapshotView<'_>, request: &ScopeRequest) -> ScopeResult {
-        let SnapshotView {
-            meter,
-            stored,
-            peer,
-            offers,
-            bound,
-        } = view;
+    fn scope(
+        mut view: SnapshotView<'_>,
+        request: &ScopeRequest,
+    ) -> Result<ScopeResult, IntegrityFault> {
+        let offers = view.offers;
+        let bound = view.bound;
         // Keep only the requested fields this store applies. The host applies the rest.
         let asked = request.pushdown.clone().unwrap_or_default();
         let pushdown = Pushdown {
@@ -623,14 +645,20 @@ impl State {
             .collect();
         let mut members: BTreeMap<String, VerifiedDelta> = BTreeMap::new();
         let mut pending: Vec<String> = Vec::new();
-        let mut consider = |meter: &mut StoreMeter, id: String, pending: &mut Vec<String>| {
-            if members.contains_key(&id) || dropped.contains(id.as_str()) {
-                return;
+        // The row of a held id is read before any filter, so a lost row fails the walk also when
+        // the bound, `arrivalAtMost` or `excludeIds` would drop it (§4.13 reading 136).
+        let mut consider = |view: &mut SnapshotView<'_>,
+                            id: String,
+                            pending: &mut Vec<String>|
+         -> Result<(), IntegrityFault> {
+            if members.contains_key(&id) {
+                return Ok(());
             }
-            let Some(member) = Self::held(meter, stored, peer, &id) else {
-                return;
+            let Some(member) = Self::held(view, &id)? else {
+                return Ok(());
             };
             if member.arrival.sequence > bound
+                || dropped.contains(id.as_str())
                 || pushdown
                     .arrival_at_most
                     .is_some_and(|n| member.arrival.sequence > n)
@@ -638,10 +666,11 @@ impl State {
                     .timestamp_at_most
                     .is_some_and(|t| member.delta.claims.timestamp > t)
             {
-                return;
+                return Ok(());
             }
             members.insert(id.clone(), member);
             pending.push(id);
+            Ok(())
         };
         let entities: BTreeSet<&str> = request
             .anchors
@@ -651,27 +680,184 @@ impl State {
             })
             .collect();
         for entity in entities {
-            for id in peer.targets.members(meter, entity) {
-                consider(meter, id, &mut pending);
+            for id in view.peer.targets.members(view.meter, entity) {
+                consider(&mut view, id, &mut pending)?;
             }
         }
         while let Some(id) = pending.pop() {
-            for negator in peer.negators.members(meter, &id) {
-                consider(meter, negator, &mut pending);
+            for negator in view.peer.negators.members(view.meter, &id) {
+                consider(&mut view, negator, &mut pending)?;
             }
         }
         // `exclude` only leaves ids out of the answer; the chains above ran through them.
         for id in &request.exclude {
             members.remove(id);
         }
-        ScopeResult {
+        Ok(ScopeResult {
             deltas: members.into_values().collect(),
             applied: PushdownFields {
                 timestamp_at_most: pushdown.timestamp_at_most.is_some(),
                 arrival_at_most: pushdown.arrival_at_most.is_some(),
                 exclude_ids: pushdown.exclude_ids.is_some(),
             },
+        })
+    }
+}
+
+impl State {
+    /// `fsck` over this store's own structures (§4.13 reading 137), in TypeScript's order: per
+    /// peer, each holding against the peer's counters and its stored claims, each index entry
+    /// against the claims, and the change records; then each stored row's count of holders. A
+    /// check that meets damage reports it and goes on. It reads only. O(store).
+    fn fsck(&mut self) -> FsckReport {
+        let State {
+            meter,
+            stored,
+            peers,
+            ..
+        } = self;
+        let mut faults = Vec::new();
+        let mut checked = FsckChecked::default();
+        let mut holders: BTreeMap<&str, usize> = BTreeMap::new();
+        for (peer_id, peer) in peers.scan(meter) {
+            checked.peers += 1;
+            let mut fault = |kind, id: Option<&str>, key: Option<&str>, detail: String| {
+                faults.push(IntegrityFault {
+                    kind,
+                    peer: Some(peer_id.clone()),
+                    id: id.map(str::to_string),
+                    key: key.map(str::to_string),
+                    detail,
+                })
+            };
+            let mut expected: [BTreeMap<&str, BTreeSet<&str>>; 2] = Default::default();
+            for (id, holding) in peer.holdings.scan(meter) {
+                checked.holdings += 1;
+                *holders.entry(id).or_default() += 1;
+                let here = Some(id.as_str());
+                if holding.arrival.sequence > peer.last_sequence {
+                    let detail = "memory store: a sequence passes the peer's last";
+                    fault(
+                        IntegrityFaultKind::SequenceMismatch,
+                        here,
+                        Some("seq"),
+                        detail.into(),
+                    );
+                }
+                if holding.arrival.transfer > peer.last_transfer {
+                    let detail = "memory store: a transfer passes the peer's last";
+                    let key = Some("transfer");
+                    fault(
+                        IntegrityFaultKind::SequenceMismatch,
+                        here,
+                        key,
+                        detail.into(),
+                    );
+                }
+                if holding.arrival.id != *id {
+                    let detail = "memory store: the arrival record names another id";
+                    let key = Some("holding.arrival");
+                    fault(IntegrityFaultKind::ColumnMismatch, here, key, detail.into());
+                }
+                let Some(kept) = stored.get(meter, id) else {
+                    let detail = "memory store: a held delta has no stored claims";
+                    fault(
+                        IntegrityFaultKind::ClaimsUnreadable,
+                        here,
+                        None,
+                        detail.into(),
+                    );
+                    continue;
+                };
+                if compute_id(&kept.claims).ok().as_deref() != Some(id.as_str()) {
+                    let detail = "memory store: stored claims do not hash to their id";
+                    fault(
+                        IntegrityFaultKind::ClaimsMismatch,
+                        here,
+                        None,
+                        detail.into(),
+                    );
+                }
+                for entity in target_entities(&kept.claims) {
+                    expected[0].entry(entity).or_default().insert(id);
+                }
+                for negated in negated_ids(&kept.claims) {
+                    expected[1].entry(negated).or_default().insert(id);
+                }
+            }
+            let indexes = [(&peer.targets, "target"), (&peer.negators, "negation")];
+            for ((index, what), want) in indexes.into_iter().zip(&mut expected) {
+                for (key, bucket) in index.scan(meter) {
+                    for id in bucket {
+                        let named = want
+                            .get_mut(key.as_str())
+                            .is_some_and(|ids| ids.remove(id.as_str()));
+                        if !named {
+                            let detail =
+                                format!("memory store: a {what} entry that no held claims name");
+                            fault(IntegrityFaultKind::IndexStray, Some(id), Some(key), detail);
+                        }
+                    }
+                }
+                for (key, left) in want.iter() {
+                    for id in left {
+                        let detail = format!(
+                            "memory store: held claims name a {what} entry that is missing"
+                        );
+                        fault(
+                            IntegrityFaultKind::IndexMissing,
+                            Some(id),
+                            Some(key),
+                            detail,
+                        );
+                    }
+                }
+            }
+            let feed = &peer.feed;
+            let kept = feed.records.len() as u64;
+            let runs = feed
+                .records
+                .iter()
+                .zip(feed.floor + 1..)
+                .all(|(record, revision)| record.revision.0 == revision);
+            if feed.floor.checked_add(kept) != Some(peer.revision) || !runs {
+                let detail = format!(
+                    "memory store: the peer keeps {kept} change records at floor {} and revision {}",
+                    feed.floor, peer.revision
+                );
+                fault(IntegrityFaultKind::FeedGap, None, None, detail);
+            }
         }
+        for (id, row) in stored.scan(meter) {
+            checked.deltas += 1;
+            let held = holders.get(id.as_str()).copied().unwrap_or(0);
+            let (kind, key, detail) = if held == 0 {
+                (
+                    IntegrityFaultKind::OrphanBytes,
+                    None,
+                    "memory store: no peer holds these bytes".to_string(),
+                )
+            } else if row.holders != held {
+                (
+                    IntegrityFaultKind::CountMismatch,
+                    Some("holders".to_string()),
+                    format!(
+                        "memory store: the row counts {} holders and {held} peers hold it",
+                        row.holders
+                    ),
+                )
+            } else {
+                continue;
+            };
+            faults.push(IntegrityFault {
+                kind,
+                peer: None,
+                id: Some(id.clone()),
+                key,
+                detail,
+            });
+        }
+        FsckReport { checked, faults }
     }
 }
 
@@ -679,6 +865,7 @@ impl State {
 struct SnapshotView<'a> {
     meter: &'a mut StoreMeter,
     stored: &'a Index<Stored>,
+    peer_id: &'a str,
     peer: &'a PeerState,
     offers: PushdownFields,
     /// The snapshot's last sequence: a holding with a later sequence arrived after the read.
@@ -686,12 +873,18 @@ struct SnapshotView<'a> {
 }
 
 impl SnapshotView<'_> {
-    /// Whether the snapshot holds `id`: the peer holds it at a sequence within the bound.
-    fn within(&mut self, id: &str) -> bool {
-        self.peer
+    /// Whether the snapshot holds `id`: the peer holds it at a sequence within the bound. An id
+    /// it holds must have its stored claims, as in `get` (§4.13 reading 136).
+    fn within(&mut self, id: &str) -> Result<bool, IntegrityFault> {
+        let held = self
+            .peer
             .holdings
             .get(self.meter, id)
-            .is_some_and(|holding| holding.arrival.sequence <= self.bound)
+            .is_some_and(|holding| holding.arrival.sequence <= self.bound);
+        if held && !self.stored.contains(self.meter, id) {
+            return Err(lost(self.peer_id, id));
+        }
+        Ok(held)
     }
 }
 
@@ -1024,7 +1217,7 @@ impl PeerStore for MemoryPeer {
     }
 
     fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
-        with(&self.state, |state| state.purge(&self.id, ids)).map_err(StoreFailure::Refused)
+        with(&self.state, |state| state.purge(&self.id, ids))
     }
 
     fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
@@ -1050,15 +1243,21 @@ impl MemorySnapshot {
     /// last one, so each query keeps the holdings at or below it and answers as at the
     /// snapshot's revision (§4.13 readings 130 and 131). This store neither deletes nor restores
     /// a peer, so its history and revision never go back.
-    fn query<R>(&self, f: impl FnOnce(SnapshotView<'_>) -> R) -> Result<R, StoreError> {
+    /// A refusal answers `StoreFailure::Refused`; damage that `f` meets answers
+    /// `StoreFailure::Integrity`.
+    fn query<R>(
+        &self,
+        f: impl FnOnce(SnapshotView<'_>) -> Result<R, IntegrityFault>,
+    ) -> Result<R, StoreFailure> {
         if self.released {
             return refuse(
                 StoreErrorCode::SnapshotReleased,
                 "the snapshot was released",
-            );
+            )
+            .map_err(StoreFailure::Refused);
         }
         with(&self.state, |state| {
-            state.open()?;
+            state.open().map_err(StoreFailure::Refused)?;
             let State {
                 meter,
                 stored,
@@ -1067,21 +1266,25 @@ impl MemorySnapshot {
                 ..
             } = state;
             let Some(peer) = peers.get(meter, &self.peer) else {
-                return refuse(StoreErrorCode::PeerAbsent, "no such peer");
+                return refuse(StoreErrorCode::PeerAbsent, "no such peer")
+                    .map_err(StoreFailure::Refused);
             };
             if peer.removed_at > self.revision {
                 return refuse(
                     StoreErrorCode::SnapshotMoved,
                     "the peer released a holding after this snapshot; read a new one",
-                );
+                )
+                .map_err(StoreFailure::Refused);
             }
-            Ok(f(SnapshotView {
+            f(SnapshotView {
                 meter,
                 stored,
+                peer_id: &self.peer,
                 peer,
                 offers: *pushdown,
                 bound: self.last_sequence,
-            }))
+            })
+            .map_err(StoreFailure::Integrity)
         })
     }
 }
@@ -1112,27 +1315,37 @@ impl Snapshot for MemorySnapshot {
     }
 
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
-        self.query(|view| {
-            distinct(ids)
-                .into_iter()
-                .filter_map(|id| State::held(view.meter, view.stored, view.peer, id))
-                .filter(|member| member.arrival.sequence <= view.bound)
-                .map(|member| member.delta)
-                .collect()
+        self.query(|mut view| {
+            let mut found = Vec::new();
+            // The row is read before the bound, as in TypeScript (§4.13 reading 136).
+            for id in distinct(ids) {
+                if let Some(member) = State::held(&mut view, id)? {
+                    if member.arrival.sequence <= view.bound {
+                        found.push(member.delta);
+                    }
+                }
+            }
+            Ok(found)
         })
-        .map_err(StoreFailure::Refused)
     }
 
     fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.query(|view| {
-            distinct(ids)
-                .into_iter()
-                .filter_map(|id| view.peer.holdings.get(view.meter, id))
-                .filter(|holding| holding.arrival.sequence <= view.bound)
-                .map(|holding| holding.arrival.clone())
-                .collect()
+            let mut found = Vec::new();
+            for id in distinct(ids) {
+                let Some(holding) = view.peer.holdings.get(view.meter, id) else {
+                    continue;
+                };
+                if holding.arrival.sequence > view.bound {
+                    continue;
+                }
+                if !view.stored.contains(view.meter, id) {
+                    return Err(lost(view.peer_id, id));
+                }
+                found.push(holding.arrival.clone());
+            }
+            Ok(found)
         })
-        .map_err(StoreFailure::Refused)
     }
 
     fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
@@ -1140,14 +1353,13 @@ impl Snapshot for MemorySnapshot {
             let mut ids = BTreeSet::new();
             for entity in distinct(entities) {
                 for id in view.peer.targets.members(view.meter, entity) {
-                    if view.within(&id) {
+                    if view.within(&id)? {
                         ids.insert(id);
                     }
                 }
             }
-            ids.into_iter().collect()
+            Ok(ids.into_iter().collect())
         })
-        .map_err(StoreFailure::Refused)
     }
 
     fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
@@ -1155,14 +1367,13 @@ impl Snapshot for MemorySnapshot {
             let mut negators = BTreeSet::new();
             for id in distinct(ids) {
                 for negator in view.peer.negators.members(view.meter, id) {
-                    if view.within(&negator) {
+                    if view.within(&negator)? {
                         negators.insert(negator);
                     }
                 }
             }
-            negators.into_iter().collect()
+            Ok(negators.into_iter().collect())
         })
-        .map_err(StoreFailure::Refused)
     }
 
     fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
@@ -1188,7 +1399,6 @@ impl Snapshot for MemorySnapshot {
             .map_err(StoreFailure::Refused);
         }
         self.query(|view| State::scope(view, request))
-            .map_err(StoreFailure::Refused)
     }
 
     fn release(&mut self) {
@@ -1200,17 +1410,17 @@ struct MemoryExporter {
     state: Shared,
 }
 
-fn listing<'a, T: 'a>(items: Result<Vec<T>, StoreError>) -> Listing<'a, T> {
+fn listing<'a, T: 'a>(items: Result<Vec<T>, StoreFailure>) -> Listing<'a, T> {
     match items {
         Ok(items) => Box::new(items.into_iter().map(Ok)),
-        Err(refusal) => Box::new(std::iter::once(Err(StoreFailure::Refused(refusal)))),
+        Err(failure) => Box::new(std::iter::once(Err(failure))),
     }
 }
 
 impl Exporter for MemoryExporter {
     fn peers(&self) -> Listing<'_, String> {
         listing(with(&self.state, |state| {
-            state.open()?;
+            state.open().map_err(StoreFailure::Refused)?;
             Ok(state
                 .peers
                 .scan(&mut state.meter)
@@ -1234,13 +1444,20 @@ impl Exporter for MemoryExporter {
 
     fn stored_ids(&self) -> Listing<'_, String> {
         listing(with(&self.state, |state| {
-            state.open()?;
+            state.open().map_err(StoreFailure::Refused)?;
             Ok(state
                 .stored
                 .scan(&mut state.meter)
                 .map(|(id, _)| id.clone())
                 .collect())
         }))
+    }
+
+    fn fsck(&self) -> Result<FsckReport, StoreError> {
+        with(&self.state, |state| {
+            state.open()?;
+            Ok(state.fsck())
+        })
     }
 }
 
@@ -1250,9 +1467,11 @@ struct MemoryPeerExporter {
 }
 
 impl MemoryPeerExporter {
-    fn members(&self) -> Result<Vec<Delta>, StoreError> {
+    /// Every holding of the peer. A holding whose stored claims are gone fails the listing, as a
+    /// read does (§4.13 reading 136).
+    fn members(&self) -> Result<Vec<Delta>, StoreFailure> {
         with(&self.state, |state| {
-            state.open()?;
+            state.open().map_err(StoreFailure::Refused)?;
             let State {
                 meter,
                 stored,
@@ -1260,20 +1479,24 @@ impl MemoryPeerExporter {
                 ..
             } = state;
             let Some(peer) = peers.get(meter, &self.peer) else {
-                return refuse(StoreErrorCode::PeerAbsent, "no such peer");
+                return refuse(StoreErrorCode::PeerAbsent, "no such peer")
+                    .map_err(StoreFailure::Refused);
             };
             let held: Vec<(String, Option<String>)> = peer
                 .holdings
                 .scan(meter)
                 .map(|(id, holding)| (id.clone(), holding.sig.clone()))
                 .collect();
-            Ok(held
-                .into_iter()
-                .filter_map(|(id, sig)| {
-                    let claims = stored.get(meter, &id)?.claims.clone();
-                    Some(Delta { id, claims, sig })
+            held.into_iter()
+                .map(|(id, sig)| match stored.get(meter, &id) {
+                    Some(kept) => Ok(Delta {
+                        claims: kept.claims.clone(),
+                        id,
+                        sig,
+                    }),
+                    None => Err(StoreFailure::Integrity(lost(&self.peer, &id))),
                 })
-                .collect())
+                .collect()
         })
     }
 }
@@ -1289,4 +1512,446 @@ impl PeerExporter for MemoryPeerExporter {
     fn deltas(&self) -> Listing<'_, Delta> {
         listing(self.members())
     }
+}
+
+#[cfg(test)]
+use crate::set::{make_delta, make_negation_claims};
+#[cfg(test)]
+use crate::store_admission::{admission_of, AdmissionOptions};
+#[cfg(test)]
+use crate::types::{EntityRef, Pointer, Target};
+
+#[cfg(test)]
+const AUTHOR: &str = "ed25519:2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e";
+
+#[cfg(test)]
+static STAMP: Mutex<u64> = Mutex::new(0);
+
+#[cfg(test)]
+fn stamp() -> f64 {
+    let mut next = STAMP.lock().unwrap();
+    *next += 1;
+    *next as f64
+}
+
+#[cfg(test)]
+fn fact(entity: &str) -> Delta {
+    let claims = Claims {
+        timestamp: stamp(),
+        valid_from: 0.0,
+        valid_until: None,
+        author: AUTHOR.into(),
+        pointers: vec![Pointer {
+            role: "about".into(),
+            target: Target::Entity(EntityRef {
+                id: entity.into(),
+                context: None,
+            }),
+        }],
+    };
+    make_delta(claims, None).unwrap()
+}
+
+#[cfg(test)]
+fn negation(of: &Delta) -> Delta {
+    make_delta(make_negation_claims(AUTHOR, stamp(), &of.id, None), None).unwrap()
+}
+
+#[cfg(test)]
+fn add(peer: &dyn PeerStore, deltas: &[&Delta]) {
+    let deltas: Vec<Delta> = deltas.iter().map(|d| (*d).clone()).collect();
+    let now = peer.read().unwrap();
+    let next_head = format!("head-{}", now.revision().0 + 1);
+    let options = AdmissionOptions {
+        at: 1.0,
+        sender: "local".into(),
+        next_head,
+    };
+    let batch = admission_of(now.as_ref(), &deltas, options).unwrap();
+    assert!(matches!(
+        peer.append(&batch).unwrap(),
+        AppendResult::Committed { .. }
+    ));
+}
+
+#[cfg(test)]
+fn ids(deltas: &[&Delta]) -> Vec<String> {
+    deltas.iter().map(|d| d.id.clone()).collect()
+}
+
+#[cfg(test)]
+type Place = (&'static str, Option<String>, Option<String>, Option<String>);
+
+#[cfg(test)]
+fn place(fault: &IntegrityFault) -> Place {
+    let kind = fault.kind.as_str();
+    (
+        kind,
+        fault.peer.clone(),
+        fault.id.clone(),
+        fault.key.clone(),
+    )
+}
+
+#[cfg(test)]
+fn at(kind: &'static str, peer: Option<&str>, id: &str, key: Option<&str>) -> Place {
+    let owned = |s: Option<&str>| s.map(str::to_string);
+    (kind, owned(peer), Some(id.to_string()), owned(key))
+}
+
+/// The place of the fault a call answers, or what it answered instead.
+#[cfg(test)]
+fn fault_of<T: fmt::Debug>(answer: Result<T, StoreFailure>) -> Result<Place, String> {
+    match answer {
+        Err(StoreFailure::Integrity(fault)) => Ok(place(&fault)),
+        other => Err(format!("not an integrity fault: {other:?}")),
+    }
+}
+
+#[cfg(test)]
+fn places(store: &MemoryStore) -> Vec<Place> {
+    store
+        .open_admin()
+        .fsck()
+        .unwrap()
+        .faults
+        .iter()
+        .map(place)
+        .collect()
+}
+
+/// Changes the store's own state. Only a test inside this module can reach it.
+#[cfg(test)]
+fn damage(store: &MemoryStore, f: impl FnOnce(&mut State)) {
+    with(&store.state, f);
+}
+
+#[cfg(test)]
+fn holding<'a>(state: &'a mut State, peer: &str, id: &str) -> &'a mut Holding {
+    let peer = state.peers.map.get_mut(peer).unwrap();
+    peer.holdings.map.get_mut(id).unwrap()
+}
+
+/// Peer A holds a fact `t` at `e:t`, its negation `n` and a bystander `b` at `e:b`, over
+/// three appends. `fsck` finds nothing.
+#[cfg(test)]
+fn filled() -> (MemoryStore, Box<dyn PeerStore>, Delta, Delta, Delta) {
+    let store = MemoryStore::new();
+    let a = store
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
+        .unwrap();
+    let t = fact("e:t");
+    let n = negation(&t);
+    let b = fact("e:b");
+    add(a.as_ref(), &[&t]);
+    add(a.as_ref(), &[&n]);
+    add(a.as_ref(), &[&b]);
+    assert_eq!(places(&store), []);
+    (store, a, t, n, b)
+}
+
+#[cfg(test)]
+fn entity(e: &str) -> ScopeRequest {
+    ScopeRequest {
+        anchors: vec![Anchor::Entity { entity: e.into() }],
+        exclude: Vec::new(),
+        pushdown: None,
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn a_held_id_whose_row_is_gone_fails_get_arrivals_targets_scope_and_the_export_with_claims_unreadable_and_fsck_reports_it_and_the_bystander_reads(
+) {
+    let (store, a, t, n, b) = filled();
+    damage(&store, |state| {
+        state.stored.map.remove(&t.id);
+    });
+    let fault = at("claims-unreadable", Some("peer:a"), &t.id, None);
+    let snapshot = a.read().unwrap();
+    assert_eq!(fault_of(snapshot.get(&ids(&[&t]))), Ok(fault.clone()));
+    assert_eq!(fault_of(snapshot.arrivals(&ids(&[&t]))), Ok(fault.clone()));
+    assert_eq!(
+        fault_of(snapshot.targets(&["e:t".into()])),
+        Ok(fault.clone())
+    );
+    assert_eq!(fault_of(snapshot.scope(&entity("e:t"))), Ok(fault.clone()));
+    let admin = store.open_admin();
+    let listed = admin.peer("peer:a").unwrap();
+    assert_eq!(
+        fault_of(listed.ids().collect::<Result<Vec<_>, _>>()),
+        Ok(fault.clone())
+    );
+    assert_eq!(
+        fault_of(listed.deltas().collect::<Result<Vec<_>, _>>()),
+        Ok(fault.clone())
+    );
+    assert_eq!(snapshot.negators(&ids(&[&t])).unwrap(), ids(&[&n]));
+    assert!(places(&store).contains(&fault));
+    assert_eq!(snapshot.get(&ids(&[&b])).unwrap(), vec![b.clone()]);
+    assert_eq!(snapshot.targets(&["e:b".into()]).unwrap(), ids(&[&b]));
+    let detail = match snapshot.get(&ids(&[&t])) {
+        Err(StoreFailure::Integrity(fault)) => fault.detail,
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(detail, "memory store: a held delta has no stored claims");
+}
+
+#[cfg(test)]
+#[test]
+fn a_lost_negation_fails_negators_with_claims_unreadable_and_its_id() {
+    let (store, a, t, n, _) = filled();
+    damage(&store, |state| {
+        state.stored.map.remove(&n.id);
+    });
+    let snapshot = a.read().unwrap();
+    assert_eq!(
+        fault_of(snapshot.negators(&ids(&[&t]))),
+        Ok(at("claims-unreadable", Some("peer:a"), &n.id, None))
+    );
+}
+
+#[cfg(test)]
+#[test]
+fn scope_and_get_read_the_row_before_the_bound_and_the_pushdown_so_a_lost_row_fails_them_also_where_a_filter_drops_it(
+) {
+    let (store, a, t, _, _) = filled();
+    let old = a.read().unwrap();
+    let late = fact("e:t");
+    add(a.as_ref(), &[&late]);
+    damage(&store, |state| {
+        state.stored.map.remove(&late.id);
+    });
+    let fault = at("claims-unreadable", Some("peer:a"), &late.id, None);
+    assert_eq!(fault_of(old.get(&ids(&[&late]))), Ok(fault.clone()));
+    assert_eq!(fault_of(old.scope(&entity("e:t"))), Ok(fault.clone()));
+    assert_eq!(old.arrivals(&ids(&[&late])).unwrap(), []);
+    assert_eq!(old.targets(&["e:t".into()]).unwrap(), ids(&[&t]));
+    let now = a.read().unwrap();
+    let mut excluded = entity("e:t");
+    excluded.pushdown = Some(Pushdown {
+        exclude_ids: Some(ids(&[&late])),
+        ..Pushdown::default()
+    });
+    assert_eq!(fault_of(now.scope(&excluded)), Ok(fault.clone()));
+    let mut early = entity("e:t");
+    early.pushdown = Some(Pushdown {
+        arrival_at_most: Some(1),
+        ..Pushdown::default()
+    });
+    assert_eq!(fault_of(now.scope(&early)), Ok(fault));
+}
+
+#[cfg(test)]
+#[test]
+fn a_purge_that_names_a_held_id_whose_row_is_gone_fails_with_claims_unreadable_and_removes_nothing()
+{
+    let store = MemoryStore::new();
+    let peer = store
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
+        .unwrap();
+    let target = fact("e:target");
+    let bystander = fact("e:bystander");
+    let mut companion = fact("e:companion");
+    while companion.id > target.id {
+        companion = fact("e:companion");
+    }
+    add(peer.as_ref(), &[&target, &bystander, &companion]);
+    let before = peer.read().unwrap();
+    damage(&store, |state| {
+        state.stored.map.remove(&target.id);
+    });
+    let fault = at("claims-unreadable", Some("peer:a"), &target.id, None);
+    let feed = peer.changes(Revision(0), None).unwrap();
+    let faults = places(&store);
+
+    assert_eq!(
+        fault_of(peer.purge(&ids(&[&target, &companion]))),
+        Ok(fault.clone())
+    );
+
+    let now = peer.read().unwrap();
+    assert_eq!((now.revision(), now.count()), (before.revision(), 3));
+    assert_eq!(peer.changes(Revision(0), None).unwrap(), feed);
+    assert_eq!(fault_of(now.arrivals(&ids(&[&target]))), Ok(fault));
+    for kept in [&companion, &bystander] {
+        assert_eq!(now.get(&ids(&[kept])).unwrap(), vec![kept.clone()]);
+        let arrivals = now.arrivals(&ids(&[kept])).unwrap();
+        assert_eq!(
+            arrivals.iter().map(|r| &r.id).collect::<Vec<_>>(),
+            [&kept.id]
+        );
+    }
+    let mut both = ids(&[&companion, &bystander]);
+    both.sort();
+    let entities = ["e:companion".to_string(), "e:bystander".to_string()];
+    assert_eq!(now.targets(&entities).unwrap(), both);
+    assert_eq!(places(&store), faults);
+}
+
+#[cfg(test)]
+#[test]
+fn a_held_arrival_above_the_peers_last_sequence_or_transfer_is_reported_sequence_mismatch_by_fsck()
+{
+    for (key, set) in [
+        (
+            "seq",
+            (|r: &mut ArrivalRecord| r.sequence = 999) as fn(&mut ArrivalRecord),
+        ),
+        ("transfer", |r: &mut ArrivalRecord| r.transfer = 999),
+    ] {
+        let (store, _, t, _, _) = filled();
+        damage(&store, |state| {
+            set(&mut holding(state, "peer:a", &t.id).arrival)
+        });
+        assert_eq!(
+            places(&store),
+            [at("sequence-mismatch", Some("peer:a"), &t.id, Some(key))],
+            "{key}"
+        );
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn a_held_arrival_that_names_another_id_is_reported_column_mismatch_holding_arrival_by_fsck() {
+    let (store, _, t, _, b) = filled();
+    damage(&store, |state| {
+        holding(state, "peer:a", &t.id).arrival.id = b.id.clone();
+    });
+    assert_eq!(
+        places(&store),
+        [at(
+            "column-mismatch",
+            Some("peer:a"),
+            &t.id,
+            Some("holding.arrival")
+        )]
+    );
+}
+
+#[cfg(test)]
+#[test]
+fn stored_claims_that_do_not_hash_to_their_id_are_reported_claims_mismatch_by_fsck() {
+    let (store, _, t, _, b) = filled();
+    damage(&store, |state| {
+        state.stored.map.get_mut(&t.id).unwrap().claims = b.claims.clone();
+    });
+    let found = places(&store);
+    assert!(
+        found.contains(&at("claims-mismatch", Some("peer:a"), &t.id, None)),
+        "{found:?}"
+    );
+}
+
+#[cfg(test)]
+#[test]
+fn a_lost_index_entry_is_reported_index_missing_and_an_entry_no_claims_name_index_stray_by_fsck() {
+    let (store, _, t, _, b) = filled();
+    damage(&store, |state| {
+        let peer = state.peers.map.get_mut("peer:a").unwrap();
+        peer.targets.map.remove("e:t");
+        peer.negators
+            .map
+            .get_mut(&t.id)
+            .unwrap()
+            .insert(b.id.clone());
+    });
+    assert_eq!(
+        places(&store),
+        [
+            at("index-missing", Some("peer:a"), &t.id, Some("e:t")),
+            at("index-stray", Some("peer:a"), &b.id, Some(&t.id)),
+        ]
+    );
+}
+
+#[cfg(test)]
+#[test]
+fn change_records_that_do_not_run_from_the_floor_to_the_revision_are_reported_feed_gap_by_fsck() {
+    for cut in [0, 1] {
+        let (store, _, _, _, _) = filled();
+        damage(&store, |state| {
+            let feed = &mut state.peers.map.get_mut("peer:a").unwrap().feed;
+            if cut == 0 {
+                feed.records.pop_back();
+            } else {
+                feed.records[1].revision = Revision(7);
+            }
+        });
+        let found = store.open_admin().fsck().unwrap().faults;
+        assert_eq!(
+            found.iter().map(place).collect::<Vec<_>>(),
+            [("feed-gap", Some("peer:a".to_string()), None, None)],
+            "{cut}"
+        );
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn bytes_no_peer_holds_are_orphan_bytes_and_a_wrong_count_of_holders_is_count_mismatch_by_fsck() {
+    let (store, _, _, _, b) = filled();
+    let orphan = fact("e:orphan");
+    damage(&store, |state| {
+        state.stored.map.insert(
+            orphan.id.clone(),
+            Stored {
+                claims: orphan.claims.clone(),
+                holders: 1,
+            },
+        );
+        state.stored.map.get_mut(&b.id).unwrap().holders = 2;
+    });
+    let mut want = vec![
+        at("orphan-bytes", None, &orphan.id, None),
+        at("count-mismatch", None, &b.id, Some("holders")),
+    ];
+    want.sort_by(|x, y| x.2.cmp(&y.2));
+    assert_eq!(places(&store), want);
+}
+
+#[cfg(test)]
+#[test]
+fn fsck_answers_no_fault_over_shared_ids_negations_purges_and_a_trimmed_feed_and_counts_what_it_read(
+) {
+    let store = MemoryStore::with_options(MemoryStoreOptions {
+        change_retention: ChangeRetention::Revisions(2),
+        ..MemoryStoreOptions::default()
+    })
+    .unwrap();
+    let posture = CreatePeerOptions::new(ErasurePosture::Unproven);
+    let a = store.create_peer("peer:a", &posture).unwrap();
+    let b = store.create_peer("peer:b", &posture).unwrap();
+    let (x, y, z) = (fact("x"), fact("y"), fact("z"));
+    let neg = negation(&x);
+    add(a.as_ref(), &[&x, &y]);
+    add(a.as_ref(), &[&neg]);
+    add(a.as_ref(), &[&z]);
+    add(b.as_ref(), &[&x, &z, &neg]);
+    a.purge(&ids(&[&x, &y])).unwrap();
+    b.purge(&ids(&[&z])).unwrap();
+    assert_eq!(
+        store.open_admin().fsck().unwrap(),
+        FsckReport {
+            checked: FsckChecked {
+                peers: 2,
+                holdings: 4,
+                deltas: 3
+            },
+            faults: Vec::new(),
+        }
+    );
+}
+
+#[cfg(test)]
+#[test]
+fn fsck_refuses_store_closed_after_close() {
+    let store = MemoryStore::new();
+    let admin = store.open_admin();
+    store.close();
+    assert_eq!(
+        admin.fsck().map_err(|e| e.code),
+        Err(StoreErrorCode::StoreClosed)
+    );
 }

@@ -36,10 +36,11 @@ use crate::refused::as_refusal;
 use rhizomatic::memory_store::{MemoryStore, MEMORY_STORE_FORMAT};
 use rhizomatic::store::{
     target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ChangeRetention,
-    CreatePeerOptions, ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure,
-    PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PushdownFields, Retained, RetainedSurface,
-    Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreFailure,
-    StoreProfile, SurfaceState, VerifiedDelta, APP_FORMAT_MAX_BYTES, MAX_ARRIVAL_COUNTER,
+    CreatePeerOptions, ErasureClaim, ErasureClass, ErasurePosture, Exporter, FsckReport, Listing,
+    PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PushdownFields, Retained,
+    RetainedSurface, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError,
+    StoreErrorCode, StoreFailure, StoreProfile, SurfaceState, VerifiedDelta, APP_FORMAT_MAX_BYTES,
+    MAX_ARRIVAL_COUNTER,
 };
 use rhizomatic::store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceReport,
@@ -1035,6 +1036,9 @@ impl Exporter for RigExporter {
             ids.pop();
         }
         listing(ids)
+    }
+    fn fsck(&self) -> Result<FsckReport, StoreError> {
+        self.inner.open_admin().fsck()
     }
 }
 

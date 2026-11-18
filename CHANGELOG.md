@@ -235,8 +235,10 @@ Step 4d adds more, listed under Breaking.
   `From<StoreFault>`. The doc of `with_snapshot` names `FeedError` as the smallest body error.
   Both witnesses gain three tests: each earlier snapshot is released before the next body starts,
   a clock with no bound in time is never read, and the bound in time also ends the call on a
-  refused `read()`. Two comments of the TypeScript `with-snapshot.ts` now say that only a purge
-  that releases a holding moves a snapshot. No behavior changes.
+  refused `read()`. Two comments of the TypeScript `with-snapshot.ts` now say that a purge that
+  releases a holding moves a snapshot and an append does not. A purge is not the only cause:
+  reading 130 also names an absent peer row, another history and a lower revision. No behavior
+  changes.
 - Step 4e: a Rust read can fail with damage that is not a refusal (§4.13 reading 136). The new
   `store::StoreFailure` is `Refused(StoreError)` or `Integrity(IntegrityFault)`. The five
   `Snapshot` reads, `PeerStore::purge`, `PeerStore::changes` and every `Listing` answer it. The
@@ -245,6 +247,16 @@ Step 4d adds more, listed under Breaking.
   `StoreReadError` gain an `Integrity` arm and `From<StoreFailure>`. An integrity fault has no
   refusal code, so `with_snapshot` and every reader pass it up after one run. No behavior
   changes. What a purge removes does not change.
+- Step 4e: the Rust memory store reports damage and checks itself (§4.13 readings 136 and
+  137). A held id whose stored claims are gone fails `get`, `arrivals`, `targets`, `negators`,
+  `scope` and the export listings with `StoreFailure::Integrity`, kind `claims-unreadable`, with
+  the peer and the id. Before, the read left the id out. `scope` and `get` read the row before
+  the bound and the pushdown, as TypeScript does. A `purge` that names such an id fails with the
+  same fault before it removes anything. Before, it removed the id and its holding. The new
+  `Exporter::fsck()` answers `FsckReport {checked: FsckChecked {peers, holdings, deltas},
+  faults}` with every kind of the TypeScript memory `fsck` except `digest-mismatch`, which comes
+  with the digest. A purge that succeeds removes what it removed before. Tests damage the store
+  only from a `#[cfg(test)]` module inside `memory_store.rs`; `src` has no test hook.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
@@ -287,6 +299,14 @@ Step 4d adds more, listed under Breaking.
   `store_read::capture_scope` and the trait method `FreshnessReader::capture`.
 - **Rust `FeedError` and `StoreReadError` have a new arm, `Integrity(IntegrityFault)`.** A
   Rust `match` on either type handles it.
+- **Rust `Exporter` has a new required method, `fsck`.** A Rust `impl Exporter` must give one:
+  it delegates to the store it wraps, or answers a report with no fault.
+- **A Rust memory-store read of a held id with no stored claims fails.** It answers
+  `StoreFailure::Integrity`, where before it left the id out. A memory `purge` of such an id
+  fails and removes nothing.
+- **A host's own body error of `with_snapshot` needs `From<StoreFailure>`** when its body uses
+  `?` on a snapshot call. Its `store_code` must answer `None` for an integrity fault. A fault
+  that reads as `snapshot-moved` starts the body again.
 - **`admissionOf` has no `transfer` option.** It numbers the transfer itself. Drop the field. The
   option shipped in no release.
 - **A body no longer runs again after its own append.** A `withSnapshot` body, a held-views pass

@@ -172,6 +172,22 @@ impl fmt::Display for StoreFailure {
 
 impl std::error::Error for StoreFailure {}
 
+/// How much one `fsck` read (§4.13 reading 137): the peers, the holdings of every peer, and the
+/// stored deltas.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct FsckChecked {
+    pub peers: u64,
+    pub holdings: u64,
+    pub deltas: u64,
+}
+
+/// What [`Exporter::fsck`] answers: how much it read, and every fault it found.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct FsckReport {
+    pub checked: FsckChecked,
+    pub faults: Vec<IntegrityFault>,
+}
+
 /// What a peer promises about erasure. Fixed when the peer is created (SPEC-18 §4.7.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErasurePosture {
@@ -705,6 +721,11 @@ pub trait Exporter {
     /// Every id the store keeps bytes for, once each. It names other peers' deltas, so nothing
     /// may use it to choose what one peer purges or serves.
     fn stored_ids(&self) -> Listing<'_, String>;
+    /// Checks every structure the store keeps against the claims it holds and against its own
+    /// counters, and reports each fault it finds (§4.13 reading 137). It only reads: it repairs,
+    /// replaces and deletes nothing. O(store). A fault is in the report, never an `Err`; `Err`
+    /// is a refusal, such as `store-closed`.
+    fn fsck(&self) -> Result<FsckReport, StoreError>;
 }
 
 pub trait PeerExporter {
