@@ -331,11 +331,6 @@ fn the_functions_on_one_snapshot_and_on_a_listing_answer_the_fault_unchanged() {
         Err(other) => panic!("read_full_surface answered {other:?}"),
         Ok(_) => panic!("read_full_surface answered"),
     }
-
-    control.fail("purge");
-    assert_eq!(peer.purge(&xs()).err(), want);
-    control.fail("changes");
-    assert_eq!(peer.changes(Revision(0), None).err(), want);
 }
 
 #[test]

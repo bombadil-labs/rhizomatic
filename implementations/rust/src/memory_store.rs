@@ -264,6 +264,33 @@ fn lost(peer: &str, id: &str) -> IntegrityFault {
     }
 }
 
+/// A held row that counts no holder (§4.13 reading 136). A purge of it would take the count below
+/// zero, so the purge refuses before it removes anything. `fsck` reports the same row with no peer.
+fn uncounted(peer: &str, id: &str, holders: usize) -> IntegrityFault {
+    IntegrityFault {
+        kind: IntegrityFaultKind::CountMismatch,
+        peer: Some(peer.to_string()),
+        id: Some(id.to_string()),
+        key: Some("holders".to_string()),
+        detail: format!("memory store: the row counts {holders} holders and this peer holds it"),
+    }
+}
+
+/// Change records that do not run from the floor to the revision (§4.13 readings 136, 137).
+fn gap(peer: &str, feed: &Feed, revision: u64) -> IntegrityFault {
+    IntegrityFault {
+        kind: IntegrityFaultKind::FeedGap,
+        peer: Some(peer.to_string()),
+        id: None,
+        key: None,
+        detail: format!(
+            "memory store: the peer keeps {} change records at floor {} and revision {revision}",
+            feed.records.len(),
+            feed.floor
+        ),
+    }
+}
+
 fn distinct(keys: &[String]) -> BTreeSet<&str> {
     keys.iter().map(String::as_str).collect()
 }
@@ -441,11 +468,22 @@ impl State {
             return refuse(StoreErrorCode::PeerAbsent, "no such peer")
                 .map_err(StoreFailure::Refused);
         };
-        // A held id without its stored claims fails the whole purge before it removes anything
-        // (§4.13 reading 136).
+        // A held id without its stored claims, or whose row counts no holder, fails the whole
+        // purge before it removes anything (§4.13 reading 136).
         for id in distinct(ids) {
-            if peer.holdings.contains(meter, id) && !stored.contains(meter, id) {
-                return Err(StoreFailure::Integrity(lost(peer_id, id)));
+            if !peer.holdings.contains(meter, id) {
+                continue;
+            }
+            match stored.get(meter, id) {
+                None => return Err(StoreFailure::Integrity(lost(peer_id, id))),
+                Some(kept) if kept.holders < 1 => {
+                    return Err(StoreFailure::Integrity(uncounted(
+                        peer_id,
+                        id,
+                        kept.holders,
+                    )))
+                }
+                Some(_) => {}
             }
         }
         let mut targets = Vec::new();
@@ -455,7 +493,8 @@ impl State {
             let outcome = if peer.holdings.remove(meter, id).is_some() {
                 released.push(id.to_string());
                 // The stored claims name the index entries this delta made for the peer. The
-                // check above found them, and this loop removes no other id's claims.
+                // check above found them with a count of 1 or more, and this loop changes no
+                // other id's row.
                 let last_holder = match stored.get_mut(meter, id) {
                     Some(kept) => {
                         for entity in target_entities(&kept.claims) {
@@ -542,32 +581,36 @@ impl State {
     /// The records with `from < revision ≤ to` (SPEC-18 §4.6). The answers come in the order of
     /// §4.6: `store-closed`, `capability-absent`, the shape of the bounds, `to` below `from`,
     /// then `resync-required` for a `from` above the current revision or below the floor, else
-    /// `ok`. Its cost is the records it returns and their ids.
+    /// `ok`. Kept records that are not the revisions of the page answer `feed-gap` (§4.13
+    /// reading 136). Its cost is the records it returns and their ids.
     fn changes(
         &mut self,
         peer_id: &str,
         from: Revision,
         to: Option<Revision>,
-    ) -> Result<ChangePage, StoreError> {
-        self.open()?;
+    ) -> Result<ChangePage, StoreFailure> {
+        self.open().map_err(StoreFailure::Refused)?;
         if self.retention == ChangeRetention::None {
             return refuse(
                 StoreErrorCode::CapabilityAbsent,
                 "this store keeps no change feed",
-            );
+            )
+            .map_err(StoreFailure::Refused);
         }
         if from.0 > MAX_REVISION || to.is_some_and(|to| to.0 > MAX_REVISION) {
             return refuse(
                 StoreErrorCode::InvalidRequest,
                 "a revision is an integer from 0 to 2^53 - 1",
-            );
+            )
+            .map_err(StoreFailure::Refused);
         }
         // A defaulted `to` is never compared (reading 4).
         if to.is_some_and(|to| to < from) {
             return refuse(
                 StoreErrorCode::InvalidRequest,
                 "changes: `to` is below `from`",
-            );
+            )
+            .map_err(StoreFailure::Refused);
         }
         let State {
             meter,
@@ -576,7 +619,8 @@ impl State {
             ..
         } = self;
         let Some(peer) = peers.get(meter, peer_id) else {
-            return refuse(StoreErrorCode::PeerAbsent, "no such peer");
+            return refuse(StoreErrorCode::PeerAbsent, "no such peer")
+                .map_err(StoreFailure::Refused);
         };
         let current = peer.revision;
         let feed = &peer.feed;
@@ -590,11 +634,22 @@ impl State {
         let take = page_size.map_or(pending, |size| pending.min(size));
         // The record of revision `from + 1` sits `from - floor` places after the oldest kept.
         let start = (from.0 - feed.floor) as usize;
-        let records = feed
+        let records: Vec<ChangeRecord> = feed
             .records
-            .range(start..start + take as usize)
+            .range(start.min(feed.records.len())..)
+            .take(take as usize)
             .cloned()
             .collect();
+        // Each answered record is the revision it stands for, and none is missing. The check
+        // reads only the records the page answers.
+        let runs = records.len() as u64 == take
+            && records
+                .iter()
+                .zip(from.0 + 1..)
+                .all(|(record, revision)| record.revision.0 == revision);
+        if !runs {
+            return Err(StoreFailure::Integrity(gap(peer_id, feed, current)));
+        }
         let through = if take == pending { end } else { from.0 + take };
         Ok(ChangePage::Ok {
             records,
@@ -815,17 +870,11 @@ impl State {
             }
             let feed = &peer.feed;
             let kept = feed.records.len() as u64;
-            let runs = feed
-                .records
-                .iter()
-                .zip(feed.floor + 1..)
-                .all(|(record, revision)| record.revision.0 == revision);
+            let runs = (1..)
+                .zip(&feed.records)
+                .all(|(after, record)| feed.floor.checked_add(after) == Some(record.revision.0));
             if feed.floor.checked_add(kept) != Some(peer.revision) || !runs {
-                let detail = format!(
-                    "memory store: the peer keeps {kept} change records at floor {} and revision {}",
-                    feed.floor, peer.revision
-                );
-                fault(IntegrityFaultKind::FeedGap, None, None, detail);
+                faults.push(gap(peer_id, feed, peer.revision));
             }
         }
         for (id, row) in stored.scan(meter) {
@@ -893,8 +942,12 @@ type Shared = Arc<Mutex<State>>;
 fn with<R>(state: &Shared, f: impl FnOnce(&mut State) -> R) -> R {
     // `append` plans its whole batch and then commits without a fallible step. `purge` has no
     // plan: it removes one id at a time, and each id's removal is complete before the next
-    // starts. Neither has a step that can panic between two writes of one id, so a poisoned
-    // lock still guards a state whose indexes agree with its holdings.
+    // starts. Before its first write, `purge` checks every named held id: its row exists and
+    // counts 1 or more holders (§4.13 reading 136). So no step of its loop takes a count below
+    // zero. Its loop still adds 1 to a debt count and to the revision; a damaged count at
+    // `u64::MAX` panics there in a debug build. With an undamaged state no step can panic
+    // between two writes of one id, so a poisoned lock still guards a state whose indexes agree
+    // with its holdings.
     let mut guard = match state.lock() {
         Ok(guard) => guard,
         Err(poisoned) => poisoned.into_inner(),
@@ -1221,7 +1274,7 @@ impl PeerStore for MemoryPeer {
     }
 
     fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
-        with(&self.state, |state| state.changes(&self.id, from, to)).map_err(StoreFailure::Refused)
+        with(&self.state, |state| state.changes(&self.id, from, to))
     }
 }
 
@@ -1954,4 +2007,194 @@ fn fsck_refuses_store_closed_after_close() {
         admin.fsck().map_err(|e| e.code),
         Err(StoreErrorCode::StoreClosed)
     );
+}
+
+#[cfg(test)]
+use crate::store_follow::{follow_feed, Position};
+#[cfg(test)]
+use crate::store_fresh::FeedError;
+
+/// The stored rows, the peers and the debts, as text: the whole state but the meter.
+#[cfg(test)]
+fn dump(store: &MemoryStore) -> String {
+    with(&store.state, |state| {
+        format!("{:?}", (&state.stored, &state.peers, &state.debtors))
+    })
+}
+
+#[cfg(test)]
+#[test]
+fn a_purge_that_names_a_held_id_whose_row_counts_no_holder_fails_with_count_mismatch_holders_and_removes_nothing(
+) {
+    let target = fact("e:target");
+    let mut low = fact("e:good");
+    while low.id > target.id {
+        low = fact("e:good");
+    }
+    let mut high = fact("e:good");
+    while high.id < target.id {
+        high = fact("e:good");
+    }
+    for good in [&low, &high] {
+        for order in [[good, &target], [&target, good]] {
+            let case = format!("good {} first {}", good.id, order[0].id);
+            let store = MemoryStore::new();
+            let posture = CreatePeerOptions::new(ErasurePosture::Unproven);
+            let a = store.create_peer("peer:a", &posture).unwrap();
+            let b = store.create_peer("peer:b", &posture).unwrap();
+            let bystander = fact("e:bystander");
+            let other = fact("e:other");
+            add(a.as_ref(), &[&target, good, &bystander]);
+            add(b.as_ref(), &[&other]);
+            damage(&store, |state| {
+                state.stored.map.get_mut(&target.id).unwrap().holders = 0;
+            });
+            let feed = a.changes(Revision(0), None).unwrap();
+            let revisions = (a.read().unwrap().revision(), b.read().unwrap().revision());
+            let before = dump(&store);
+
+            let fault = match a.purge(&ids(&order)) {
+                Err(StoreFailure::Integrity(fault)) => fault,
+                other => panic!("{case}: {other:?}"),
+            };
+
+            let want = at(
+                "count-mismatch",
+                Some("peer:a"),
+                &target.id,
+                Some("holders"),
+            );
+            assert_eq!(place(&fault), want, "{case}");
+            let detail = "memory store: the row counts 0 holders and this peer holds it";
+            assert_eq!(fault.detail, detail, "{case}");
+            assert_eq!(dump(&store), before, "{case}");
+            let now = a.read().unwrap();
+            assert_eq!((now.revision(), now.count()), (revisions.0, 3), "{case}");
+            assert_eq!(a.changes(Revision(0), None).unwrap(), feed, "{case}");
+            let held = now.arrivals(&ids(&[&target])).unwrap();
+            assert_eq!(held.len(), 1, "{case}");
+            assert_eq!(
+                now.targets(&["e:target".into()]).unwrap(),
+                ids(&[&target]),
+                "{case}"
+            );
+            for kept in [good, &bystander] {
+                assert_eq!(
+                    now.get(&ids(&[kept])).unwrap(),
+                    vec![kept.clone()],
+                    "{case}"
+                );
+            }
+            let there = b.read().unwrap();
+            assert_eq!(there.revision(), revisions.1, "{case}");
+            assert_eq!(there.get(&ids(&[&other])).unwrap(), vec![other.clone()]);
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn changes_over_a_lost_or_renumbered_change_record_fail_with_feed_gap_and_a_follower_answers_it_and_keeps_its_position(
+) {
+    for lost in [2, 1, 0] {
+        let (store, a, _, _, _) = filled();
+        damage(&store, |state| {
+            let feed = &mut state.peers.map.get_mut("peer:a").unwrap().feed;
+            if lost == 0 {
+                feed.records[1].revision = Revision(7);
+            } else {
+                feed.records.remove(lost);
+            }
+        });
+        let before = dump(&store);
+        let kept = if lost == 0 { 3 } else { 2 };
+        let detail =
+            format!("memory store: the peer keeps {kept} change records at floor 0 and revision 3");
+        let froms: &[u64] = if lost == 0 { &[0, 1] } else { &[0, 1, 2] };
+        for &from in froms {
+            let fault = match a.changes(Revision(from), None) {
+                Err(StoreFailure::Integrity(fault)) => fault,
+                other => panic!("lost {lost} from {from}: {other:?}"),
+            };
+            let want = ("feed-gap", Some("peer:a".to_string()), None, None);
+            assert_eq!(place(&fault), want, "lost {lost} from {from}");
+            assert_eq!(fault.detail, detail, "lost {lost} from {from}");
+        }
+        let empty = ChangePage::Ok {
+            records: Vec::new(),
+            through: Revision(3),
+        };
+        assert_eq!(a.changes(Revision(3), None).unwrap(), empty);
+        let start = Position {
+            history: a.history().unwrap().to_string(),
+            revision: Revision(0),
+        };
+        let mut cursor = follow_feed(a.as_ref(), start.clone()).unwrap();
+        match cursor.pull() {
+            Err(FeedError::Integrity(fault)) => assert_eq!(fault.detail, detail, "lost {lost}"),
+            other => panic!("lost {lost}: the pull answered {other:?}"),
+        }
+        assert_eq!(cursor.position(), &start);
+        assert_eq!(dump(&store), before);
+        let faults = store.open_admin().fsck().unwrap().faults;
+        assert_eq!(faults.len(), 1);
+        assert_eq!(faults[0].detail, detail);
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn fsck_reports_every_lost_row_of_one_peer_and_goes_on_to_the_next_holding() {
+    let (store, _, t, _, b) = filled();
+    damage(&store, |state| {
+        state.stored.map.remove(&t.id);
+        state.stored.map.remove(&b.id);
+    });
+    let mut lost = [&t, &b];
+    lost.sort_by(|x, y| x.id.cmp(&y.id));
+    let mut want: Vec<Place> = lost
+        .iter()
+        .map(|d| at("claims-unreadable", Some("peer:a"), &d.id, None))
+        .collect();
+    want.push(at("index-stray", Some("peer:a"), &b.id, Some("e:b")));
+    want.push(at("index-stray", Some("peer:a"), &t.id, Some("e:t")));
+    assert_eq!(places(&store), want);
+}
+
+#[cfg(test)]
+#[test]
+fn a_row_that_counts_fewer_holders_than_hold_it_is_count_mismatch_holders_by_fsck() {
+    let (store, _, t, _, _) = filled();
+    damage(&store, |state| {
+        state.stored.map.get_mut(&t.id).unwrap().holders = 0;
+    });
+    let report = store.open_admin().fsck().unwrap();
+    assert_eq!(
+        report.faults.iter().map(place).collect::<Vec<_>>(),
+        [at("count-mismatch", None, &t.id, Some("holders"))]
+    );
+    assert_eq!(
+        report.faults[0].detail,
+        "memory store: the row counts 0 holders and 1 peers hold it"
+    );
+}
+
+#[cfg(test)]
+#[test]
+fn a_feed_floor_at_the_largest_u64_is_feed_gap_by_fsck_with_records_and_with_none() {
+    for clear in [false, true] {
+        let (store, _, _, _, _) = filled();
+        damage(&store, |state| {
+            let feed = &mut state.peers.map.get_mut("peer:a").unwrap().feed;
+            feed.floor = u64::MAX;
+            if clear {
+                feed.records.clear();
+            }
+        });
+        assert_eq!(
+            places(&store),
+            [("feed-gap", Some("peer:a".to_string()), None, None)],
+            "{clear}"
+        );
+    }
 }

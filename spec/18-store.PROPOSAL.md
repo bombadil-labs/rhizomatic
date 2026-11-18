@@ -2660,11 +2660,25 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      step: the SQLite purge reads no claims. On the memory store, a purge that names a held id
      with no stored claims throws `StoreIntegrityError` (`claims-unreadable`, with the peer and
      the id) before it removes anything, so the store is unchanged; before, it threw a plain
-     `Error` and could leave the ids sorted before that id removed with no change record. A
+     `Error` and could leave the ids sorted before that id removed with no change record. The
+     same check refuses a held id whose row counts fewer than 1 holder: `count-mismatch`, key
+     `holders`, with the peer and the id, and nothing is removed. Its detail says "this peer
+     holds it", because a purge does not count the other holders. Before, the count went below
+     zero, and the report named `held-by-other-peer` and `purge-debt` while no other peer held
+     the row. The SQLite store keeps no count of holders: its purge asks whether another holding
+     exists, so this rule has no SQLite case. **The feed.** `changes` fails with `feed-gap`, with
+     the peer and `fsck`'s detail, when the kept records are not the revisions of the page it
+     answers, on both stores. Before, it answered `ok` without a lost record and with a
+     `through` past it, so a follower passed that revision; a follower's pull now throws the
+     fault and does not move. The check compares the revision of each answered record. It adds
+     no read on an undamaged feed. The SQLite store counts the peer's records only to name a gap
+     it found. A
      memory-store remedy that completes that purge is proposed in its own pull request, because
      it widens what a purge removes. No call replaces a row; a replace stays with Loam's repair layer in
      slice 5. In step 4e the Rust memory store takes the same faults, the same purge rule and
-     `fsck` (reading 137), except `digest-mismatch`, which comes with its digest. **A fault is
+     `fsck` (reading 137), except `digest-mismatch`, which comes with its digest. It has no peer
+     `count-mismatch` either: it keeps no peer counter, and a snapshot's count is the number of
+     its holdings. **A fault is
      erasable material.** Its `id` is a delta id, and its `key` can be an entity id or a
      referenced id; an `index-stray` or
      `index-missing` detail can name a pointer role. All of these come from claims. A host that
