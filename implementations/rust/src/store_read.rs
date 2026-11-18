@@ -35,20 +35,18 @@ use crate::pred::Bindings;
 use crate::schema::SchemaRegistry;
 use crate::set::{fork, DeltaSource};
 use crate::store::{
-    collect_delta_set, Anchor, ArrivalRecord, ChangeRecord, PeerExporter, PeerStore, Pushdown,
-    PushdownFields, Revision, ScopeRequest, ScopeSource, Snapshot, StoreError, StoreErrorCode,
+    collect_delta_set, Anchor, ArrivalRecord, ChangeRecord, IntegrityFault, PeerExporter,
+    PeerStore, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeSource, Snapshot, StoreError,
+    StoreErrorCode, StoreFailure,
 };
 use crate::store_conformance::FreshnessReader;
 use crate::store_follow::{follow_feed, position_of, FeedCursor, Position};
 use crate::store_fresh::{
-    check_fresh, make_capture, raw_scope, revision_in_range, touching, validity_boundaries,
-    validity_window, window_at, Capture, FeedError, Freshness, StoreFault, Touch, ValidityWindow,
+    check_fresh, make_capture, raw_scope, touching, validity_boundaries, validity_window,
+    window_at, Capture, FeedError, Freshness, StoreFault, Touch, ValidityWindow,
 };
+use crate::store_with_snapshot::{with_snapshot, SnapshotRetry, StoreRefusal};
 use crate::types::{Delta, Primitive};
-
-/// How many times `StoreReactor` starts a read again after `snapshot-moved`. A read therefore
-/// uses at most `SNAPSHOT_RETRIES + 1` snapshots.
-pub const SNAPSHOT_RETRIES: usize = 3;
 
 /// A host predicate over a delta and its arrival record at this peer. The store never sees it.
 /// It must be pointwise (SPEC-17 §3).
@@ -278,6 +276,8 @@ pub enum StoreReadError {
     Eval(String),
     /// The store broke its contract (`revision-out-of-range`, from `StoreReactor::read`).
     Fault(StoreFault),
+    /// The store met damage in its own data (§4.13 reading 136). It is not a refusal.
+    Integrity(IntegrityFault),
 }
 
 impl StoreReadError {
@@ -287,6 +287,12 @@ impl StoreReadError {
             Self::Store(e) => Some(e.code),
             _ => None,
         }
+    }
+}
+
+impl StoreRefusal for StoreReadError {
+    fn store_code(&self) -> Option<StoreErrorCode> {
+        StoreReadError::store_code(self)
     }
 }
 
@@ -301,6 +307,7 @@ impl fmt::Display for StoreReadError {
             Self::Fault(fault) => {
                 f.write_str(&format!("the store broke {}: {fault}", fault.rule()))
             }
+            Self::Integrity(fault) => f.write_str(&fault.detail),
         }
     }
 }
@@ -310,6 +317,15 @@ impl std::error::Error for StoreReadError {}
 impl From<StoreError> for StoreReadError {
     fn from(e: StoreError) -> Self {
         Self::Store(e)
+    }
+}
+
+impl From<StoreFailure> for StoreReadError {
+    fn from(failure: StoreFailure) -> Self {
+        match failure {
+            StoreFailure::Refused(e) => Self::Store(e),
+            StoreFailure::Integrity(fault) => Self::Integrity(fault),
+        }
     }
 }
 
@@ -416,7 +432,7 @@ fn capture_of(
     pushdown: Option<&Pushdown>,
     cache: &ScopeSource,
     window: ValidityWindow,
-) -> Result<Capture, StoreError> {
+) -> Result<Capture, StoreFailure> {
     let entities: Vec<String> = asked.iter().cloned().collect();
     let members = match pushes(pushdown) {
         true => raw_scope(snapshot, &entities)?,
@@ -431,6 +447,7 @@ fn capture_of(
         members,
         window,
     )
+    .map_err(StoreFailure::Refused)
 }
 
 /// The window of a read's operand: the exact members, each from the cache.
@@ -618,7 +635,7 @@ pub fn fetch_scope(
     snapshot: &dyn Snapshot,
     entities: &[String],
     selection: Selection<'_>,
-) -> Result<FetchedScope, StoreError> {
+) -> Result<FetchedScope, StoreFailure> {
     fetched(snapshot, entities, selection).map(|(fetched, _, _)| fetched)
 }
 
@@ -631,12 +648,12 @@ pub fn capture_scope(
     entities: &[String],
     now: f64,
     selection: Selection<'_>,
-) -> Result<(FetchedScope, Capture), StoreError> {
+) -> Result<(FetchedScope, Capture), StoreFailure> {
     if !now.is_finite() {
-        return Err(StoreError::new(
+        return Err(StoreFailure::Refused(StoreError::new(
             StoreErrorCode::InvalidRequest,
             "captureScope needs a now that is a finite number",
-        ));
+        )));
     }
     let (fetched, anchors, cache) = fetched(snapshot, entities, selection)?;
     let window = fetched.validity_at(now);
@@ -649,7 +666,7 @@ fn fetched(
     snapshot: &dyn Snapshot,
     entities: &[String],
     selection: Selection<'_>,
-) -> Result<(FetchedScope, BTreeSet<String>, ScopeSource), StoreError> {
+) -> Result<(FetchedScope, BTreeSet<String>, ScopeSource), StoreFailure> {
     let anchors: BTreeSet<String> = entities.iter().cloned().collect();
     let call = scope_request(
         &anchors.iter().cloned().collect::<Vec<_>>(),
@@ -773,15 +790,6 @@ pub fn read_full_surface(
     })
 }
 
-/// Releases a snapshot when it goes out of scope, on every path.
-struct Held(Box<dyn Snapshot>);
-
-impl Drop for Held {
-    fn drop(&mut self) {
-        self.0.release();
-    }
-}
-
 /// A reader over one peer's store (SPEC-18 §4.12 reading 15). It holds the peer handle and
 /// nothing else: opening it reads nothing, and it has no whole-set method.
 pub struct StoreReactor {
@@ -798,32 +806,14 @@ impl StoreReactor {
         self.peer.as_ref()
     }
 
-    /// Runs `body` on a new snapshot, released on every path. On `snapshot-moved`, from `read`
-    /// itself or from `body`, it starts again on a new snapshot, at most `SNAPSHOT_RETRIES` more
-    /// times; any other refusal passes up at once. A snapshot whose revision is out of range is
-    /// the store fault `revision-out-of-range`, before `body` runs. `body` receives the attempt,
-    /// counted from 1. Returns the answer and how many attempts it took.
-    fn on_snapshots<T, E: From<StoreError> + From<StoreFault>>(
+    /// Runs `body` on a new snapshot through [`with_snapshot`] with the default bound: at most
+    /// `SNAPSHOT_RETRIES + 1` snapshots. Returns the answer and how many attempts it took.
+    fn on_snapshots<T, E: From<StoreError> + From<StoreFault> + StoreRefusal>(
         &self,
-        mut body: impl FnMut(&dyn Snapshot, usize) -> Result<T, E>,
-        moved: impl Fn(&E) -> bool,
+        body: impl FnMut(&dyn Snapshot, usize) -> Result<T, E>,
     ) -> Result<(T, usize), E> {
-        let mut taken = 0;
-        loop {
-            taken += 1;
-            let snapshot = match self.peer.read() {
-                Ok(snapshot) => Held(snapshot),
-                Err(e) if e.code == StoreErrorCode::SnapshotMoved && taken <= SNAPSHOT_RETRIES => {
-                    continue
-                }
-                Err(e) => return Err(e.into()),
-            };
-            revision_in_range(snapshot.0.revision())?;
-            match body(snapshot.0.as_ref(), taken) {
-                Err(e) if moved(&e) && taken <= SNAPSHOT_RETRIES => continue,
-                other => return other.map(|answer| (answer, taken)),
-            }
-        }
+        with_snapshot(self.peer.as_ref(), body, &SnapshotRetry::default())
+            .map(|on| (on.value, on.attempts))
     }
 
     /// `read_anchored` on a new snapshot, started again with a new cache on `snapshot-moved`.
@@ -832,30 +822,27 @@ impl StoreReactor {
     pub fn read(&self, mut request: ReadRequest<'_>) -> Result<StoreRead, StoreReadError> {
         classify(&request)?;
         let mut hook = request.on_round.take();
-        let (mut read, taken) = self.on_snapshots(
-            |snapshot, attempt| {
-                let one = ReadRequest {
-                    term: request.term,
-                    root: request.root,
-                    now: request.now,
-                    registry: request.registry,
-                    bindings: request.bindings,
-                    selection: request.selection,
-                    cache: request.cache,
-                    memo: request.memo,
-                    on_round: hook
-                        .as_mut()
-                        .map(|h| &mut **h as &mut dyn FnMut(&RoundReport)),
-                    capture: request.capture,
-                };
-                // A new cache and a new memo for every attempt: what an older snapshot held may be
-                // purged now, and a child stored on it may read differently on this one.
-                let mut memo = FinalChildMemo::new();
-                let memo = (one.memo == EvalMemo::On).then_some(&mut memo as &mut dyn RoundMemo);
-                read_rounds(snapshot, one, attempt, &mut ScopeSource::default(), memo)
-            },
-            |e| e.store_code() == Some(StoreErrorCode::SnapshotMoved),
-        )?;
+        let (mut read, taken) = self.on_snapshots(|snapshot, attempt| {
+            let one = ReadRequest {
+                term: request.term,
+                root: request.root,
+                now: request.now,
+                registry: request.registry,
+                bindings: request.bindings,
+                selection: request.selection,
+                cache: request.cache,
+                memo: request.memo,
+                on_round: hook
+                    .as_mut()
+                    .map(|h| &mut **h as &mut dyn FnMut(&RoundReport)),
+                capture: request.capture,
+            };
+            // A new cache and a new memo for every attempt: what an older snapshot held may be
+            // purged now, and a child stored on it may read differently on this one.
+            let mut memo = FinalChildMemo::new();
+            let memo = (one.memo == EvalMemo::On).then_some(&mut memo as &mut dyn RoundMemo);
+            read_rounds(snapshot, one, attempt, &mut ScopeSource::default(), memo)
+        })?;
         read.snapshots = taken;
         Ok(read)
     }
@@ -875,10 +862,9 @@ impl StoreReactor {
         entities: &[String],
         selection: Selection<'_>,
     ) -> Result<FetchedScope, FeedError> {
-        self.on_snapshots(
-            |snapshot, _| fetch_scope(snapshot, entities, selection).map_err(FeedError::from),
-            |e: &FeedError| matches!(e, FeedError::Refused(e) if e.code == StoreErrorCode::SnapshotMoved),
-        )
+        self.on_snapshots(|snapshot, _| {
+            fetch_scope(snapshot, entities, selection).map_err(FeedError::from)
+        })
         .map(|(fetched, _)| fetched)
     }
 }
@@ -895,7 +881,7 @@ impl FreshnessReader for StoreFreshness {
         entities: &[String],
         now: f64,
         pushdown: Option<&Pushdown>,
-    ) -> Result<Capture, StoreError> {
+    ) -> Result<Capture, StoreFailure> {
         let selection = Selection {
             pushdown,
             admits: None,

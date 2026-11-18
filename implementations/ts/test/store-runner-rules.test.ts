@@ -371,6 +371,15 @@ function onePoolOfRecords(): Break {
 
 // ---- the table ------------------------------------------------------------------------------
 
+/** The handle with one getter that refuses `store-closed` on an open store. */
+function refusing(peer: PeerStore, key: "history" | "appFormat"): PeerStore {
+  return Object.defineProperty({ ...peer }, key, {
+    get() {
+      throw new StoreError("store-closed", `a wrong store refused its ${key}`);
+    },
+  });
+}
+
 type Rule = {
   /** The document the failure must be in. */
   readonly doc: "scripts" | "scope";
@@ -856,6 +865,22 @@ const RULES: Readonly<Record<string, Rule>> = {
     says: /a snapshot of \w+ reports another history than the peer's/,
     store: { snapshot: () => ({ history: "elsewhere" }) },
   },
+  "a new handle refuses its history": {
+    doc: "scripts",
+    says: "(createPeer): a wrong store refused its history",
+    store: {
+      store: (store) => ({
+        createPeer: async (id, options) => refusing(await store.createPeer(id, options), "history"),
+      }),
+    },
+  },
+  "an opened handle refuses its history": {
+    doc: "scripts",
+    says: "(openPeer): a wrong store refused its history",
+    store: {
+      store: (store) => ({ peer: async (id) => refusing(await store.peer(id), "history") }),
+    },
+  },
   // -- refusals (README §3, "Refusals") --
   "createPeer refuses with a code the step does not list": {
     doc: "scripts",
@@ -975,6 +1000,44 @@ const RULES: Readonly<Record<string, Rule>> = {
     says: /\(read\): the snapshot's lastTransfer is \d+, expected \d+/,
     store: join(other, { snapshot: (s) => ({ lastTransfer: s.lastTransfer + 1 }) }),
   },
+  "a new handle that reads no appFormat": {
+    doc: "scripts",
+    says: '(createPeer): createPeer: the peer\'s appFormat is null, expected "host/1"',
+    store: {
+      store: (store) => ({
+        createPeer: async (id, options) => ({
+          ...(await store.createPeer(id, options)),
+          appFormat: null,
+        }),
+      }),
+    },
+  },
+  "a new handle that refuses its appFormat": {
+    doc: "scripts",
+    says: "(createPeer): a wrong store refused its appFormat",
+    store: {
+      store: (store) => ({
+        createPeer: async (id, options) =>
+          refusing(await store.createPeer(id, options), "appFormat"),
+      }),
+    },
+  },
+  "an opened handle that refuses its appFormat": {
+    doc: "scripts",
+    says: "(openPeer): a wrong store refused its appFormat",
+    store: {
+      store: (store) => ({ peer: async (id) => refusing(await store.peer(id), "appFormat") }),
+    },
+  },
+  "an opened handle that reads another appFormat": {
+    doc: "scripts",
+    says: '(openPeer): openPeer: the peer\'s appFormat is "host/2", expected "host/1"',
+    store: {
+      store: (store) => ({
+        peer: async (id) => ({ ...(await store.peer(id)), appFormat: "host/2" }),
+      }),
+    },
+  },
   "the reference store refuses a snapshot that appends alone moved": {
     doc: "scripts",
     says: /the reference store refused snapshot-moved on a snapshot that appends alone moved/,
@@ -998,6 +1061,44 @@ const RULES: Readonly<Record<string, Rule>> = {
           steps: script.steps.map((step) =>
             step.op === "read"
               ? ({ ...step, expect: { lastSequence: step.expect.lastSequence } } as never)
+              : step,
+          ),
+        })),
+      },
+    },
+  },
+  "a createPeer step without appFormat": {
+    doc: "scripts",
+    says: "(createPeer): createPeer: the vector's appFormat is not a string or null; the document is defective",
+    store: {},
+    vectors: {
+      ...vectors,
+      scripts: {
+        ...vectors.scripts,
+        scripts: vectors.scripts.scripts.map((script) => ({
+          ...script,
+          steps: script.steps.map((step) =>
+            step.op === "createPeer" && "status" in step.expect
+              ? ({ ...step, expect: { status: "created" } } as never)
+              : step,
+          ),
+        })),
+      },
+    },
+  },
+  "an openPeer step with an appFormat that is not a string or null": {
+    doc: "scripts",
+    says: "(openPeer): openPeer: the vector's appFormat is not a string or null; the document is defective",
+    store: {},
+    vectors: {
+      ...vectors,
+      scripts: {
+        ...vectors.scripts,
+        scripts: vectors.scripts.scripts.map((script) => ({
+          ...script,
+          steps: script.steps.map((step) =>
+            step.op === "openPeer" && "status" in step.expect
+              ? ({ ...step, expect: { ...step.expect, appFormat: 7 } } as never)
               : step,
           ),
         })),
@@ -1094,7 +1195,7 @@ const RULES: Readonly<Record<string, Rule>> = {
     store: {
       store: (store) => ({
         createPeer: async (id, options) => {
-          const peer = await store.createPeer(id, { erasure: "unproven" });
+          const peer = await store.createPeer(id, { ...options, erasure: "unproven" });
           return { ...peer, erasure: { ...peer.erasure, posture: options.erasure } };
         },
       }),
@@ -1518,7 +1619,12 @@ const RULES: Readonly<Record<string, Rule>> = {
             spec: "README §1.3",
             requires: [],
             steps: [
-              { op: "createPeer", peer: "A", erasure: "unproven", expect: { status: "created" } },
+              {
+                op: "createPeer",
+                peer: "A",
+                erasure: "unproven",
+                expect: { status: "created", appFormat: null },
+              },
               {
                 op: "purge",
                 peer: "A",
@@ -2377,7 +2483,12 @@ describe("runner rules: a wrong document", () => {
     "a changes step that names another peer's revision": {
       vectors: feedSteps(
         2,
-        { op: "createPeer", peer: "B", erasure: "unproven", expect: { status: "created" } },
+        {
+          op: "createPeer",
+          peer: "B",
+          erasure: "unproven",
+          expect: { status: "created", appFormat: null },
+        },
         { op: "changes", peer: "B", from: { revision: "A.0" }, expect: {} },
       ),
       says: "the vector names revision A.0 of another peer",

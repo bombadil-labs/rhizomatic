@@ -18,8 +18,8 @@ use rhizomatic::principal::{
 use rhizomatic::reactor::{IngestResult, Reactor};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSource};
 use rhizomatic::store::{
-    scope_source, Admission, Anchor, AppendResult, ArrivalRecord, ErasurePosture, PeerStore,
-    ScopeRequest, ScopeSource, Store, VerifiedDelta,
+    scope_source, Admission, Anchor, AppendResult, ArrivalRecord, CreatePeerOptions,
+    ErasurePosture, PeerStore, ScopeRequest, ScopeSource, Store, VerifiedDelta,
 };
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 use serde_json::Value;
@@ -77,7 +77,10 @@ struct Loaded {
 fn load_peer(deltas: &[Delta]) -> Loaded {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:fixture", ErasurePosture::Unproven)
+        .create_peer(
+            "peer:fixture",
+            &CreatePeerOptions::new(ErasurePosture::Unproven),
+        )
         .unwrap();
     let mut sorted: Vec<&Delta> = deltas.iter().collect();
     sorted.sort_by(|a, b| a.id.cmp(&b.id));

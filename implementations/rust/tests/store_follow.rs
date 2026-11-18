@@ -22,8 +22,9 @@ use rhizomatic::memory_store::{MemoryStore, MemoryStoreOptions};
 use rhizomatic::set::make_delta;
 use rhizomatic::store::{
     Admission, AppendResult, ArrivalRecord, ChangePage, ChangeRecord, ChangeRetention,
-    ErasurePosture, PeerErasure, PeerStore, PurgeReport, Revision, ScopeRequest, ScopeResult,
-    Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta, MAX_REVISION,
+    CreatePeerOptions, ErasurePosture, PeerErasure, PeerStore, PurgeReport, Revision, ScopeRequest,
+    ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreFailure, VerifiedDelta,
+    MAX_REVISION,
 };
 use rhizomatic::store_conformance::{
     run_follow_conformance, FollowCaseStore, FollowReader, Follower, StoreConformanceError,
@@ -917,7 +918,9 @@ fn here(peer: &dyn PeerStore) -> Position {
 }
 
 fn new_peer(store: &MemoryStore, name: &str) -> Box<dyn PeerStore> {
-    store.create_peer(name, ErasurePosture::Unproven).unwrap()
+    store
+        .create_peer(name, &CreatePeerOptions::new(ErasurePosture::Unproven))
+        .unwrap()
 }
 
 /// A feed answer a probe gives instead of the store's.
@@ -969,8 +972,11 @@ impl PeerStore for Probe<'_> {
     fn erasure(&self) -> PeerErasure {
         self.inner.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.log("read");
@@ -984,11 +990,11 @@ impl PeerStore for Probe<'_> {
         self.log("append");
         self.inner.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         self.log("purge");
         self.inner.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.log("changes");
         if let Some(store) = self.closes {
             store.close();
@@ -1039,11 +1045,11 @@ impl Snapshot for ProbeSnapshot {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.log("get");
         self.inner.get(ids)
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.log("arrivals");
         let mut records = self.inner.arrivals(ids)?;
         if self.short_arrivals && !records.is_empty() {
@@ -1051,15 +1057,15 @@ impl Snapshot for ProbeSnapshot {
         }
         Ok(records)
     }
-    fn targets(&self, e: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, e: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.log("targets");
         self.inner.targets(e)
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.log("negators");
         self.inner.negators(ids)
     }
-    fn scope(&self, r: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, r: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         self.log("scope");
         self.inner.scope(r)
     }
@@ -1080,7 +1086,7 @@ fn a_malformed_position_is_refused_with_no_store_call() {
             revision: Revision(0),
         },
         Position {
-            history: peer.history().to_string(),
+            history: peer.history().unwrap().to_string(),
             revision: Revision(MAX_REVISION + 1),
         },
     ] {
@@ -1900,7 +1906,7 @@ fn fuzz_sequence(seed: u64, tally: &mut Tally) {
     let models: Vec<PeerModel> = peers
         .iter()
         .map(|peer| PeerModel {
-            history: peer.history().to_string(),
+            history: peer.history().unwrap().to_string(),
             revisions: vec![here(peer.as_ref()).revision],
             holdings: vec![Holdings::new()],
             records: Vec::new(),
@@ -2117,8 +2123,11 @@ impl PeerStore for StuckPeer<'_> {
     fn erasure(&self) -> PeerErasure {
         self.0.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.0.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.0.app_format()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.0.read()
@@ -2126,10 +2135,10 @@ impl PeerStore for StuckPeer<'_> {
     fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
         self.0.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         self.0.purge(ids)
     }
-    fn changes(&self, from: Revision, _: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, _: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         Ok(ChangePage::Ok {
             records: Vec::new(),
             through: from,

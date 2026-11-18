@@ -43,6 +43,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::refused::as_refusal;
 use rhizomatic::anchored::{eval_anchored, scope_ids, DeltaSource};
 use rhizomatic::eval::result_canonical_hex;
 use rhizomatic::json_profile::parse_claims;
@@ -51,9 +52,10 @@ use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::set::make_delta;
 use rhizomatic::store::{
     missing_requirements, scope_source, Admission, Anchor, AppendResult, ArrivalRecord, AtRest,
-    ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, PurgeOutcome, Pushdown,
-    PushdownFields, Revision, ScopeRequest, Store, StoreCapabilities, StoreError, StoreErrorCode,
-    StoreProfile, StoreRequirement, StoreWriters, VerifiedDelta, MAX_ARRIVAL_COUNTER,
+    ChangeRetention, CreatePeerOptions, ErasureClaim, ErasureClass, ErasurePosture, PurgeOutcome,
+    Pushdown, PushdownFields, Revision, ScopeRequest, Store, StoreCapabilities, StoreError,
+    StoreErrorCode, StoreProfile, StoreRequirement, StoreWriters, VerifiedDelta,
+    MAX_ARRIVAL_COUNTER,
 };
 use rhizomatic::store_open::{open_store, OpenOptions, StoreSchemes, UNKNOWN_SCHEME_MESSAGE};
 use rhizomatic::term_json::parse_term;
@@ -115,7 +117,7 @@ fn memory_opens_a_new_empty_store_with_its_profile() {
     assert_eq!(*store.profile(), memory_store_profile());
 
     store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let second = open_store("MEMORY:", &OpenOptions::default()).unwrap();
     assert_eq!(code(second.peer("peer:a")), StoreErrorCode::PeerAbsent);
@@ -321,19 +323,22 @@ fn open_refuses_a_store_that_lacks_a_requirement_and_closes_it() {
 fn a_closed_store_refuses_everything_but_what_a_snapshot_fixed() {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let snapshot = peer.read().unwrap();
     let admin = store.open_admin();
     store.close();
 
     assert_eq!(
-        code(store.create_peer("peer:b", ErasurePosture::Unproven)),
+        code(store.create_peer("peer:b", &CreatePeerOptions::new(ErasurePosture::Unproven))),
         StoreErrorCode::StoreClosed
     );
     assert_eq!(code(store.peer("peer:a")), StoreErrorCode::StoreClosed);
     assert_eq!(code(peer.read()), StoreErrorCode::StoreClosed);
-    assert_eq!(code(peer.purge(&[])), StoreErrorCode::StoreClosed);
+    assert_eq!(
+        code(peer.purge(&[]).map_err(as_refusal)),
+        StoreErrorCode::StoreClosed
+    );
     let batch = Admission {
         expected_head: None,
         next_head: "h".into(),
@@ -341,17 +346,30 @@ fn a_closed_store_refuses_everything_but_what_a_snapshot_fixed() {
         added: vec![],
     };
     assert_eq!(code(peer.append(&batch)), StoreErrorCode::StoreClosed);
-    assert_eq!(code(snapshot.get(&[])), StoreErrorCode::StoreClosed);
     assert_eq!(
-        code(snapshot.scope(&ScopeRequest::default())),
+        code(snapshot.get(&[]).map_err(as_refusal)),
         StoreErrorCode::StoreClosed
     );
     assert_eq!(
-        code(admin.peers().collect::<Result<Vec<_>, _>>()),
+        code(snapshot.scope(&ScopeRequest::default()).map_err(as_refusal)),
         StoreErrorCode::StoreClosed
     );
     assert_eq!(
-        code(admin.stored_ids().collect::<Result<Vec<_>, _>>()),
+        code(
+            admin
+                .peers()
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(as_refusal)
+        ),
+        StoreErrorCode::StoreClosed
+    );
+    assert_eq!(
+        code(
+            admin
+                .stored_ids()
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(as_refusal)
+        ),
         StoreErrorCode::StoreClosed
     );
     assert_eq!(code(admin.peer("peer:a")), StoreErrorCode::StoreClosed);
@@ -366,16 +384,16 @@ fn a_closed_store_refuses_everything_but_what_a_snapshot_fixed() {
 fn peer_creation_refusals() {
     let store = MemoryStore::new();
     assert_eq!(
-        code(store.create_peer("peer:p", ErasurePosture::Proven)),
+        code(store.create_peer("peer:p", &CreatePeerOptions::new(ErasurePosture::Proven))),
         StoreErrorCode::PostureRefused
     );
     assert_eq!(code(store.peer("peer:p")), StoreErrorCode::PeerAbsent);
     assert_eq!(
-        code(store.create_peer("", ErasurePosture::Unproven)),
+        code(store.create_peer("", &CreatePeerOptions::new(ErasurePosture::Unproven))),
         StoreErrorCode::InvalidRequest
     );
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     assert_eq!(peer.erasure().posture, ErasurePosture::Unproven);
     assert_eq!(peer.erasure().store_class, ErasureClass::Unprovable);
@@ -423,7 +441,7 @@ fn an_anchored_read_evaluates_over_a_fetched_scope() {
 
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let batch = Admission {
         expected_head: None,
@@ -491,7 +509,7 @@ fn a_scope_source_answers_only_from_what_was_fetched() {
         .collect();
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let members = held(&fixture);
     let batch = Admission {
@@ -571,7 +589,7 @@ fn a_scope_source_answers_only_from_what_was_fetched() {
 fn append_refusals_the_shared_scripts_do_not_reach() {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     assert_eq!(peer.id(), "peer:a");
     let delta = make_delta(
@@ -712,7 +730,7 @@ fn plant(context: &str, mime: &str, payload: &[u8]) -> Delta {
 fn non_finite_and_out_of_range_numbers_are_refused() {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let delta = plant("photo", "image/png", &[1, 2, 3]);
     let other = plant("thumb", "image/png", &[4]);
@@ -774,14 +792,20 @@ fn non_finite_and_out_of_range_numbers_are_refused() {
             timestamp_at_most: Some(t),
             ..Pushdown::default()
         });
-        assert_eq!(code(refused), StoreErrorCode::InvalidRequest);
+        assert_eq!(
+            code(refused.map_err(as_refusal)),
+            StoreErrorCode::InvalidRequest
+        );
     }
     for n in [MAX_ARRIVAL_COUNTER + 1, u64::MAX] {
         let refused = scope(Pushdown {
             arrival_at_most: Some(n),
             ..Pushdown::default()
         });
-        assert_eq!(code(refused), StoreErrorCode::InvalidRequest);
+        assert_eq!(
+            code(refused.map_err(as_refusal)),
+            StoreErrorCode::InvalidRequest
+        );
     }
     let none = scope(Pushdown {
         arrival_at_most: Some(0),
@@ -809,7 +833,7 @@ fn non_finite_and_out_of_range_numbers_are_refused() {
 fn a_malformed_signature_is_refused_even_for_a_held_id() {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let delta = plant("photo", "image/png", &[1]);
     let good = "0123456789abcdef".repeat(8);
@@ -851,10 +875,10 @@ fn a_malformed_signature_is_refused_even_for_a_held_id() {
 fn a_caller_cannot_reach_into_what_the_store_holds() {
     let store = MemoryStore::new();
     let a = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let b = store
-        .create_peer("peer:b", ErasurePosture::Unproven)
+        .create_peer("peer:b", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let delta = plant("photo", "image/png", &[1, 2, 3]);
     let ids = vec![delta.id.clone()];
@@ -1017,7 +1041,7 @@ fn a_refused_scope_source_call_adds_nothing() {
 fn an_invalid_scope_bound_is_refused_before_snapshot_state() {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let delta = plant("photo", "image/png", &[1]);
     peer.append(&batch((None, "h-1"), vec![entry(&delta, 1)]))
@@ -1049,23 +1073,23 @@ fn an_invalid_scope_bound_is_refused_before_snapshot_state() {
 
     crate::move_snapshot::move_by_purge(peer.as_ref());
     assert_eq!(
-        code(scope(snapshot.as_ref(), None)),
+        code(scope(snapshot.as_ref(), None).map_err(as_refusal)),
         StoreErrorCode::SnapshotMoved
     );
     for bound in &bad_bounds {
         assert_eq!(
-            code(scope(snapshot.as_ref(), Some(bound.clone()))),
+            code(scope(snapshot.as_ref(), Some(bound.clone())).map_err(as_refusal)),
             StoreErrorCode::InvalidRequest
         );
     }
     snapshot.release();
     assert_eq!(
-        code(scope(snapshot.as_ref(), None)),
+        code(scope(snapshot.as_ref(), None).map_err(as_refusal)),
         StoreErrorCode::SnapshotReleased
     );
     for bound in &bad_bounds {
         assert_eq!(
-            code(scope(snapshot.as_ref(), Some(bound.clone()))),
+            code(scope(snapshot.as_ref(), Some(bound.clone())).map_err(as_refusal)),
             StoreErrorCode::InvalidRequest
         );
     }
@@ -1078,7 +1102,7 @@ fn an_invalid_scope_bound_is_refused_before_snapshot_state() {
 fn heads_sequences_and_forged_entries() {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let one = plant("photo", "image/png", &[1]);
     let two = plant("thumb", "image/png", &[2]);

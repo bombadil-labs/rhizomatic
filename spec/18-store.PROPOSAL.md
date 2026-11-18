@@ -2449,7 +2449,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `body` gets 2. `StoreReactor.read` and `fetch`, `checkFresh`, a pull of a
      feed cursor and a pass of held views are this function with the default bound; their
      behavior did not change. It is a reader over the contract: a store implements nothing for
-     it. Rust gets `with_snapshot` in step 4e. Since step 4d an append does not move a snapshot
+     it. Step 4e gave Rust `with_snapshot(peer, body, &retry)` with the same rules; a body's
+     error type tells its refusal code through the trait `StoreRefusal`, and `SnapshotRetry`
+     names the bound in time `within_ms`. Since step 4d an append does not move a snapshot
      of the TypeScript stores (reading 130), so `body` starts again there only after a purge
      that released a holding, a new history, or a peer row at a lower revision.
 128. **What starts again, and the bound.** Only `snapshot-moved` starts `body` again, also one
@@ -2567,6 +2569,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      commits, and its sequences and transfer are above every committed one. A host that used
      `count + 1` as the next sequence is refused after a purge, because a purge lowers `count`
      and not the last sequence. Step 4d's follow-up removed the `transfer` option (unreleased).
+     Step 4e gave Rust the same function, `admission_of(snapshot, deltas, AdmissionOptions {at,
+     sender, next_head})`, with the same rules and refusals; a check for a value of the wrong
+     type has no Rust form.
 134. **The application format string** (slice 4, step 4d, §4.7.3). `createPeer(id, {erasure,
      appFormat})` takes an optional string: a host's own marker for the format of what it keeps
      in the peer. It is a well-formed string of 1 to 256 UTF-8 bytes; any other value, null
@@ -2576,8 +2581,11 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `peer-exists` whatever it asks. Every handle in every process reads the same value in O(1).
      The SQLite store keeps it in `peer.app_format` and reads it from the file at each ask, as
      `history`. The column carries its own check, `NULL` or 1 to 256 bytes, so a writer that
-     bypasses `createPeer` (the Rust witness, an operator) cannot store another value. After
-     `close`, `appFormat` and `history` refuse `store-closed` on both stores. The string lies
+     bypasses `createPeer` (another witness's code, an operator) cannot store another value.
+     After `close`, `appFormat` and `history` refuse `store-closed` on both stores. Step 4e gave
+     the Rust memory store the same rules (`CreatePeerOptions.app_format`,
+     `PeerStore::app_format`), and the script `a-peer-carries-an-application-format-string`
+     holds them for every store. The string lies
      outside erasure: no purge removes it, and no erasure report names it. It lives as long as
      the peer row, as the peer id and the head do. A host must not put personal data in it. A
      host cannot move a peer to a new format string in place. A host that retires one of its
@@ -2659,11 +2667,27 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      step: the SQLite purge reads no claims. On the memory store, a purge that names a held id
      with no stored claims throws `StoreIntegrityError` (`claims-unreadable`, with the peer and
      the id) before it removes anything, so the store is unchanged; before, it threw a plain
-     `Error` and could leave the ids sorted before that id removed with no change record. A
+     `Error` and could leave the ids sorted before that id removed with no change record. The
+     same check refuses a held id whose row counts fewer than 1 holder: `count-mismatch`, key
+     `holders`, with the peer and the id, and nothing is removed. Its detail says "this peer
+     holds it", because a purge does not count the other holders. Before, the count went below
+     zero, and the report named `held-by-other-peer` and `purge-debt` while no other peer held
+     the row. The SQLite store keeps no count of holders: its purge asks whether another holding
+     exists, so this rule has no SQLite case. **The feed.** `changes` fails with `feed-gap`, with
+     the peer and `fsck`'s detail, when the kept records are not the revisions of the page it
+     answers, on both stores. Before, it answered `ok` without a lost record and with a
+     `through` past it, so a follower passed that revision; a follower's pull now throws the
+     fault and does not move. The check compares the revision of each answered record. It adds
+     no read on an undamaged feed. The SQLite store counts the peer's records only to name a gap
+     it found. A
      memory-store remedy that completes that purge is proposed in its own pull request, because
      it widens what a purge removes. No call replaces a row; a replace stays with Loam's repair layer in
-     slice 5. Rust takes the error in step 4e. **A fault is erasable material.** Its `id` is a
-     delta id, and its `key` can be an entity id or a referenced id; an `index-stray` or
+     slice 5. In step 4e the Rust memory store takes the same faults, the same purge rule and
+     `fsck` (reading 137), except `digest-mismatch`, which comes with its digest. It has no peer
+     `count-mismatch` either: it keeps no peer counter, and a snapshot's count is the number of
+     its holdings. **A fault is
+     erasable material.** Its `id` is a delta id, and its `key` can be an entity id or a
+     referenced id; an `index-stray` or
      `index-missing` detail can name a pointer role. All of these come from claims. A host that
      logs or keeps a fault keeps them outside the store, where a purge does not reach. It treats
      a stored fault report as erasable material of that delta.
@@ -2997,11 +3021,22 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        names `purge-debt` while another peer's purge debt names an id the peer held or owed,
        read after the delete, as its purge does. A held id whose
        row is gone throws `StoreIntegrityError` (`claims-unreadable`) before the delete removes
-       anything, as the purge of that id does (reading 136). **Known limit:** until a remedy for
-       that purge lands, no call deletes such a peer. An `append` copies and checks its entries
-       before it reads the peer, as the SQLite store does. So an accessor of an entry that
-       deletes the peer makes the append refuse `peer-absent`, and the append writes nothing
-       (after the round-6 review of PR #101; before, it wrote bytes that no peer held).
+       anything, as the purge of that id does (reading 136). A held id whose row counts fewer
+       than 1 holder throws `count-mismatch` (key `holders`, with the peer and the id) the same
+       way, by the same check as the purge. **Known limit:** no call deletes a peer that holds
+       either id. A remedy is proposed only for the id with no stored claims: a wider purge of
+       that id (rhizomatic PR #99). No remedy is proposed for the count fault.
+       **Known gap:** a row can count 1 or more holders but fewer than hold it. A delete of one
+       holder then takes the count to 0 and removes the row that another peer still holds. Its
+       report says `rows: absent`, `released: 1`, `keptByOtherPeers: 0`, and the other peer's
+       `get` of the id fails `claims-unreadable`. The purge has the same gap. `fsck` reports the
+       row before the call (`count-mismatch`, key `holders`). The SQLite store keeps no count and
+       cannot reach this state. A fix is planned as its own change: the memory store keeps which
+       peers hold each id.
+       An `append` copies and checks its entries before it reads the peer, as the SQLite store
+       does. So an accessor of an entry that deletes the peer makes the append refuse
+       `peer-absent`, and the append writes nothing (after the round-6 review of PR #101;
+       before, it wrote bytes that no peer held).
      - **A handle names one peer.** After a delete, every call of an old handle with a
        well-formed request refuses `peer-absent`, on both stores, also after a `createPeer` of
        the same id. Both stores check a call in one order: `store-closed`, then the form of the

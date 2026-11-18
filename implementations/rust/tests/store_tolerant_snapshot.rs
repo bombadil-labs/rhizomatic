@@ -2,22 +2,24 @@
 //! keeps its last sequence. A later append gives every new holding a sequence past it, so each
 //! call keeps the holdings at or below it and answers as at the snapshot's revision. A purge that
 //! releases a holding moves every older snapshot. The scenarios are those of the TypeScript
-//! `test/store-tolerant-snapshot.test.ts` that apply to a memory store; its scenario 14 needs
-//! `with_snapshot`, which this witness does not have yet.
+//! `test/store-tolerant-snapshot.test.ts` that apply to a memory store, scenario 14 included.
 
 use std::cell::Cell;
 
+use crate::refused::as_refusal;
 use rhizomatic::eval::result_canonical_hex;
 use rhizomatic::memory_store::{MemoryStore, MemoryStoreOptions};
 use rhizomatic::set::{make_delta, make_negation_claims};
 use rhizomatic::store::{
-    Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ChangeRetention, ErasureClaim,
-    ErasurePosture, PeerErasure, PeerStore, PurgeOutcome, PurgeReport, Pushdown, Revision,
-    ScopeRequest, Snapshot, Store, StoreError, VerifiedDelta, MAX_ARRIVAL_COUNTER,
+    Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ChangeRetention, CreatePeerOptions,
+    ErasureClaim, ErasurePosture, PeerErasure, PeerStore, PurgeOutcome, PurgeReport, Pushdown,
+    Revision, ScopeRequest, Snapshot, Store, StoreError, StoreFailure, VerifiedDelta,
+    MAX_ARRIVAL_COUNTER,
 };
 use rhizomatic::store_follow::{follow_feed, position_of, Position, Pull};
-use rhizomatic::store_fresh::{check_fresh, Freshness};
+use rhizomatic::store_fresh::{check_fresh, FeedError, Freshness};
 use rhizomatic::store_read::{capture_scope, read_anchored, ReadRequest, Selection};
+use rhizomatic::store_with_snapshot::{with_snapshot, OnSnapshot, SnapshotRetry};
 use rhizomatic::term_json::parse_term;
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Target};
 
@@ -73,7 +75,7 @@ impl Writer {
 
     fn with(store: MemoryStore) -> Self {
         let peer = store
-            .create_peer("peer:p", ErasurePosture::Unproven)
+            .create_peer("peer:p", &CreatePeerOptions::new(ErasurePosture::Unproven))
             .unwrap();
         Self {
             store,
@@ -165,14 +167,14 @@ fn every_call(s: &dyn Snapshot, id: &str) -> Vec<String> {
         exclude: Vec::new(),
     };
     vec![
-        code(s.get(&id)),
-        code(s.get(&none)),
-        code(s.arrivals(&id)),
-        code(s.targets(&[X.to_string()])),
-        code(s.targets(&none)),
-        code(s.negators(&id)),
-        code(s.scope(&anchored(X))),
-        code(s.scope(&unanchored)),
+        code(s.get(&id).map_err(as_refusal)),
+        code(s.get(&none).map_err(as_refusal)),
+        code(s.arrivals(&id).map_err(as_refusal)),
+        code(s.targets(&[X.to_string()]).map_err(as_refusal)),
+        code(s.targets(&none).map_err(as_refusal)),
+        code(s.negators(&id).map_err(as_refusal)),
+        code(s.scope(&anchored(X)).map_err(as_refusal)),
+        code(s.scope(&unanchored).map_err(as_refusal)),
     ]
 }
 
@@ -335,7 +337,7 @@ fn a_purge_that_releases_nothing_and_a_purge_of_another_peer_move_no_older_snaps
     w.append(&[&fact(Y)]);
     let other = w
         .store
-        .create_peer("peer:q", ErasurePosture::Unproven)
+        .create_peer("peer:q", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let shared = fact(X);
     other
@@ -377,7 +379,7 @@ fn two_peers_share_ids_across_a_snapshot_and_the_other_peers_holding_neither_add
     let strike = negation(&held);
     let other = w
         .store
-        .create_peer("peer:q", ErasurePosture::Unproven)
+        .create_peer("peer:q", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let added = [(&late, 1), (&strike, 2), (&held, 100)]
         .into_iter()
@@ -504,8 +506,11 @@ impl PeerStore for Moving<'_> {
     fn erasure(&self) -> PeerErasure {
         self.writer.peer.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.writer.peer.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.writer.peer.app_format()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.reads.set(self.reads.get() + 1);
@@ -514,10 +519,10 @@ impl PeerStore for Moving<'_> {
     fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
         self.writer.peer.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         self.writer.peer.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         let page = self.writer.peer.changes(from, to);
         if self.appends.get() > 0 {
             self.appends.set(self.appends.get() - 1);
@@ -555,4 +560,21 @@ fn a_pull_during_appends_answers_from_one_snapshot_at_that_snapshots_position_wi
     );
     let got: Vec<String> = deltas.iter().map(|d| d.delta.id.clone()).collect();
     assert_eq!(got, std::slice::from_ref(&first.id));
+}
+
+#[test]
+fn a_body_that_appends_and_then_reads_does_not_see_its_own_write_and_runs_once() {
+    let w = Writer::new();
+    let held = fact(X);
+    w.append(&[&held]);
+    let OnSnapshot { value, attempts } = with_snapshot(
+        w.peer.as_ref(),
+        |s, _| {
+            w.append(&[&fact(X)]);
+            s.targets(&[X.to_string()]).map_err(FeedError::from)
+        },
+        &SnapshotRetry::default(),
+    )
+    .unwrap();
+    assert_eq!((value, attempts), (vec![held.id.clone()], 1));
 }

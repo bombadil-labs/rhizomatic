@@ -870,10 +870,11 @@ impl<'a> StoreViews<'a> {
             request.memo = self.options.memo;
             request.capture = true;
             *counts.entry(key.name.clone()).or_default() += 1;
-            // A store refusal stays one, so `snapshot-moved` starts the pass again; any other
-            // error of the read passes up unchanged.
+            // A store refusal stays one, so `snapshot-moved` starts the pass again; an integrity
+            // fault stays one too; any other error of the read passes up unchanged.
             let read = read_anchored(snapshot, request).map_err(|e| match e {
                 crate::store_read::StoreReadError::Store(e) => FeedError::Refused(e),
+                crate::store_read::StoreReadError::Integrity(fault) => FeedError::Integrity(fault),
                 other => FeedError::Read(other.to_string()),
             })?;
             let capture = read.capture.ok_or_else(|| {

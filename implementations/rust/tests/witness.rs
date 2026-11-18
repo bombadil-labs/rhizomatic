@@ -7,6 +7,8 @@ mod freshness_doubles;
 mod materialization_assertions;
 #[path = "support/move_snapshot.rs"]
 mod move_snapshot;
+#[path = "support/refused.rs"]
+mod refused;
 #[path = "support/timed.rs"]
 mod timed;
 
@@ -66,6 +68,8 @@ mod resolve;
 mod schema_deltas;
 mod set;
 mod sign;
+mod store_admission_of;
+mod store_app_format;
 mod store_broken;
 mod store_cost;
 mod store_digest;
@@ -73,6 +77,7 @@ mod store_feed;
 mod store_feed_rules;
 mod store_follow;
 mod store_freshness;
+mod store_integrity;
 mod store_open;
 mod store_read_families;
 mod store_retains;
@@ -83,6 +88,7 @@ mod store_tolerant_snapshot;
 mod store_transfer;
 mod store_vectors;
 mod store_views;
+mod store_with_snapshot;
 mod strict_keys;
 mod time;
 mod txn;

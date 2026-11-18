@@ -369,7 +369,7 @@ const faults: Record<string, Break> = {
   "a proven-posture peer on an unprovable store": {
     store: (store) => ({
       createPeer: async (id, options) => {
-        const peer = await store.createPeer(id, { erasure: "unproven" });
+        const peer = await store.createPeer(id, { ...options, erasure: "unproven" });
         return { ...peer, erasure: { ...peer.erasure, posture: options.erasure } };
       },
     }),
@@ -685,7 +685,7 @@ describe("store vectors: what the profile changes", () => {
       }),
       store: (store) => ({
         createPeer: async (id, options) => {
-          const peer = await store.createPeer(id, { erasure: "unproven" });
+          const peer = await store.createPeer(id, { ...options, erasure: "unproven" });
           return { ...peer, erasure: { posture: options.erasure, storeClass: "proven" } };
         },
       }),

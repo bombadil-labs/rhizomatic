@@ -22,6 +22,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
+use crate::refused::as_refusal;
 use rhizomatic::anchored::{anchor_analysis, hview_anchors, scope_ids, AnchorAnalysis};
 use rhizomatic::eval::{
     eval_term_at, result_canonical_hex, ChildKey, ChildMemo, ChildValue, EvalResult, SchemaRef,
@@ -34,16 +35,18 @@ use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSet, DeltaSource};
 use rhizomatic::store::{
     collect_delta_set, negated_ids, scope_source, target_entities, Admission, Anchor, AppendResult,
-    ArrivalRecord, ChangePage, ErasurePosture, PeerErasure, PeerExporter, PeerStore, PurgeOutcome,
-    PurgeReport, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource,
-    Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta, MAX_REVISION,
+    ArrivalRecord, ChangePage, CreatePeerOptions, ErasurePosture, PeerErasure, PeerExporter,
+    PeerStore, PurgeOutcome, PurgeReport, Pushdown, PushdownFields, Revision, ScopeRequest,
+    ScopeResult, ScopeSource, Snapshot, Store, StoreError, StoreErrorCode, StoreFailure,
+    VerifiedDelta, MAX_REVISION,
 };
 use rhizomatic::store_fresh::{raw_scope, validity_window, FeedError};
 use rhizomatic::store_read::{
     capture_scope, fetch_scope, read_anchored, read_anchored_with_memo, read_full_surface,
     EvalMemo, FetchCache, FinalChildMemo, FullSurfaceRequest, FullSurfaceRoute, ReadRequest,
-    RoundMemo, RoundReport, Selection, StoreReactor, StoreRead, StoreReadError, SNAPSHOT_RETRIES,
+    RoundMemo, RoundReport, Selection, StoreReactor, StoreRead, StoreReadError,
 };
+use rhizomatic::store_with_snapshot::SNAPSHOT_RETRIES;
 use rhizomatic::term_json::parse_term;
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 use serde_json::Value;
@@ -205,7 +208,10 @@ impl Fixture {
     fn load(&self, store: &MemoryStore) -> Box<dyn PeerStore> {
         assert_eq!(self.doc["load"]["erasure"], "unproven");
         let peer = store
-            .create_peer(self.peer_id(), ErasurePosture::Unproven)
+            .create_peer(
+                self.peer_id(),
+                &CreatePeerOptions::new(ErasurePosture::Unproven),
+            )
             .unwrap();
         for entry in self.doc["load"]["admissions"].as_array().unwrap() {
             commit(peer.as_ref(), &self.admission(entry));
@@ -673,23 +679,23 @@ impl Snapshot for Tracing {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.note("get", ids.len(), 0);
         self.inner.get(ids)
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.note("arrivals", ids.len(), 0);
         self.inner.arrivals(ids)
     }
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.note("targets", entities.len(), 0);
         self.inner.targets(entities)
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.note("negators", ids.len(), 0);
         self.inner.negators(ids)
     }
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         self.note("scope", request.anchors.len(), request.exclude.len());
         self.inner.scope(request)
     }
@@ -707,8 +713,11 @@ struct TracingPeer {
 }
 
 impl PeerStore for TracingPeer {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn id(&self) -> &str {
         self.inner.id()
@@ -726,10 +735,10 @@ impl PeerStore for TracingPeer {
     fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
         self.inner.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         self.inner.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.inner.changes(from, to)
     }
 }
@@ -750,7 +759,7 @@ fn tracing_peer(inner: Box<dyn PeerStore>) -> (TracingPeer, Rc<Cell<usize>>, Tra
 
 fn snapshot_double(
     inner: Box<dyn Snapshot>,
-    scope: impl Fn(&dyn Snapshot, &ScopeRequest) -> Result<ScopeResult, StoreError> + 'static,
+    scope: impl Fn(&dyn Snapshot, &ScopeRequest) -> Result<ScopeResult, StoreFailure> + 'static,
 ) -> Box<dyn Snapshot> {
     Box::new(Double {
         inner,
@@ -758,7 +767,7 @@ fn snapshot_double(
     })
 }
 
-type ScopeFn = Box<dyn Fn(&dyn Snapshot, &ScopeRequest) -> Result<ScopeResult, StoreError>>;
+type ScopeFn = Box<dyn Fn(&dyn Snapshot, &ScopeRequest) -> Result<ScopeResult, StoreFailure>>;
 
 /// A snapshot whose `scope` answer is computed by a closure over the real snapshot.
 struct Double {
@@ -785,19 +794,19 @@ impl Snapshot for Double {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.inner.arrivals(ids)
     }
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.targets(entities)
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.negators(ids)
     }
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         (self.scope)(self.inner.as_ref(), request)
     }
     fn release(&mut self) {
@@ -809,7 +818,7 @@ impl Snapshot for Double {
 /// `timestampAtMost` to the host, and besides the exact scope it returns each direct negator of
 /// a target-matched delta that fails that field, without the negator's own negators (SPEC-18
 /// §4.12 reading 5). Over a memory snapshot that applies every field.
-fn unclosed(inner: &dyn Snapshot, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+fn unclosed(inner: &dyn Snapshot, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
     let mut answer = inner.scope(request)?;
     let Some(p) = request.pushdown.as_ref() else {
         return Ok(answer);
@@ -826,7 +835,7 @@ fn unclosed(inner: &dyn Snapshot, request: &ScopeRequest) -> Result<ScopeResult,
         timestamp_at_most: None,
         ..p.clone()
     };
-    let held = |ids: &[String]| -> Result<Vec<VerifiedDelta>, StoreError> {
+    let held = |ids: &[String]| -> Result<Vec<VerifiedDelta>, StoreFailure> {
         let deltas = inner.get(ids)?;
         let arrivals: BTreeMap<String, ArrivalRecord> = inner
             .arrivals(ids)?
@@ -937,11 +946,15 @@ fn model_read(
             pushdown: Some(pushdown.clone()),
             exclude,
         };
-        let first = fresh.as_deref().unwrap_or(snapshot).scope(&call);
+        let first = fresh
+            .as_deref()
+            .unwrap_or(snapshot)
+            .scope(&call)
+            .map_err(as_refusal);
         let answer = match (first, resume) {
             (Err(e), Some(peer)) if e.code == StoreErrorCode::SnapshotMoved => {
                 fresh = Some(peer.read()?);
-                fresh.as_deref().unwrap().scope(&call)?
+                fresh.as_deref().unwrap().scope(&call).map_err(as_refusal)?
             }
             (first, _) => first?,
         };
@@ -1664,11 +1677,14 @@ struct ScriptedPeer {
     scope: SharedScope,
 }
 
-type SharedScope = Rc<dyn Fn(&dyn Snapshot, &ScopeRequest) -> Result<ScopeResult, StoreError>>;
+type SharedScope = Rc<dyn Fn(&dyn Snapshot, &ScopeRequest) -> Result<ScopeResult, StoreFailure>>;
 
 impl PeerStore for ScriptedPeer {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn id(&self) -> &str {
         self.inner.id()
@@ -1687,10 +1703,10 @@ impl PeerStore for ScriptedPeer {
     fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
         self.inner.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         self.inner.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.inner.changes(from, to)
     }
 }
@@ -1720,19 +1736,19 @@ impl Snapshot for Released {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.inner.arrivals(ids)
     }
-    fn targets(&self, e: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, e: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.targets(e)
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.negators(ids)
     }
-    fn scope(&self, r: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, r: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         self.inner.scope(r)
     }
     fn release(&mut self) {
@@ -1766,7 +1782,7 @@ fn the_reactor_gives_up_after_three_retries_and_releases_every_snapshot() {
     let (reactor, reads, releases) = scripted(
         &fx,
         &store,
-        Rc::new(|_, _| Err(StoreError::new(StoreErrorCode::SnapshotMoved, "moved"))),
+        Rc::new(|_, _| Err(StoreError::new(StoreErrorCode::SnapshotMoved, "moved").into())),
     );
     let case = &fx.cases("cases")[0];
     let err = reactor
@@ -1802,8 +1818,11 @@ struct AtRevision {
 }
 
 impl PeerStore for AtRevision {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn id(&self) -> &str {
         self.inner.id()
@@ -1820,10 +1839,10 @@ impl PeerStore for AtRevision {
     fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
         self.inner.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         self.inner.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.inner.changes(from, to)
     }
 }
@@ -1852,19 +1871,19 @@ impl Snapshot for Restamped {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.inner.arrivals(ids)
     }
-    fn targets(&self, e: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, e: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.targets(e)
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.negators(ids)
     }
-    fn scope(&self, r: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, r: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         self.inner.scope(r)
     }
     fn release(&mut self) {
@@ -1921,8 +1940,11 @@ struct MovingRead {
 }
 
 impl PeerStore for MovingRead {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn id(&self) -> &str {
         self.inner.id()
@@ -1941,10 +1963,10 @@ impl PeerStore for MovingRead {
     fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
         self.inner.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         self.inner.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.inner.changes(from, to)
     }
 }
@@ -2006,7 +2028,7 @@ fn another_refusal_passes_up_after_one_attempt_and_releases_the_snapshot() {
                 Rc::new(move |inner, r| {
                     counter.set(counter.get() + 1);
                     if counter.get() == 1 {
-                        Err(StoreError::new(code, "refused once"))
+                        Err(StoreError::new(code, "refused once").into())
                     } else {
                         inner.scope(r)
                     }
@@ -3203,7 +3225,9 @@ fn a_listed_delta_whose_id_does_not_recompute_is_refused() {
     let _peer = fx.load(&store);
     let honest = collect_delta_set(&counting_exporter(&fx, &store, false)).unwrap();
     assert_eq!(honest.len(), fx.loaded());
-    let err = collect_delta_set(&counting_exporter(&fx, &store, true)).unwrap_err();
+    let err = collect_delta_set(&counting_exporter(&fx, &store, true))
+        .map_err(as_refusal)
+        .unwrap_err();
     assert_eq!(err.code, StoreErrorCode::InvalidRequest);
     let case = fx.cases("cases").remove(0);
     let err = read_full_surface(

@@ -42,7 +42,7 @@ fn passes_everything(options: MemoryStoreOptions) {
     let mut expected = names(&vectors.scripts, "scripts", "scripts");
     expected.extend(names(&vectors.scope, "cases", "scope"));
     assert_eq!(report.passed, expected, "{options:?}");
-    assert_eq!(report.passed.len(), 26 + 15);
+    assert_eq!(report.passed.len(), 27 + 15);
 }
 
 #[test]

@@ -11,6 +11,7 @@ import { makeDelta, makeNegationClaims } from "../delta/set.js";
 import { authorForSeed, signClaims } from "../delta/sign.js";
 import type { Claims, Delta, Pointer } from "../delta/types.js";
 import { MEMORY_STORE_FORMAT } from "./memory-store.js";
+import { APP_FORMAT_MAX_BYTES } from "./request.js";
 import {
   PUSHDOWN_FIELDS,
   STORE_SCOPE_FORMAT,
@@ -129,6 +130,8 @@ export type Entry = VerifiedDelta & { readonly name: string };
 export type ModelPeer = {
   readonly name: string;
   readonly posture: ErasurePosture;
+  /** The application format string given at creation, or null for none. */
+  readonly appFormat: string | null;
   /** One record per revision advance: `revision` is the model's own integer. */
   readonly feed: { readonly revision: number; readonly record: VectorRecord }[];
   head: string | null;
@@ -261,10 +264,22 @@ export class Model {
     return this.peers.get(this.handles.get(handle) ?? handle)!;
   }
 
-  createPeer(peer: string, erasure: ErasurePosture): void {
-    const step = { op: "createPeer", peer, erasure } as const;
+  /** `appFormat` undefined gives the step no `appFormat` key; null or a number is a bad value. */
+  createPeer(peer: string, erasure: ErasurePosture, appFormat?: string | null | number): void {
+    const step = {
+      op: "createPeer",
+      peer,
+      erasure,
+      ...(appFormat === undefined ? {} : { appFormat }),
+    } as const;
     const exists = this.peers.has(peer);
-    if (PEERS[peer] === "") {
+    // §4.13 reading 134: 1 to 256 UTF-8 bytes, checked before the posture and the id's use.
+    const badFormat =
+      appFormat !== undefined &&
+      (typeof appFormat !== "string" ||
+        appFormat === "" ||
+        new TextEncoder().encode(appFormat).length > APP_FORMAT_MAX_BYTES);
+    if (PEERS[peer] === "" || badFormat) {
       this.steps.push({ ...step, expect: { error: "invalid-request" } });
     } else if (erasure === "proven") {
       // The model is a store of class `unprovable`. A `proven` store creates this peer, or
@@ -278,9 +293,11 @@ export class Model {
     } else if (exists) {
       this.steps.push({ ...step, expect: { error: "peer-exists" } });
     } else {
+      const format = typeof appFormat === "string" ? appFormat : null;
       this.peers.set(peer, {
         name: peer,
         posture: erasure,
+        appFormat: format,
         feed: [],
         head: null,
         revision: 0,
@@ -291,7 +308,7 @@ export class Model {
         owed: new Set(),
       });
       this.handles.set(peer, peer);
-      this.steps.push({ ...step, expect: { status: "created" } });
+      this.steps.push({ ...step, expect: { status: "created", appFormat: format } });
       if (this.feed) this.mark(peer, `${peer}.0`);
     }
   }
@@ -307,7 +324,7 @@ export class Model {
       expect:
         state === undefined
           ? { error: "peer-absent" }
-          : { status: "opened", posture: state.posture },
+          : { status: "opened", posture: state.posture, appFormat: state.appFormat },
     });
   }
 
@@ -1134,9 +1151,40 @@ function scripts(named: readonly Named[]): StoreScript[] {
         m.createPeer("B", "unproven");
         m.append("B", null, "b-head-1", [{ delta: "a-height", sequence: 1, transfer: 3 }]);
         m.read("B", "b1");
+        // The first appearance of a new id is the one compared. Its transfer, 10, does not
+        // pass A's last one, so the batch is refused although the repeat's 11 would pass.
+        m.append("A", "head-6", "head-7", [
+          { delta: "ghost", sequence: 11, transfer: 10 },
+          { delta: "ghost", sequence: 12, transfer: 11 },
+        ]);
+        m.read("A", "s9");
       },
       ["purge"],
     ),
+    s("a-peer-carries-an-application-format-string", "SPEC-18 §4.13 reading 134", (m) => {
+      m.createPeer("A", "unproven", "host/1");
+      m.createPeer("B", "unproven");
+      // It is fixed at creation: a second create of the id is refused whatever it asks.
+      m.createPeer("A", "unproven", "host/2");
+      m.createPeer("B", "unproven", "host/2");
+      m.openPeer("A");
+      m.openPeer("B");
+      // A bad value is refused invalid-request before peer-exists and posture-refused, and
+      // creates nothing. 256 UTF-8 bytes is the bound, counted in bytes.
+      for (const bad of [null, "", "x".repeat(257), "é".repeat(129)]) {
+        m.createPeer("C", "unproven", bad);
+        m.createPeer("A", "unproven", bad);
+        m.createPeer("C", "proven", bad);
+      }
+      m.openPeer("C");
+      m.createPeer("C", "unproven", "é".repeat(128));
+      m.openPeer("C", "C2");
+      // Any well-formed string is kept byte for byte, a NUL and a control character included.
+      m.createPeer("P", "unproven", "host\u0000/\u00077");
+      m.openPeer("P");
+      // A value that is not a string is refused invalid-request before peer-exists.
+      m.createPeer("P", "unproven", 7);
+    }),
     s("a-skipped-entry-spends-no-sequence", "SPEC-18 §4.5", (m) => {
       m.createPeer("A", "unproven");
       m.append("A", null, "head-1", seq(1, "a-name"));

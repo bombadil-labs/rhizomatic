@@ -393,9 +393,9 @@ class MemoryStore implements Store {
 
   /**
    * The peer delete (§4.13 reading 144), all at once: no writer can come between its steps. A
-   * held id without its stored claims refuses the delete before it removes anything, as the purge
-   * of that id does (reading 136). Process memory cannot prove absence, so the claim is
-   * `unproven`.
+   * held id without its stored claims, or whose row counts no holder, refuses the delete before
+   * it removes anything, as the purge of that id does (reading 136). Process memory cannot
+   * prove absence, so the claim is `unproven`.
    */
   async deletePeer(id: PeerId): Promise<DeleteReport> {
     this.#open();
@@ -407,7 +407,7 @@ class MemoryStore implements Store {
     const state = this.#peers.get(id);
     if (state === undefined) throw new StoreError("peer-absent", "deletePeer: no such peer");
     const held = state.holdings.scan().map(([key]) => key);
-    for (const key of held) this.#row(state, key);
+    for (const key of held) this.#releasable(state, key);
     const gone = held.filter((key) => this.#release(state, key).gone);
     const owed = state.owed.scan().map(([key]) => key);
     for (const key of owed) this.#settle(state, key);
@@ -481,7 +481,15 @@ class MemoryStore implements Store {
     const first = feed.start + (after - feed.floor);
     const last = feed.start + (end - feed.floor);
     const stop = Math.min(last, first + this.#pageSize);
-    const records = feed.records.slice(first, stop) as ChangeRecord[];
+    const page = feed.records.slice(first, stop);
+    // Each answered record is the revision it stands for, and none is missing (§4.13 reading
+    // 136). The check reads only the records the page answers.
+    if (
+      page.length !== stop - first ||
+      page.some((record, i) => record?.revision !== after + 1 + i)
+    )
+      throw new StoreIntegrityError(feedGap(state));
+    const records = page as ChangeRecord[];
     const through = stop === last ? end : records[records.length - 1]!.revision;
     return { status: "ok", records, through };
   }
@@ -530,6 +538,24 @@ class MemoryStore implements Store {
         peer: state.id,
         id,
         detail: "memory store: a held delta has no stored claims",
+      });
+    return row;
+  }
+
+  /**
+   * The stored row of an id this peer holds, checked before a release: a row that counts no
+   * holder, though this peer holds it, would stay after the release, so it fails (§4.13 reading
+   * 136). It reads only.
+   */
+  #releasable(state: PeerState, id: Id): Row {
+    const row = this.#row(state, id);
+    if (!(row.holders >= 1))
+      throw new StoreIntegrityError({
+        kind: "count-mismatch",
+        peer: state.id,
+        id,
+        key: "holders",
+        detail: `memory store: the row counts ${row.holders} holders and this peer holds it`,
       });
     return row;
   }
@@ -850,9 +876,9 @@ class MemoryStore implements Store {
     let rowsOwed = false;
     let indexesOwed = false;
     const order = sorted(ids);
-    // A held id without its stored claims refuses the whole purge before it removes anything
-    // (§4.13 reading 136).
-    for (const id of order) if (state.holdings.get(id) !== undefined) this.#row(state, id);
+    // A held id without its stored claims, or whose row counts no holder, refuses the whole
+    // purge before it removes anything (§4.13 reading 136).
+    for (const id of order) if (state.holdings.get(id) !== undefined) this.#releasable(state, id);
     for (const id of order) {
       const holding = state.holdings.get(id);
       let outcome: PurgeOutcome;
@@ -1045,10 +1071,7 @@ class MemoryStore implements Store {
         kept.length !== state.revision - floor ||
         kept.some((record, i) => record?.revision !== floor + 1 + i)
       )
-        fault({
-          kind: "feed-gap",
-          detail: `memory store: the peer keeps ${kept.length} change records at floor ${floor} and revision ${state.revision}`,
-        });
+        faults.push(feedGap(state));
       // The digest against the tree its holdings give (§4.13 reading 141).
       const want = digestRows(holdings.map(([id]) => id));
       const root = want.get("")?.hash ?? EMPTY_DIGEST.hash;
@@ -1102,6 +1125,16 @@ class MemoryStore implements Store {
   async close(): Promise<void> {
     this.#closed = true;
   }
+}
+
+/** Change records that do not run from the floor to the revision (§4.13 readings 136, 137). */
+function feedGap(state: PeerState): IntegrityFault {
+  const { records, start, floor } = state.feed;
+  return {
+    kind: "feed-gap",
+    peer: state.id,
+    detail: `memory store: the peer keeps ${records.length - start} change records at floor ${floor} and revision ${state.revision}`,
+  };
 }
 
 /** A new, empty memory store. Its contents end with the process. */

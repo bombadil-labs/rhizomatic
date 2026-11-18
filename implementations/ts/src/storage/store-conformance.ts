@@ -74,6 +74,22 @@ const show = (ids: readonly string[]): string => `[${ids.map((id) => id.slice(0,
 const hexToBytes = (hex: string): Uint8Array =>
   Uint8Array.from(hex.match(/../g) ?? [], (pair) => Number.parseInt(pair, 16));
 
+/**
+ * A new or opened handle reads the application format string the document expects, a string or
+ * null, on every store (§4.13 reading 134).
+ */
+function sameAppFormat(op: string, peer: PeerStore, expect: object): void {
+  const want: unknown = (expect as { appFormat?: unknown }).appFormat;
+  check(
+    typeof want === "string" || want === null,
+    `${op}: the vector's appFormat is not a string or null; the document is defective`,
+  );
+  check(
+    peer.appFormat === want,
+    `${op}: the peer's appFormat is ${JSON.stringify(peer.appFormat)}, expected ${JSON.stringify(want)}`,
+  );
+}
+
 function check(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
@@ -694,7 +710,11 @@ export class Run {
         // A malformed retention is a defect found before the store is called.
         this.keep();
         const outcome = await attempt(() =>
-          this.store.createPeer(this.peerId(step.peer), { erasure: step.erasure }),
+          this.store.createPeer(this.peerId(step.peer), {
+            erasure: step.erasure,
+            // A null reaches the store as written, so the store's own check refuses it.
+            ...("appFormat" in step ? { appFormat: step.appFormat as string } : {}),
+          }),
         );
         const created =
           "status" in step.expect ||
@@ -703,6 +723,8 @@ export class Run {
         if (created) {
           check("value" in outcome, "expected the peer to be created");
           check(outcome.value.erasure.posture === step.erasure, "the peer's posture differs");
+          // A peer that a proven store created against `unlessStoreErasure` has no expectation.
+          if ("status" in step.expect) sameAppFormat("createPeer", outcome.value, step.expect);
           check(
             outcome.value.erasure.storeClass === this.store.profile.capabilities.erasure,
             "the peer did not record its store's erasure class",
@@ -736,6 +758,7 @@ export class Run {
         if ("error" in step.expect) return refused(outcome, step.expect.error);
         check("value" in outcome, "expected the peer to open");
         check(outcome.value.erasure.posture === step.expect.posture, "the posture differs");
+        sameAppFormat("openPeer", outcome.value, step.expect);
         // With `handle`, the earlier handle stays in use under the peer's own name.
         this.sameHistory(step.peer, outcome.value.history, "a handle");
         this.peers.set(step.handle ?? step.peer, outcome.value);

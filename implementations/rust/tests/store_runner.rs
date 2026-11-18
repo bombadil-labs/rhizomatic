@@ -13,9 +13,10 @@ use std::rc::Rc;
 
 use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::store::{
-    Admission, AppendResult, ArrivalRecord, ChangePage, ErasureClaim, ErasureClass, ErasurePosture,
-    Exporter, PeerErasure, PeerStore, PurgeReport, Revision, ScopeRequest, ScopeResult, Snapshot,
-    Store, StoreError, StoreErrorCode, StoreProfile, SurfaceState,
+    Admission, AppendResult, ArrivalRecord, ChangePage, CreatePeerOptions, ErasureClaim,
+    ErasureClass, ErasurePosture, Exporter, PeerErasure, PeerStore, PurgeReport, Revision,
+    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreFailure,
+    StoreProfile, SurfaceState,
 };
 use rhizomatic::store_conformance::{run_store_conformance, StoreConformanceError, StoreVectors};
 use rhizomatic::types::Delta;
@@ -86,10 +87,18 @@ impl Store for Standin {
     fn profile(&self) -> &StoreProfile {
         &self.profile
     }
-    fn create_peer(&self, id: &str, e: ErasurePosture) -> Result<Box<dyn PeerStore>, StoreError> {
+    fn create_peer(
+        &self,
+        id: &str,
+        options: &CreatePeerOptions,
+    ) -> Result<Box<dyn PeerStore>, StoreError> {
         // The memory store takes no peer that promises proof; the stand-in records the promise.
-        let inner = self.inner.create_peer(id, ErasurePosture::Unproven)?;
-        self.postures.borrow_mut().insert(id.to_string(), e);
+        let mut asked = options.clone();
+        asked.erasure = ErasurePosture::Unproven;
+        let inner = self.inner.create_peer(id, &asked)?;
+        self.postures
+            .borrow_mut()
+            .insert(id.to_string(), options.erasure);
         Ok(self.handle(id, inner))
     }
     fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError> {
@@ -125,8 +134,11 @@ impl StandinPeer {
 }
 
 impl PeerStore for StandinPeer {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn id(&self) -> &str {
         &self.id
@@ -167,7 +179,7 @@ impl PeerStore for StandinPeer {
             }
         }
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         let mut report = self.inner.purge(ids)?;
         report.revision = self.revision(report.revision);
         let removed = report.claim == ErasureClaim::Unproven;
@@ -187,7 +199,7 @@ impl PeerStore for StandinPeer {
         }
         Ok(report)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.inner.changes(from, to)
     }
 }
@@ -201,11 +213,11 @@ struct StandinSnapshot {
 }
 
 impl StandinSnapshot {
-    fn answer<T>(&self, result: Result<T, StoreError>) -> Result<T, StoreError> {
+    fn answer<T>(&self, result: Result<T, StoreFailure>) -> Result<T, StoreFailure> {
         if self.quirk == Quirk::WrongCodeWhenMoved {
             let now = self.store.peer(&self.id).and_then(|peer| peer.read());
             if now.is_ok_and(|now| now.revision() != self.inner.revision()) {
-                return Err(StoreError::new(StoreErrorCode::PeerAbsent, "moved"));
+                return Err(StoreError::new(StoreErrorCode::PeerAbsent, "moved").into());
             }
         }
         result
@@ -231,19 +243,19 @@ impl Snapshot for StandinSnapshot {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.answer(self.inner.get(ids))
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.answer(self.inner.arrivals(ids))
     }
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.answer(self.inner.targets(entities))
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.answer(self.inner.negators(ids))
     }
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         let mut answer = self.answer(self.inner.scope(request))?;
         if self.quirk == Quirk::AnotherArrivalInScope {
             for member in &mut answer.deltas {
@@ -305,13 +317,13 @@ const PURGES_THAT_REMOVE: [&str; 8] = [
 /// store refuses. §3.4: where a target is removed, a proven store's claim is `proven`.
 #[test]
 fn a_proven_store_passes_and_creates_the_peer_that_promises_proof() {
-    assert_eq!(run(Quirk::None).unwrap(), 26 + 15);
+    assert_eq!(run(Quirk::None).unwrap(), 27 + 15);
 }
 
 /// §3.4: "where E is `proven`, `unproven` also conforms."
 #[test]
 fn a_proven_store_may_claim_less() {
-    assert_eq!(run(Quirk::ClaimsLess).unwrap(), 26 + 15);
+    assert_eq!(run(Quirk::ClaimsLess).unwrap(), 27 + 15);
 }
 
 /// §3.4: "If `claim` is `proven`: the surface list is not empty and every state is `absent`."

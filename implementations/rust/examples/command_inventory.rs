@@ -92,8 +92,16 @@ fn owner(module: &str, symbol: &str) -> &'static str {
         "reactor" if matches!(symbol, "manifest_member_ids" | "make_manifest_claims") => "delta",
         "reactor" | "materialize" | "store_read" | "store_views" => "reactor",
         "principal" => "principal",
-        "pack" | "store" | "memory_store" | "store_open" | "store_conformance" | "store_fresh"
-        | "store_follow" | "store_held" => "storage",
+        "pack"
+        | "store"
+        | "memory_store"
+        | "store_open"
+        | "store_conformance"
+        | "store_fresh"
+        | "store_follow"
+        | "store_held"
+        | "store_admission"
+        | "store_with_snapshot" => "storage",
         "derivation" => "derivation",
         "arrival"
         | "durable_state"

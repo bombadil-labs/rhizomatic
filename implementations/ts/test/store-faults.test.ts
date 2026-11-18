@@ -11,6 +11,7 @@ import { makeDelta } from "../src/delta/set.js";
 import type { Claims, Delta } from "../src/delta/types.js";
 import type { ArrivalRecord } from "../src/storage/arrival-record.js";
 import { admissionOf } from "../src/storage/admission.js";
+import { followFeed } from "../src/storage/follow.js";
 import { createMemoryStore } from "../src/storage/memory-store.js";
 import { openSqliteStore, type SqliteStore } from "../src/storage/sqlite-store.js";
 import {
@@ -80,7 +81,7 @@ const at = (entity: string) => ({ anchors: [{ kind: "entity" as const, entity }]
  * bystander `b` at `e:b`, over three appends (revisions 1 to 3); peer C holds `b` too. `damage`
  * runs one statement through a second connection with foreign keys off.
  */
-async function sqliteFilled(options: { busyTimeoutMs?: number } = {}) {
+async function sqliteFilled(options: { busyTimeoutMs?: number; changePageSize?: number } = {}) {
   const path = fixture.path();
   const store = await openSqliteStore(path, options);
   opened.push(store);
@@ -273,6 +274,52 @@ describe("a damaged change record on the SQLite store", () => {
       expect(await a.changes(2)).toMatchObject({ status: "ok", through: 3 });
     },
   );
+
+  it.each([3, 2])(
+    "a lost change record (revision %i): changes over it throws feed-gap with the peer, a follower throws it and keeps its position, and peer C reads",
+    async (lost) => {
+      const { a, c, damage, fsck } = await sqliteFilled();
+      damage("DELETE FROM change WHERE peer = 'peer:a' AND revision = ?", lost);
+      const fault = { kind: "feed-gap", peer: "peer:a", id: undefined, key: undefined };
+      const detail = `sqlite store: the peer keeps 2 change records from 1 to ${lost === 3 ? 2 : 3}, at floor 0 and revision 3`;
+      for (const from of [0, lost - 1]) {
+        const thrown = await a.changes(from).then(
+          () => "answered",
+          (error: unknown) => error,
+        );
+        expect(thrown, `from ${from}`).toBeInstanceOf(StoreIntegrityError);
+        const { kind, peer, id, key } = (thrown as StoreIntegrityError).fault;
+        expect([{ kind, peer, id, key }, (thrown as StoreIntegrityError).fault.detail]).toEqual([
+          fault,
+          detail,
+        ]);
+      }
+      expect(await a.changes(3)).toEqual({ status: "ok", records: [], through: 3 });
+      const snapshot = await a.read();
+      const start = { history: snapshot.history, revision: 0 };
+      snapshot.release();
+      const cursor = followFeed(a, start);
+      expect(await faultOf(cursor.pull())).toEqual(fault);
+      expect(cursor.position).toEqual(start);
+      const now = await a.read();
+      expect([now.revision, now.count]).toEqual([3, 3]);
+      now.release();
+      expect((await c.changes(0)).status).toBe("ok");
+      expect(places(await fsck())).toEqual([fault]);
+    },
+  );
+
+  it("a lost change record inside a full page (page size 2, revision 2 lost): changes from 0 throws feed-gap", async () => {
+    const { a, damage } = await sqliteFilled({ changePageSize: 2 });
+    damage("DELETE FROM change WHERE peer = 'peer:a' AND revision = 2");
+    expect(await faultOf(a.changes(0))).toEqual({
+      kind: "feed-gap",
+      peer: "peer:a",
+      id: undefined,
+      key: undefined,
+    });
+    expect(await a.changes(2)).toMatchObject({ status: "ok", through: 3 });
+  });
 });
 
 describe("fsck checks that each have one rail (SQLite)", () => {
@@ -518,6 +565,84 @@ describe("a damaged memory store", () => {
       { kind: "column-mismatch", peer: "peer:a", id: t.id, key: "holding.arrival" },
     ]);
   });
+
+  it("two held ids of one peer whose rows are gone: fsck reports the full list, claims-unreadable for each and index-stray for each target entry", async () => {
+    const { a, t, b, fsck } = await memoryFilled();
+    const { rows } = await internals(a, t.id);
+    rows.delete(t.id);
+    rows.delete(b.id);
+    const lost = [t.id, b.id].sort();
+    expect(places(await fsck())).toEqual([
+      ...lost.map((id) => ({ kind: "claims-unreadable", peer: "peer:a", id, key: undefined })),
+      { kind: "index-stray", peer: "peer:a", id: b.id, key: "e:b" },
+      { kind: "index-stray", peer: "peer:a", id: t.id, key: "e:t" },
+    ]);
+  });
+
+  it("a row that counts fewer holders than hold it: fsck reports count-mismatch (holders) with no peer", async () => {
+    const { a, t, fsck } = await memoryFilled();
+    (await internals(a, t.id)).row.holders = 0;
+    const report = await fsck();
+    expect(places(report)).toEqual([
+      { kind: "count-mismatch", peer: undefined, id: t.id, key: "holders" },
+    ]);
+    expect(report.faults[0]!.detail).toBe(
+      "memory store: the row counts 0 holders and 1 peers hold it",
+    );
+  });
+
+  it.each([
+    ["the newest change record lost", 2],
+    ["a middle change record lost", 1],
+    ["a middle change record renumbered", -1],
+  ])(
+    "%s: changes over it throws feed-gap with the peer, a follower throws it and keeps its position, and fsck reports it",
+    async (_, lost) => {
+      const { store, a, fsck } = await memoryFilled();
+      const real = Map.prototype.get;
+      const states: { feed: { records: unknown[] } }[] = [];
+      Map.prototype.get = function (this: Map<unknown, unknown>, key: unknown) {
+        const value: unknown = real.call(this, key);
+        if (key === "peer:a" && typeof value === "object" && value !== null && "feed" in value)
+          states.push(value as { feed: { records: unknown[] } });
+        return value;
+      };
+      let pending: Promise<unknown>;
+      try {
+        pending = store.peer("peer:a");
+      } finally {
+        Map.prototype.get = real;
+      }
+      await pending;
+      expect(states.length).toBe(1);
+      const records = states[0]!.feed.records;
+      if (lost < 0) records[1] = { ...(records[1] as object), revision: 7 };
+      else records.splice(lost, 1);
+      const detail = `memory store: the peer keeps ${records.length} change records at floor 0 and revision 3`;
+      const fault = { kind: "feed-gap", peer: "peer:a", id: undefined, key: undefined };
+      const thrown = (call: Promise<unknown>) =>
+        call.then(
+          () => "answered",
+          (error: unknown) =>
+            error instanceof StoreIntegrityError
+              ? { ...place(error.fault), detail: error.fault.detail }
+              : `not a StoreIntegrityError: ${String(error)}`,
+        );
+      for (const from of lost < 0 ? [0, 1] : [0, 1, 2])
+        expect(await thrown(a.changes(from)), `from ${from}`).toEqual({ ...fault, detail });
+      expect(await a.changes(3)).toEqual({ status: "ok", records: [], through: 3 });
+      const snapshot = await a.read();
+      const start = { history: snapshot.history, revision: 0 };
+      snapshot.release();
+      const cursor = followFeed(a, start);
+      expect(await thrown(cursor.pull())).toEqual({ ...fault, detail });
+      expect(cursor.position).toEqual(start);
+      const now = await a.read();
+      expect([now.revision, now.count]).toEqual([3, 3]);
+      now.release();
+      expect((await fsck()).faults).toEqual([{ ...fault, detail }]);
+    },
+  );
 
   it("stored claims that do not hash to their id: fsck reports claims-mismatch", async () => {
     const { a, t, b, fsck } = await memoryFilled();

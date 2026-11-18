@@ -35,9 +35,9 @@ use std::rc::Rc;
 use rhizomatic::memory_store::{MemoryStore, MemoryStoreOptions};
 use rhizomatic::store::{
     Admission, AppendResult, ArrivalRecord, ChangePage, ChangeRecord, ChangeRetention,
-    ErasurePosture, Exporter, PeerErasure, PeerStore, PurgeOutcome, PurgeReport, Revision,
-    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
-    MAX_REVISION,
+    CreatePeerOptions, Exporter, PeerErasure, PeerStore, PurgeOutcome, PurgeReport, Revision,
+    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreFailure,
+    StoreProfile, MAX_REVISION,
 };
 use rhizomatic::store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceReport,
@@ -219,8 +219,12 @@ impl Store for Feedy {
     fn profile(&self) -> &StoreProfile {
         &self.profile
     }
-    fn create_peer(&self, id: &str, e: ErasurePosture) -> Result<Box<dyn PeerStore>, StoreError> {
-        let inner = self.inner.create_peer(id, e)?;
+    fn create_peer(
+        &self,
+        id: &str,
+        options: &CreatePeerOptions,
+    ) -> Result<Box<dyn PeerStore>, StoreError> {
+        let inner = self.inner.create_peer(id, options)?;
         self.books.borrow_mut().peers.push(id.to_string());
         Ok(self.handle(id, inner))
     }
@@ -265,13 +269,13 @@ impl FeedyPeer {
     /// page ends at the clamped `to` (SPEC-18 §4.13 reading 5), which need not be a multiple of
     /// k. It refuses `to < from` itself, and answers `resync-required` itself for a `from` above
     /// k times the reference's revision.
-    fn feed(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn feed(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         let k = self.scale();
         if k == 1 {
             return self.inner.changes(from, to);
         }
         if to.is_some_and(|to| to < from) {
-            return Err(refusal(StoreErrorCode::InvalidRequest));
+            return Err(refusal(StoreErrorCode::InvalidRequest).into());
         }
         let current = self.out(self.current()?);
         if from > current {
@@ -358,8 +362,11 @@ impl FeedyPeer {
 }
 
 impl PeerStore for FeedyPeer {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn id(&self) -> &str {
         &self.id
@@ -383,7 +390,7 @@ impl PeerStore for FeedyPeer {
             other => Ok(other),
         }
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         self.books.borrow_mut().committed.insert(self.id.clone());
         let before = self.current()?;
         let mut report = self.inner.purge(ids)?;
@@ -401,7 +408,7 @@ impl PeerStore for FeedyPeer {
         Ok(report)
     }
 
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         let w = self.wrong;
         let just_committed = self.books.borrow_mut().committed.remove(&self.id);
         let pending = self.books.borrow_mut().pending.remove(&self.id);
@@ -410,7 +417,7 @@ impl PeerStore for FeedyPeer {
             self.books.borrow_mut().probes.push((from.0, current.0));
         }
         match w {
-            Wrong::Refuses => return Err(refusal(StoreErrorCode::InvalidRequest)),
+            Wrong::Refuses => return Err(refusal(StoreErrorCode::InvalidRequest).into()),
             Wrong::ResyncWithTo if to.is_some() => {
                 return Ok(ChangePage::ResyncRequired { current })
             }
@@ -441,7 +448,7 @@ impl PeerStore for FeedyPeer {
                     Wrong::ResyncCurrent => Revision(current.0 + 1),
                     Wrong::CurrentOffBelowFloor if below_floor => Revision(current.0 + 1),
                     Wrong::RefusesBelowFloor if below_floor => {
-                        return Err(refusal(StoreErrorCode::InvalidRequest))
+                        return Err(refusal(StoreErrorCode::InvalidRequest).into())
                     }
                     _ => current,
                 };
@@ -593,19 +600,19 @@ impl Snapshot for FeedySnapshot {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.inner.arrivals(ids)
     }
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.targets(entities)
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.negators(ids)
     }
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         self.inner.scope(request)
     }
     fn release(&mut self) {
@@ -1192,7 +1199,7 @@ fn the_same_feeds_conform_where_no_rule_forbids_them() {
             .unwrap_or_else(|failures| panic!("{wrong:?} {setup:?}: {failures}"));
         assert_eq!(
             (report.passed.len(), report.skipped.len()),
-            (26 + 15, 0),
+            (27 + 15, 0),
             "{wrong:?} {setup:?}"
         );
     }
@@ -1211,12 +1218,12 @@ fn a_store_without_a_feed_skips_the_feed_scripts() {
         })
         .collect();
     assert_eq!(report.skipped, skipped);
-    assert_eq!(report.passed.len(), 22 + 15);
+    assert_eq!(report.passed.len(), 23 + 15);
 
     // A store without a feed whose `changes` would refuse every call still passes: the runner
     // makes no feed check on it.
     let refusing = run_with(W::Refuses, NO_FEED, &vectors()).unwrap_or_else(|e| panic!("{e}"));
-    assert_eq!(refusing.passed.len(), 22 + 15);
+    assert_eq!(refusing.passed.len(), 23 + 15);
 }
 
 /// Every script and the scope setup that commit twice to one peer: a wrong page that needs two
