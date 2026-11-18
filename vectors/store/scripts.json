@@ -5700,6 +5700,34 @@
             "posture": "unproven",
             "appFormat": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
           }
+        },
+        {
+          "op": "createPeer",
+          "peer": "P",
+          "erasure": "unproven",
+          "appFormat": "host\u0000/\u00077",
+          "expect": {
+            "status": "created",
+            "appFormat": "host\u0000/\u00077"
+          }
+        },
+        {
+          "op": "openPeer",
+          "peer": "P",
+          "expect": {
+            "status": "opened",
+            "posture": "unproven",
+            "appFormat": "host\u0000/\u00077"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "P",
+          "erasure": "unproven",
+          "appFormat": 7,
+          "expect": {
+            "error": "invalid-request"
+          }
         }
       ]
     },
