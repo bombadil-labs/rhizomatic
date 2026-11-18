@@ -92,7 +92,7 @@ time in every witness, never something a type system rules out.
 | Operation | Result |
 |---|---|
 | `profile` | The store's declared profile (§1.6). |
-| `createPeer(peerId, erasure)` | A peer handle. `erasure` is the posture: `proven` or `unproven`. |
+| `createPeer(peerId, erasure, appFormat?)` | A peer handle. `erasure` is the posture: `proven` or `unproven`. `appFormat` is the application format string, or absent (§1.3). |
 | `peer(peerId)` | A handle to an existing peer. |
 | `admin.peers()` | Every peer id. |
 | `admin.peer(peerId).ids()` | The ids that peer holds. |
@@ -110,10 +110,11 @@ Refusals:
 | `posture-refused` | `createPeer` with posture `proven` on a store whose erasure class is not `proven`. Nothing is created. |
 | `peer-exists` | `createPeer` for an id that exists. |
 | `peer-absent` | `peer`, or an `admin.peer(...)` listing, for an id that does not exist. `peer` never creates. |
-| `invalid-request` | `createPeer` with an empty peer id, or with no posture or a value that is not a posture. |
+| `invalid-request` | `createPeer` with an empty peer id, with no posture or a value that is not a posture, or with an `appFormat` that is not a string of 1 to 256 UTF-8 bytes. Nothing is created. |
 
 When `createPeer` has two causes at once (posture `proven` on a store that is not `proven`, for an
-id that exists), `posture-refused` and `peer-exists` both conform.
+id that exists), `posture-refused` and `peer-exists` both conform. A bad `appFormat` is refused
+`invalid-request` before `posture-refused` and `peer-exists`, so that pair has one answer.
 
 **`invalid-request`, the closed list for slice 1:**
 
@@ -169,6 +170,25 @@ capture that carries one does not cross a process (SPEC-18 §4.6). The runner ch
 
 No script deletes a peer or restores a store. Each witness tests itself that one name created in
 two stores has two values. Both witnesses carry `history` and make these checks.
+
+**`appFormat`** is the application format string given at `createPeer`, or null when none was
+given (SPEC-18 §4.13 reading 134). It is a well-formed string of 1 to 256 UTF-8 bytes. Any other
+given value, null included, is refused `invalid-request`. It is fixed at creation: no call
+changes it, and every handle of the peer reads the same value. It lies outside erasure: no purge
+removes it. After `close`, `appFormat` and `history` refuse `store-closed`; no script closes a
+store, so each witness tests this itself. The runner checks, on every store:
+
+- After `createPeer` that creates (`{"status": "created"}`), the handle reads
+  `expect.appFormat`, else `createPeer: the peer's appFormat is <got>, expected <want>`.
+- After `openPeer` that opens, the handle reads `expect.appFormat`, else
+  `openPeer: the peer's appFormat is <got>, expected <want>`.
+- In both, an `expect.appFormat` that is absent, or is not a string or null, is a defect of the
+  document: `the vector's appFormat is not a string or null; the document is defective`.
+
+A typed witness cannot pass a null or a non-string `appFormat` to its store. Its runner answers
+such a step as refused `invalid-request` (§1.2, "A witness whose types make a case
+unrepresentable"). A Rust `String` is always well-formed, so no vector holds a lone surrogate;
+JSON readers differ on one.
 
 A store never issues one history twice. The memory store's `mintHistory(peer)` takes the peer's
 id and runs after every other check of `createPeer`, `peer-exists` included. A minted history
@@ -477,13 +497,18 @@ conforms. A refusal with a code that is not listed fails, and so does an answer.
 ### 3.1 `createPeer`
 
 ```json
-{ "op": "createPeer", "peer": "A", "erasure": "unproven", "expect": { "status": "created" } }
+{ "op": "createPeer", "peer": "A", "erasure": "unproven", "expect": { "status": "created", "appFormat": null } }
+{ "op": "createPeer", "peer": "A", "erasure": "unproven", "appFormat": "host/1",
+  "expect": { "status": "created", "appFormat": "host/1" } }
 { "op": "createPeer", "peer": "P", "erasure": "proven",
   "expect": { "error": "posture-refused", "unlessStoreErasure": "proven" } }
 ```
 
-- `{"status": "created"}`: the peer is created. Its handle reports posture `erasure` and the
-  store's erasure class. Keep the handle under the name `peer`.
+- `appFormat`, when the step has the key, is given to `createPeer` as written, null included.
+  Without the key, none is given.
+- `{"status": "created", "appFormat": …}`: the peer is created. Its handle reports posture
+  `erasure` and the store's erasure class, and reads `appFormat` (§1.3). Keep the handle under
+  the name `peer`.
 - `{"error": …}`: the store refuses (see "Refusals").
 - With `unlessStoreErasure`: when the store's `capabilities.erasure` equals that value, the
   expectation is `{"status": "created"}` instead. No later step uses such a peer.
@@ -491,12 +516,13 @@ conforms. A refusal with a code that is not listed fails, and so does an answer.
 ### 3.2 `openPeer`
 
 ```json
-{ "op": "openPeer", "peer": "A", "expect": { "status": "opened", "posture": "unproven" } }
+{ "op": "openPeer", "peer": "A", "expect": { "status": "opened", "posture": "unproven", "appFormat": null } }
 { "op": "openPeer", "peer": "C", "expect": { "error": "peer-absent" } }
-{ "op": "openPeer", "peer": "A", "handle": "A2", "expect": { "status": "opened", "posture": "unproven" } }
+{ "op": "openPeer", "peer": "A", "handle": "A2",
+  "expect": { "status": "opened", "posture": "unproven", "appFormat": "host/1" } }
 ```
 
-On `opened`, the handle reports that posture.
+On `opened`, the handle reports that posture and reads that `appFormat` (§1.3).
 
 - Without `handle`, it replaces the handle kept under the name `peer`.
 - With `handle`, keep the new handle under that name, and **keep the older handle** under the name
@@ -1564,7 +1590,8 @@ The table covers at least:
   `held-by-other-peer`. And a store that keeps the record while a debt is owed and forgets it
   when an append clears the debt, but not when a later purge settles it.
 - **Point reads:** `head`, and a new peer's head that is the empty string instead of null;
-  `count`; a snapshot's `lastSequence` and `lastTransfer`; ids and their order for `get`, `arrivals`, `targets`, `negators`; a returned delta's
+  `count`; a snapshot's `lastSequence` and `lastTransfer`; the `appFormat` of a new handle, and
+  of an opened one; ids and their order for `get`, `arrivals`, `targets`, `negators`; a returned delta's
   signature and claims; each of the four fields of an arrival record.
 - **Scope members:** order, a repeat, claims, the arrival record's id and fields, the signature,
   a member the peer does not hold.
@@ -1642,7 +1669,7 @@ The table covers at least:
   needs two rows: one with a script that has no `changes` step, and one with a store that is
   wrong only when a `to` is given, which the check after every step never gives.
 - **Documents:** an unknown `format`; a corpus id that does not recompute and is not `forged`; a
-  purge `claim` with a key other than `unprovable` and `proven`; a purge step without `retains`; a `read` step without `lastSequence` or without `lastTransfer`, or with either one not a whole number; an unknown script requirement;
+  purge `claim` with a key other than `unprovable` and `proven`; a purge step without `retains`; a `read` step without `lastSequence` or without `lastTransfer`, or with either one not a whole number; a `createPeer` step without `appFormat`, and an `openPeer` step with an `appFormat` that is not a string or null; an unknown script requirement;
   a script `requires` that is `null`; a revision name that is unknown, of another peer, or given
   twice; a `mark` before its peer; `changes` expectations that are wrong; a `changes` step on a
   store without a feed; a profile whose `changeRetention` is malformed, among them

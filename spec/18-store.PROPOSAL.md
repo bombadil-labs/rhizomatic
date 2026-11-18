@@ -2569,8 +2569,11 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `peer-exists` whatever it asks. Every handle in every process reads the same value in O(1).
      The SQLite store keeps it in `peer.app_format` and reads it from the file at each ask, as
      `history`. The column carries its own check, `NULL` or 1 to 256 bytes, so a writer that
-     bypasses `createPeer` (the Rust witness, an operator) cannot store another value. After
-     `close`, `appFormat` and `history` refuse `store-closed` on both stores. The string lies
+     bypasses `createPeer` (another witness's code, an operator) cannot store another value.
+     After `close`, `appFormat` and `history` refuse `store-closed` on both stores. Step 4e gave
+     the Rust memory store the same rules (`CreatePeerOptions.app_format`,
+     `PeerStore::app_format`), and the script `a-peer-carries-an-application-format-string`
+     holds them for every store. The string lies
      outside erasure: no purge removes it, and no erasure report names it. It lives as long as
      the peer row, as the peer id and the head do. A host must not put personal data in it. A
      host cannot move a peer to a new format string in place. A host that retires one of its

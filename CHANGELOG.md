@@ -195,6 +195,17 @@ Step 4d adds more, listed under Breaking.
 - Step 4e: Rust `Store::create_peer` takes `&CreatePeerOptions`, as TypeScript's `createPeer`
   takes its options (decision D10 of the 4e plan). `CreatePeerOptions { erasure }` has `new`
   and a `Default` that declares `Unproven`. Behavior does not change.
+- Step 4e: a Rust peer carries an application format string (§4.13 reading 134).
+  `CreatePeerOptions.app_format` takes 1 to 256 UTF-8 bytes (`APP_FORMAT_MAX_BYTES`); the
+  Rust memory store refuses any other value `invalid-request` before `posture-refused` and
+  `peer-exists`, and creates nothing. `PeerStore::app_format` reads it, `None` when none was
+  given. It is fixed at creation. After `close`, the memory store's `history` and `app_format`
+  refuse `store-closed`. The new script `a-peer-carries-an-application-format-string` holds the
+  rules, and every `createPeer` step that creates and every `openPeer` step that opens carries
+  `expect.appFormat`; both runners check it on every store. The script
+  `a-transfer-must-pass-the-peers-last` gains a last step: a new id twice in one batch, whose
+  first appearance does not pass the last transfer, is refused although its repeat would pass.
+  The format names do not change. What a purge removes does not change.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
@@ -218,6 +229,9 @@ Step 4d adds more, listed under Breaking.
 - **Rust `Store::create_peer(id, erasure)` is now `create_peer(id, &options)`.** A Rust caller
   passes `&CreatePeerOptions::new(posture)`. A Rust `impl Store` takes the options and passes
   them on.
+- **Rust `PeerStore` has a new method, `app_format`, and `history` returns
+  `Result<&str, StoreError>`.** A Rust `impl PeerStore` must add `app_format` and pass both
+  through. A Rust caller of `history` handles the `store-closed` refusal.
 - **`admissionOf` has no `transfer` option.** It numbers the transfer itself. Drop the field. The
   option shipped in no release.
 - **A body no longer runs again after its own append.** A `withSnapshot` body, a held-views pass
