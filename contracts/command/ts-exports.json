@@ -42201,6 +42201,66 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API ModelPeer.lastTransfer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#appFormat",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.appFormat",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.appFormat implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:CreatePeerStep#appFormat",
+      "owner": "storage",
+      "symbol": "CreatePeerStep.appFormat",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API CreatePeerStep.appFormat implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreVectorStep#appFormat",
+      "owner": "storage",
+      "symbol": "StoreVectorStep.appFormat",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreVectorStep.appFormat implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FreshnessStep#appFormat",
+      "owner": "storage",
+      "symbol": "FreshnessStep.appFormat",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FreshnessStep.appFormat implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#appFormat",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.appFormat",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.appFormat implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vectors.ts:ModelPeer#appFormat",
+      "owner": "storage",
+      "symbol": "ModelPeer.appFormat",
+      "source": "implementations/ts/src/storage/store-vectors.ts",
+      "definition": "implementations/ts/src/storage/store-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API ModelPeer.appFormat implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }

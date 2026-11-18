@@ -471,7 +471,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -487,7 +488,8 @@
           "peer": "B",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -495,7 +497,8 @@
           "peer": "A",
           "expect": {
             "status": "opened",
-            "posture": "unproven"
+            "posture": "unproven",
+            "appFormat": null
           }
         },
         {
@@ -632,7 +635,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -896,7 +900,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -1250,7 +1255,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -1421,7 +1427,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -1658,7 +1665,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -1999,7 +2007,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -2277,7 +2286,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -2285,7 +2295,8 @@
           "peer": "B",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -2695,7 +2706,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -2703,7 +2715,8 @@
           "peer": "B",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -2711,7 +2724,8 @@
           "peer": "C",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -3377,7 +3391,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -3385,7 +3400,8 @@
           "peer": "B",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -3782,7 +3798,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -4246,7 +4263,8 @@
           "peer": "B",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -4357,7 +4375,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -4569,7 +4588,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -4770,7 +4790,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -4975,7 +4996,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -5405,7 +5427,8 @@
           "peer": "B",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -5441,6 +5464,270 @@
             "lastSequence": 1,
             "lastTransfer": 3
           }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-6",
+          "nextHead": "head-7",
+          "frame": null,
+          "added": [
+            {
+              "delta": "ghost",
+              "arrival": {
+                "at": 1011,
+                "sequence": 11,
+                "transfer": 10,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "ghost",
+              "arrival": {
+                "at": 1012,
+                "sequence": 12,
+                "transfer": 11,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "s9",
+          "expect": {
+            "lastSequence": 8,
+            "lastTransfer": 10
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-peer-carries-an-application-format-string",
+      "spec": "SPEC-18 §4.13 reading 134",
+      "requires": [],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "appFormat": "host/1",
+          "expect": {
+            "status": "created",
+            "appFormat": "host/1"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "B",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created",
+            "appFormat": null
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "appFormat": "host/2",
+          "expect": {
+            "error": "peer-exists"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "B",
+          "erasure": "unproven",
+          "appFormat": "host/2",
+          "expect": {
+            "error": "peer-exists"
+          }
+        },
+        {
+          "op": "openPeer",
+          "peer": "A",
+          "expect": {
+            "status": "opened",
+            "posture": "unproven",
+            "appFormat": "host/1"
+          }
+        },
+        {
+          "op": "openPeer",
+          "peer": "B",
+          "expect": {
+            "status": "opened",
+            "posture": "unproven",
+            "appFormat": null
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "C",
+          "erasure": "unproven",
+          "appFormat": null,
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "appFormat": null,
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "C",
+          "erasure": "proven",
+          "appFormat": null,
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "C",
+          "erasure": "unproven",
+          "appFormat": "",
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "appFormat": "",
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "C",
+          "erasure": "proven",
+          "appFormat": "",
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "C",
+          "erasure": "unproven",
+          "appFormat": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "appFormat": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "C",
+          "erasure": "proven",
+          "appFormat": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "C",
+          "erasure": "unproven",
+          "appFormat": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "appFormat": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "C",
+          "erasure": "proven",
+          "appFormat": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "openPeer",
+          "peer": "C",
+          "expect": {
+            "error": "peer-absent"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "C",
+          "erasure": "unproven",
+          "appFormat": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+          "expect": {
+            "status": "created",
+            "appFormat": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+          }
+        },
+        {
+          "op": "openPeer",
+          "peer": "C",
+          "handle": "C2",
+          "expect": {
+            "status": "opened",
+            "posture": "unproven",
+            "appFormat": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "P",
+          "erasure": "unproven",
+          "appFormat": "host\u0000/\u00077",
+          "expect": {
+            "status": "created",
+            "appFormat": "host\u0000/\u00077"
+          }
+        },
+        {
+          "op": "openPeer",
+          "peer": "P",
+          "expect": {
+            "status": "opened",
+            "posture": "unproven",
+            "appFormat": "host\u0000/\u00077"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "P",
+          "erasure": "unproven",
+          "appFormat": 7,
+          "expect": {
+            "error": "invalid-request"
+          }
         }
       ]
     },
@@ -5454,7 +5741,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -5749,7 +6037,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -5757,7 +6046,8 @@
           "peer": "B",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -5765,7 +6055,8 @@
           "peer": "C",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -6098,7 +6389,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -6132,7 +6424,8 @@
           "handle": "A2",
           "expect": {
             "status": "opened",
-            "posture": "unproven"
+            "posture": "unproven",
+            "appFormat": null
           }
         },
         {
@@ -6308,7 +6601,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -6604,7 +6898,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -7102,7 +7397,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -7337,7 +7633,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -7401,7 +7698,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -8132,7 +8430,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -8145,7 +8444,8 @@
           "peer": "B",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -8158,7 +8458,8 @@
           "peer": "C",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -8883,7 +9184,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -8896,7 +9198,8 @@
           "peer": "B",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -9205,7 +9508,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -9218,7 +9522,8 @@
           "peer": "B",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -9422,7 +9727,8 @@
           "handle": "A2",
           "expect": {
             "status": "opened",
-            "posture": "unproven"
+            "posture": "unproven",
+            "appFormat": null
           }
         },
         {

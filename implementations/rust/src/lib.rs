@@ -62,6 +62,7 @@ pub mod set;
 pub mod sign;
 pub mod single_peer;
 pub mod store;
+pub mod store_admission;
 pub mod store_conformance;
 pub mod store_follow;
 pub mod store_fresh;
@@ -69,6 +70,7 @@ pub mod store_held;
 pub mod store_open;
 pub mod store_read;
 pub mod store_views;
+pub mod store_with_snapshot;
 pub mod strict;
 pub mod term_io;
 pub mod term_json;
@@ -125,13 +127,15 @@ pub use set::{
 pub use sign::{sign_claims, verify_delta, Verification};
 pub use store::{
     collect_delta_set, missing_requirements, scope_source, signature_form, Admission, Anchor,
-    AppendResult, AtRest, ChangePage, ChangeRecord, ChangeRetention, ErasureClaim, ErasureClass,
-    ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter, PeerStore, PurgeOutcome,
-    PurgeReport, PurgeSurface, PurgeTarget, Pushdown, PushdownFields, Revision, ScopeRequest,
-    ScopeResult, ScopeSource, Snapshot, Store, StoreCapabilities, StoreError, StoreErrorCode,
-    StoreProfile, StoreRequirement, StoreWriters, SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER,
-    MAX_REVISION, PURGE_BOUNDARY,
+    AppendResult, AtRest, ChangePage, ChangeRecord, ChangeRetention, CreatePeerOptions,
+    ErasureClaim, ErasureClass, ErasurePosture, Exporter, FsckChecked, FsckReport, IntegrityFault,
+    IntegrityFaultKind, Listing, PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport,
+    PurgeSurface, PurgeTarget, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult,
+    ScopeSource, Snapshot, Store, StoreCapabilities, StoreError, StoreErrorCode, StoreFailure,
+    StoreProfile, StoreRequirement, StoreWriters, SurfaceState, VerifiedDelta,
+    APP_FORMAT_MAX_BYTES, MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
 };
+pub use store_admission::{admission_of, AdmissionOptions};
 pub use store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceFailure,
     StoreConformanceReport, StoreFactoryFn, StoreVectors,
@@ -143,7 +147,9 @@ pub use store_read::{
     fetch_scope, read_anchored, read_anchored_with_memo, read_full_surface, EvalMemo, FetchCache,
     FetchedScope, FinalChildMemo, FullSurfaceRead, FullSurfaceRequest, FullSurfaceRoute,
     ReadRequest, RoundMemo, RoundReport, Selection, StoreReactor, StoreRead, StoreReadError,
-    SNAPSHOT_RETRIES,
+};
+pub use store_with_snapshot::{
+    with_snapshot, OnSnapshot, SnapshotRetry, StoreRefusal, SNAPSHOT_RETRIES,
 };
 pub use term_io::{
     cbor_to_json, json_to_cbor, schema_canonical_hex, schema_hash, term_canonical_hex, term_hash,

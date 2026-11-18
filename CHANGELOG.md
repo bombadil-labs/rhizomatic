@@ -247,6 +247,94 @@ Step 4d adds more, listed under Breaking.
   last transfer. The new script
   `a-transfer-must-pass-the-peers-last` holds the rule, and every `read` step carries
   `expect.lastTransfer`. The format names do not change. What a purge removes does not change.
+- Step 4e: Rust `Store::create_peer` takes `&CreatePeerOptions`, as TypeScript's `createPeer`
+  takes its options (decision D10 of the 4e plan). `CreatePeerOptions { erasure }` has one
+  constructor, `new(erasure)`, and no `Default`: the caller always states the posture. Behavior
+  does not change.
+- Step 4e: a Rust peer carries an application format string (§4.13 reading 134).
+  `CreatePeerOptions.app_format` takes 1 to 256 UTF-8 bytes (`APP_FORMAT_MAX_BYTES`); the
+  Rust memory store refuses any other value `invalid-request` before `posture-refused` and
+  `peer-exists`, and creates nothing. `PeerStore::app_format` reads it, `None` when none was
+  given. `CreatePeerOptions::new(erasure).with_app_format(f)` gives it. It is fixed at creation.
+  After `close`, the memory store's `history` and `app_format` refuse `store-closed`. The new
+  script `a-peer-carries-an-application-format-string` holds the
+  rules, and every `createPeer` step that creates and every `openPeer` step that opens carries
+  `expect.appFormat`; both runners check it on every store. The script also gives a string
+  with a NUL and a control character, kept byte for byte, and a number, refused. Each runner's
+  rule table has a handle whose `appFormat` or `history` refuses on an open store. The script
+  `a-transfer-must-pass-the-peers-last` gains two last steps: an append of a new id twice in one
+  batch, whose first appearance does not pass the last transfer, is refused although its repeat
+  would pass; a read then shows that the refusal changed nothing.
+  The format names do not change. What a purge removes does not change.
+- Step 4e: a Rust host with no journal builds an admission (§4.13 reading 133).
+  `store_admission::admission_of(snapshot, deltas, AdmissionOptions {at, sender, next_head})`
+  has the rules of TypeScript's `admissionOf`: the snapshot's head as `expected_head`, no frame,
+  sequences from `last_sequence() + 1` in ascending id order, one entry per id with the first
+  kept, the transfer `last_transfer() + 1`, and `at + 0`. It checks every entry, a repeat too, and
+  refuses `invalid-request` as TypeScript does. It has no `transfer` option and calls no snapshot
+  query. `AdmissionOptions` has no `Default`. Each runner's rule table now also has an opened
+  handle whose `appFormat` refuses on an open store (finding N1 of the #110 review). What a purge
+  removes does not change.
+- Step 4e: Rust reads several times at one revision (§4.13 readings 127 to 129).
+  `store_with_snapshot::with_snapshot(peer, body, &retry)` has the rules of TypeScript's
+  `withSnapshot`. It answers `OnSnapshot {value, attempts}`. `SnapshotRetry {snapshots,
+  within_ms, clock}` bounds it: 1 to 16 snapshots (default 4), and with `within_ms` and the
+  host's `clock` no new snapshot after that many ms. A body's error type implements the new
+  trait `StoreRefusal`; only the code `snapshot-moved` starts the body again. A clock reading
+  that is not finite, or below the first, is refused `invalid-request`. A panic of the clock
+  passes up after the snapshot is released. `StoreReactor::read` and `fetch`, `check_fresh`, a
+  feed pull and a pass of held views now call it, with the same behavior as before.
+  `SNAPSHOT_RETRIES` moves to `store_with_snapshot`. What a purge removes does not change.
+- Step 4e, follow-ups of the `with_snapshot` review (#112). Rust `StoreError` no longer
+  implements `StoreRefusal`: no body of `with_snapshot` could use it, because `StoreError` has no
+  `From<StoreFault>`. The doc of `with_snapshot` names `FeedError` as the smallest body error.
+  Both witnesses gain three tests: each earlier snapshot is released before the next body starts,
+  a clock with no bound in time is never read, and the bound in time also ends the call on a
+  refused `read()`. Two comments of the TypeScript `with-snapshot.ts` now say that a purge that
+  releases a holding moves a snapshot and an append does not. A purge is not the only cause:
+  reading 130 also names an absent peer row, another history and a lower revision. No behavior
+  changes.
+- Step 4e: a Rust read can fail with damage that is not a refusal (§4.13 reading 136). The new
+  `store::StoreFailure` is `Refused(StoreError)` or `Integrity(IntegrityFault)`. The five
+  `Snapshot` reads, `PeerStore::purge`, `PeerStore::changes` and every `Listing` answer it. The
+  new `IntegrityFault {kind, peer, id, key, detail}` and `IntegrityFaultKind` (the eleven kinds
+  of TypeScript) are data only: no Rust store produces a fault yet. `FeedError` and
+  `StoreReadError` gain an `Integrity` arm and `From<StoreFailure>`. An integrity fault has no
+  refusal code, so `with_snapshot` and every reader pass it up after one run. No behavior
+  changes. What a purge removes does not change.
+- Step 4e: the Rust memory store reports damage and checks itself (§4.13 readings 136 and
+  137). A held id whose stored claims are gone fails `get`, `arrivals`, `targets`, `negators`,
+  `scope` and the export listings with `StoreFailure::Integrity`, kind `claims-unreadable`, with
+  the peer and the id. Before, the read left the id out. `scope` and `get` read the row before
+  the bound and the pushdown, as TypeScript does. A `purge` that names such an id fails with the
+  same fault before it removes anything. Before, it removed the id and its holding. The new
+  `Exporter::fsck()` answers `FsckReport {checked: FsckChecked {peers, holdings, deltas},
+  faults}` with every kind of the TypeScript memory `fsck` except `digest-mismatch`, which comes
+  with the digest. A purge that succeeds removes what it removed before. Tests damage the store
+  only from top-level `#[cfg(test)]` items inside `memory_store.rs`, not from a module; `src` has
+  no test hook. The Rust memory `fsck` has no peer `count-mismatch` check: the store keeps no
+  peer counter, and a snapshot's count is the number of its holdings.
+- Step 4e: a damaged store refuses a purge and a feed read that it answered falsely (§4.13
+  reading 136), in both witnesses.
+  - A memory `purge` that names a held id whose row counts fewer than 1 holder fails before it
+    removes anything. The fault is `count-mismatch`, key `holders`, with the peer and the id.
+    Before, TypeScript took the count to -1 and reported `held-by-other-peer` and `purge-debt`
+    while no other peer held the row. A Rust debug build panicked after it removed the holding
+    and its index entries; a release build wrapped the count.
+  - `changes` fails with `feed-gap`, with the peer, when the kept records are not the revisions
+    of the page it answers. This covers the memory store in both witnesses and the TypeScript
+    SQLite store. Before, TypeScript answered `ok` without the lost record and with a `through`
+    past it, so a follower passed that revision. Rust panicked.
+  - The fault has `fsck`'s kind, key and detail. The `count-mismatch` detail of a purge says
+    "this peer holds it", because a purge does not count the other holders.
+  - The checks cost nothing on an undamaged store. The purge check reads the row that the purge
+    reads already. The feed check compares the revision of each record that the page answers.
+    The SQLite store counts the feed only to name a gap it found.
+  - The SQLite store keeps no count of holders: its purge asks whether another holding exists.
+    So the purge rule has no SQLite case.
+  - Rust `fsck` reports `feed-gap` for a floor at `u64::MAX`. Before, a debug build panicked.
+  - What can now be deleted that could not be deleted before: nothing. Each change refuses where
+    the store answered or removed before.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
@@ -275,6 +363,42 @@ Step 4d adds more, listed under Breaking.
 - **The store checks transfer ordinals.** A new holding's `transfer` must pass the peer's last
   one. A host that gave every append the same transfer, such as 1, is refused
   `invalid-admission` at its second append. Number each transfer from `snapshot.lastTransfer + 1`.
+- **Rust `Store::create_peer(id, erasure)` is now `create_peer(id, &options)`.** A Rust caller
+  passes `&CreatePeerOptions::new(posture)`. A Rust `impl Store` takes the options and passes
+  them on.
+- **Rust `PeerStore` has a new method, `app_format`, and `history` returns
+  `Result<&str, StoreError>`.** A Rust `impl PeerStore` must add `app_format` and pass both
+  through. A Rust caller of `history` handles the `store-closed` refusal.
+- **Rust `store_read::SNAPSHOT_RETRIES` is now `store_with_snapshot::SNAPSHOT_RETRIES`.** The
+  value is still 3. `rhizomatic::SNAPSHOT_RETRIES` still names it. A Rust caller that used the
+  module path changes the path.
+- **Rust `StoreError` no longer implements `StoreRefusal`.** A Rust caller that called
+  `store_code` on a `StoreError` reads its `code` field.
+- **Rust reads, `purge`, `changes` and listings return `StoreFailure`, not `StoreError`.**
+  This covers `Snapshot::get`, `arrivals`, `targets`, `negators` and `scope`,
+  `PeerStore::purge` and `changes`, and the item of `Listing`. A Rust `impl Snapshot`,
+  `impl PeerStore`, `impl Exporter` or `impl PeerExporter` changes these signatures, and wraps
+  a refusal with `.into()`. A Rust caller matches `StoreFailure::Refused(e)` where it read `e`,
+  and handles `StoreFailure::Integrity`.
+- **Rust functions that read a snapshot or a listing return `StoreFailure`.** These are
+  `store::collect_delta_set`, `store_fresh::raw_scope`, `store_read::fetch_scope`,
+  `store_read::capture_scope` and the trait method `FreshnessReader::capture`.
+- **Rust `FeedError` and `StoreReadError` have a new arm, `Integrity(IntegrityFault)`.** A
+  Rust `match` on either type handles it.
+- **Rust `Exporter` has a new required method, `fsck`.** A Rust `impl Exporter` must give one:
+  it delegates to the store it wraps, or answers a report with no fault.
+- **A Rust memory-store read of a held id with no stored claims fails.** It answers
+  `StoreFailure::Integrity`, where before it left the id out. A memory `purge` of such an id
+  fails and removes nothing.
+- **A memory `purge` of a held id whose row counts fewer than 1 holder fails.** It throws
+  `StoreIntegrityError` (Rust: `StoreFailure::Integrity`) with `count-mismatch`, key `holders`,
+  and removes nothing. A host restores the store and runs `fsck`.
+- **`changes` over a lost change record fails with `feed-gap`.** This covers both memory stores
+  and the TypeScript SQLite store. Before, it answered `ok` with fewer records. A follower's pull
+  throws the fault and does not move. A host restores the store and runs `fsck`.
+- **A host's own body error of `with_snapshot` needs `From<StoreFailure>`** when its body uses
+  `?` on a snapshot call. Its `store_code` must answer `None` for an integrity fault. A fault
+  that reads as `snapshot-moved` starts the body again.
 - **`admissionOf` has no `transfer` option.** It numbers the transfer itself. Drop the field. The
   option shipped in no release.
 - **A body no longer runs again after its own append.** A `withSnapshot` body, a held-views pass

@@ -1,6 +1,6 @@
 // Several reads at one revision (SPEC-18 proposal §4.13, readings 127 to 129). A snapshot holds
-// no engine transaction (decision S4-2), so a write between two calls moves it, and each later
-// call refuses `snapshot-moved`. `withSnapshot` runs the reads again on a new snapshot. It is a
+// no engine transaction (decision S4-2), so a purge that releases a holding between two calls
+// moves it, and each later call refuses `snapshot-moved`. `withSnapshot` runs the reads again on a new snapshot. It is a
 // reader over the store contract: a store implements nothing for it.
 
 import { isPlainObject, ownFields } from "./copy.js";
@@ -130,9 +130,11 @@ function reading(clock: () => number, since = Number.NEGATIVE_INFINITY): number 
  * up after the snapshot is released.
  *
  * `body` reads only, through the snapshot it is given. It keeps nothing from an earlier attempt,
- * and its side effects go after this returns: it can run up to `retry.snapshots` times. An append
- * or a purge of the same peer inside it moves its own snapshot. It must not keep the snapshot:
- * after each attempt that snapshot refuses `snapshot-released`.
+ * and its side effects go after this returns: it can run up to `retry.snapshots` times. A purge
+ * of the same peer inside it that releases a holding moves its own snapshot; an append does not
+ * (§4.13 reading 130). One call is the exception: `digest` is strict, so after an append inside
+ * `body` that adds an id, `digest` on its snapshot refuses `snapshot-moved` (reading 140). It must
+ * not keep the snapshot: after each attempt that snapshot refuses `snapshot-released`.
  */
 export async function withSnapshot<T>(
   peer: PeerStore,

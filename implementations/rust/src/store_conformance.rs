@@ -33,9 +33,10 @@ use crate::delta::compute_id;
 use crate::json_profile::parse_claims;
 use crate::store::{
     negated_ids, target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage,
-    ChangeRecord, ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, PeerStore, Pushdown,
-    PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError,
-    StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta, MAX_REVISION, PURGE_BOUNDARY,
+    ChangeRecord, ChangeRetention, CreatePeerOptions, ErasureClaim, ErasureClass, ErasurePosture,
+    IntegrityFault, PeerStore, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult,
+    Snapshot, Store, StoreError, StoreErrorCode, StoreFailure, StoreProfile, SurfaceState,
+    VerifiedDelta, MAX_REVISION, PURGE_BOUNDARY,
 };
 use crate::store_follow::{Position, Pull};
 use crate::store_fresh::{
@@ -127,7 +128,7 @@ pub trait FreshnessReader {
         entities: &[String],
         now: f64,
         pushdown: Option<&Pushdown>,
-    ) -> Result<Capture, StoreError>;
+    ) -> Result<Capture, StoreFailure>;
     fn touching(
         &self,
         capture: &Capture,
@@ -479,8 +480,21 @@ fn ids_ascending(records: &[ChangeRecord]) -> Check {
     Ok(())
 }
 
-fn changes_refused(e: StoreError) -> String {
-    format!("changes refused with {}", e.code.as_str())
+fn changes_refused(e: StoreFailure) -> String {
+    match e {
+        StoreFailure::Refused(e) => format!("changes refused with {}", e.code.as_str()),
+        StoreFailure::Integrity(fault) => damaged("changes", &fault),
+    }
+}
+
+/// The message of a call that met damage in the store's own data (§4.13 reading 136). It is not
+/// a refusal, so no document's expected code matches it.
+fn damaged(op: &str, fault: &IntegrityFault) -> String {
+    format!(
+        "{op}: the store met the integrity fault `{}`: {}",
+        fault.kind.as_str(),
+        fault.detail
+    )
 }
 
 fn revisions_of(records: &[ChangeRecord]) -> Vec<u64> {
@@ -706,11 +720,12 @@ fn codes_of(expect: &Value) -> Option<Vec<&str>> {
 
 /// Judges an answer the store already gave against an expected refusal (§3.7: ask first, judge
 /// after).
-fn refused<T>(op: &str, result: Result<T, StoreError>, codes: &[&str]) -> Check {
+fn refused<T, E: Into<StoreFailure>>(op: &str, result: Result<T, E>, codes: &[&str]) -> Check {
     let wanted = codes.join("` or `");
-    match result {
-        Err(e) if codes.contains(&e.code.as_str()) => Ok(()),
-        Err(e) => Err(format!(
+    match result.map_err(|e| e.into()) {
+        Err(StoreFailure::Refused(e)) if codes.contains(&e.code.as_str()) => Ok(()),
+        Err(StoreFailure::Integrity(fault)) => Err(damaged(op, &fault)),
+        Err(StoreFailure::Refused(e)) => Err(format!(
             "{op}: expected a refusal `{wanted}`, the store refused `{}`",
             e.code.as_str()
         )),
@@ -718,6 +733,29 @@ fn refused<T>(op: &str, result: Result<T, StoreError>, codes: &[&str]) -> Check 
             "{op}: expected a refusal `{wanted}`, the store answered"
         )),
     }
+}
+
+/// A new or opened handle reads the application format string the document expects, a string
+/// or null, on every store (§4.13 reading 134).
+fn same_app_format(op: &str, handle: &dyn PeerStore, expect: &Value) -> Check {
+    let want = match expect.get("appFormat") {
+        Some(Value::String(format)) => Some(format.as_str()),
+        Some(Value::Null) => None,
+        _ => {
+            return Err(format!(
+            "{op}: the document's `appFormat` is not a string or null; the document is defective"
+        ))
+        }
+    };
+    let got = handle
+        .app_format()
+        .map_err(|e| format!("{op}: appFormat refused `{}`", e.code.as_str()))?;
+    if got != want {
+        return Err(format!(
+            "{op}: the peer's appFormat is {got:?}, expected {want:?}"
+        ));
+    }
+    Ok(())
 }
 
 /// A value the vector carries and this witness's types cannot hold. The step counts as refused
@@ -738,19 +776,24 @@ fn whole_as_written(v: &Value, key: &str, code: StoreErrorCode) -> Check<Result<
 /// The three `expect` shapes of a query (§3.7): a result, a result or one refusal, a refusal.
 /// A memory reference store answers a snapshot that appends alone moved (§4.13 reading 130), so
 /// for it the second shape is the first.
-fn answered<T>(
+fn answered<T, E: Into<StoreFailure>>(
     op: &str,
     expect: &Value,
-    result: Result<T, StoreError>,
+    result: Result<T, E>,
     reference: bool,
     check: impl FnOnce(T) -> Check,
 ) -> Check {
+    let result = result.map_err(|e| e.into());
     if let Some(codes) = codes_of(expect) {
         return refused(op, result, &codes);
     }
-    match result {
-        Ok(answer) => check(answer),
-        Err(e) if expect.get("orError").and_then(Value::as_str) == Some(e.code.as_str()) => {
+    let e = match result {
+        Ok(answer) => return check(answer),
+        Err(StoreFailure::Integrity(fault)) => return Err(damaged(op, &fault)),
+        Err(StoreFailure::Refused(e)) => e,
+    };
+    match e {
+        e if expect.get("orError").and_then(Value::as_str) == Some(e.code.as_str()) => {
             match reference {
                 true => Err(format!(
                     "{op}: the reference store refused `{}` on a snapshot that appends alone moved; it must answer",
@@ -759,7 +802,7 @@ fn answered<T>(
                 false => Ok(()),
             }
         }
-        Err(e) => Err(format!(
+        e => Err(format!(
             "{op}: the store refused `{}`: {}",
             e.code.as_str(),
             e.message
@@ -829,7 +872,9 @@ fn arrival_differs(got: &ArrivalRecord, want: &ArrivalRecord) -> Option<&'static
     None
 }
 
-fn collect<T>(listing: impl Iterator<Item = Result<T, StoreError>>) -> Result<Vec<T>, StoreError> {
+fn collect<T>(
+    listing: impl Iterator<Item = Result<T, StoreFailure>>,
+) -> Result<Vec<T>, StoreFailure> {
     listing.collect()
 }
 
@@ -1238,11 +1283,14 @@ impl<'a> Run<'a> {
         let made = reader.capture(snapshot.as_ref(), &entities, now, pushdown.as_ref());
         let (history, revision) = (snapshot.history().to_string(), snapshot.revision());
         snapshot.release();
-        let capture = made.map_err(|e| match e.code {
-            StoreErrorCode::InvalidRequest if e.message.starts_with("capture: ") => {
-                format!("the capture is malformed: {}", e.message)
-            }
-            code => format!("capture refused `{}`: {}", code.as_str(), e.message),
+        let capture = made.map_err(|e| match e {
+            StoreFailure::Refused(e) => match e.code {
+                StoreErrorCode::InvalidRequest if e.message.starts_with("capture: ") => {
+                    format!("the capture is malformed: {}", e.message)
+                }
+                code => format!("capture refused `{}`: {}", code.as_str(), e.message),
+            },
+            StoreFailure::Integrity(fault) => damaged("capture", &fault),
         })?;
         // 0. The checking constructor. A `Capture` exists only once a constructor checked it, so
         // a malformed one shows as the maker's refusal inside the reader, reported above
@@ -1568,8 +1616,10 @@ impl<'a> Run<'a> {
             "export" => self.export(step),
             "exportStored" => {
                 let want = self.corpus.ids(field(step, "expect")?, "ids")?;
-                let got = collect(self.store.open_admin().stored_ids())
-                    .map_err(|e| format!("storedIds refused `{}`", e.code.as_str()))?;
+                let got = collect(self.store.open_admin().stored_ids()).map_err(|e| match e {
+                    StoreFailure::Refused(e) => format!("storedIds refused `{}`", e.code.as_str()),
+                    StoreFailure::Integrity(fault) => damaged("storedIds", &fault),
+                })?;
                 same_ids("storedIds", &got, &want)
             }
             "exportPeers" => {
@@ -1577,8 +1627,10 @@ impl<'a> Run<'a> {
                     .iter()
                     .map(|name| self.corpus.peer(name).map(str::to_string))
                     .collect::<Check<_>>()?;
-                let got = collect(self.store.open_admin().peers())
-                    .map_err(|e| format!("peers refused `{}`", e.code.as_str()))?;
+                let got = collect(self.store.open_admin().peers()).map_err(|e| match e {
+                    StoreFailure::Refused(e) => format!("peers refused `{}`", e.code.as_str()),
+                    StoreFailure::Integrity(fault) => damaged("peers", &fault),
+                })?;
                 same_ids("peers", &got, &want)
             }
             other => Err(format!("unknown op `{other}`")),
@@ -1598,12 +1650,23 @@ impl<'a> Run<'a> {
             Some("unproven") => Ok(ErasurePosture::Unproven),
             _ => Err(unrepresentable(StoreErrorCode::InvalidRequest, "erasure")),
         };
+        // An `appFormat` that is not a string, null included, cannot reach a typed store.
+        let app_format = match step.get("appFormat") {
+            None => Ok(None),
+            Some(Value::String(format)) => Ok(Some(format.clone())),
+            Some(_) => Err(unrepresentable(StoreErrorCode::InvalidRequest, "appFormat")),
+        };
         let expect = field(step, "expect")?;
         let class = self.profile.capabilities.erasure;
         let id = self.corpus.peer(name)?;
-        let result = posture
-            .clone()
-            .and_then(|posture| self.store.create_peer(id, posture));
+        let result = posture.clone().and_then(|erasure| {
+            let options = CreatePeerOptions::new(erasure);
+            let options = match app_format? {
+                Some(format) => options.with_app_format(format),
+                None => options,
+            };
+            self.store.create_peer(id, &options)
+        });
         let excepted =
             expect.get("unlessStoreErasure").and_then(Value::as_str) == Some(class.as_str());
         if let (Some(codes), false) = (codes_of(expect), excepted) {
@@ -1624,7 +1687,14 @@ impl<'a> Run<'a> {
                 class.as_str()
             ));
         }
-        let history = handle.history().to_string();
+        // A peer that a proven store created against `unlessStoreErasure` has no expectation.
+        if codes_of(expect).is_none() {
+            same_app_format("createPeer", handle.as_ref(), expect)?;
+        }
+        let history = handle
+            .history()
+            .map_err(|e| format!("createPeer: history refused `{}`", e.code.as_str()))?
+            .to_string();
         if history.is_empty() {
             return Err("the peer's history is not a non-empty string".into());
         }
@@ -1662,7 +1732,11 @@ impl<'a> Run<'a> {
                 "openPeer: the opened peer does not report the posture it was created with".into(),
             );
         }
-        self.same_history(name, handle.history(), "a handle")?;
+        same_app_format("openPeer", handle.as_ref(), expect)?;
+        let history = handle
+            .history()
+            .map_err(|e| format!("openPeer: history refused `{}`", e.code.as_str()))?;
+        self.same_history(name, history, "a handle")?;
         // With `handle`, the older handle stays under its own name; both are one peer.
         let kept_as = match step.get("handle") {
             Some(_) => text(step, "handle")?,
@@ -1813,8 +1887,12 @@ impl<'a> Run<'a> {
             .ok()
             .filter(|names| names.iter().all(|n| RETAINED.contains(&n.as_str())))
             .ok_or("purge: the document's `retains` is not a list of retained surfaces; the document is defective")?;
-        let report =
-            result.map_err(|e| format!("purge refused `{}`: {}", e.code.as_str(), e.message))?;
+        let report = result.map_err(|e| match e {
+            StoreFailure::Refused(e) => {
+                format!("purge refused `{}`: {}", e.code.as_str(), e.message)
+            }
+            StoreFailure::Integrity(fault) => damaged("purge", &fault),
+        })?;
 
         let want: Vec<(String, String)> = list(expect, "targets")?
             .iter()
@@ -2134,6 +2212,7 @@ impl<'a> Run<'a> {
         let admin = self.store.open_admin();
         let listed = admin
             .peer(self.corpus.peer(text(step, "peer")?)?)
+            .map_err(StoreFailure::Refused)
             .and_then(|peer| Ok((collect(peer.ids())?, collect(peer.deltas())?)));
         answered("export", expect, listed, false, |(ids, deltas)| {
             let names = texts(expect, "deltas")?;
@@ -2193,9 +2272,12 @@ impl<'a> Run<'a> {
                 exclude: held_ids.clone(),
                 pushdown: (!fields.is_empty()).then(|| pushed.clone()),
             };
-            let answer = snapshot
-                .scope(&request)
-                .map_err(|e| format!("case: scope refused `{}`: {}", e.code.as_str(), e.message))?;
+            let answer = snapshot.scope(&request).map_err(|e| match e {
+                StoreFailure::Refused(e) => {
+                    format!("case: scope refused `{}`: {}", e.code.as_str(), e.message)
+                }
+                StoreFailure::Integrity(fault) => damaged("case: scope", &fault),
+            })?;
             self.members(peer, &answer, &pushed)?;
             let applied = flags_of(&answer.applied);
             let got: Vec<String> = answer.deltas.iter().map(|m| m.delta.id.clone()).collect();
@@ -2346,8 +2428,11 @@ impl PeerStore for Borrowed<'_> {
     fn erasure(&self) -> crate::store::PeerErasure {
         self.0.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.0.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.0.app_format()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.0.read()
@@ -2355,10 +2440,10 @@ impl PeerStore for Borrowed<'_> {
     fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
         self.0.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<crate::store::PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<crate::store::PurgeReport, StoreFailure> {
         self.0.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.0.changes(from, to)
     }
 }
@@ -2377,8 +2462,11 @@ impl PeerStore for LoggedPeer<'_> {
     fn erasure(&self) -> crate::store::PeerErasure {
         self.inner.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         // Each call is logged when it is made, also one that then refuses (README §10.3).
@@ -2396,11 +2484,11 @@ impl PeerStore for LoggedPeer<'_> {
         self.log.borrow_mut().push(Call::Other("append"));
         self.inner.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<crate::store::PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<crate::store::PurgeReport, StoreFailure> {
         self.log.borrow_mut().push(Call::Other("purge"));
         self.inner.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         let at = self.log.borrow().len();
         self.log.borrow_mut().push(Call::Changes {
             from,
@@ -2439,23 +2527,23 @@ impl Snapshot for LoggedSnapshot {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.log.borrow_mut().push(Call::Get(ids.to_vec()));
         self.inner.get(ids)
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.log.borrow_mut().push(Call::Arrivals(ids.to_vec()));
         self.inner.arrivals(ids)
     }
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.log.borrow_mut().push(Call::Other("targets"));
         self.inner.targets(entities)
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.log.borrow_mut().push(Call::Other("negators"));
         self.inner.negators(ids)
     }
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         let entities = request
             .anchors
             .iter()
@@ -2772,6 +2860,7 @@ fn failed_call(call: &str, error: FeedError) -> String {
         FeedError::Refused(e) => format!("{call} refused with {}: {}", e.code.as_str(), e.message),
         FeedError::Fault(fault) => format!("the store broke {}: {fault}", fault.rule()),
         FeedError::Read(message) => message,
+        FeedError::Integrity(fault) => damaged(call, &fault),
     }
 }
 
@@ -4063,8 +4152,11 @@ impl PeerStore for Refusing {
     fn erasure(&self) -> crate::store::PeerErasure {
         unreachable!("the log does not ask")
     }
-    fn history(&self) -> &str {
-        "refusing"
+    fn history(&self) -> Result<&str, StoreError> {
+        Ok("refusing")
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        Ok(None)
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         Err(StoreError::new(StoreErrorCode::StoreClosed, "closed"))
@@ -4072,11 +4164,11 @@ impl PeerStore for Refusing {
     fn append(&self, _: &Admission) -> Result<AppendResult, StoreError> {
         Err(StoreError::new(StoreErrorCode::StoreClosed, "closed"))
     }
-    fn purge(&self, _: &[String]) -> Result<crate::store::PurgeReport, StoreError> {
-        Err(StoreError::new(StoreErrorCode::StoreClosed, "closed"))
+    fn purge(&self, _: &[String]) -> Result<crate::store::PurgeReport, StoreFailure> {
+        Err(StoreError::new(StoreErrorCode::StoreClosed, "closed").into())
     }
-    fn changes(&self, _: Revision, _: Option<Revision>) -> Result<ChangePage, StoreError> {
-        Err(StoreError::new(StoreErrorCode::StoreClosed, "closed"))
+    fn changes(&self, _: Revision, _: Option<Revision>) -> Result<ChangePage, StoreFailure> {
+        Err(StoreError::new(StoreErrorCode::StoreClosed, "closed").into())
     }
 }
 

@@ -1171,7 +1171,8 @@ class SqliteFileStore implements SqliteStore {
     if (upTo !== undefined && upTo < after)
       throw new StoreError("invalid-request", "changes: to must not be less than from");
     return this.#run("read", () => {
-      const { revision: current, floor } = this.#live(peer, origin);
+      const row = this.#live(peer, origin);
+      const { revision: current, floor } = row;
       if (after > current || after < floor) return { status: "resync-required", current };
       const end = Math.min(upTo ?? current, current);
       const rows = this.#s.changes.all({
@@ -1180,6 +1181,14 @@ class SqliteFileStore implements SqliteStore {
         to: end,
         limit: this.#pageSize,
       }) as ChangeRow[];
+      // Each answered record is the revision it stands for, and none is missing (§4.13 reading
+      // 136). The check reads only the rows the page answers; the count of the feed that names
+      // the gap runs only when there is one.
+      if (
+        rows.length !== Math.min(end - after, this.#pageSize) ||
+        rows.some((r, i) => r.revision !== after + 1 + i)
+      )
+        throw new StoreIntegrityError(this.#feed(peer, row).fault);
       const records: ChangeRecord[] = rows.map((r) => {
         const ids = changeOf(r, peer);
         if ("kind" in ids) throw new StoreIntegrityError(ids);
@@ -1872,16 +1881,8 @@ class SqliteFileStore implements SqliteStore {
         peer,
         detail: `sqlite store: the peer's count is ${row.count} and it holds ${held}`,
       });
-    const feed = s.fsckFeed.get(peer) as { kept: number; low: number | null; high: number | null };
-    if (
-      feed.kept !== row.revision - row.floor ||
-      (feed.kept > 0 && (feed.low !== row.floor + 1 || feed.high !== row.revision))
-    )
-      faults.push({
-        kind: "feed-gap",
-        peer,
-        detail: `sqlite store: the peer keeps ${feed.kept} change records from ${feed.low} to ${feed.high}, at floor ${row.floor} and revision ${row.revision}`,
-      });
+    const feed = this.#feed(peer, row);
+    if (feed.gap) faults.push(feed.fault);
     const [top] = this.#digestRows(peer, [""]);
     if ((top ?? EMPTY_DIGEST).hash !== row.root || (top?.count ?? 0) !== held)
       faults.push({
@@ -1903,6 +1904,28 @@ class SqliteFileStore implements SqliteStore {
   #fsckSame(peer: PeerId, origin: History): PeerRow | undefined {
     const row = this.#peerRow(peer);
     return row?.origin === origin ? row : undefined;
+  }
+
+  /**
+   * Whether the peer's change records do not run from its floor to its revision, and the fault
+   * that says so. It counts the peer's kept records.
+   */
+  #feed(peer: PeerId, row: PeerRow): { gap: boolean; fault: IntegrityFault } {
+    const feed = this.#s.fsckFeed.get(peer) as {
+      kept: number;
+      low: number | null;
+      high: number | null;
+    };
+    return {
+      gap:
+        feed.kept !== row.revision - row.floor ||
+        (feed.kept > 0 && (feed.low !== row.floor + 1 || feed.high !== row.revision)),
+      fault: {
+        kind: "feed-gap",
+        peer,
+        detail: `sqlite store: the peer keeps ${feed.kept} change records from ${feed.low} to ${feed.high}, at floor ${row.floor} and revision ${row.revision}`,
+      },
+    };
   }
 
   /**

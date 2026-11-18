@@ -10,9 +10,10 @@ use std::rc::Rc;
 
 use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::store::{
-    Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ErasureClaim, ErasurePosture,
-    Exporter, Listing, PeerErasure, PeerExporter, PeerStore, PurgeReport, PushdownFields, Revision,
-    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreProfile,
+    Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, CreatePeerOptions, ErasureClaim,
+    Exporter, FsckReport, Listing, PeerErasure, PeerExporter, PeerStore, PurgeReport,
+    PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreFailure,
+    StoreProfile,
 };
 use rhizomatic::store_conformance::{run_store_conformance, StoreConformanceError, StoreVectors};
 use rhizomatic::types::Delta;
@@ -77,8 +78,12 @@ impl Store for Faulty {
     fn profile(&self) -> &StoreProfile {
         &self.profile
     }
-    fn create_peer(&self, id: &str, e: ErasurePosture) -> Result<Box<dyn PeerStore>, StoreError> {
-        Ok(self.wrap(id, self.inner.create_peer(id, e)?))
+    fn create_peer(
+        &self,
+        id: &str,
+        options: &CreatePeerOptions,
+    ) -> Result<Box<dyn PeerStore>, StoreError> {
+        Ok(self.wrap(id, self.inner.create_peer(id, options)?))
     }
     fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError> {
         Ok(self.wrap(id, self.inner.peer(id)?))
@@ -102,8 +107,11 @@ struct FaultyPeer {
 }
 
 impl PeerStore for FaultyPeer {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn id(&self) -> &str {
         &self.id
@@ -143,14 +151,14 @@ impl PeerStore for FaultyPeer {
         };
         Ok(AppendResult::Committed { revision, added })
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         let mut report = self.inner.purge(ids)?;
         if self.fault == Fault::ClaimsProven {
             report.claim = ErasureClaim::Proven;
         }
         Ok(report)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.inner.changes(from, to)
     }
 }
@@ -191,20 +199,20 @@ impl Snapshot for FaultySnapshot {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         let records = self.inner.arrivals(ids)?;
         Ok(records.into_iter().map(|r| self.arrival(r)).collect())
     }
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.targets(entities)
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.negators(ids)
     }
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         let mut asked = request.clone();
         match self.fault {
             Fault::ReturnsOutsideTheScope => asked.anchors.push(Anchor::Entity {
@@ -281,6 +289,9 @@ impl Exporter for FaultyExporter {
         let ids: Vec<_> = self.inner.open_admin().stored_ids().collect();
         Box::new(ids.into_iter())
     }
+    fn fsck(&self) -> Result<FsckReport, StoreError> {
+        self.inner.open_admin().fsck()
+    }
 }
 
 struct FaultyPeerExporter {
@@ -339,7 +350,7 @@ fn failed(fault: Fault, reasons: &[&str]) -> Vec<String> {
 
 #[test]
 fn a_faithful_store_that_is_not_the_reference_passes() {
-    assert_eq!(run(Fault::None).unwrap(), 26 + 15);
+    assert_eq!(run(Fault::None).unwrap(), 27 + 15);
 }
 
 #[test]

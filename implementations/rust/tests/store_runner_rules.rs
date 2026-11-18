@@ -32,13 +32,15 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
+use crate::refused::as_refusal;
 use rhizomatic::memory_store::{MemoryStore, MEMORY_STORE_FORMAT};
 use rhizomatic::store::{
     target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ChangeRetention,
-    ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter,
-    PeerStore, PurgeOutcome, PurgeReport, PushdownFields, Retained, RetainedSurface, Revision,
-    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
-    SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER,
+    CreatePeerOptions, ErasureClaim, ErasureClass, ErasurePosture, Exporter, FsckReport, Listing,
+    PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PushdownFields, Retained,
+    RetainedSurface, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError,
+    StoreErrorCode, StoreFailure, StoreProfile, SurfaceState, VerifiedDelta, APP_FORMAT_MAX_BYTES,
+    MAX_ARRIVAL_COUNTER,
 };
 use rhizomatic::store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceReport,
@@ -117,6 +119,14 @@ enum Wrong {
     Count,
     LastSequence,
     LastTransfer,
+    /// A new handle reads no application format string.
+    CreatedAppFormat,
+    /// An opened handle reads another application format string.
+    OpenedAppFormat,
+    /// Every handle refuses its application format string on an open store.
+    AppFormatRefuses,
+    /// An opened handle refuses its application format string on an open store.
+    OpenedAppFormatRefuses,
     GetDrops,
     GetReverses,
     GetSig,
@@ -169,6 +179,10 @@ enum Wrong {
     HistoryShared,
     OpenedHistory,
     SnapshotHistory,
+    /// A new handle refuses its history on an open store.
+    CreatedHistoryRefuses,
+    /// An opened handle refuses its history on an open store.
+    OpenedHistoryRefuses,
 }
 
 /// What the wrapped store declares about itself.
@@ -233,7 +247,7 @@ fn toggle_sig(delta: &mut Delta) {
     };
 }
 
-fn listing<'a, T: 'a>(items: Result<Vec<T>, StoreError>) -> Listing<'a, T> {
+fn listing<'a, T: 'a>(items: Result<Vec<T>, StoreFailure>) -> Listing<'a, T> {
     match items {
         Ok(items) => Box::new(items.into_iter().map(Ok)),
         Err(e) => Box::new(std::iter::once(Err(e))),
@@ -303,21 +317,30 @@ impl Store for Rig {
         &self.profile
     }
 
-    fn create_peer(&self, id: &str, e: ErasurePosture) -> Result<Box<dyn PeerStore>, StoreError> {
-        if self.wrong == Wrong::RefusesPromisedProof && e == ErasurePosture::Proven {
+    fn create_peer(
+        &self,
+        id: &str,
+        options: &CreatePeerOptions,
+    ) -> Result<Box<dyn PeerStore>, StoreError> {
+        let e = options.erasure;
+        // A bad `app_format` is refused before the posture, so the rig lets the store answer it.
+        let good_format = options
+            .app_format
+            .as_ref()
+            .is_none_or(|f| !f.is_empty() && f.len() <= APP_FORMAT_MAX_BYTES);
+        if self.wrong == Wrong::RefusesPromisedProof && e == ErasurePosture::Proven && good_format {
             return Err(refusal(StoreErrorCode::PostureRefused));
         }
         // The memory store takes no peer that promises proof. A proven rig records the promise.
         let promised =
             self.setup.class == ErasureClass::Proven || self.wrong == Wrong::CreatesPromisedProof;
-        let asked = if promised {
-            ErasurePosture::Unproven
-        } else {
-            e
-        };
+        let mut asked = options.clone();
+        if promised {
+            asked.erasure = ErasurePosture::Unproven;
+        }
         let inner = self
             .inner
-            .create_peer(id, asked)
+            .create_peer(id, &asked)
             .map_err(|e| match self.wrong {
                 Wrong::CreatePeerCode => recode(e.clone(), e.code, StoreErrorCode::PeerAbsent),
                 _ => e,
@@ -392,12 +415,27 @@ impl RigPeer {
 }
 
 impl PeerStore for RigPeer {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         match self.wrong {
-            Wrong::HistoryEmpty if !self.opened => "",
-            Wrong::HistoryShared => "one-history-for-every-peer",
-            Wrong::OpenedHistory if self.opened => "another-history",
+            Wrong::HistoryEmpty if !self.opened => Ok(""),
+            Wrong::HistoryShared => Ok("one-history-for-every-peer"),
+            Wrong::OpenedHistory if self.opened => Ok("another-history"),
+            Wrong::CreatedHistoryRefuses if !self.opened => {
+                Err(refusal(StoreErrorCode::StoreClosed))
+            }
+            Wrong::OpenedHistoryRefuses if self.opened => Err(refusal(StoreErrorCode::StoreClosed)),
             _ => self.inner.history(),
+        }
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        match self.wrong {
+            Wrong::CreatedAppFormat if !self.opened => Ok(None),
+            Wrong::OpenedAppFormat if self.opened => Ok(Some("host/2")),
+            Wrong::AppFormatRefuses => Err(refusal(StoreErrorCode::StoreClosed)),
+            Wrong::OpenedAppFormatRefuses if self.opened => {
+                Err(refusal(StoreErrorCode::StoreClosed))
+            }
+            _ => self.inner.app_format(),
         }
     }
     fn id(&self) -> &str {
@@ -558,12 +596,12 @@ impl PeerStore for RigPeer {
         }
     }
 
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         if self.setup.class == ErasureClass::None {
-            return Err(refusal(StoreErrorCode::CapabilityAbsent));
+            return Err(refusal(StoreErrorCode::CapabilityAbsent).into());
         }
         if self.wrong == Wrong::PurgeRefuses {
-            return Err(refusal(StoreErrorCode::InvalidRequest));
+            return Err(refusal(StoreErrorCode::InvalidRequest).into());
         }
         let mut snapshot = self.inner.read()?;
         let deltas = snapshot.get(ids)?;
@@ -665,7 +703,7 @@ impl PeerStore for RigPeer {
         }
         Ok(report)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.inner.changes(from, to)
     }
 }
@@ -689,17 +727,17 @@ impl RigSnapshot {
     /// the peer's present state.
     fn ask<T>(
         &self,
-        query: impl Fn(&dyn Snapshot) -> Result<T, StoreError>,
+        query: impl Fn(&dyn Snapshot) -> Result<T, StoreFailure>,
     ) -> Result<T, StoreError> {
         let now = || self.store.peer(&self.id).and_then(|peer| peer.read());
-        match (self.wrong, query(self.inner.as_ref())) {
+        match (self.wrong, query(self.inner.as_ref()).map_err(as_refusal)) {
             (Wrong::RefusesAfterAppend, Ok(_))
                 if now().is_ok_and(|now| now.revision() != self.inner.revision()) =>
             {
                 Err(refusal(StoreErrorCode::SnapshotMoved))
             }
             (Wrong::AnswersWhenMoved, Err(e)) if e.code == StoreErrorCode::SnapshotMoved => {
-                query(now()?.as_ref())
+                query(now()?.as_ref()).map_err(as_refusal)
             }
             (_, result) => result,
         }
@@ -807,7 +845,7 @@ impl Snapshot for RigSnapshot {
         self.inner.last_transfer() + u64::from(self.wrong == Wrong::LastTransfer)
     }
 
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         let mut deltas = self.answer(self.ask(|s| s.get(ids)), Vec::new)?;
         reorder(self.wrong, Wrong::GetDrops, Wrong::GetReverses, &mut deltas);
         if let Some(first) = deltas.first_mut() {
@@ -820,7 +858,7 @@ impl Snapshot for RigSnapshot {
         Ok(deltas)
     }
 
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         let mut records = self.answer(self.ask(|s| s.arrivals(ids)), Vec::new)?;
         records.iter_mut().for_each(|r| self.last_of_batch(r));
         reorder(
@@ -835,9 +873,9 @@ impl Snapshot for RigSnapshot {
         Ok(records)
     }
 
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
         if self.wrong == Wrong::TargetsRefuse {
-            return Err(refusal(StoreErrorCode::InvalidRequest));
+            return Err(refusal(StoreErrorCode::InvalidRequest).into());
         }
         let mut ids = self.answer(self.ask(|s| s.targets(entities)), Vec::new)?;
         reorder(
@@ -849,7 +887,7 @@ impl Snapshot for RigSnapshot {
         Ok(ids)
     }
 
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         let mut found = self.answer(self.ask(|s| s.negators(ids)), Vec::new)?;
         reorder(
             self.wrong,
@@ -860,7 +898,7 @@ impl Snapshot for RigSnapshot {
         Ok(found)
     }
 
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         let mut asked = request.clone();
         match self.wrong {
             Wrong::OutsideScope => asked.anchors.push(Anchor::Entity {
@@ -998,6 +1036,9 @@ impl Exporter for RigExporter {
             ids.pop();
         }
         listing(ids)
+    }
+    fn fsck(&self) -> Result<FsckReport, StoreError> {
+        self.inner.open_admin().fsck()
     }
 }
 
@@ -1150,6 +1191,28 @@ fn a_retains_with_another_name(vectors: &mut StoreVectors) {
         let steps = script["steps"].as_array_mut().unwrap();
         if let Some(purge) = steps.iter_mut().find(|step| step["op"] == "purge") {
             purge["expect"]["retains"] = serde_json::json!(["change-feed", "bytes"]);
+        }
+    }
+}
+
+/// Every `createPeer` step that creates, without `expect.appFormat`.
+fn a_create_without_app_format(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        for step in script["steps"].as_array_mut().unwrap() {
+            if step["op"] == "createPeer" && step["expect"]["status"] == "created" {
+                step["expect"].as_object_mut().unwrap().remove("appFormat");
+            }
+        }
+    }
+}
+
+/// Every `openPeer` step that opens, with an `appFormat` that is not a string or null.
+fn an_open_with_a_number_as_app_format(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        for step in script["steps"].as_array_mut().unwrap() {
+            if step["op"] == "openPeer" && step["expect"]["status"] == "opened" {
+                step["expect"]["appFormat"] = serde_json::json!(7);
+            }
         }
     }
 }
@@ -1310,6 +1373,20 @@ const TABLE: &[Row] = &[
         &["a snapshot of", "reports another history than the peer's"],
         SC,
     ),
+    row(
+        "createPeer: a new handle that refuses its history",
+        W::CreatedHistoryRefuses,
+        PLAIN,
+        &["createPeer: history refused `store-closed`"],
+        SC,
+    ),
+    row(
+        "openPeer: an opened handle that refuses its history",
+        W::OpenedHistoryRefuses,
+        PLAIN,
+        &["openPeer: history refused `store-closed`"],
+        SC,
+    ),
     // Refusals (README §3 "Refusals", §3.7).
     row(
         "createPeer: a refusal code outside the list",
@@ -1383,6 +1460,34 @@ const TABLE: &[Row] = &[
         PLAIN,
         &["read: the snapshot's lastTransfer is"],
         S,
+    ),
+    row(
+        "createPeer: a new handle reads no appFormat",
+        W::CreatedAppFormat,
+        PLAIN,
+        &["createPeer: the peer's appFormat is None, expected Some(\"host/1\")"],
+        S,
+    ),
+    row(
+        "openPeer: an opened handle reads another appFormat",
+        W::OpenedAppFormat,
+        PLAIN,
+        &["openPeer: the peer's appFormat is Some(\"host/2\"), expected"],
+        SC,
+    ),
+    row(
+        "createPeer: a new handle that refuses its appFormat",
+        W::AppFormatRefuses,
+        PLAIN,
+        &["createPeer: appFormat refused `store-closed`"],
+        SC,
+    ),
+    row(
+        "openPeer: an opened handle that refuses its appFormat",
+        W::OpenedAppFormatRefuses,
+        PLAIN,
+        &["openPeer: appFormat refused `store-closed`"],
+        SC,
     ),
     row(
         "query: a snapshot older than a releasing purge answers",
@@ -2047,6 +2152,20 @@ const TABLE: &[Row] = &[
         &["scripts"],
     ),
     doc_row(
+        "documents: a createPeer step without appFormat",
+        W::Nothing,
+        a_create_without_app_format,
+        &["createPeer: the document's `appFormat` is not a string or null"],
+        &["scripts"],
+    ),
+    doc_row(
+        "documents: an openPeer step with an appFormat that is not a string or null",
+        W::Nothing,
+        an_open_with_a_number_as_app_format,
+        &["openPeer: the document's `appFormat` is not a string or null"],
+        &["scripts"],
+    ),
+    doc_row(
         "documents: a read step without lastTransfer",
         W::Nothing,
         a_read_without_last_transfer,
@@ -2217,7 +2336,7 @@ fn the_same_answers_conform_where_no_rule_forbids_them() {
             .unwrap_or_else(|failures| panic!("{wrong:?} {setup:?}: {failures}"));
         assert_eq!(
             (report.passed.len(), report.skipped.len()),
-            (26 + 15, 0),
+            (27 + 15, 0),
             "{wrong:?}"
         );
     }
@@ -2259,10 +2378,13 @@ fn a_class_none_store_skips_the_purge_scripts() {
     };
     let store = Rig::new(W::Nothing, none);
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     assert_eq!(
-        peer.purge(&["1e20".to_string()]).err().map(|e| e.code),
+        peer.purge(&["1e20".to_string()])
+            .map_err(as_refusal)
+            .err()
+            .map(|e| e.code),
         Some(StoreErrorCode::CapabilityAbsent)
     );
 
@@ -2270,7 +2392,7 @@ fn a_class_none_store_skips_the_purge_scripts() {
     // The two feed scripts that purge list `changes` first; this store serves a feed, so it
     // reports `purge` as what they lack.
     assert_eq!(report.skipped, skipped(&PURGE_SCRIPTS, "purge"));
-    assert_eq!(report.passed.len(), 26 + 15 - PURGE_SCRIPTS.len());
+    assert_eq!(report.passed.len(), 27 + 15 - PURGE_SCRIPTS.len());
     assert!(report
         .passed
         .iter()
@@ -2316,7 +2438,7 @@ fn a_store_without_a_feed_is_not_asked_for_the_feed_in_retains() {
         let skipped: Vec<&str> = report.skipped.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(skipped, feed_scripts);
         assert!(report.skipped.iter().all(|s| s.missing == "changes"));
-        assert_eq!(report.passed.len(), 26 + 15 - feed_scripts.len());
+        assert_eq!(report.passed.len(), 27 + 15 - feed_scripts.len());
     }
 }
 
@@ -2332,7 +2454,7 @@ fn a_store_with_a_journal_skips_the_journal_absent_script() {
         report.skipped,
         skipped(&["scripts/a-frame-needs-the-journal"], "journal-absent")
     );
-    assert_eq!(report.passed.len(), 26 + 15 - 1);
+    assert_eq!(report.passed.len(), 27 + 15 - 1);
 }
 
 /// README §3: each script runs on a new, empty store. A factory that hands out one store again
@@ -2348,9 +2470,9 @@ fn each_script_gets_a_new_store() {
         fn create_peer(
             &self,
             id: &str,
-            e: ErasurePosture,
+            options: &CreatePeerOptions,
         ) -> Result<Box<dyn PeerStore>, StoreError> {
-            self.0.create_peer(id, e)
+            self.0.create_peer(id, options)
         }
         fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError> {
             self.0.peer(id)

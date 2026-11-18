@@ -87,6 +87,107 @@ impl fmt::Display for StoreError {
 
 impl std::error::Error for StoreError {}
 
+/// What kind of damage an [`IntegrityFault`] names (§4.13 readings 136 and 137). The names are
+/// TypeScript's `IntegrityFaultKind`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IntegrityFaultKind {
+    /// Stored claims do not hash to their id.
+    ClaimsMismatch,
+    /// Stored bytes hash to their id and are not claims, or a held id has no stored claims.
+    ClaimsUnreadable,
+    /// A held delta's claims name an index entry that the store does not keep.
+    IndexMissing,
+    /// The store keeps an index entry that the delta's claims do not name.
+    IndexStray,
+    /// A stored column differs from the claims or the holding, or does not have its form.
+    ColumnMismatch,
+    /// A count is not the number of the rows it counts.
+    CountMismatch,
+    /// A holding's sequence or transfer passes the peer's last one.
+    SequenceMismatch,
+    /// A peer's change records do not run from its floor to its revision.
+    FeedGap,
+    /// Bytes that no peer holds.
+    OrphanBytes,
+    /// The engine's own check of the file failed.
+    Engine,
+    /// A stored node of the holdings digest, or the stored root, is not the one the holdings give.
+    DigestMismatch,
+}
+
+impl IntegrityFaultKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ClaimsMismatch => "claims-mismatch",
+            Self::ClaimsUnreadable => "claims-unreadable",
+            Self::IndexMissing => "index-missing",
+            Self::IndexStray => "index-stray",
+            Self::ColumnMismatch => "column-mismatch",
+            Self::CountMismatch => "count-mismatch",
+            Self::SequenceMismatch => "sequence-mismatch",
+            Self::FeedGap => "feed-gap",
+            Self::OrphanBytes => "orphan-bytes",
+            Self::Engine => "engine",
+            Self::DigestMismatch => "digest-mismatch",
+        }
+    }
+}
+
+/// Damage in a store's own data, found by the store (§4.13 reading 136). `peer`, `id` and `key`
+/// name the place when the fault has one; `detail` is for a person. A fault is erasable material:
+/// its `id` and `key` can come from claims.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IntegrityFault {
+    pub kind: IntegrityFaultKind,
+    pub peer: Option<String>,
+    pub id: Option<String>,
+    pub key: Option<String>,
+    pub detail: String,
+}
+
+/// Why a read, a purge, a feed page or a listing did not answer (§4.13 reading 136): the store
+/// refused, or the store met damage in its own data. An integrity fault is not a refusal, so it
+/// has no `StoreErrorCode`, and nothing starts again on it. The call answers nothing, never a
+/// smaller answer.
+#[derive(Debug, Clone, PartialEq)]
+pub enum StoreFailure {
+    Refused(StoreError),
+    Integrity(IntegrityFault),
+}
+
+impl From<StoreError> for StoreFailure {
+    fn from(error: StoreError) -> Self {
+        Self::Refused(error)
+    }
+}
+
+impl fmt::Display for StoreFailure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Refused(e) => e.fmt(f),
+            Self::Integrity(fault) => f.write_str(&fault.detail),
+        }
+    }
+}
+
+impl std::error::Error for StoreFailure {}
+
+/// How much one `fsck` read (§4.13 reading 137): the peers, the holdings of every peer, and the
+/// stored deltas.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct FsckChecked {
+    pub peers: u64,
+    pub holdings: u64,
+    pub deltas: u64,
+}
+
+/// What [`Exporter::fsck`] answers: how much it read, and every fault it found.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct FsckReport {
+    pub checked: FsckChecked,
+    pub faults: Vec<IntegrityFault>,
+}
+
 /// What a peer promises about erasure. Fixed when the peer is created (SPEC-18 §4.7.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErasurePosture {
@@ -99,6 +200,40 @@ impl ErasurePosture {
         match self {
             Self::Proven => "proven",
             Self::Unproven => "unproven",
+        }
+    }
+}
+
+/// The most UTF-8 bytes an application format string holds (§4.13 reading 134).
+pub const APP_FORMAT_MAX_BYTES: usize = 256;
+
+/// What `Store::create_peer` fixes for a new peer (SPEC-18 §4.1). The caller always states
+/// the erasure posture: the type has no default.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CreatePeerOptions {
+    /// `Unproven` is the operator's acknowledgement that erasure reports may say `unproven`.
+    pub erasure: ErasurePosture,
+    /// The application format string (§4.13 reading 134): a host's own marker for the format of
+    /// what it keeps in this peer, 1 to [`APP_FORMAT_MAX_BYTES`] UTF-8 bytes. `None`, the peer
+    /// has none. It is fixed at creation and never changes. It lies outside erasure: no purge
+    /// removes it. A host must not put personal data in it.
+    pub app_format: Option<String>,
+}
+
+impl CreatePeerOptions {
+    /// Options with this posture and no application format string.
+    pub fn new(erasure: ErasurePosture) -> Self {
+        Self {
+            erasure,
+            app_format: None,
+        }
+    }
+
+    /// These options with this application format string.
+    pub fn with_app_format(self, format: impl Into<String>) -> Self {
+        Self {
+            app_format: Some(format.into()),
+            ..self
         }
     }
 }
@@ -498,16 +633,18 @@ pub struct PurgeReport {
 }
 
 /// A whole-store or whole-peer listing. Reading it costs the surface it lists.
-pub type Listing<'a, T> = Box<dyn Iterator<Item = Result<T, StoreError>> + 'a>;
+pub type Listing<'a, T> = Box<dyn Iterator<Item = Result<T, StoreFailure>> + 'a>;
 
 /// One store: shared delta bytes, and one logical store per peer (SPEC-18 §4.1).
 pub trait Store {
     fn profile(&self) -> &StoreProfile;
-    /// Makes a peer with no holdings. Refuses `posture-refused` and `peer-exists`.
+    /// Makes a peer with no holdings. Refuses `invalid-request` for an empty id or an
+    /// `app_format` of 0 or more than [`APP_FORMAT_MAX_BYTES`] bytes, then `posture-refused`,
+    /// then `peer-exists`.
     fn create_peer(
         &self,
         id: &str,
-        erasure: ErasurePosture,
+        options: &CreatePeerOptions,
     ) -> Result<Box<dyn PeerStore>, StoreError>;
     /// Opens an existing peer. Refuses `peer-absent`; never creates.
     fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError>;
@@ -523,21 +660,26 @@ pub trait PeerStore {
     fn erasure(&self) -> PeerErasure;
     /// The identity of this peer's revision history (SPEC-18 §4.6, "History"): an opaque,
     /// non-empty string, compared for equality only. Every handle of one peer reports it. A peer
-    /// created anew, also under a name that existed before, carries another value.
-    fn history(&self) -> &str;
+    /// created anew, also under a name that existed before, carries another value. Refuses
+    /// `store-closed` after the store is closed.
+    fn history(&self) -> Result<&str, StoreError>;
+    /// The application format string given at `create_peer`, or `None` when none was given
+    /// (§4.13 reading 134). Every handle of the peer reads the same value. O(1). Refuses
+    /// `store-closed` after the store is closed.
+    fn app_format(&self) -> Result<Option<&str>, StoreError>;
     /// A repeatable view at the peer's current revision.
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError>;
     /// Atomic and idempotent by id. A refusal commits nothing.
     fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError>;
     /// The only operation that removes a delta from a peer.
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError>;
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure>;
     /// The change records with `from < revision ≤ to`, from the peer's current feed, not a
     /// snapshot (SPEC-18 §4.6, §4.13). `to` defaults to the current revision and is clamped to
     /// it. The answers, in order: a closed store refuses `store-closed`; a store whose retention
     /// is `None` refuses `capability-absent`; a bound above [`MAX_REVISION`], then an explicit
     /// `to` below `from`, refuse `invalid-request`; a `from` above the current revision or below
     /// the floor answers `ResyncRequired`; otherwise `Ok`.
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError>;
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure>;
 }
 
 /// A view of one peer at one revision (SPEC-18 §4.2). `revision`, `history`, `head`, `count`,
@@ -559,14 +701,14 @@ pub trait Snapshot {
     /// before the first (§4.13 reading 135). A head-only append and a purge keep it.
     fn last_transfer(&self) -> u64;
     /// The held deltas among `ids`, each with the signature this peer admitted.
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError>;
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure>;
     /// This peer's arrival record for each held id among `ids`.
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError>;
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure>;
     /// Ids of held deltas with a pointer at one of these entities, any role or context.
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError>;
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure>;
     /// Ids of held deltas that directly negate one of `ids`, held or not.
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError>;
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError>;
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure>;
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure>;
     /// Ends the snapshot. Every later query refuses `snapshot-released`.
     fn release(&mut self);
 }
@@ -579,6 +721,11 @@ pub trait Exporter {
     /// Every id the store keeps bytes for, once each. It names other peers' deltas, so nothing
     /// may use it to choose what one peer purges or serves.
     fn stored_ids(&self) -> Listing<'_, String>;
+    /// Checks every structure the store keeps against the claims it holds and against its own
+    /// counters, and reports each fault it finds (§4.13 reading 137). It only reads: it repairs,
+    /// replaces and deletes nothing. O(store). A fault is in the report, never an `Err`; `Err`
+    /// is a refusal, such as `store-closed`.
+    fn fsck(&self) -> Result<FsckReport, StoreError>;
 }
 
 pub trait PeerExporter {
@@ -589,17 +736,17 @@ pub trait PeerExporter {
 
 /// One peer's listing as a set (SPEC-18 §4.12 reading 28). It reads the whole listing, so it
 /// costs the peer's surface. Each id is recomputed from its claims; a listed delta whose id does
-/// not recompute is refused `invalid-request`, never repaired. A listing refusal passes up.
-pub fn collect_delta_set(exporter: &dyn PeerExporter) -> Result<DeltaSet, StoreError> {
+/// not recompute is refused `invalid-request`, never repaired. A listing failure passes up.
+pub fn collect_delta_set(exporter: &dyn PeerExporter) -> Result<DeltaSet, StoreFailure> {
     let mut set = DeltaSet::new();
     for listed in exporter.deltas() {
         let delta = listed?;
         let id = delta.id.clone();
         set.add(delta).map_err(|_| {
-            StoreError::new(
+            StoreFailure::Refused(StoreError::new(
                 StoreErrorCode::InvalidRequest,
                 format!("listed delta {id} does not recompute from its claims"),
-            )
+            ))
         })?;
     }
     Ok(set)

@@ -2,11 +2,13 @@
 //! bounds a JSON document cannot carry to a typed store, the store's own options, and the ids a
 //! record keeps after a purge. The vectors and `store_feed_rules.rs` hold the rest.
 
+use crate::refused::as_refusal;
 use rhizomatic::memory_store::{MemoryStore, MemoryStoreOptions};
 use rhizomatic::set::make_delta;
 use rhizomatic::store::{
     Admission, AppendResult, ArrivalRecord, ChangePage, ChangeRecord, ChangeRetention,
-    ErasurePosture, PeerStore, Revision, Store, StoreErrorCode, VerifiedDelta, MAX_REVISION,
+    CreatePeerOptions, ErasurePosture, PeerStore, Revision, Store, StoreErrorCode, VerifiedDelta,
+    MAX_REVISION,
 };
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 
@@ -83,7 +85,7 @@ fn resync(page: ChangePage) -> Revision {
 fn three_commits(options: MemoryStoreOptions) -> (MemoryStore, Box<dyn PeerStore>) {
     let store = MemoryStore::with_options(options).unwrap();
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     append(peer.as_ref(), None, "h1", vec![]);
     append(peer.as_ref(), Some("h1"), "h2", vec![]);
@@ -103,15 +105,15 @@ fn the_answers_come_in_their_order() {
     let past = Revision(MAX_REVISION + 1);
     // A bound past 2^53 − 1 is refused, also beside every later cause.
     assert_eq!(
-        code(peer.changes(past, None)),
+        code(peer.changes(past, None).map_err(as_refusal)),
         StoreErrorCode::InvalidRequest
     );
     assert_eq!(
-        code(peer.changes(Revision(0), Some(past))),
+        code(peer.changes(Revision(0), Some(past)).map_err(as_refusal)),
         StoreErrorCode::InvalidRequest
     );
     assert_eq!(
-        code(peer.changes(past, Some(Revision(0)))),
+        code(peer.changes(past, Some(Revision(0))).map_err(as_refusal)),
         StoreErrorCode::InvalidRequest
     );
     // The largest legal bound is a cursor from the future, not a refusal.
@@ -121,12 +123,18 @@ fn the_answers_come_in_their_order() {
     );
     // `to` below `from` before the future: both bounds are past the current revision 3.
     assert_eq!(
-        code(peer.changes(Revision(9), Some(Revision(8)))),
+        code(
+            peer.changes(Revision(9), Some(Revision(8)))
+                .map_err(as_refusal)
+        ),
         StoreErrorCode::InvalidRequest
     );
     // `to` below `from` before the floor: both are below the floor 2.
     assert_eq!(
-        code(peer.changes(Revision(1), Some(Revision(0)))),
+        code(
+            peer.changes(Revision(1), Some(Revision(0)))
+                .map_err(as_refusal)
+        ),
         StoreErrorCode::InvalidRequest
     );
     // A cursor from the future, with and without `to`.
@@ -245,10 +253,10 @@ fn records_keep_the_ids_of_purged_deltas_until_they_are_dropped() {
         })
         .unwrap();
         let a = store
-            .create_peer("peer:a", ErasurePosture::Unproven)
+            .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
             .unwrap();
         let b = store
-            .create_peer("peer:b", ErasurePosture::Unproven)
+            .create_peer("peer:b", &CreatePeerOptions::new(ErasurePosture::Unproven))
             .unwrap();
         append(a.as_ref(), None, "a1", vec![held(&x, 1), held(&y, 2)]);
         let conflict = a
@@ -308,7 +316,7 @@ fn changes_reads_the_current_feed_through_any_handle() {
     assert_eq!((revisions(&feed), through), (vec![4], Revision(4)));
     store.close();
     assert_eq!(
-        code(peer.changes(Revision(0), None)),
+        code(peer.changes(Revision(0), None).map_err(as_refusal)),
         StoreErrorCode::StoreClosed
     );
 }

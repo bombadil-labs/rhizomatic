@@ -9,8 +9,8 @@
 use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::set::make_delta;
 use rhizomatic::store::{
-    Admission, AppendResult, ArrivalRecord, ErasurePosture, PeerStore, PurgeOutcome, Revision,
-    Store, StoreErrorCode, VerifiedDelta,
+    Admission, AppendResult, ArrivalRecord, CreatePeerOptions, ErasurePosture, PeerStore,
+    PurgeOutcome, Revision, Store, StoreErrorCode, VerifiedDelta,
 };
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Target};
 
@@ -62,7 +62,7 @@ fn added(peer: &dyn PeerStore, batch: &Admission) -> Vec<String> {
 
 fn new_peer(store: &MemoryStore) -> Box<dyn PeerStore> {
     store
-        .create_peer("peer:p", ErasurePosture::Unproven)
+        .create_peer("peer:p", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap()
 }
 
@@ -171,4 +171,33 @@ fn a_new_entry_whose_transfer_does_not_pass_the_peers_last_is_refused_and_change
     assert_eq!(got, std::slice::from_ref(&z.id));
     assert_eq!(peer.read().unwrap().last_transfer(), 8);
     assert_eq!(peer.read().unwrap().revision(), Revision(2));
+}
+
+#[test]
+fn a_new_id_twice_in_a_batch_whose_first_transfer_equals_the_last_is_refused_although_the_repeat_passes_and_nothing_changes(
+) {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store);
+    let (x, y) = (fact("x"), fact("y"));
+    added(peer.as_ref(), &admission(None, "h1", vec![entry(&x, 1, 5)]));
+    let before = peer.read().unwrap();
+    let refused = peer
+        .append(&admission(
+            Some("h1"),
+            "h2",
+            vec![entry(&y, 2, 5), entry(&y, 3, 6)],
+        ))
+        .unwrap_err();
+    assert_eq!(refused.code, StoreErrorCode::InvalidAdmission);
+    let now = peer.read().unwrap();
+    assert_eq!(
+        (
+            now.revision(),
+            now.head(),
+            now.last_transfer(),
+            now.last_sequence()
+        ),
+        (before.revision(), Some("h1"), 5, 1)
+    );
+    assert!(now.get(std::slice::from_ref(&y.id)).unwrap().is_empty());
 }
