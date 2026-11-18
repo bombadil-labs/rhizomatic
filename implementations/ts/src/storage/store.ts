@@ -513,8 +513,10 @@ export type DeleteReport = {
   readonly surfaces: readonly { readonly surface: string; readonly state: SurfaceState }[];
   /**
    * The store-controlled surfaces that may still hold the id, never the bytes, of a delta the
-   * peer released, in this call or an earlier purge: another peer's change records, purge debts
-   * and records. It never omits one that does. The claim does not cover ids (decision O4).
+   * peer held or owed at this call: another peer's change records, purge debts and records. It
+   * never omits one that does. An id that an earlier purge of the peer released with no debt
+   * left to the peer is not this report's: that purge's report named its surfaces. The claim
+   * does not cover ids (decision O4).
    */
   readonly retains: PurgeReport["retains"];
   /** How many holdings of the peer this call released. */
