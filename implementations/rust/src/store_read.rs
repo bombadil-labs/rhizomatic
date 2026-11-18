@@ -41,14 +41,11 @@ use crate::store::{
 use crate::store_conformance::FreshnessReader;
 use crate::store_follow::{follow_feed, position_of, FeedCursor, Position};
 use crate::store_fresh::{
-    check_fresh, make_capture, raw_scope, revision_in_range, touching, validity_boundaries,
-    validity_window, window_at, Capture, FeedError, Freshness, StoreFault, Touch, ValidityWindow,
+    check_fresh, make_capture, raw_scope, touching, validity_boundaries, validity_window,
+    window_at, Capture, FeedError, Freshness, StoreFault, Touch, ValidityWindow,
 };
+use crate::store_with_snapshot::{with_snapshot, SnapshotRetry, StoreRefusal};
 use crate::types::{Delta, Primitive};
-
-/// How many times `StoreReactor` starts a read again after `snapshot-moved`. A read therefore
-/// uses at most `SNAPSHOT_RETRIES + 1` snapshots.
-pub const SNAPSHOT_RETRIES: usize = 3;
 
 /// A host predicate over a delta and its arrival record at this peer. The store never sees it.
 /// It must be pointwise (SPEC-17 §3).
@@ -287,6 +284,12 @@ impl StoreReadError {
             Self::Store(e) => Some(e.code),
             _ => None,
         }
+    }
+}
+
+impl StoreRefusal for StoreReadError {
+    fn store_code(&self) -> Option<StoreErrorCode> {
+        StoreReadError::store_code(self)
     }
 }
 
@@ -773,15 +776,6 @@ pub fn read_full_surface(
     })
 }
 
-/// Releases a snapshot when it goes out of scope, on every path.
-struct Held(Box<dyn Snapshot>);
-
-impl Drop for Held {
-    fn drop(&mut self) {
-        self.0.release();
-    }
-}
-
 /// A reader over one peer's store (SPEC-18 §4.12 reading 15). It holds the peer handle and
 /// nothing else: opening it reads nothing, and it has no whole-set method.
 pub struct StoreReactor {
@@ -798,32 +792,14 @@ impl StoreReactor {
         self.peer.as_ref()
     }
 
-    /// Runs `body` on a new snapshot, released on every path. On `snapshot-moved`, from `read`
-    /// itself or from `body`, it starts again on a new snapshot, at most `SNAPSHOT_RETRIES` more
-    /// times; any other refusal passes up at once. A snapshot whose revision is out of range is
-    /// the store fault `revision-out-of-range`, before `body` runs. `body` receives the attempt,
-    /// counted from 1. Returns the answer and how many attempts it took.
-    fn on_snapshots<T, E: From<StoreError> + From<StoreFault>>(
+    /// Runs `body` on a new snapshot through [`with_snapshot`] with the default bound: at most
+    /// `SNAPSHOT_RETRIES + 1` snapshots. Returns the answer and how many attempts it took.
+    fn on_snapshots<T, E: From<StoreError> + From<StoreFault> + StoreRefusal>(
         &self,
-        mut body: impl FnMut(&dyn Snapshot, usize) -> Result<T, E>,
-        moved: impl Fn(&E) -> bool,
+        body: impl FnMut(&dyn Snapshot, usize) -> Result<T, E>,
     ) -> Result<(T, usize), E> {
-        let mut taken = 0;
-        loop {
-            taken += 1;
-            let snapshot = match self.peer.read() {
-                Ok(snapshot) => Held(snapshot),
-                Err(e) if e.code == StoreErrorCode::SnapshotMoved && taken <= SNAPSHOT_RETRIES => {
-                    continue
-                }
-                Err(e) => return Err(e.into()),
-            };
-            revision_in_range(snapshot.0.revision())?;
-            match body(snapshot.0.as_ref(), taken) {
-                Err(e) if moved(&e) && taken <= SNAPSHOT_RETRIES => continue,
-                other => return other.map(|answer| (answer, taken)),
-            }
-        }
+        with_snapshot(self.peer.as_ref(), body, &SnapshotRetry::default())
+            .map(|on| (on.value, on.attempts))
     }
 
     /// `read_anchored` on a new snapshot, started again with a new cache on `snapshot-moved`.
@@ -832,30 +808,27 @@ impl StoreReactor {
     pub fn read(&self, mut request: ReadRequest<'_>) -> Result<StoreRead, StoreReadError> {
         classify(&request)?;
         let mut hook = request.on_round.take();
-        let (mut read, taken) = self.on_snapshots(
-            |snapshot, attempt| {
-                let one = ReadRequest {
-                    term: request.term,
-                    root: request.root,
-                    now: request.now,
-                    registry: request.registry,
-                    bindings: request.bindings,
-                    selection: request.selection,
-                    cache: request.cache,
-                    memo: request.memo,
-                    on_round: hook
-                        .as_mut()
-                        .map(|h| &mut **h as &mut dyn FnMut(&RoundReport)),
-                    capture: request.capture,
-                };
-                // A new cache and a new memo for every attempt: what an older snapshot held may be
-                // purged now, and a child stored on it may read differently on this one.
-                let mut memo = FinalChildMemo::new();
-                let memo = (one.memo == EvalMemo::On).then_some(&mut memo as &mut dyn RoundMemo);
-                read_rounds(snapshot, one, attempt, &mut ScopeSource::default(), memo)
-            },
-            |e| e.store_code() == Some(StoreErrorCode::SnapshotMoved),
-        )?;
+        let (mut read, taken) = self.on_snapshots(|snapshot, attempt| {
+            let one = ReadRequest {
+                term: request.term,
+                root: request.root,
+                now: request.now,
+                registry: request.registry,
+                bindings: request.bindings,
+                selection: request.selection,
+                cache: request.cache,
+                memo: request.memo,
+                on_round: hook
+                    .as_mut()
+                    .map(|h| &mut **h as &mut dyn FnMut(&RoundReport)),
+                capture: request.capture,
+            };
+            // A new cache and a new memo for every attempt: what an older snapshot held may be
+            // purged now, and a child stored on it may read differently on this one.
+            let mut memo = FinalChildMemo::new();
+            let memo = (one.memo == EvalMemo::On).then_some(&mut memo as &mut dyn RoundMemo);
+            read_rounds(snapshot, one, attempt, &mut ScopeSource::default(), memo)
+        })?;
         read.snapshots = taken;
         Ok(read)
     }
@@ -875,10 +848,9 @@ impl StoreReactor {
         entities: &[String],
         selection: Selection<'_>,
     ) -> Result<FetchedScope, FeedError> {
-        self.on_snapshots(
-            |snapshot, _| fetch_scope(snapshot, entities, selection).map_err(FeedError::from),
-            |e: &FeedError| matches!(e, FeedError::Refused(e) if e.code == StoreErrorCode::SnapshotMoved),
-        )
+        self.on_snapshots(|snapshot, _| {
+            fetch_scope(snapshot, entities, selection).map_err(FeedError::from)
+        })
         .map(|(fetched, _)| fetched)
     }
 }

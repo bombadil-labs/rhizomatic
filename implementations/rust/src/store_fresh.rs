@@ -15,6 +15,7 @@ use crate::store::{
     negated_ids, target_entities, Anchor, ChangePage, ChangeRecord, PeerStore, Revision, Snapshot,
     StoreError, StoreErrorCode, LOCAL_HISTORY_PREFIX, MAX_REVISION,
 };
+use crate::store_with_snapshot::{with_snapshot, SnapshotRetry};
 use crate::types::Delta;
 
 /// How many snapshots `check_fresh` takes at most: it starts again on `snapshot-moved` three
@@ -681,15 +682,6 @@ pub fn check_fresh(
     })
 }
 
-/// Releases a snapshot when it goes out of scope, on every path.
-struct Held(Box<dyn Snapshot>);
-
-impl Drop for Held {
-    fn drop(&mut self) {
-        self.0.release();
-    }
-}
-
 /// A snapshot's revision checked before anything uses it: an integer from 0 to 2^53 − 1, else the
 /// store fault `revision-out-of-range`.
 pub(crate) fn revision_in_range(revision: Revision) -> Result<(), StoreFault> {
@@ -699,28 +691,18 @@ pub(crate) fn revision_in_range(revision: Revision) -> Result<(), StoreFault> {
     }
 }
 
-/// `body` on a new snapshot of `peer`, released after it. The snapshot's revision is checked
-/// first (`revision-out-of-range`). On `snapshot-moved`, from `read` itself or from a later call,
-/// it starts again on a new snapshot, at most `snapshots` in all.
+/// `body` on a new snapshot of `peer`, released after it: [`with_snapshot`] with at most
+/// `snapshots` snapshots and no bound in time.
 pub(crate) fn on_snapshots<T>(
     peer: &dyn PeerStore,
     snapshots: usize,
     mut body: impl FnMut(&dyn Snapshot) -> Result<T, FeedError>,
 ) -> Result<T, FeedError> {
-    let mut taken = 0;
-    loop {
-        taken += 1;
-        let answer = peer.read().map_err(FeedError::from).and_then(|snapshot| {
-            let held = Held(snapshot);
-            revision_in_range(held.0.revision())?;
-            body(held.0.as_ref())
-        });
-        match answer {
-            Err(FeedError::Refused(e))
-                if e.code == StoreErrorCode::SnapshotMoved && taken < snapshots => {}
-            other => return other,
-        }
-    }
+    let retry = SnapshotRetry {
+        snapshots,
+        ..SnapshotRetry::default()
+    };
+    with_snapshot(peer, |snapshot, _| body(snapshot), &retry).map(|on| on.value)
 }
 
 fn check_on_one_snapshot(

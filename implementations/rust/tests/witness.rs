@@ -85,6 +85,7 @@ mod store_tolerant_snapshot;
 mod store_transfer;
 mod store_vectors;
 mod store_views;
+mod store_with_snapshot;
 mod strict_keys;
 mod time;
 mod txn;
