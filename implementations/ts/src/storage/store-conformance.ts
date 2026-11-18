@@ -924,12 +924,12 @@ export class Run {
         const wanted: unknown = read?.lastSequence;
         const transfer: unknown = read?.lastTransfer;
         check(
-          typeof wanted === "number",
-          "the vector's read has no lastSequence; the document is defective",
+          typeof wanted === "number" && Number.isSafeInteger(wanted) && wanted >= 0,
+          "the vector's lastSequence is not a whole number; the document is defective",
         );
         check(
-          typeof transfer === "number",
-          "the vector's read has no lastTransfer; the document is defective",
+          typeof transfer === "number" && Number.isSafeInteger(transfer) && transfer >= 0,
+          "the vector's lastTransfer is not a whole number; the document is defective",
         );
         const snapshot = await this.peer(step.peer).read();
         this.sameHistory(step.peer, snapshot.history, "a snapshot");
