@@ -966,8 +966,8 @@ impl PeerStore for MemoryPeer {
         self.erasure
     }
 
-    fn history(&self) -> &str {
-        &self.history
+    fn history(&self) -> Result<&str, StoreError> {
+        Ok(&self.history)
     }
 
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {

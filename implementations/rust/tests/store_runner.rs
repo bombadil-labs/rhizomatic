@@ -134,7 +134,7 @@ impl StandinPeer {
 }
 
 impl PeerStore for StandinPeer {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
     fn id(&self) -> &str {

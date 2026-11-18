@@ -106,7 +106,7 @@ struct FaultyPeer {
 }
 
 impl PeerStore for FaultyPeer {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
     fn id(&self) -> &str {

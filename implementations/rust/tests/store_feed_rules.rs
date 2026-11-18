@@ -362,7 +362,7 @@ impl FeedyPeer {
 }
 
 impl PeerStore for FeedyPeer {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
     fn id(&self) -> &str {

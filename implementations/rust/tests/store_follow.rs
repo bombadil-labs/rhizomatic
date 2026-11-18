@@ -971,7 +971,7 @@ impl PeerStore for Probe<'_> {
     fn erasure(&self) -> PeerErasure {
         self.inner.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
@@ -1082,7 +1082,7 @@ fn a_malformed_position_is_refused_with_no_store_call() {
             revision: Revision(0),
         },
         Position {
-            history: peer.history().to_string(),
+            history: peer.history().unwrap().to_string(),
             revision: Revision(MAX_REVISION + 1),
         },
     ] {
@@ -1902,7 +1902,7 @@ fn fuzz_sequence(seed: u64, tally: &mut Tally) {
     let models: Vec<PeerModel> = peers
         .iter()
         .map(|peer| PeerModel {
-            history: peer.history().to_string(),
+            history: peer.history().unwrap().to_string(),
             revisions: vec![here(peer.as_ref()).revision],
             holdings: vec![Holdings::new()],
             records: Vec::new(),
@@ -2119,7 +2119,7 @@ impl PeerStore for StuckPeer<'_> {
     fn erasure(&self) -> PeerErasure {
         self.0.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.0.history()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {

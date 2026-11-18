@@ -397,11 +397,11 @@ impl RigPeer {
 }
 
 impl PeerStore for RigPeer {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         match self.wrong {
-            Wrong::HistoryEmpty if !self.opened => "",
-            Wrong::HistoryShared => "one-history-for-every-peer",
-            Wrong::OpenedHistory if self.opened => "another-history",
+            Wrong::HistoryEmpty if !self.opened => Ok(""),
+            Wrong::HistoryShared => Ok("one-history-for-every-peer"),
+            Wrong::OpenedHistory if self.opened => Ok("another-history"),
             _ => self.inner.history(),
         }
     }

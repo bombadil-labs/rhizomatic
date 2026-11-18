@@ -543,8 +543,9 @@ pub trait PeerStore {
     fn erasure(&self) -> PeerErasure;
     /// The identity of this peer's revision history (SPEC-18 §4.6, "History"): an opaque,
     /// non-empty string, compared for equality only. Every handle of one peer reports it. A peer
-    /// created anew, also under a name that existed before, carries another value.
-    fn history(&self) -> &str;
+    /// created anew, also under a name that existed before, carries another value. Refuses
+    /// `store-closed` after the store is closed.
+    fn history(&self) -> Result<&str, StoreError>;
     /// A repeatable view at the peer's current revision.
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError>;
     /// Atomic and idempotent by id. A refusal commits nothing.

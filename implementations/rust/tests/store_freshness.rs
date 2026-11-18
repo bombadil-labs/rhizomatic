@@ -1253,14 +1253,14 @@ fn one_name_created_in_two_stores_has_two_histories() {
             &CreatePeerOptions::new(ErasurePosture::Unproven),
         )
         .unwrap();
-    assert!(!first.history().is_empty());
-    assert_ne!(first.history(), second.history());
-    assert!(first.history().starts_with(LOCAL_HISTORY_PREFIX));
+    assert!(!first.history().unwrap().is_empty());
+    assert_ne!(first.history().unwrap(), second.history().unwrap());
+    assert!(first.history().unwrap().starts_with(LOCAL_HISTORY_PREFIX));
     // Every handle and every snapshot of one peer report its value.
     let again = a.peer("peer:one").unwrap();
-    assert_eq!(again.history(), first.history());
+    assert_eq!(again.history().unwrap(), first.history().unwrap());
     let mut snapshot = again.read().unwrap();
-    assert_eq!(snapshot.history(), first.history());
+    assert_eq!(snapshot.history(), first.history().unwrap());
     snapshot.release();
     // Another peer of the same store has another value.
     let other = a
@@ -1269,7 +1269,7 @@ fn one_name_created_in_two_stores_has_two_histories() {
             &CreatePeerOptions::new(ErasurePosture::Unproven),
         )
         .unwrap();
-    assert_ne!(other.history(), first.history());
+    assert_ne!(other.history().unwrap(), first.history().unwrap());
 
     // A capture of the first is checked on the second: another history, so resync-required,
     // with no feed call; the walk of README §9.3 holds the calls in the vector run.
@@ -1302,7 +1302,7 @@ fn a_hosts_mint_is_used_and_the_local_prefix_is_refused() {
     let peer = store
         .create_peer("peer:m", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
-    assert_eq!(peer.history(), "host:7f3a:1");
+    assert_eq!(peer.history().unwrap(), "host:7f3a:1");
     assert_eq!(*minted.lock().unwrap(), 1);
 
     for bad in ["", "memory:local:9"] {
@@ -1343,7 +1343,7 @@ fn a_mint_that_repeats_a_history_this_store_issued_is_refused() {
     let first = store
         .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
-    assert_eq!(first.history(), "host:same");
+    assert_eq!(first.history().unwrap(), "host:same");
     let refused = store
         .create_peer("peer:b", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .err()
@@ -1365,7 +1365,7 @@ fn a_mint_that_repeats_a_history_this_store_issued_is_refused() {
     let peer = store
         .create_peer("peer:m", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
-    assert_eq!(peer.history(), "host:peer:m");
+    assert_eq!(peer.history().unwrap(), "host:peer:m");
     assert_eq!(
         store
             .create_peer("peer:m", &CreatePeerOptions::new(ErasurePosture::Unproven))
@@ -1673,7 +1673,7 @@ impl PeerStore for Moving<'_> {
     fn erasure(&self) -> rhizomatic::store::PeerErasure {
         self.inner.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
@@ -1851,7 +1851,7 @@ impl PeerStore for Stuck<'_> {
     fn erasure(&self) -> rhizomatic::store::PeerErasure {
         self.0.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.0.history()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
@@ -1905,7 +1905,7 @@ impl PeerStore for PastTo<'_> {
     fn erasure(&self) -> rhizomatic::store::PeerErasure {
         self.0.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.0.history()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
@@ -2036,7 +2036,7 @@ impl PeerStore for FaultyPage<'_> {
     fn erasure(&self) -> rhizomatic::store::PeerErasure {
         self.inner.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {

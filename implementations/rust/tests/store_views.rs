@@ -847,7 +847,7 @@ impl PeerStore for Spy<'_> {
     fn erasure(&self) -> PeerErasure {
         self.inner.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
@@ -2810,7 +2810,7 @@ impl PeerStore for Stuck {
     fn erasure(&self) -> PeerErasure {
         self.0.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.0.history()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {

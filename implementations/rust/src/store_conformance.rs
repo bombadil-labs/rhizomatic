@@ -1625,7 +1625,10 @@ impl<'a> Run<'a> {
                 class.as_str()
             ));
         }
-        let history = handle.history().to_string();
+        let history = handle
+            .history()
+            .map_err(|e| format!("createPeer: history refused `{}`", e.code.as_str()))?
+            .to_string();
         if history.is_empty() {
             return Err("the peer's history is not a non-empty string".into());
         }
@@ -1663,7 +1666,10 @@ impl<'a> Run<'a> {
                 "openPeer: the opened peer does not report the posture it was created with".into(),
             );
         }
-        self.same_history(name, handle.history(), "a handle")?;
+        let history = handle
+            .history()
+            .map_err(|e| format!("openPeer: history refused `{}`", e.code.as_str()))?;
+        self.same_history(name, history, "a handle")?;
         // With `handle`, the older handle stays under its own name; both are one peer.
         let kept_as = match step.get("handle") {
             Some(_) => text(step, "handle")?,
@@ -2347,7 +2353,7 @@ impl PeerStore for Borrowed<'_> {
     fn erasure(&self) -> crate::store::PeerErasure {
         self.0.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.0.history()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
@@ -2378,7 +2384,7 @@ impl PeerStore for LoggedPeer<'_> {
     fn erasure(&self) -> crate::store::PeerErasure {
         self.inner.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
@@ -4064,8 +4070,8 @@ impl PeerStore for Refusing {
     fn erasure(&self) -> crate::store::PeerErasure {
         unreachable!("the log does not ask")
     }
-    fn history(&self) -> &str {
-        "refusing"
+    fn history(&self) -> Result<&str, StoreError> {
+        Ok("refusing")
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         Err(StoreError::new(StoreErrorCode::StoreClosed, "closed"))

@@ -711,7 +711,7 @@ struct TracingPeer {
 }
 
 impl PeerStore for TracingPeer {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
     fn id(&self) -> &str {
@@ -1671,7 +1671,7 @@ struct ScriptedPeer {
 type SharedScope = Rc<dyn Fn(&dyn Snapshot, &ScopeRequest) -> Result<ScopeResult, StoreError>>;
 
 impl PeerStore for ScriptedPeer {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
     fn id(&self) -> &str {
@@ -1806,7 +1806,7 @@ struct AtRevision {
 }
 
 impl PeerStore for AtRevision {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
     fn id(&self) -> &str {
@@ -1925,7 +1925,7 @@ struct MovingRead {
 }
 
 impl PeerStore for MovingRead {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
     fn id(&self) -> &str {
