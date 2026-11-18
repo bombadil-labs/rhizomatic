@@ -60,15 +60,24 @@ export type CreatePeerStep = {
   readonly op: "createPeer";
   readonly peer: string;
   readonly erasure: ErasurePosture;
-  readonly expect:
-    | { readonly status: "created" }
+  /** The application format string to ask for; absent, none is given. `null` is a bad value. */
+  readonly appFormat?: string | null;
+  readonly expect: /** `appFormat` is what the new handle reads: the string, or null for none. */
+    | { readonly status: "created"; readonly appFormat: string | null }
     | { readonly error: VectorRefusal; readonly unlessStoreErasure?: "proven" };
 };
 export type OpenPeerStep = {
   readonly op: "openPeer";
   readonly peer: string;
   readonly handle?: string;
-  readonly expect: { readonly status: "opened"; readonly posture: ErasurePosture } | Refusal;
+  readonly expect:
+    | {
+        readonly status: "opened";
+        readonly posture: ErasurePosture;
+        /** What the opened handle reads: the string, or null for none. */
+        readonly appFormat: string | null;
+      }
+    | Refusal;
 };
 export type AppendStep = {
   readonly op: "append";
