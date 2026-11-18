@@ -228,6 +228,9 @@ impl Snapshot for StandinSnapshot {
     fn last_sequence(&self) -> u64 {
         self.inner.last_sequence()
     }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.answer(self.inner.get(ids))
     }
@@ -287,12 +290,13 @@ fn failed(quirk: Quirk, reason: &str) -> Vec<String> {
     error.failures.into_iter().map(|f| f.name).collect()
 }
 
-const PURGES_THAT_REMOVE: [&str; 7] = [
+const PURGES_THAT_REMOVE: [&str; 8] = [
     "scripts/purge",
     "scripts/purge-clears-a-debt-on-append",
     "scripts/a-snapshot-across-a-purge",
     "scripts/the-last-sequence-survives-a-purge",
     "scripts/the-last-sequence-survives-an-empty-peer",
+    "scripts/a-transfer-must-pass-the-peers-last",
     "scripts/feed-purge-and-debts",
     "scripts/feed-a-debt-ends-on-append",
 ];
@@ -301,13 +305,13 @@ const PURGES_THAT_REMOVE: [&str; 7] = [
 /// store refuses. §3.4: where a target is removed, a proven store's claim is `proven`.
 #[test]
 fn a_proven_store_passes_and_creates_the_peer_that_promises_proof() {
-    assert_eq!(run(Quirk::None).unwrap(), 25 + 15);
+    assert_eq!(run(Quirk::None).unwrap(), 26 + 15);
 }
 
 /// §3.4: "where E is `proven`, `unproven` also conforms."
 #[test]
 fn a_proven_store_may_claim_less() {
-    assert_eq!(run(Quirk::ClaimsLess).unwrap(), 25 + 15);
+    assert_eq!(run(Quirk::ClaimsLess).unwrap(), 26 + 15);
 }
 
 /// §3.4: "If `claim` is `proven`: the surface list is not empty and every state is `absent`."

@@ -76,7 +76,7 @@ fn held(deltas: &[Delta]) -> Vec<VerifiedDelta> {
                 id: delta.id.clone(),
                 at: 1000.0 + sequence as f64,
                 sequence,
-                transfer: 1,
+                transfer: sequence,
                 sender: "local".into(),
             },
         })
@@ -666,7 +666,7 @@ fn entry(delta: &Delta, sequence: u64) -> VerifiedDelta {
             id: delta.id.clone(),
             at: 1000.5,
             sequence,
-            transfer: 1,
+            transfer: sequence,
             sender: "local".into(),
         },
     }

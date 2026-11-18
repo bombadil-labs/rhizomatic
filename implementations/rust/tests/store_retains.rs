@@ -47,7 +47,7 @@ fn append(peer: &dyn PeerStore, deltas: &[&Delta]) {
                 id: delta.id.clone(),
                 at: 1.0,
                 sequence: next * 100 + i as u64,
-                transfer: 1,
+                transfer: next * 100 + i as u64,
                 sender: "local".into(),
             },
         })

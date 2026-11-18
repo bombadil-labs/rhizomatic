@@ -1502,12 +1502,22 @@ impl<'a> Run<'a> {
                 let want = field(step, "expect")
                     .and_then(|expect| whole(expect, "lastSequence"))
                     .map_err(|_| "read: the document's `lastSequence` is not a whole number; the document is defective")?;
+                let transfer = field(step, "expect")
+                    .and_then(|expect| whole(expect, "lastTransfer"))
+                    .map_err(|_| "read: the document's `lastTransfer` is not a whole number; the document is defective")?;
                 let snapshot = self.read_snapshot(handle)?;
                 // §1.4: the highest sequence the peer had admitted, fixed at the read.
                 if snapshot.last_sequence() != want {
                     return Err(format!(
                         "read: the snapshot's lastSequence is {}, expected {want}",
                         snapshot.last_sequence()
+                    ));
+                }
+                // §1.4: the highest transfer ordinal of a new holding, fixed at the read.
+                if snapshot.last_transfer() != transfer {
+                    return Err(format!(
+                        "read: the snapshot's lastTransfer is {}, expected {transfer}",
+                        snapshot.last_transfer()
                     ));
                 }
                 self.snapshots.insert(
@@ -2425,6 +2435,9 @@ impl Snapshot for LoggedSnapshot {
     }
     fn last_sequence(&self) -> u64 {
         self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.log.borrow_mut().push(Call::Get(ids.to_vec()));

@@ -2592,8 +2592,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `peer.max_transfer`, written in the append's transaction. This column, and the check on
      `peer.app_format` (reading 134), raise the format to `rhizomatic-store-sqlite/5`. Open
      refuses a `/1` to `/4` file with `open-failed` and names both formats. No migration ships.
-     The shared vectors do not yet hold a case of this rule; they and the Rust stores take it in
-     step 4e.
+     At step 4d the shared vectors held no case of this rule. Since step 4e the script
+     `a-transfer-must-pass-the-peers-last` holds it, every `read` step carries
+     `expect.lastTransfer`, and the Rust memory store keeps the same rule.
 136. **The integrity fault** (slice 4, step 4d, gap G6). A read that meets a stored row that is
      wrong throws `StoreIntegrityError`, whose `fault` is one `IntegrityFault = {kind, peer?, id?,
      key?, detail}`. Before, it threw a plain `Error`. It is a third kind of failure: a refusal

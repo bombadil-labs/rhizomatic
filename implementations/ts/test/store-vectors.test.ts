@@ -762,7 +762,7 @@ describe("store vectors: what the profile changes", () => {
         .filter((script) => script.requires?.includes("purge"))
         .map((script) => ({ name: `scripts/${script.name}`, missing: "purge" })),
     );
-    expect(report.skipped).toHaveLength(7);
+    expect(report.skipped).toHaveLength(8);
   });
 
   it("a store with a journal skips the script that needs its absence", async () => {

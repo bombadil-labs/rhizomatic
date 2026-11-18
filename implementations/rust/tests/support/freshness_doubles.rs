@@ -210,6 +210,9 @@ impl Snapshot for Snap {
     fn last_sequence(&self) -> u64 {
         self.inner.last_sequence()
     }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.inner.get(ids)
     }
@@ -306,6 +309,9 @@ impl Snapshot for Fabricated {
     fn last_sequence(&self) -> u64 {
         0
     }
+    fn last_transfer(&self) -> u64 {
+        0
+    }
     fn get(&self, _: &[String]) -> Result<Vec<Delta>, StoreError> {
         Err(fabricated())
     }
@@ -396,6 +402,9 @@ impl Snapshot for OddSnap {
     }
     fn last_sequence(&self) -> u64 {
         self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         let mut got = self.inner.get(ids)?;

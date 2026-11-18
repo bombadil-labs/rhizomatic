@@ -42021,6 +42021,16 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API ReadStep.expect implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vectors.ts:ModelPeer#lastTransfer",
+      "owner": "storage",
+      "symbol": "ModelPeer.lastTransfer",
+      "source": "implementations/ts/src/storage/store-vectors.ts",
+      "definition": "implementations/ts/src/storage/store-vectors.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API ModelPeer.lastTransfer implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vectors.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }
