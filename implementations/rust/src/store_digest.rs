@@ -77,11 +77,15 @@ pub(crate) fn node_hash(children: &[DigestNode]) -> String {
     ])))
 }
 
+/// The hash of the leaf of no id, `leaf_hash(&[])`: `hash.empty` of `vectors/store/digest.json`.
+/// A constant, because an update hashes it for every empty child of a node it rewrites.
+const EMPTY_HASH: &str = "1e2053de1e1f40b83d7b30c20ec4c558637d025871f74c48d245ec58be7901006d3b";
+
 /// The node of a prefix that no held id starts with, and the root of an empty peer.
 pub fn empty_digest() -> DigestNode {
     DigestNode {
         count: 0,
-        hash: leaf_hash(&[]),
+        hash: EMPTY_HASH.to_string(),
     }
 }
 

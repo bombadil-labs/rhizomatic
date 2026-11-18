@@ -149,6 +149,7 @@ fn every_tree_and_every_case_of_digest_json_passes_on_the_memory_store_and_none_
     assert_eq!(report.passed, want);
     assert_eq!(want.len(), 12 + 6);
     assert_eq!(doc["hash"]["empty"].as_str().unwrap(), empty_digest().hash);
+    assert_eq!(digest_of(&[], "").unwrap(), empty_digest());
 }
 
 /// The memory store, with the root and the node of the root checked against the reference over

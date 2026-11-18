@@ -2580,8 +2580,11 @@ fn ratio(what: &str, run: &dyn Fn(usize) -> Duration) -> (usize, f64) {
     (n, ratio)
 }
 
-/// A run is N rounds of one commit and one refresh. The commits alternate: one appends a fact at
-/// the anchor of the small view, the next purges it, and each refresh reads the small view again.
+/// A run is N rounds of one commit and one refresh, and its time is the time of the refreshes.
+/// A commit's own cost is the store's (`store_cost.rs`): since step 4e it walks the holdings
+/// digest, and timed here it hid the per-view scans of the wrong holders. The commits alternate:
+/// one appends a fact at the anchor of the small view, the next purges it, and each refresh reads
+/// the small view again.
 /// (An append and its purge between two refreshes touch nothing: the fact is not held at the
 /// pass's snapshot and was never a member.)
 ///
@@ -2641,7 +2644,7 @@ fn cost_ratio(what: &str, build: &dyn Fn(usize) -> Costed) -> Option<String> {
     let run = |n: usize| {
         let mut built = built.borrow_mut();
         let c = built.entry(n).or_insert_with(|| build(n));
-        let start = Instant::now();
+        let mut spent = Duration::ZERO;
         for round in 0..n {
             match round % 2 {
                 0 => {
@@ -2652,10 +2655,12 @@ fn cost_ratio(what: &str, build: &dyn Fn(usize) -> Costed) -> Option<String> {
                     c.peer.purge(std::slice::from_ref(&c.touch.id)).unwrap();
                 }
             }
+            let start = Instant::now();
             let refreshed = black_box(c.views.refresh(5.0).unwrap());
+            spent += start.elapsed();
             assert_eq!(refreshed.reread, [ViewKey::new("leaf", "small")]);
         }
-        start.elapsed()
+        spent
     };
     let (n, ratio) = ratio(what, &run);
     (ratio >= BOUND).then(|| {
@@ -2737,7 +2742,7 @@ fn release_ratio(quirk: Option<ViewQuirk>) -> Option<String> {
     let run = |n: usize| {
         let mut built = built.borrow_mut();
         let p = built.entry(n).or_insert_with(|| purging(n, quirk));
-        let start = Instant::now();
+        let mut spent = Duration::ZERO;
         for round in 0..n {
             match round % 2 {
                 0 => {
@@ -2748,10 +2753,12 @@ fn release_ratio(quirk: Option<ViewQuirk>) -> Option<String> {
                     p.peer.purge(std::slice::from_ref(&p.loose.id)).unwrap();
                 }
             }
+            let start = Instant::now();
             let refreshed = black_box(p.views.refresh(5.0).unwrap());
+            spent += start.elapsed();
             assert!(refreshed.reread.is_empty());
         }
-        start.elapsed()
+        spent
     };
     let what = "a purge beside N held views";
     let (n, ratio) = ratio(what, &run);
