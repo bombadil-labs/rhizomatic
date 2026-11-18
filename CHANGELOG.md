@@ -188,7 +188,8 @@ Step 4d adds more, listed under Breaking.
 - Step 4e: a new holding's transfer must pass the peer's last one, in Rust and in the shared
   vectors (§4.13 reading 135). `Snapshot::last_transfer` is fixed at read. The Rust memory store
   refuses `invalid-admission` for a new entry whose transfer is not above the peer's last one.
-  A skipped entry, a head-only append and a purge keep the last transfer. The new script
+  A skipped entry, a head-only append and a purge keep the last transfer. Each peer has its own
+  last transfer. The new script
   `a-transfer-must-pass-the-peers-last` holds the rule, and every `read` step carries
   `expect.lastTransfer`. The format names do not change. What a purge removes does not change.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script

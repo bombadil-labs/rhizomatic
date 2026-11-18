@@ -1121,6 +1121,19 @@ function scripts(named: readonly Named[]): StoreScript[] {
         m.append("A", "head-4", "head-5", [{ delta: "far", sequence: 7, transfer: 9 }]);
         m.read("A", "s6");
         m.arrivals("s6", ["a-height", "b-name", "far", "ghost"]);
+        // A repeat inside the batch is skipped, also when its transfer does not pass the last.
+        m.append("A", "head-5", "head-6", [
+          { delta: "a-name", sequence: 8, transfer: 10 },
+          { delta: "a-name", sequence: 9, transfer: 9 },
+        ]);
+        m.read("A", "s7");
+        // An append whose every entry is skipped keeps the last transfer.
+        m.append("A", "head-6", "head-6", [{ delta: "far", sequence: 10, transfer: 99 }]);
+        m.read("A", "s8");
+        // Each peer has its own last transfer. B may commit a transfer below A's last one.
+        m.createPeer("B", "unproven");
+        m.append("B", null, "b-head-1", [{ delta: "a-height", sequence: 1, transfer: 3 }]);
+        m.read("B", "b1");
       },
       ["purge"],
     ),

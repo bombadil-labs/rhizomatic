@@ -239,7 +239,8 @@ new entry whose `transfer` is not above it is refused `invalid-admission`, and n
 A skipped entry (held, or repeated in the batch) is not compared and does not raise it. The
 commit sets it to the largest `transfer` among the new entries. A head-only append, an append
 whose every entry is skipped, and a purge keep it. The store does not check that one batch
-shares one transfer. The script `a-transfer-must-pass-the-peers-last` holds each case.
+shares one transfer. Each peer has its own last transfer: one peer may commit a transfer below
+another peer's last one. The script `a-transfer-must-pass-the-peers-last` holds each case.
 
 A store that cannot tell whether an append committed answers `uncertain`. The memory reference
 store never does. In a conformance run `uncertain` fails the step.

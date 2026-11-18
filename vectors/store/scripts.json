@@ -5324,6 +5324,123 @@
               "far"
             ]
           }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-5",
+          "nextHead": "head-6",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1008,
+                "sequence": 8,
+                "transfer": 10,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1009,
+                "sequence": 9,
+                "transfer": 9,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "s7",
+          "expect": {
+            "lastSequence": 8,
+            "lastTransfer": 10
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-6",
+          "nextHead": "head-6",
+          "frame": null,
+          "added": [
+            {
+              "delta": "far",
+              "arrival": {
+                "at": 1010,
+                "sequence": 10,
+                "transfer": 99,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": false
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "s8",
+          "expect": {
+            "lastSequence": 8,
+            "lastTransfer": 10
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "B",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": null,
+          "nextHead": "b-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "read",
+          "peer": "B",
+          "snapshot": "b1",
+          "expect": {
+            "lastSequence": 1,
+            "lastTransfer": 3
+          }
         }
       ]
     },
