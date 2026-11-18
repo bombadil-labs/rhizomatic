@@ -2668,13 +2668,20 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      peer to the row; a purge removes the peer and deletes the row when no peer is left. Before,
      the row kept a bare count. A purge then deleted a row whose count was 1 while another peer
      held it, and named `held-by-other-peer` and `purge-debt` for a row whose count was too high.
-     Now the purge refuses a row that leaves out the purging peer or counts it twice. Two
-     damages stay that a purge cannot see without a walk of the peers. First, a row that leaves
-     out another peer that holds the id: the purge by the last peer that the row names deletes
-     the row, and the reads of the left-out peer then fail `claims-unreadable`. Second, a row that
-     names a peer that does not hold the id: the purge keeps the row and names
-     `held-by-other-peer` and `purge-debt`. `fsck` reports each of them before the purge, as
-     `count-mismatch` (key `holders`). The SQLite store keeps no count of holders: its purge asks
+     Now the purge refuses a row that leaves out the purging peer or counts it twice. Three
+     damages stay that a purge cannot see without a walk of the peers or of the row. First, a
+     row that leaves out another peer that holds the id: the purge by the last peer that the row
+     names deletes the row, and the reads of the left-out peer then fail `claims-unreadable`. The
+     purge report gives no sign of the other holder: it answers `removed`, claim `unproven`, and
+     retains only `change-feed`. Only `fsck` shows the damage. Second, a row that names a peer
+     that does not hold the id: the purge keeps the row and names `held-by-other-peer` and
+     `purge-debt`. Third, a row that names another peer with a count of 0: the purge by the peer
+     that the row counts once keeps the row and names `held-by-other-peer` and `purge-debt`; the
+     old bare count deleted it. The purge does not check the other entries of the row, because
+     that check reads every holder of the row on each purge. `fsck` reports each of them before
+     the purge, as `count-mismatch` (key `holders`). A Rust append adds 1 to a count up to the
+     largest `usize` and keeps it there, so it does not panic; that count is not 1, so a later
+     purge by that peer refuses. The SQLite store keeps no count of holders: its purge asks
      the `holding` table whether another holding exists, so this rule has no SQLite case. **The feed.** `changes` fails with `feed-gap`, with
      the peer and `fsck`'s detail, when the kept records are not the revisions of the page it
      answers, on both stores. Before, it answered `ok` without a lost record and with a

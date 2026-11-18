@@ -242,6 +242,106 @@ describe("a memory purge reads who holds the id from the row", () => {
       ["orphan-bytes", x.id, "memory store: no peer holds these bytes"],
     ]);
   });
+
+  it("peer B holds x and the row names only A once: after A appends x, A's purge of x throws count-mismatch (holders) with A counted 2 times, removes nothing, and B still reads x", async () => {
+    const store = createMemoryStore();
+    const a = await store.createPeer("peer:a", { erasure: "unproven" });
+    const b = await store.createPeer("peer:b", { erasure: "unproven" });
+    const x = fact("e:x");
+    const onlyA = fact("e:a");
+    const onlyB = fact("e:b");
+    await add(a, [onlyA]);
+    await add(b, [x, onlyB]);
+    const row = await holdersOf(b, x.id);
+    row.clear();
+    row.set("peer:a", 1);
+    await add(a, [x]);
+    const before = {
+      a: await a.read(),
+      b: await b.read(),
+      feedA: await a.changes(0),
+      feedB: await b.changes(0),
+    };
+
+    const answer = await a.purge([x.id]).then(
+      (report) => report,
+      (error: unknown) => error,
+    );
+
+    const nowB = await b.read();
+    const readX = await nowB.get([x.id]).then(
+      (deltas) => deltas,
+      (error: unknown) => (error instanceof StoreIntegrityError ? place(error.fault) : error),
+    );
+    expect(
+      readX,
+      `B reads x after A's purge; the purge answered ${JSON.stringify(answer)}`,
+    ).toEqual([x]);
+    expect(answer).toBeInstanceOf(StoreIntegrityError);
+    const fault = (answer as StoreIntegrityError).fault;
+    expect({ ...place(fault), detail: fault.detail }).toEqual({
+      kind: "count-mismatch",
+      peer: "peer:a",
+      id: x.id,
+      key: "holders",
+      detail: "memory store: the row counts this peer 2 times as a holder and this peer holds it",
+    });
+    expect(await storedIds(store)).toContain(x.id);
+    const nowA = await a.read();
+    expect([nowA.revision, nowA.count]).toEqual([before.a.revision, 2]);
+    expect([nowB.revision, nowB.count]).toEqual([before.b.revision, 2]);
+    expect(await a.changes(0)).toEqual(before.feedA);
+    expect(await b.changes(0)).toEqual(before.feedB);
+    expect(await nowA.get([onlyA.id])).toEqual([onlyA]);
+    expect(await nowB.get([onlyB.id])).toEqual([onlyB]);
+    const faults = await faultsOf(store);
+    expect(faults.map((f) => [f.kind, f.id, f.key, f.detail])).toEqual([
+      [
+        "count-mismatch",
+        x.id,
+        "holders",
+        "memory store: the row names the holders [peer:a (2)] and the peers [peer:a, peer:b] hold it",
+      ],
+    ]);
+  });
+
+  it("[gap: a row that names a holder with a zero count] peer A alone holds x and the row also names B with a count of 0: fsck names the row, and A's purge keeps the row and owes it", async () => {
+    const store = createMemoryStore();
+    const a = await store.createPeer("peer:a", { erasure: "unproven" });
+    const b = await store.createPeer("peer:b", { erasure: "unproven" });
+    const x = fact("e:x");
+    const onlyB = fact("e:b");
+    await add(a, [x]);
+    await add(b, [onlyB]);
+    (await holdersOf(a, x.id)).set("peer:b", 0);
+    const faults = await faultsOf(store);
+    expect(faults.map((f) => [f.kind, f.id, f.key, f.detail])).toEqual([
+      [
+        "count-mismatch",
+        x.id,
+        "holders",
+        "memory store: the row names the holders [peer:a, peer:b (0)] and the peers [peer:a] hold it",
+      ],
+    ]);
+
+    const report = await a.purge([x.id]);
+
+    expect([report.claim, report.targets, report.retains]).toEqual([
+      "nothing-removed",
+      [{ id: x.id, outcome: "held-by-other-peer" }],
+      [
+        { surface: "change-feed", holds: "id" },
+        { surface: "purge-debt", holds: "id" },
+      ],
+    ]);
+    expect(await storedIds(store)).toContain(x.id);
+    const now = await a.read();
+    expect([now.count, await now.get([x.id])]).toEqual([0, []]);
+    expect(await (await b.read()).get([x.id, onlyB.id])).toEqual([onlyB]);
+    expect((await faultsOf(store)).map((f) => [f.kind, f.id, f.detail])).toEqual([
+      ["orphan-bytes", x.id, "memory store: no peer holds these bytes"],
+    ]);
+  });
 });
 
 /** A small deterministic generator (mulberry32). */

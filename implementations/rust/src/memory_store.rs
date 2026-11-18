@@ -404,7 +404,10 @@ impl State {
         for (id, entry) in &fresh {
             let delta = &entry.delta;
             match stored.get_mut(meter, id) {
-                Some(kept) => *kept.holders.entry(peer_id.to_string()).or_default() += 1,
+                Some(kept) => {
+                    let counted = kept.holders.entry(peer_id.to_string()).or_default();
+                    *counted = counted.saturating_add(1);
+                }
                 None => stored.insert(
                     meter,
                     delta.id.clone(),
@@ -959,8 +962,10 @@ type Shared = Arc<Mutex<State>>;
 
 fn with<R>(state: &Shared, f: impl FnOnce(&mut State) -> R) -> R {
     // `append` plans its whole batch and then commits. Its commit adds 1 to a row's count of the
-    // peer and to the revision; a damaged value at the largest integer panics there in a debug
-    // build. `purge` has no plan: it removes one id at a time, and each id's removal is complete
+    // peer and stops at the largest count, so a damaged count cannot panic there; a count that
+    // stopped there is not 1, so a later purge of the id by the peer refuses and `fsck` reports
+    // the row. After the last holding is written, the commit adds 1 to the revision; a damaged
+    // revision at `u64::MAX` panics there in a debug build. `purge` has no plan: it removes one id at a time, and each id's removal is complete
     // before the next starts. Before its first write, `purge` checks every named held id: its
     // row exists and counts this peer exactly once as a holder (§4.13 reading 136). Its loop
     // removes the peer from the row and subtracts nothing. Its loop adds 1 to a debt count, and
@@ -2535,4 +2540,172 @@ fn over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_pe
         "Removed",
     ];
     assert_eq!(seen.iter().map(String::as_str).collect::<Vec<_>>(), want);
+}
+
+#[cfg(test)]
+fn two_peers() -> (MemoryStore, Box<dyn PeerStore>, Box<dyn PeerStore>) {
+    let store = MemoryStore::new();
+    let posture = CreatePeerOptions::new(ErasurePosture::Unproven);
+    let a = store.create_peer("peer:a", &posture).unwrap();
+    let b = store.create_peer("peer:b", &posture).unwrap();
+    (store, a, b)
+}
+
+#[cfg(test)]
+#[test]
+fn peer_b_holds_x_and_the_row_names_only_a_once_so_after_a_appends_x_a_purge_of_x_by_a_fails_with_count_mismatch_holders_2_times_and_b_still_reads_x(
+) {
+    let (store, a, b) = two_peers();
+    let (x, only_a, only_b) = (fact("e:x"), fact("e:a"), fact("e:b"));
+    add(a.as_ref(), &[&only_a]);
+    add(b.as_ref(), &[&x, &only_b]);
+    damage(&store, |state| {
+        let row = state.stored.map.get_mut(&x.id).unwrap();
+        row.holders = BTreeMap::from([("peer:a".to_string(), 1)]);
+    });
+    add(a.as_ref(), &[&x]);
+    let feeds = (
+        a.changes(Revision(0), None).unwrap(),
+        b.changes(Revision(0), None).unwrap(),
+    );
+    let revisions = (a.read().unwrap().revision(), b.read().unwrap().revision());
+    let before = dump(&store);
+
+    let answer = a.purge(&ids(&[&x]));
+
+    let now_b = b.read().unwrap();
+    let read_x = now_b.get(&ids(&[&x]));
+    assert!(
+        matches!(&read_x, Ok(read) if *read == [x.clone()]),
+        "B reads x after A's purge: {read_x:?}; the purge answered {answer:?}"
+    );
+    let fault = match answer {
+        Err(StoreFailure::Integrity(fault)) => fault,
+        other => panic!("{other:?}"),
+    };
+    let want = at("count-mismatch", Some("peer:a"), &x.id, Some("holders"));
+    assert_eq!(place(&fault), want);
+    assert_eq!(
+        fault.detail,
+        "memory store: the row counts this peer 2 times as a holder and this peer holds it"
+    );
+    assert_eq!(dump(&store), before);
+    let stored: Vec<String> = store
+        .open_admin()
+        .stored_ids()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert!(stored.contains(&x.id));
+    let now_a = a.read().unwrap();
+    assert_eq!((now_a.revision(), now_a.count()), (revisions.0, 2));
+    assert_eq!((now_b.revision(), now_b.count()), (revisions.1, 2));
+    assert_eq!(a.changes(Revision(0), None).unwrap(), feeds.0);
+    assert_eq!(b.changes(Revision(0), None).unwrap(), feeds.1);
+    assert_eq!(now_a.get(&ids(&[&only_a])).unwrap(), vec![only_a.clone()]);
+    assert_eq!(now_b.get(&ids(&[&only_b])).unwrap(), vec![only_b.clone()]);
+    let row = at("count-mismatch", None, &x.id, Some("holders"));
+    let detail =
+        "memory store: the row names the holders [peer:a (2)] and the peers [peer:a, peer:b] hold it";
+    assert_eq!(fsck_details(&store), [(row, detail.to_string())]);
+}
+
+/// [gap: a row that names a holder with a zero count is kept by the purge of its last other
+/// holder, with `held-by-other-peer` and `purge-debt`; `fsck` names it before.]
+#[cfg(test)]
+#[test]
+fn gap_peer_a_alone_holds_x_and_the_row_also_names_b_with_a_zero_count_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row(
+) {
+    let (store, a, b) = two_peers();
+    let (x, only_b) = (fact("e:x"), fact("e:b"));
+    add(a.as_ref(), &[&x]);
+    add(b.as_ref(), &[&only_b]);
+    damage(&store, |state| {
+        let row = state.stored.map.get_mut(&x.id).unwrap();
+        row.holders.insert("peer:b".to_string(), 0);
+    });
+    let row = at("count-mismatch", None, &x.id, Some("holders"));
+    let detail =
+        "memory store: the row names the holders [peer:a, peer:b (0)] and the peers [peer:a] hold it";
+    assert_eq!(fsck_details(&store), [(row, detail.to_string())]);
+
+    let report = a.purge(&ids(&[&x])).unwrap();
+
+    let kept = PurgeTarget {
+        id: x.id.clone(),
+        outcome: PurgeOutcome::HeldByOtherPeer,
+    };
+    assert_eq!(report.claim, ErasureClaim::NothingRemoved);
+    assert_eq!(report.targets, [kept]);
+    let surfaces: Vec<RetainedSurface> = report.retains.iter().map(|r| r.surface).collect();
+    assert_eq!(
+        surfaces,
+        [RetainedSurface::ChangeFeed, RetainedSurface::PurgeDebt]
+    );
+    let stored: Vec<String> = store
+        .open_admin()
+        .stored_ids()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert!(stored.contains(&x.id));
+    let now = a.read().unwrap();
+    assert_eq!((now.count(), now.get(&ids(&[&x])).unwrap()), (0, vec![]));
+    let there = b.read().unwrap();
+    assert_eq!(
+        there.get(&ids(&[&x, &only_b])).unwrap(),
+        vec![only_b.clone()]
+    );
+    let orphan = at("orphan-bytes", None, &x.id, None);
+    let detail = "memory store: no peer holds these bytes";
+    assert_eq!(fsck_details(&store), [(orphan, detail.to_string())]);
+}
+
+#[cfg(test)]
+#[test]
+fn a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders(
+) {
+    let (store, a, b) = two_peers();
+    let (x, y) = (fact("e:x"), fact("e:y"));
+    add(b.as_ref(), &[&x]);
+    damage(&store, |state| {
+        let row = state.stored.map.get_mut(&x.id).unwrap();
+        row.holders.insert("peer:a".to_string(), usize::MAX);
+    });
+    let revision = a.read().unwrap().revision();
+
+    add(a.as_ref(), &[&x, &y]);
+
+    let now = a.read().unwrap();
+    assert_eq!((now.revision().0, now.count()), (revision.0 + 1, 2));
+    assert_eq!(now.get(&ids(&[&x, &y])).unwrap(), sorted_deltas(&[&x, &y]));
+    let ChangePage::Ok { records, .. } = a.changes(Revision(0), None).unwrap() else {
+        panic!("the feed of peer:a resyncs");
+    };
+    let last = records.last().unwrap();
+    assert_eq!(last.revision, now.revision());
+    let mut added = ids(&[&x, &y]);
+    added.sort();
+    assert_eq!(last.added, added);
+    let row = at("count-mismatch", None, &x.id, Some("holders"));
+    let detail = format!(
+        "memory store: the row names the holders [peer:a ({}), peer:b] and the peers [peer:a, peer:b] hold it",
+        usize::MAX
+    );
+    assert_eq!(fsck_details(&store), [(row, detail)]);
+    let before = dump(&store);
+
+    let fault = match a.purge(&ids(&[&x])) {
+        Err(StoreFailure::Integrity(fault)) => fault,
+        other => panic!("{other:?}"),
+    };
+
+    let want = at("count-mismatch", Some("peer:a"), &x.id, Some("holders"));
+    assert_eq!(place(&fault), want);
+    let detail = format!(
+        "memory store: the row counts this peer {} times as a holder and this peer holds it",
+        usize::MAX
+    );
+    assert_eq!(fault.detail, detail);
+    assert_eq!(dump(&store), before);
+    let there = b.read().unwrap();
+    assert_eq!(there.get(&ids(&[&x])).unwrap(), vec![x.clone()]);
 }

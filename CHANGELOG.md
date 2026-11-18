@@ -284,24 +284,40 @@ Step 4d adds more, listed under Breaking.
 - Step 4e: the memory store decides a purge from who holds the id (§4.13 reading 136), in both
   witnesses.
   - A memory row keeps the peers it counts as holders, each with a count, in place of one bare
-    count. An append adds the peer. A purge removes the peer and deletes the row when no peer is
-    left. On an undamaged store each holder is counted once, and every answer is as before.
+    count. An append adds 1 to the peer's count. A purge removes the peer and deletes the row
+    when no peer is left. On an undamaged store each holder is counted once, and every answer is
+    as before.
+  - Each memory row now carries a small map, with one entry per holding peer, where it carried
+    one number. So the memory per row grows with its holders. No stated bound changes.
   - A purge refuses a held id whose row does not count the purging peer exactly once. The fault
-    is `count-mismatch`, key `holders`, with the peer and the id. Nothing is removed. Before, two
-    peers held an id whose count was 1, and the purge of either peer deleted the row. And one
-    peer held an id whose count was 2, and its purge kept the row with `held-by-other-peer`.
+    is `count-mismatch`, key `holders`, with the peer and the id. Nothing is removed. In the old
+    code, a row with a count of 1 that two peers held was deleted by the first purge of either
+    peer. Now the purge by the peer that the row leaves out refuses. The purge by the peer that
+    the row names still deletes the row, as the bullet on the remaining damages says. In the old
+    code, a row with a count of 2 that one peer held was kept by its purge, with
+    `held-by-other-peer`. Now that purge refuses.
   - The purge detail is `memory store: the row counts this peer <n> times as a holder and this
     peer holds it`. The `fsck` detail is `memory store: the row names the holders [...] and the
     peers [...] hold it`. A holder counted n times other than once shows as `peer (n)`.
-  - Two damages stay, because a purge cannot see them without a walk of the peers. A row that
-    leaves out another peer that holds the id is deleted by the purge of the last peer it names.
-    That other peer's reads then fail `claims-unreadable`. A row that names a peer that does not
-    hold the id is kept, with `held-by-other-peer` and `purge-debt`. `fsck` reports each of them
-    before the purge as `count-mismatch`, key `holders`.
+  - Three damages stay, because a purge cannot see them without a walk of the peers or of the
+    row.
+    - A row that leaves out another peer that holds the id is deleted by the purge of the last
+      peer it names. That other peer's reads then fail `claims-unreadable`. The purge report
+      gives no sign of the other holder: it answers `removed`, claim `unproven`, and retains only
+      `change-feed`. Only `fsck` shows the damage.
+    - A row that names a peer that does not hold the id is kept, with `held-by-other-peer` and
+      `purge-debt`.
+    - A row that names another peer with a count of 0 is kept by the purge of the peer it counts
+      once, with `held-by-other-peer` and `purge-debt`. The old code deleted that row.
+    - `fsck` reports each of them before the purge as `count-mismatch`, key `holders`.
   - The check costs no lookup: the purge reads the row that it read before.
+  - A Rust append to a row whose count of the peer is `usize::MAX` keeps the count there. It
+    does not panic, and the batch commits whole. A later purge of that id by that peer refuses,
+    and `fsck` reports the row. Before, a debug build panicked after part of the batch was
+    written, and a release build wrapped the count to 0. TypeScript adds 1 and does not throw.
   - What can now be deleted that could not be deleted before: nothing. The new code deletes a
     row only where the old bare count of that row reached 0 on the same call. It refuses in more
-    states.
+    states, and it keeps a row that names a holder with a count of 0.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
