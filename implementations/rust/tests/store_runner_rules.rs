@@ -123,6 +123,8 @@ enum Wrong {
     OpenedAppFormat,
     /// Every handle refuses its application format string on an open store.
     AppFormatRefuses,
+    /// An opened handle refuses its application format string on an open store.
+    OpenedAppFormatRefuses,
     GetDrops,
     GetReverses,
     GetSig,
@@ -428,6 +430,9 @@ impl PeerStore for RigPeer {
             Wrong::CreatedAppFormat if !self.opened => Ok(None),
             Wrong::OpenedAppFormat if self.opened => Ok(Some("host/2")),
             Wrong::AppFormatRefuses => Err(refusal(StoreErrorCode::StoreClosed)),
+            Wrong::OpenedAppFormatRefuses if self.opened => {
+                Err(refusal(StoreErrorCode::StoreClosed))
+            }
             _ => self.inner.app_format(),
         }
     }
@@ -1470,6 +1475,13 @@ const TABLE: &[Row] = &[
         W::AppFormatRefuses,
         PLAIN,
         &["createPeer: appFormat refused `store-closed`"],
+        SC,
+    ),
+    row(
+        "openPeer: an opened handle that refuses its appFormat",
+        W::OpenedAppFormatRefuses,
+        PLAIN,
+        &["openPeer: appFormat refused `store-closed`"],
         SC,
     ),
     row(

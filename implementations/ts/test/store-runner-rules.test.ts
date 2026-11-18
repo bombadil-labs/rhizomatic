@@ -1022,6 +1022,13 @@ const RULES: Readonly<Record<string, Rule>> = {
       }),
     },
   },
+  "an opened handle that refuses its appFormat": {
+    doc: "scripts",
+    says: "(openPeer): a wrong store refused its appFormat",
+    store: {
+      store: (store) => ({ peer: async (id) => refusing(await store.peer(id), "appFormat") }),
+    },
+  },
   "an opened handle that reads another appFormat": {
     doc: "scripts",
     says: '(openPeer): openPeer: the peer\'s appFormat is "host/2", expected "host/1"',

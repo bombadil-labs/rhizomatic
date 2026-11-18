@@ -62,6 +62,7 @@ pub mod set;
 pub mod sign;
 pub mod single_peer;
 pub mod store;
+pub mod store_admission;
 pub mod store_conformance;
 pub mod store_follow;
 pub mod store_fresh;
@@ -132,6 +133,7 @@ pub use store::{
     StoreError, StoreErrorCode, StoreProfile, StoreRequirement, StoreWriters, SurfaceState,
     VerifiedDelta, APP_FORMAT_MAX_BYTES, MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
 };
+pub use store_admission::{admission_of, AdmissionOptions};
 pub use store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceFailure,
     StoreConformanceReport, StoreFactoryFn, StoreVectors,

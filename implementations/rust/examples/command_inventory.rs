@@ -93,7 +93,7 @@ fn owner(module: &str, symbol: &str) -> &'static str {
         "reactor" | "materialize" | "store_read" | "store_views" => "reactor",
         "principal" => "principal",
         "pack" | "store" | "memory_store" | "store_open" | "store_conformance" | "store_fresh"
-        | "store_follow" | "store_held" => "storage",
+        | "store_follow" | "store_held" | "store_admission" => "storage",
         "derivation" => "derivation",
         "arrival"
         | "durable_state"

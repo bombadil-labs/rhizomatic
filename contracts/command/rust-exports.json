@@ -24657,6 +24657,28 @@
     {
       "form": "syn-import",
       "owner": "delta",
+      "rawTarget": "crate::store_admission::AdmissionOptions",
+      "resolvedTarget": "crate::store_admission::AdmissionOptions",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_admission::AdmissionOptions",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::store_admission::admission_of",
+      "resolvedTarget": "crate::store_admission::admission_of",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_admission::admission_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
       "rawTarget": "crate::store_conformance::SkippedScript",
       "resolvedTarget": "crate::store_conformance::SkippedScript",
       "source": "implementations/rust/src/lib.rs",
@@ -81692,6 +81714,298 @@
       "targetOwner": "storage"
     },
     {
+      "form": "syn-external-import",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::delta::compute_id",
+      "resolvedTarget": "crate::delta::compute_id",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::delta::compute_id",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::Admission",
+      "resolvedTarget": "crate::store::Admission",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::Admission",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::ArrivalRecord",
+      "resolvedTarget": "crate::store::ArrivalRecord",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::ArrivalRecord",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::MAX_ARRIVAL_COUNTER",
+      "resolvedTarget": "crate::store::MAX_ARRIVAL_COUNTER",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::MAX_ARRIVAL_COUNTER",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::Snapshot",
+      "resolvedTarget": "crate::store::Snapshot",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::Snapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode",
+      "resolvedTarget": "crate::store::StoreErrorCode",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::StoreErrorCode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::VerifiedDelta",
+      "resolvedTarget": "crate::store::VerifiedDelta",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::VerifiedDelta",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::signature_form",
+      "resolvedTarget": "crate::store::signature_form",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::signature_form",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "core::primitive::str::is_empty"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "core::primitive::str::to_string"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::delta::compute_id",
+      "resolvedTarget": "crate::delta::compute_id",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "crate::delta::compute_id",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Admission",
+      "resolvedTarget": "crate::store::Admission",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "crate::store::Admission",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ArrivalRecord",
+      "resolvedTarget": "crate::store::ArrivalRecord",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "crate::store::ArrivalRecord",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::MAX_ARRIVAL_COUNTER",
+      "resolvedTarget": "crate::store::MAX_ARRIVAL_COUNTER",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "crate::store::MAX_ARRIVAL_COUNTER",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Snapshot",
+      "resolvedTarget": "crate::store::Snapshot",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "crate::store::Snapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError::new",
+      "resolvedTarget": "crate::store::StoreError::new",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "crate::store::StoreError::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "resolvedTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "crate::store::StoreErrorCode::InvalidRequest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::VerifiedDelta",
+      "resolvedTarget": "crate::store::VerifiedDelta",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "crate::store::VerifiedDelta",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::signature_form",
+      "resolvedTarget": "crate::store::signature_form",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "crate::store::signature_form",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_admission::AdmissionOptions",
+      "resolvedTarget": "crate::store_admission::AdmissionOptions",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "crate::store_admission::AdmissionOptions",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admission_of",
+      "target": "std::collections::BTreeMap::new"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_admission.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "admission_of"
+    },
+    {
       "form": "syn-external-path",
       "owner": "storage",
       "source": "implementations/rust/src/store.rs",
@@ -116312,6 +116626,18 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:AdmissionOptions",
+      "owner": "storage",
+      "semantics": "storage owns the existing lib::AdmissionOptions reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "AdmissionOptions",
+      "target": "crate::store_admission::AdmissionOptions"
+    },
+    {
+      "cfg": [],
       "classification": "compatibility_reexport",
       "contract": "rhizomatic.storage/native-api/1",
       "definition": "reexport",
@@ -118133,6 +118459,18 @@
       "source": "implementations/rust/src/lib.rs",
       "symbol": "View",
       "target": "crate::resolution::View"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:admission_of",
+      "owner": "storage",
+      "semantics": "storage owns the existing lib::admission_of reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "admission_of",
+      "target": "crate::store_admission::admission_of"
     },
     {
       "cfg": [],
@@ -125437,6 +125775,39 @@
       "semantics": "storage owns the existing store::target_entities function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/store.rs",
       "symbol": "target_entities"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "struct",
+      "id": "rust:store_admission:AdmissionOptions",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_admission::AdmissionOptions struct; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store_admission.rs",
+      "symbol": "AdmissionOptions"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "function",
+      "id": "rust:store_admission:admission_of",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_admission::admission_of function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store_admission.rs",
+      "symbol": "admission_of"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "module",
+      "id": "rust:store_admission:store_admission",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_admission::store_admission module; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "store_admission"
     },
     {
       "cfg": [],
