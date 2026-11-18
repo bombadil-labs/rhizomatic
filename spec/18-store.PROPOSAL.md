@@ -2855,17 +2855,20 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      that is not a non-empty, well-formed string. A peer that does not exist is refused
      `peer-absent`. A busy engine refuses `store-unavailable` (reading 105) until the transaction
      that removes the `peer` row commits. After that commit the call does not refuse:
-     - a refusal before it leaves the mark and the rows the call has not reached. Its message
-       does not say "ask again": it says that the delete did not finish, and that a repeat
-       deletes the peer that has the id at that time. A repeat goes on from there while the mark
+     - a refusal before it leaves the mark and the rows the call has not reached. For every
+       engine error, its message says that the call did not finish, that a peer it marked stays
+       marked for delete until a delete ends it, and that a repeat deletes the peer that has the
+       id at that time. For a transient error (reading 105) it says that the store cannot serve
+       the call now, and it does not say "ask again". For any other error it first names the
+       error and says that it is not a lock. A repeat goes on from there while the mark
        is there, as after a delete that dies. Its counts cover only what the repeat released. If
        another delete of the peer ended and the id was created again, the repeat is a new call
        and deletes the new peer. A host that must not delete a new peer reads the peer before it
        repeats. A delete that names one peer of the id, not the id, would close this; it changes
        the call's shape and is not offered;
      - if the commit of the transaction that removes the `peer` row fails and the store cannot
-       tell whether it committed, the call refuses. When that commit was durable, a repeat
-       answers `peer-absent`;
+       tell whether it committed, the call refuses with the same message. When that commit was
+       durable, a repeat answers `peer-absent`;
      - after it, a repeat would answer `peer-absent`, and the host would have no report. So when
        the last transaction fails for any engine error (a lock, a full disk, an I/O error), the
        call answers its counts with every file surface `owed` and the claim `unproven`. On a
@@ -2903,8 +2906,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
          delete ends. If the deleter died after the mark, they stay under the marked peer until
          the next `deletePeer` of the id, and no call reads them;
        - a handle keeps the `origin` of the row it was made from (the memory store: the peer's
-         state), and every call of it refuses `peer-absent` when the row has another one. This
-         covers `history`, `appFormat`, `read`, `append`, `purge` and `changes`. A page of an
+         state), and every call of it with a well-formed request refuses `peer-absent` when the
+         row has another one. This covers `history`, `appFormat`, `read`, `append`, `purge` and
+         `changes`. A page of an
          export listing of one peer does the same with the `origin` its first read found.
      - **Pages.** Then, in pages of 256, each one write transaction, the delete releases the
        peer's holdings, and removes its change records, digest rows, purge debts and records of
@@ -2943,8 +2947,13 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        there.
      - **A delete that dies.** A crash after the mark leaves the mark and the rows it has not
        reached. The next `deletePeer` of the id goes on from there while the mark is there; its
-       counts cover only what that call released. `fsck` reports a marked peer as one `peer-deleting` fault, names the
-       peer, and checks no other row of it. Two deletes of one peer at once share the work; each
+       counts cover only what that call released. `fsck` reports a peer that is marked when its
+       list of peers reads it as one `peer-deleting` fault, names the peer, and checks no other
+       row of it. Each later step of a peer that the list read live reads the peer row first, in
+       the transaction of the rows it compares, and checks nothing more of the peer when the row
+       is marked, absent, or of another `origin`. So a peer that a delete marks during a scan
+       gets no fault from that scan, not `peer-deleting` either; a later `fsck` reports
+       `peer-deleting` while the mark is there. Two deletes of one peer at once share the work; each
        counts what it released. A delete that finds the row gone, or a row of another `origin`,
        removes nothing more and answers its own counts, decided by the same last transaction:
        a `peer` row of the id found there, of any state, makes every file surface `owed`. So
@@ -2983,11 +2992,18 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        row is gone throws `StoreIntegrityError` (`claims-unreadable`) before the delete removes
        anything, as the purge of that id does (reading 136). **Known limit:** until a remedy for
        that purge lands, no call deletes such a peer.
-     - **A handle names one peer.** After a delete, every call of an old handle refuses
-       `peer-absent`, on both stores, also after a `createPeer` of the same id. A host gets a
+     - **A handle names one peer.** After a delete, every call of an old handle with a
+       well-formed request refuses `peer-absent`, on both stores, also after a `createPeer` of
+       the same id. Both stores check a call in one order: `store-closed`, then the form of the
+       request, then the peer. The form is what the call checks before it reads the peer: the
+       ids of `purge`, `from` and `to` of `changes`, and the fields, next head and frame of an
+       `append`, not its entries. So a malformed request answers the same code on a live peer's
+       handle and on an old one. A host gets a
        handle of the new peer from `createPeer` or `Store.peer`. A snapshot never reaches the new
-       peer either: the history differs. `fsck` during a delete and a `createPeer` of the id
-       gives no false fault, and it can miss early rows of the new peer. The memory store's
+       peer either: the history differs. `fsck` beside a delete, and beside a delete and a
+       `createPeer` of the id, gives no false fault: each step compares rows that it reads in one
+       transaction, and each step of a peer after the first stops at a row that is marked,
+       absent or of another `origin`. It can miss rows of the new peer. The memory store's
        export listing of a peer reads the peer's holdings once, at its first item. A listing
        that began before a delete ends with the old peer's deltas, and never gives the new
        peer's.

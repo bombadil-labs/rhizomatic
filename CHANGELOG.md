@@ -188,9 +188,15 @@ Step 4d adds more, listed under Breaking.
 - Every call is bound to one peer, not to its id. A delete works only on the peer row its first
   transaction read (`peer.origin`, the history `createPeer` issued), and removes that row only on
   the same terms. A purge's last transaction refuses `peer-absent` for a peer created again under
-  the id. Every call of an old handle refuses `peer-absent` after a delete, also after a
-  `createPeer` of the id: a host gets a new handle. The same holds for a page of an export
-  listing of one peer.
+  the id. Every call of an old handle with a well-formed request refuses `peer-absent` after a
+  delete, also after a `createPeer` of the id: a host gets a new handle. The same holds for a
+  page of an export listing of one peer.
+- Both stores check a call of a handle in one order: `store-closed`, then the form of the
+  request, then the peer. The form is what the call checks before it reads the peer: the ids of
+  `purge`, `from` and `to` of `changes`, and the fields, next head and frame of an `append` (not
+  its entries). So a malformed request answers the same code on a live peer's handle and on a
+  deleted peer's handle. The memory store checked the peer first before; a live peer's answers
+  do not change.
 - A delete of a `proven` peer can answer `unproven`, also with one deleter: when another
   connection's checkpoint stays busy past the truncate's bound (reading 143), when a reader
   holds the log, or when a lock wait passes `busyTimeoutMs`. No call then promises a later
@@ -204,9 +210,13 @@ Step 4d adds more, listed under Breaking.
   `unprovable` on a store of class `unprovable`). The host sees the cause at its next call. If
   the commit that removes the peer row fails in doubt, the call refuses, and a repeat answers
   `peer-absent` when that commit was durable.
-- A refusal before the transaction that removes the peer row leaves the mark. Its message says
-  that the delete did not finish, and that a repeat deletes the peer that has the id at that
-  time; it does not say "ask again". A repeat goes on from there while the mark is there; its
+- A refusal before the transaction that removes the peer row leaves the mark. For every engine
+  error, its message says that the call did not finish, that a peer it marked stays marked for
+  delete until a delete ends it, and that a repeat deletes the peer that has the id at that time.
+  For a transient error (reading 105) it says that the store cannot serve the call now, and does
+  not say "ask again". For any other error it first names the error and says that it is not a
+  lock. A failed commit of the transaction that removes the peer row gives the same message. A
+  repeat goes on from there while the mark is there; its
   counts cover only what the repeat released. If another delete of the peer ended and the id
   was created again, the repeat is a new call and deletes the new peer. A host that must not
   delete a new peer reads the peer before it repeats.
@@ -224,9 +234,11 @@ Step 4d adds more, listed under Breaking.
   create a new file and append again.
 - **`Store` has a new member, `deletePeer`.** A host that builds its own `Store` object must
   give one.
-- **`IntegrityFaultKind` has a new kind, `peer-deleting`.** `fsck` reports it for a peer whose
-  delete did not end, and checks no other row of that peer. A host that matches every kind must
-  add it.
+- **`IntegrityFaultKind` has a new kind, `peer-deleting`.** `fsck` reports it for a peer that is
+  marked when the scan lists it, and checks no other row of that peer. A peer that a delete marks
+  later in the scan gets no fault from that scan: each later step of a peer reads the peer row in
+  its own transaction and stops when the row is marked, absent or of another `origin`. A host
+  that matches every kind must add it.
 - **`Snapshot` has two more new members, `root` and `digest`.** A host that builds its own
   `Snapshot` object must pass them through. A store without the digest gives `root` null and
   refuses `digest` with `capability-absent`.

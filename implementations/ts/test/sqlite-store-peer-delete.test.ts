@@ -563,6 +563,9 @@ const owed = (released: number, keptByOtherPeers: number): DeleteReport => ({
   released,
   keptByOtherPeers,
 });
+/** What a refused delete of peer:d says it left (§4.13 reading 144). */
+const UNFINISHED =
+  "This call of deletePeer for peer:d did not finish. A peer that it marked stays marked for delete until a delete ends it. A repeat of deletePeer deletes the peer that has this id at that time.";
 /**
  * A child deleter that stops after its first commit; `go` lets it on. It waits up to 5 s for a
  * lock and makes one call: a refusal fails the rail with its text, because a repeat is a new call
@@ -757,7 +760,7 @@ describe("a late deleter and a peer created again under the id", () => {
     expect([taken, (refused as StoreError).code, (refused as StoreError).message]).toEqual([
       true,
       "store-unavailable",
-      "the SQLite store was busy (SQLITE_BUSY), and the delete of peer:d did not finish. A peer that it marked stays marked for delete unless another delete ends it. A repeat of deletePeer deletes the peer that has this id at that time.",
+      `the SQLite store cannot serve this call now (SQLITE_BUSY). ${UNFINISHED}`,
     ]);
     expect(
       read(path, (db) => db.prepare("SELECT state FROM peer WHERE id = 'peer:d'").get()),
@@ -923,6 +926,223 @@ describe("a damaged row of the peer that a page key cannot reach", () => {
     }, 60_000);
 });
 
+type StatementCall = (this: Database.Statement, ...args: unknown[]) => unknown;
+/** Wraps one method of every statement of this process. Answers the call that restores it. */
+function watch(
+  method: "run" | "get" | "all",
+  wrap: (statement: Database.Statement, call: () => unknown, args: unknown[]) => unknown,
+): () => void {
+  const probe = new Database(":memory:");
+  const prototype = Object.getPrototypeOf(probe.prepare("SELECT 1")) as Record<
+    string,
+    StatementCall
+  >;
+  probe.close();
+  const original = prototype[method]!;
+  prototype[method] = function (...args) {
+    return wrap(this, () => original.apply(this, args), args);
+  };
+  return () => {
+    prototype[method] = original;
+  };
+}
+
+describe("what a refused delete says, at each transaction before the peer row is gone", () => {
+  /**
+   * Runs one delete of peer:d (5 holdings) beside peer:b (1 delta). At the first `BEGIN
+   * IMMEDIATE` after `after` ran (or the first one of the call), `fail` takes the write lock in
+   * another connection or throws an engine error that is not transient. Answers the refusal.
+   */
+  async function refusedDelete(after: string | undefined, fail: "lock" | "full") {
+    const { path } = place();
+    const store = await openSqliteStore(path, { busyTimeoutMs: 100 });
+    opened.push(store);
+    const d = await store.createPeer("peer:d", { erasure: POSTURE });
+    const b = await store.createPeer("peer:b", { erasure: "unproven" });
+    const tag = `Refused${after === undefined ? "Mark" : after.length}${fail}`;
+    const y = marked(`${tag}Y`, 1);
+    const own = group(tag, 5);
+    await put(d, own, `Hd${tag}Z`);
+    await put(b, [y], `Hd${tag}BZ`);
+    const other = new Database(path);
+    let armed = after === undefined;
+    let fired = false;
+    const restore = watch("run", (statement, call) => {
+      if (statement.source === after) armed = true;
+      else if (statement.source === "BEGIN IMMEDIATE" && armed && !fired) {
+        fired = true;
+        if (fail === "full")
+          throw new Database.SqliteError("database or disk is full", "SQLITE_FULL");
+        other.exec("BEGIN IMMEDIATE");
+      }
+      return call();
+    });
+    let refused: unknown;
+    try {
+      refused = await store.deletePeer("peer:d").catch((error: unknown) => error);
+    } finally {
+      restore();
+      if (other.inTransaction) other.exec("COMMIT");
+      other.close();
+    }
+    expect(fired).toBe(true);
+    const { code: why, message } = refused as StoreError;
+    return { store, d, b, y, own, path, why, message };
+  }
+  const stateOf = (path: string): unknown =>
+    read(path, (db) => db.prepare("SELECT state FROM peer WHERE id = 'peer:d'").get());
+
+  it("the mark transaction: a busy engine refuses store-unavailable with the delete's text; no mark is on disk, the peer is live and reads back, and the bystander's named delta survives", async () => {
+    const { store, d, b, y, own, path, why, message } = await refusedDelete(undefined, "lock");
+    expect([why, message]).toEqual([
+      "store-unavailable",
+      `the SQLite store cannot serve this call now (SQLITE_BUSY). ${UNFINISHED}`,
+    ]);
+    expect(stateOf(path)).toEqual({ state: "live" });
+    await bystanderHolds(store, d, own);
+    await bystanderHolds(store, b, [y]);
+  });
+
+  it("the transaction that removes the peer row: a busy engine refuses store-unavailable with the delete's text; the row stays marked with no other row of the peer, fsck gives one peer-deleting fault, a repeat ends the delete with 0 released, and the bystander's named delta survives", async () => {
+    const { store, b, y, path, why, message } = await refusedDelete(
+      SQLITE_STATEMENTS.deleteSurfaceDebts,
+      "lock",
+    );
+    expect([why, message]).toEqual([
+      "store-unavailable",
+      `the SQLite store cannot serve this call now (SQLITE_BUSY). ${UNFINISHED}`,
+    ]);
+    expect(stateOf(path)).toEqual({ state: "deleting" });
+    expect(rowsOf(path, "peer:d")).toEqual({
+      peer: 1,
+      holding: 0,
+      change: 0,
+      digest: 0,
+      debt: 0,
+      surface_debt: 0,
+    });
+    expect((await store.openAdmin().fsck()).faults).toEqual([
+      {
+        kind: "peer-deleting",
+        peer: "peer:d",
+        detail: "sqlite store: a delete of the peer did not end; deletePeer of the id finishes it",
+      },
+    ]);
+    expect(await store.deletePeer("peer:d")).toEqual(PROVEN_HERE ? proven(0, 0) : owed(0, 0));
+    expect(rowsOf(path, "peer:d")).toMatchObject({ peer: 0 });
+    await bystanderHolds(store, b, [y]);
+  });
+
+  it("a page transaction: an engine error that is not transient refuses store-unavailable with the error's text, then the delete's text; the mark stays, a repeat ends the delete, and the bystander's named delta survives", async () => {
+    const { store, b, y, path, why, message } = await refusedDelete(
+      SQLITE_STATEMENTS.peerMark,
+      "full",
+    );
+    expect([why, message]).toEqual([
+      "store-unavailable",
+      `the SQLite store failed: database or disk is full (SQLITE_FULL); this is not a lock, and the same call fails again until the cause is fixed. ${UNFINISHED}`,
+    ]);
+    expect(stateOf(path)).toEqual({ state: "deleting" });
+    expect(rowsOf(path, "peer:d")).toMatchObject({ peer: 1, holding: 5 });
+    expect(await store.deletePeer("peer:d")).toEqual(PROVEN_HERE ? proven(5, 0) : owed(5, 0));
+    expect(rowsOf(path, "peer:d")).toMatchObject({ peer: 0, holding: 0 });
+    await bystanderHolds(store, b, [y]);
+  });
+});
+
+describe("fsck beside a running delete", () => {
+  it("a delete that starts 0 to 24 event-loop turns after fsck's peer step read the peer live: fsck reports no fault at all, and stops checking the peer once its row is marked; a second fsck after the delete is clean; the bystander's named delta reads back", async () => {
+    let paged = 0;
+    for (let turns = 0; turns <= 24; turns++) {
+      const { path } = place();
+      const store = await open(path);
+      const z = await store.createPeer("peer:z", { erasure: "unproven" });
+      const b = await store.createPeer("peer:b", { erasure: "unproven" });
+      const y = marked(`FsckRaceY${turns}`, 1);
+      await put(z, group(`FsckRace${turns}`, 600), `HdFsckRace${turns}Z`);
+      await put(b, [y], `HdFsckRaceB${turns}Z`);
+      let deletion: Promise<DeleteReport> | undefined;
+      let released = false;
+      let fired = false;
+      const later = (n: number): void => {
+        if (n === 0) deletion = store.deletePeer("peer:z");
+        else setImmediate(() => later(n - 1));
+      };
+      const restoreGet = watch("get", (statement, call, args) => {
+        if (statement.source === SQLITE_STATEMENTS.fsckCount && args[0] === "peer:z" && !fired) {
+          fired = true;
+          setImmediate(() => later(turns));
+        }
+        return call();
+      });
+      const restoreAll = watch("all", (statement, call) => {
+        if (statement.source === SQLITE_STATEMENTS.deleteHoldings) released = true;
+        return call();
+      });
+      let report: Awaited<ReturnType<ReturnType<SqliteStore["openAdmin"]>["fsck"]>>;
+      let releasedBeforeEnd: boolean;
+      try {
+        report = await store.openAdmin().fsck();
+        releasedBeforeEnd = released;
+      } finally {
+        restoreGet();
+        restoreAll();
+        while (fired && deletion === undefined)
+          await new Promise<void>((done) => setImmediate(done));
+        await deletion?.catch(() => undefined);
+      }
+      expect((await deletion!).released).toBe(600);
+      if (releasedBeforeEnd) paged++;
+      expect([turns, report.faults]).toEqual([turns, []]);
+      await bystanderHolds(store, b, [y]);
+      await store.close();
+    }
+    expect(paged).toBeGreaterThan(0);
+  }, 120_000);
+
+  it("a peer that a delete marks just after fsck's peer step gets no fault from that scan, also for a damaged change record that the scan finds without the delete; the bystander's named delta reads back", async () => {
+    for (const deleting of [false, true]) {
+      const { path } = place();
+      const store = await open(path);
+      const z = await store.createPeer("peer:z", { erasure: "unproven" });
+      const b = await store.createPeer("peer:b", { erasure: "unproven" });
+      const y = marked(`FsckMarkY${deleting}`, 1);
+      await put(z, group(`FsckMark${deleting}`, 3), `HdFsckMark${deleting}Z`);
+      await put(b, [y], `HdFsckMarkB${deleting}Z`);
+      const raw = new Database(path);
+      raw.prepare("UPDATE change SET added = 'not a list' WHERE peer = 'peer:z'").run();
+      raw.close();
+      let deletion: Promise<DeleteReport> | undefined;
+      const restore = watch("get", (statement, call, args) => {
+        if (
+          deleting &&
+          statement.source === SQLITE_STATEMENTS.fsckCount &&
+          args[0] === "peer:z" &&
+          deletion === undefined
+        )
+          setImmediate(() => (deletion = store.deletePeer("peer:z")));
+        return call();
+      });
+      let faults: unknown[];
+      try {
+        faults = (await store.openAdmin().fsck()).faults.map((f) => [f.kind, f.peer, f.key]);
+      } finally {
+        restore();
+        await deletion?.catch(() => undefined);
+      }
+      expect([deleting, faults]).toEqual([
+        deleting,
+        deleting ? [] : [["column-mismatch", "peer:z", "change.added"]],
+      ]);
+      if (deleting) {
+        expect((await deletion!).released).toBe(3);
+        await bystanderHolds(store, b, [y]);
+      }
+      await store.close();
+    }
+  });
+});
+
 describe("the statements that read a peer", () => {
   const statements = SQLITE_STATEMENTS as Record<string, string>;
   // Each statement that names the peer table and does not keep live peers only, with why it may.
@@ -933,7 +1153,8 @@ describe("the statements that read a peer", () => {
     peerDrop: "the delete's last transaction removes the row",
     peerHistory: "a minting open writes the row of a peer that exportPeers listed as live",
     peerAdvance: "an append or a purge writes the row that #live read in its transaction",
-    fsckPeers: "fsck names a marked peer, and checks nothing else of it",
+    fsckPeers:
+      "fsck names a peer marked at this read as one fault; each later step of a peer reads its live row and stops without it",
   };
   const source = readFileSync(resolve(here, "../src/storage/sqlite-store.ts"), "utf8");
   /** The method of the store class that holds the text at `at`. */
@@ -985,7 +1206,7 @@ describe("the statements that read a peer", () => {
       "openAdmin",
       "openAdmin",
       "#fsckPeer",
-      "#fsckHoldings",
+      "#fsckSame",
     ]);
     expect(source).toMatch(
       /#live\(id: PeerId, origin: History\): PeerRow \{\s+const row = this\.#peerRow\(id\);\s+if \(row\?\.origin !== origin\)/,

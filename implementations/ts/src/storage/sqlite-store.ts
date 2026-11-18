@@ -238,29 +238,34 @@ const sorted = (ids: Iterable<Id>): Id[] => [...new Set(ids)].sort(compareUtf8);
  * `SQLITE_IOERR_LOCK`), an interrupted call and a failed allocation. Any other error (a
  * constraint, a damaged file, the disk) answers the same until its cause is fixed, so the message
  * says what failed and does not invite one. A call whose repeat is not the same call gives
- * `unfinished`, which says what a transient error left, in place of the invitation.
+ * `unfinished`, which says what the call left. It takes the place of the invitation of a
+ * transient error, and follows the text of any other error.
  */
 function unavailable(error: unknown, unfinished?: string): unknown {
   if (!(error instanceof Database.SqliteError)) return error;
   const transient = /^SQLITE_(BUSY|LOCKED|PROTOCOL$|IOERR_LOCK$|INTERRUPT$|NOMEM$)/.test(
     error.code,
   );
+  const failed = `the SQLite store failed: ${error.message} (${error.code}); this is not a lock, and the same call fails again until the cause is fixed`;
   return new StoreError(
     "store-unavailable",
     !transient
-      ? `the SQLite store failed: ${error.message} (${error.code}); this is not a lock, and the same call fails again until the cause is fixed`
+      ? unfinished === undefined
+        ? failed
+        : `${failed}. ${unfinished}`
       : unfinished === undefined
         ? `the SQLite store cannot serve this call now (${error.code}); ask again`
-        : `the SQLite store was busy (${error.code}), and ${unfinished}`,
+        : `the SQLite store cannot serve this call now (${error.code}). ${unfinished}`,
   );
 }
 
 /**
- * What a transient refusal of a peer delete leaves, before the peer row is gone (§4.13 reading
- * 144). A repeat binds to the peer that has the id when it begins, so it does not say "ask again".
+ * What a refusal of a peer delete leaves, before the peer row is gone or when the commit that
+ * removes it is in doubt (§4.13 reading 144). A repeat binds to the peer that has the id when it
+ * begins, so it does not say "ask again".
  */
 const deleteUnfinished = (id: PeerId): string =>
-  `the delete of ${id} did not finish. A peer that it marked stays marked for delete unless another delete ends it. A repeat of deletePeer deletes the peer that has this id at that time.`;
+  `This call of deletePeer for ${id} did not finish. A peer that it marked stays marked for delete until a delete ends it. A repeat of deletePeer deletes the peer that has this id at that time.`;
 
 /** The refusal of an open for an engine error that is not busy, with the error's code. */
 function notOpened(error: unknown): StoreError {
@@ -1725,9 +1730,12 @@ class SqliteFileStore implements SqliteStore {
    * every row that exists for the whole scan. The steps: the engine's checks; for each peer, its
    * count and change records against its row; for each page of 256 of its change records, the
    * form of each; for each page of 256 of its holdings, each holding's claims, signature,
-   * columns, arrival record, sequence, transfer and index entries; for each page of 256 stored
-   * deltas, whether any peer holds it. A step that meets a damaged page ends the scan, and the
-   * report names it as one `engine` fault.
+   * columns, arrival record, sequence, transfer and index entries; for each page of 256 of its
+   * digest rows, each against what it covers; for each page of 256 stored deltas, whether any
+   * peer holds it. Each step of a peer after its first reads the peer row in its own transaction
+   * and checks nothing more of the peer when the row is marked, absent or of another `origin`
+   * (§4.13 reading 144). A step that meets a damaged page ends the scan, and the report names it
+   * as one `engine` fault.
    */
   async #fsck(): Promise<FsckReport> {
     this.#open();
@@ -1769,7 +1777,8 @@ class SqliteFileStore implements SqliteStore {
         );
         const peers = rows.map((r) => r.id);
         // A peer a delete marked has rows the delete has not reached yet, and none of them is
-        // checked: the one fault names the delete that did not end (reading 144).
+        // checked: the one fault names the delete that did not end (reading 144). A peer that a
+        // delete marks after this read gets no fault: each later step stops at its row.
         for (const { id: peer, state } of rows) {
           if (state === "deleting") {
             faults.push({
@@ -1780,12 +1789,16 @@ class SqliteFileStore implements SqliteStore {
             });
             continue;
           }
-          if (!(await step(() => this.#fsckPeer(peer, faults)))) continue;
+          const origin = await step(() => this.#fsckPeer(peer, faults));
+          if (origin === undefined) continue;
           checked.peers++;
           for (let from = Number.MIN_SAFE_INTEGER, page = EXPORT_PAGE; page === EXPORT_PAGE; ) {
-            const rows = await step(
-              () => s.fsckChanges.all(peer, from, EXPORT_PAGE) as ChangeRow[],
+            const rows = await step(() =>
+              this.#fsckSame(peer, origin) === undefined
+                ? undefined
+                : (s.fsckChanges.all(peer, from, EXPORT_PAGE) as ChangeRow[]),
             );
+            if (rows === undefined) break;
             for (const r of rows) {
               const ids = changeOf(r, peer);
               if ("kind" in ids) faults.push(ids);
@@ -1794,7 +1807,7 @@ class SqliteFileStore implements SqliteStore {
             from = rows.at(-1)?.revision ?? from;
           }
           for (let from = "", page = EXPORT_PAGE; page === EXPORT_PAGE; ) {
-            const last = await step(() => this.#fsckHoldings(peer, from, faults));
+            const last = await step(() => this.#fsckHoldings(peer, origin, from, faults));
             if (last === undefined) break;
             checked.holdings += last.count;
             page = last.count;
@@ -1802,6 +1815,7 @@ class SqliteFileStore implements SqliteStore {
           }
           for (let from = "", page = EXPORT_PAGE; page === EXPORT_PAGE; ) {
             const rows = await step(() => {
+              if (this.#fsckSame(peer, origin) === undefined) return undefined;
               const found = s.fsckDigest.all(peer, from, EXPORT_PAGE) as ({
                 prefix: string;
               } & DigestNode)[];
@@ -1809,6 +1823,7 @@ class SqliteFileStore implements SqliteStore {
                 this.#fsckNode(peer, prefix, { count, hash }, faults);
               return found;
             });
+            if (rows === undefined) break;
             page = rows.length;
             from = rows.at(-1)?.prefix ?? from;
           }
@@ -1842,11 +1857,14 @@ class SqliteFileStore implements SqliteStore {
     return { checked, faults };
   }
 
-  /** A peer's count and change records against its row. False when the peer is gone. */
-  #fsckPeer(peer: PeerId, faults: IntegrityFault[]): boolean {
+  /**
+   * A peer's count and change records against its row. Answers the row's `origin`, or nothing
+   * when the peer is absent or marked.
+   */
+  #fsckPeer(peer: PeerId, faults: IntegrityFault[]): History | undefined {
     const s = this.#s;
     const row = this.#peerRow(peer);
-    if (row === undefined) return false;
+    if (row === undefined) return undefined;
     const { held } = s.fsckCount.get(peer) as { held: number };
     if (held !== row.count)
       faults.push({
@@ -1873,7 +1891,18 @@ class SqliteFileStore implements SqliteStore {
         detail: "sqlite store: the peer's root is not the root of its digest and its holdings",
       });
     if (top !== undefined) this.#fsckNode(peer, "", top, faults);
-    return true;
+    return row.origin;
+  }
+
+  /**
+   * The peer's row when it is still the live peer that the peer step of `fsck` read: not marked,
+   * and of the same `origin`. Each later step of the peer reads it first, in its own transaction,
+   * and checks nothing more of the peer without it (§4.13 reading 144). So a delete that marks
+   * the peer after the peer step, or a peer created again under the id, gives no fault.
+   */
+  #fsckSame(peer: PeerId, origin: History): PeerRow | undefined {
+    const row = this.#peerRow(peer);
+    return row?.origin === origin ? row : undefined;
   }
 
   /**
@@ -1912,15 +1941,17 @@ class SqliteFileStore implements SqliteStore {
 
   /**
    * One page of a peer's holdings, each against its claims, its arrival record and the peer's
-   * row. Answers the count and the last id of the page, or nothing when the peer is gone.
+   * row. Answers the count and the last id of the page, or nothing when the peer is not the one
+   * the peer step read.
    */
   #fsckHoldings(
     peer: PeerId,
+    origin: History,
     after: Id,
     faults: IntegrityFault[],
   ): { count: number; id: Id } | undefined {
     const s = this.#s;
-    const row = this.#peerRow(peer);
+    const row = this.#fsckSame(peer, origin);
     if (row === undefined) return undefined;
     const rows = s.fsckHoldings.all(peer, after, EXPORT_PAGE) as FsckRow[];
     for (const held of rows) {

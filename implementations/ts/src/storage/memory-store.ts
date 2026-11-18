@@ -357,7 +357,8 @@ class MemoryStore implements Store {
   #handle(state: PeerState): PeerStore {
     // After `close`, `history` and `appFormat` refuse `store-closed`, as on the SQLite store. A
     // handle names the state it was made for: after `deletePeer` every call refuses
-    // `peer-absent`, also when a `createPeer` of the id made a new peer (§4.13 reading 144).
+    // `peer-absent`, also when a `createPeer` of the id made a new peer (§4.13 reading 144). As on
+    // the SQLite store, a call checks `store-closed`, then the form of its request, then the peer.
     const live = (): PeerState => {
       this.#open();
       if (state.deleted) throw new StoreError("peer-absent", "the peer was deleted");
@@ -373,9 +374,19 @@ class MemoryStore implements Store {
         return live().appFormat;
       },
       read: async () => this.#snapshot(live()),
-      append: async (batch) => this.#append(live(), batch),
-      purge: async (ids) => this.#purge(live(), strings(ids, "purge: ids")),
-      changes: async (from, to) => this.#changes(live(), from, to),
+      append: async (batch) => {
+        this.#open();
+        return this.#append(live, batch);
+      },
+      purge: async (ids) => {
+        this.#open();
+        const asked = strings(ids, "purge: ids");
+        return this.#purge(live(), asked);
+      },
+      changes: async (from, to) => {
+        this.#open();
+        return this.#changes(live, from, to);
+      },
     };
   }
 
@@ -427,7 +438,7 @@ class MemoryStore implements Store {
    * The answer of `changes`. Cost O(records returned + ids returned): `from` finds its slot by
    * arithmetic, and the records are frozen when written, so they are handed out as they are.
    */
-  #changes(state: PeerState, from: unknown, to: unknown): ChangePage {
+  #changes(live: () => PeerState, from: unknown, to: unknown): ChangePage {
     const revision = (value: unknown, what: string): Revision => {
       if (!(Number.isSafeInteger(value) && (value as number) >= 0))
         throw new StoreError("invalid-request", `changes: ${what} must be an integer, 0 or more`);
@@ -440,6 +451,7 @@ class MemoryStore implements Store {
     // future answers `resync-required`, not this.
     if (upTo !== undefined && upTo < after)
       throw new StoreError("invalid-request", "changes: to must not be less than from");
+    const state = live();
     const feed = state.feed;
     const current = state.revision;
     if (after > current || after < feed.floor) return { status: "resync-required", current };
@@ -697,9 +709,10 @@ class MemoryStore implements Store {
     return { deltas, applied };
   }
 
-  #append(state: PeerState, batch: Admission): AppendResult {
+  #append(live: () => PeerState, batch: Admission): AppendResult {
     // Each field of the call is read once. A second read could give another value.
     const { expectedHead, nextHead, added } = takeAppend(batch);
+    const state = live();
     if (state.head !== expectedHead) return { status: "conflict" };
 
     // Validate the whole batch before the first write, so a refusal leaves nothing behind.

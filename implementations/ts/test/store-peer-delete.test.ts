@@ -188,7 +188,7 @@ describe.each(STORES)("peer delete on the %s store", (name, open, posture, claim
     expect((await store.openAdmin().fsck()).faults).toEqual([]);
   });
 
-  it("R4: after a delete and a createPeer of the id, every call of an old handle refuses peer-absent and changes nothing; a new handle answers every call", async () => {
+  it("R4: after a delete and a createPeer of the id, every call of an old handle with a well-formed request refuses peer-absent and changes nothing; a new handle answers every call", async () => {
     const store = await open();
     const a = await store.createPeer("peer:a", { erasure: posture });
     const b = await store.createPeer("peer:b", { erasure: posture });
@@ -309,6 +309,35 @@ describe.each(STORES)("peer delete on the %s store", (name, open, posture, claim
       expect(await code(() => store.deletePeer(bad as string))).toBe("invalid-request");
     await store.close();
     expect(await code(() => store.deletePeer(""))).toBe("store-closed");
+  });
+
+  it("a handle checks store-closed, then the form of its request, then the peer: a deleted peer's handle and a live peer's handle answer the same code for each malformed request, and a deleted peer's handle answers peer-absent for a well-formed one; after close, every call answers store-closed; the bystander reads back", async () => {
+    const store = await open();
+    const a = await store.createPeer("peer:a", { erasure: posture });
+    const b = await store.createPeer("peer:b", { erasure: posture });
+    const bystander = facts("order-b", 2);
+    await add(a, facts("order-a", 2));
+    await add(b, bystander);
+    const malformed = async (p: PeerStore): Promise<string[]> => [
+      await code(() => p.append(7 as never)),
+      await code(() => p.purge(7 as never)),
+      await code(() => p.changes(-1)),
+      await code(() => p.changes(3, 1)),
+    ];
+    const wanted = ["invalid-admission", "invalid-request", "invalid-request", "invalid-request"];
+    expect(await malformed(b)).toEqual(wanted);
+    await store.deletePeer("peer:a");
+    expect(await malformed(a)).toEqual(wanted);
+    expect([
+      await code(() => a.append({ expectedHead: null, nextHead: "h", frame: null, added: [] })),
+      await code(() => a.purge([])),
+      await code(() => a.changes(0)),
+      await code(() => a.changes(0, 1)),
+    ]).toEqual(Array(4).fill("peer-absent"));
+    await holds(b, bystander);
+    await store.close();
+    expect(await malformed(a)).toEqual(Array(4).fill("store-closed"));
+    expect(await malformed(b)).toEqual(Array(4).fill("store-closed"));
   });
 });
 

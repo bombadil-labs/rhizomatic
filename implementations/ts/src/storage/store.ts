@@ -252,12 +252,13 @@ export interface Store {
    * Deletes the peer: its holdings, its index entries, its change records, its debts and its
    * digest, then the peer itself (§4.13 reading 144). Bytes another peer holds stay. Refuses
    * `invalid-request` for an id that is not a non-empty, well-formed string, and `peer-absent`
-   * for a peer that does not exist. From the start of the delete, every call on the peer refuses
-   * `peer-absent` and every snapshot of it refuses `snapshot-moved`. A delete that did not end
-   * is finished by the next `deletePeer` of the id; until then `createPeer` of the id refuses
-   * `peer-exists`. A history is never issued again, so a peer created later under the id has a
-   * new one. It is another peer: a handle of the deleted peer refuses every call, and a host gets
-   * a new handle from `createPeer` or `peer`.
+   * for a peer that does not exist. From the start of the delete, every call on the peer with a
+   * well-formed request refuses `peer-absent`, and every snapshot of it refuses
+   * `snapshot-moved`. A call checks `store-closed`, then the form of its request, then the peer.
+   * A delete that did not end is finished by the next `deletePeer` of the id; until then
+   * `createPeer` of the id refuses `peer-exists`. A history is never issued again, so a peer
+   * created later under the id has a new one. It is another peer: a handle of the deleted peer
+   * refuses `peer-absent`, and a host gets a new handle from `createPeer` or `peer`.
    */
   deletePeer(id: PeerId): Promise<DeleteReport>;
   /** Whole-store operations. Never hand this to the serving path. */
