@@ -296,7 +296,8 @@ A snapshot has a `revision`, the peer's `history`, a `head`, a `count` (how many
 peer holds), a `lastSequence` (the highest arrival sequence the peer had admitted, 0 before
 the first; SPEC-18 §4.13 reading 131) and a `lastTransfer` (the highest transfer ordinal of a new
 holding the peer had committed, 0 before the first; reading 135). All six are fixed when it is
-read.
+read. A store with the `digest` capability also has a `root`, fixed when it is read, and the
+strict call `digest(prefix)` (§12).
 
 | Operation | Answer |
 |---|---|
@@ -420,7 +421,9 @@ A store whose `formatVersion` equals the file's `reference.formatVersion`
 rules below. Its profile in slice 1 is: `values`, `journal`, `views`, `derivedIndexes`, `digest`
 false; `arrival` true; erasure `unprovable`; every pushdown field true; `writers: one-process`;
 `atRest: trusted`; `indexedValueRoles` empty. From slice 3 its `changeRetention` is `unbounded`,
-or `{revisions: n}` when it is built to keep only n records (§3.9).
+or `{revisions: n}` when it is built to keep only n records (§3.9). From slice 4 its `digest` is
+true: step 4d in TypeScript, step 4e in Rust (§12). No reference rule of a runner reads `digest`;
+only the requirement `digest` of the cases of §12 reads it.
 
 A memory reference store may be built with any subset of the three pushdown fields switched off.
 It then ignores those fields and reports them not applied. **Each witness runs both files against
@@ -1646,8 +1649,18 @@ The table covers at least:
   that is negative and one that is fractional (documents); a `changes` step that expects
   `resync-required` where `ok` is right (a document; it reaches
   `changes answered ok from <from>, and the step expects resync-required`).
+- **The digest runner** (§12): a root that is not the set's; a snapshot's root read at the
+  call; a `digest("")` that is not the root's node; a digest call that answers where it must
+  refuse `snapshot-moved`, one that refuses after a head-only append, and one that refuses
+  with another code; a prefix below a leaf that answers the empty node; a digest call that
+  answers an integrity fault; a prefix that is not lowercase hex, answered. Documents: an
+  unknown `format`, a tree node that is not the reference's, a tree whose first node is not its
+  root, a delta id that does not recompute, an unknown requirement and an unknown step. A store
+  whose profile lacks `digest` passes every tree and skips every case.
 - **Rows in one witness only.** Each witness names, in its rule-table file, the rows it cannot
   build and why:
+  - TypeScript has no row of the digest runner yet. Its tests hold the runner on both its
+    stores and the skip of a store without `digest`; Rust holds each line with a row.
   - Rust has no row for exact keys (§3.9.3), for a page that is neither `ok` nor
     `resync-required` (§3.9.5, check 3), or for the store that hands out its live records or
     live id lists (check 14). Its `ChangeRecord` and `ChangePage` types have exactly the
@@ -3080,6 +3093,10 @@ A peer is created, with posture `unproven`, the first time a step names it.
 - On a durable store: the digest rows and the root change in the transaction of the append or
   the purge; a reopen keeps them; `fsck` reports `digest-mismatch` for a damaged node, a damaged
   root and a lost node; two writing processes leave the reference's root.
-- The Rust witness runs this file in step 4e (slice 4 plan). Until then its stores declare no
-  `digest` capability, and its test of this file checks that every case requires `digest`.
+- `fsck` reports `digest-mismatch` for a damaged node, a damaged root, a lost node and a stray
+  row on the memory store too, and a damaged count does not stop a purge.
+- Each witness runs this file on its memory store, every tree and every case, none skipped.
+  Rust does since step 4e; it has no durable store yet.
+- The runner of each witness has a wrong store for each line of §12.3 that judges an answer,
+  and a wrong document for each line that judges the file (§8).
 

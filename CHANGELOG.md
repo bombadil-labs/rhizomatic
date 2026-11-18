@@ -292,6 +292,21 @@ Step 4d adds more, listed under Breaking.
   `the store broke <rule>: `, as it fails a check. No shared vector holds the rule: no
   conforming store answers a malformed member. A wrong-store row in each witness holds it for
   a capture and for a hold. What a purge removes does not change.
+- Step 4e: the Rust memory store keeps the holdings digest (§4.13 readings 139 to 141). The new
+  module `store_digest` has TypeScript's tree, hashes and update rule, `DigestNode`,
+  `DIGEST_LEAF`, `empty_digest` and the reference `digest_of`. `Snapshot::root()` is fixed at
+  read. `Snapshot::digest(prefix)` is strict: it refuses `snapshot-moved` after an append that
+  adds an id and after a purge that releases one, and answers after a head-only append and a
+  purge that releases nothing. An append and a purge move the digest along the path of each
+  changed id, at most 24 lookups per level on average. The memory profile says `digest: true`.
+  `fsck` reports `digest-mismatch` for a damaged, lost or stray node and for a damaged root,
+  after the change records of each peer. `store_conformance::run_digest_conformance` runs
+  `vectors/store/digest.json`; the memory store passes its 12 trees and 6 cases. The Rust runner
+  table has a wrong store or a wrong document for each line of the digest runner. What a purge
+  removes does not change.
+- Follow-ups of the review of #120: TypeScript tests hold a malformed `scope` member through
+  `StoreReactor.read`, `StoreReactor.fetch`, `captureScope`, a hold and a refresh; a Rust test
+  holds each arm of `From<FeedError> for StoreReadError`.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
@@ -378,6 +393,14 @@ Step 4d adds more, listed under Breaking.
 - **The memory store's `fsck` names an arrival record that names another id with key
   `holding.arrival`, as the SQLite store does.** It used `arrival`. A host that matched the key
   must change its match.
+- **Rust `Snapshot` has two new required methods, `root` and `digest`.** A Rust
+  `impl Snapshot` that wraps a store's snapshot passes both through. One with no digest answers
+  `root` `None` and refuses `digest` with `capability-absent`. `digest` returns
+  `Result<DigestNode, StoreFailure>`, so a durable store can answer damage in its digest.
+- **The Rust memory store's profile says `digest: true`.** A Rust host that required its
+  absence, or compared the whole profile, must change its check.
+- **The Rust memory `fsck` reports a new kind, `digest-mismatch`.** A host that expected no
+  fault of that kind, or matched the list of faults, must allow it.
 
 ## 0.11.0-next.11 — 2026-11-16
 
