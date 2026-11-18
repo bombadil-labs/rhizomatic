@@ -280,6 +280,7 @@ function connection(path: string, ...args: string[]) {
   const find = (head: string) => lines.find((text) => text.startsWith(`${head} ${proc.pid}`));
   return {
     printed: (head: string) => find(head) !== undefined,
+    closed: () => closed,
     line: async (head: string): Promise<string> => {
       for (;;) {
         const found = find(head);
@@ -309,6 +310,7 @@ async function busyCheckpoint(path: string) {
       while (!checkpoint.printed("done")) {
         const [row] = probe.pragma("wal_checkpoint(PASSIVE)") as { log: number }[];
         if (row!.log === -1) return { writer, checkpoint };
+        if (checkpoint.closed()) await checkpoint.line("done");
         await new Promise((done) => setTimeout(done, 5));
       }
     }

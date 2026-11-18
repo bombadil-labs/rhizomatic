@@ -2180,7 +2180,7 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
 111. **A busy log** (slice 4, step 4b). `wal_checkpoint(TRUNCATE)` answers a row and does not
      throw. The store reads it: anything but `busy = 0` and `log = 0` is a failed truncate. A
      busy answer with `log = -1` is first tried again, for one `busyTimeoutMs` at most (reading
-     143). Then
+     143). After a failed truncate
      the old pages are still in the database file, not only in the log, so every file surface is
      `owed`, `rows` and `index-entries` included. A reader in another process causes this; the
      store's own snapshots hold no transaction (decision S4-2). A `VACUUM` or a checkpoint that
@@ -2835,8 +2835,11 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      - what stays possible: a checkpoint of another connection that stays busy past the bound.
        The purge then answers without the proof: every file surface `owed`, and a record for each
        `removed` target. The next ask can prove (reading 107);
-     - the cost: the pauses block the thread, at most 5 ms each and one `busyTimeoutMs` in all,
-       as the engine's busy handler does.
+     - the cost: the pauses block the thread, at most 5 ms each and one `busyTimeoutMs` in all
+       for one truncate, as the engine's busy handler does. The last try can then wait one more
+       `busyTimeoutMs` under the busy handler, so one truncate takes about two at most. One purge
+       runs three truncates at most (reading 119), so its truncates take about six
+       `busyTimeoutMs` at most. Before, they took about three.
      Rails: another process is in a checkpoint that waits for a third process's write lock. A
      purge held just after its `VACUUM` is let go, meets the busy checkpoint, and answers `proven`
      once the checkpoint ends. The earlier code answered `unproven` there in 5 of 5 runs. With a
