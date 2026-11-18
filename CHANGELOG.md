@@ -220,6 +220,16 @@ Step 4d adds more, listed under Breaking.
   query. `AdmissionOptions` has no `Default`. Each runner's rule table now also has an opened
   handle whose `appFormat` refuses on an open store (finding N1 of the #110 review). What a purge
   removes does not change.
+- Step 4e: Rust reads several times at one revision (§4.13 readings 127 to 129).
+  `store_with_snapshot::with_snapshot(peer, body, &retry)` has the rules of TypeScript's
+  `withSnapshot`. It answers `OnSnapshot {value, attempts}`. `SnapshotRetry {snapshots,
+  within_ms, clock}` bounds it: 1 to 16 snapshots (default 4), and with `within_ms` and the
+  host's `clock` no new snapshot after that many ms. A body's error type implements the new
+  trait `StoreRefusal`; only the code `snapshot-moved` starts the body again. A clock reading
+  that is not finite, or below the first, is refused `invalid-request`. A panic of the clock
+  passes up after the snapshot is released. `StoreReactor::read` and `fetch`, `check_fresh`, a
+  feed pull and a pass of held views now call it, with the same behavior as before.
+  `SNAPSHOT_RETRIES` moves to `store_with_snapshot`. What a purge removes does not change.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
@@ -246,6 +256,9 @@ Step 4d adds more, listed under Breaking.
 - **Rust `PeerStore` has a new method, `app_format`, and `history` returns
   `Result<&str, StoreError>`.** A Rust `impl PeerStore` must add `app_format` and pass both
   through. A Rust caller of `history` handles the `store-closed` refusal.
+- **Rust `store_read::SNAPSHOT_RETRIES` is now `store_with_snapshot::SNAPSHOT_RETRIES`.** The
+  value is still 3. `rhizomatic::SNAPSHOT_RETRIES` still names it. A Rust caller that used the
+  module path changes the path.
 - **`admissionOf` has no `transfer` option.** It numbers the transfer itself. Drop the field. The
   option shipped in no release.
 - **A body no longer runs again after its own append.** A `withSnapshot` body, a held-views pass

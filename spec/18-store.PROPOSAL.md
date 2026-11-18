@@ -2442,7 +2442,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `body` gets 2. `StoreReactor.read` and `fetch`, `checkFresh`, a pull of a
      feed cursor and a pass of held views are this function with the default bound; their
      behavior did not change. It is a reader over the contract: a store implements nothing for
-     it. Rust gets `with_snapshot` in step 4e. Since step 4d an append does not move a snapshot
+     it. Step 4e gave Rust `with_snapshot(peer, body, &retry)` with the same rules; a body's
+     error type tells its refusal code through the trait `StoreRefusal`, and `SnapshotRetry`
+     names the bound in time `within_ms`. Since step 4d an append does not move a snapshot
      of the TypeScript stores (reading 130), so `body` starts again there only after a purge
      that released a holding, a new history, or a peer row at a lower revision.
 128. **What starts again, and the bound.** Only `snapshot-moved` starts `body` again, also one
