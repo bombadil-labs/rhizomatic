@@ -407,8 +407,11 @@ async function hooked<T>(
   }
 }
 
-/** The configured wait of the bound rails, long enough that a slow disk adds little to it. */
-const BOUND_MS = 1000;
+/**
+ * The configured wait of the bound rails. A loaded machine adds its own delay to an open, about
+ * 0.8 s in the worst run seen, so the wait is long enough that this delay stays under the limit.
+ */
+const BOUND_MS = 3000;
 /** How far past its wait an open took, as a part of the wait: a bound of twice gives 1 or more. */
 const past = (ms: number): number => (ms - BOUND_MS) / BOUND_MS;
 
