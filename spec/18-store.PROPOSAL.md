@@ -1148,9 +1148,10 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
 6. **The scope bounds** use the applied selection for the upper bound (§4.3). The first draft's
    upper bound, `S(A over H)`, let a store report a field applied and still return members that
    fail it; the trim lemma is false for such a store.
-7. **A moved snapshot** refuses with `snapshot-moved` on the Rust memory store. A store with read
-   transactions answers at the snapshot's revision instead, and so do the TypeScript stores
-   after appends (§4.13 reading 130). Both conform; answering from the later state does not. A
+7. **A moved snapshot** may refuse with `snapshot-moved`. A store with read transactions
+   answers at the snapshot's revision instead. After appends, the TypeScript stores answer so,
+   and since step 4e the Rust memory store does too (§4.13 reading 130). Before step 4e the
+   Rust memory store refused. Both conform; answering from the later state does not. A
    snapshot older than a purge that released a holding must refuse (amended in slice 4, step
    4d). `head` and `count` are fixed at read and never refuse.
 8. **Removal** has one path, `purge` (§4.5).
@@ -2517,9 +2518,11 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      row alone; a host that restores in place passes `restored` (reading 123). The shared
      contract is tightened with it: a snapshot older than a purge that released a holding must
      refuse, and the vector `a-snapshot-across-a-purge` expects `snapshot-moved` there, not an
-     answer. The Rust memory store refuses after any advance, so the store conforms unchanged;
-     the Rust runner's rule table gains the refusal text that this vector now gives. The store
-     becomes tolerant in step 4e.
+     answer. At step 4d the Rust memory store refused after any advance, so the store conformed
+     unchanged; the Rust runner's rule table gained the refusal text that this vector gives.
+     In step 4e the Rust memory store takes the same rule: it answers after appends at the
+     snapshot's revision, and it refuses when a purge released a holding after the snapshot.
+     A memory reference store that refuses after appends alone fails the runner.
 131. **The bound and `lastSequence`** (slice 4, step 4d). `Snapshot.lastSequence` is the highest
      arrival sequence the peer had admitted at the snapshot's revision, 0 before the first. It
      is fixed when the snapshot is read and never refuses, as `revision`, `history`, `head` and
@@ -2596,8 +2599,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `peer.max_transfer`, written in the append's transaction. This column, and the check on
      `peer.app_format` (reading 134), raise the format to `rhizomatic-store-sqlite/5`. Open
      refuses a `/1` to `/4` file with `open-failed` and names both formats. No migration ships.
-     The shared vectors do not yet hold a case of this rule; they and the Rust stores take it in
-     step 4e.
+     At step 4d the shared vectors held no case of this rule. Since step 4e the script
+     `a-transfer-must-pass-the-peers-last` holds it, every `read` step carries
+     `expect.lastTransfer`, and the Rust memory store keeps the same rule.
 136. **The integrity fault** (slice 4, step 4d, gap G6). A read that meets a stored row that is
      wrong throws `StoreIntegrityError`, whose `fault` is one `IntegrityFault = {kind, peer?, id?,
      key?, detail}`. Before, it threw a plain `Error`. It is a third kind of failure: a refusal

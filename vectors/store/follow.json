@@ -785,6 +785,9 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed"
             ]
           }
         },
@@ -1037,6 +1040,9 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed"
             ]
           }
         },
@@ -1178,6 +1184,9 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed"
             ]
           }
         },
@@ -1322,6 +1331,9 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed"
             ]
           }
         },
@@ -1508,6 +1520,9 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed"
             ]
           }
         },
@@ -1597,6 +1612,9 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed"
             ]
           }
         },
@@ -1814,6 +1832,10 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed",
+              "purge-debt"
             ]
           }
         },
@@ -1862,6 +1884,10 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed",
+              "purge-debt"
             ]
           }
         },
@@ -1896,6 +1922,9 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed"
             ]
           }
         },
@@ -2131,6 +2160,10 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed",
+              "purge-debt"
             ]
           }
         },
@@ -2781,6 +2814,9 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed"
             ]
           }
         },
@@ -2824,6 +2860,9 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed"
             ]
           }
         },
@@ -3001,6 +3040,9 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed"
             ]
           }
         },
@@ -3078,6 +3120,9 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed"
             ]
           }
         },
@@ -3493,6 +3538,9 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed"
             ]
           }
         },
@@ -3697,6 +3745,9 @@
                 "surface": "process-memory",
                 "state": "unprovable"
               }
+            ],
+            "retains": [
+              "change-feed"
             ]
           }
         },

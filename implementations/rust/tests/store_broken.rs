@@ -185,6 +185,12 @@ impl Snapshot for FaultySnapshot {
     fn count(&self) -> u64 {
         self.inner.count()
     }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.inner.get(ids)
     }
@@ -333,7 +339,7 @@ fn failed(fault: Fault, reasons: &[&str]) -> Vec<String> {
 
 #[test]
 fn a_faithful_store_that_is_not_the_reference_passes() {
-    assert_eq!(run(Fault::None).unwrap(), 25 + 15);
+    assert_eq!(run(Fault::None).unwrap(), 26 + 15);
 }
 
 #[test]
@@ -451,6 +457,7 @@ fn a_store_that_replaces_an_arrival_record_fails_idempotence() {
         names,
         [
             "scripts/duplicates-add-nothing",
+            "scripts/a-transfer-must-pass-the-peers-last",
             "scripts/a-skipped-entry-spends-no-sequence",
             "scripts/the-first-appearance-is-kept",
             "scripts/append-checks-before-and-after-the-head",
@@ -465,6 +472,7 @@ fn a_store_that_reports_held_ids_as_added_fails_idempotence() {
         names,
         [
             "scripts/duplicates-add-nothing",
+            "scripts/a-transfer-must-pass-the-peers-last",
             "scripts/a-skipped-entry-spends-no-sequence",
             "scripts/the-first-appearance-is-kept",
             "scripts/append-checks-before-and-after-the-head",
@@ -492,6 +500,7 @@ fn a_store_that_claims_proof_it_cannot_give_fails_every_purge() {
             "scripts/a-snapshot-across-a-purge",
             "scripts/the-last-sequence-survives-a-purge",
             "scripts/the-last-sequence-survives-an-empty-peer",
+            "scripts/a-transfer-must-pass-the-peers-last",
             "scripts/feed-purge-and-debts",
             "scripts/feed-a-debt-ends-on-append",
         ]

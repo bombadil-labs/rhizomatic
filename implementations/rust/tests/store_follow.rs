@@ -887,7 +887,7 @@ impl Writer {
                         id: delta.id.clone(),
                         at: self.last as f64,
                         sequence: self.last,
-                        transfer: 1,
+                        transfer: self.last,
                         sender: "local".into(),
                     },
                 }
@@ -928,7 +928,8 @@ type PageFn = Box<dyn Fn(Revision, Option<Revision>) -> ChangePage>;
 struct Probe<'a> {
     inner: &'a dyn PeerStore,
     calls: Rc<RefCell<Vec<String>>>,
-    /// Commits during `changes`, one batch per call, while any remain.
+    /// Commits during `changes`, one batch per call, while any remain, then moves the peer by a
+    /// purge.
     moves: RefCell<Vec<Vec<Delta>>>,
     writer: RefCell<Writer>,
     /// Answers `changes` with this instead of asking the store.
@@ -998,7 +999,10 @@ impl PeerStore for Probe<'_> {
         };
         let next = self.moves.borrow_mut().pop();
         if let Some(deltas) = next {
-            self.writer.borrow_mut().append(self.inner, &deltas);
+            let mut writer = self.writer.borrow_mut();
+            writer.append(self.inner, &deltas);
+            crate::move_snapshot::move_by_purge(self.inner);
+            writer.last += 1;
         }
         page
     }
@@ -1028,6 +1032,12 @@ impl Snapshot for ProbeSnapshot {
     }
     fn count(&self) -> u64 {
         self.inner.count()
+    }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.log("get");
@@ -1293,7 +1303,7 @@ fn an_extra_id_in_get_and_arrivals_is_a_store_fault() {
                 id: extra.id.clone(),
                 at: 1.0,
                 sequence: 9,
-                transfer: 1,
+                transfer: 9,
                 sender: "local".into(),
             },
             delta: extra,
@@ -1859,7 +1869,7 @@ fn arrival(delta: &Delta, sequence: u64) -> VerifiedDelta {
             id: delta.id.clone(),
             at: sequence as f64,
             sequence,
-            transfer: 1,
+            transfer: sequence,
             sender: "local".into(),
         },
     }

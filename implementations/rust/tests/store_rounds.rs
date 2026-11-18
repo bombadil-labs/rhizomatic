@@ -667,6 +667,12 @@ impl Snapshot for Tracing {
     fn count(&self) -> u64 {
         self.inner.count()
     }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.note("get", ids.len(), 0);
         self.inner.get(ids)
@@ -772,6 +778,12 @@ impl Snapshot for Double {
     }
     fn count(&self) -> u64 {
         self.inner.count()
+    }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.inner.get(ids)
@@ -1513,6 +1525,9 @@ fn a_change_between_rounds_answers_snapshot_moved_or_the_old_answer() {
     {
         let name = &format!("{}/{memo:?}", c.case.name);
         let last = c.after_round == c.before.rounds.len();
+        // The memory store answers after an append as at the snapshot's revision, and refuses
+        // once a purge released a holding and a store call follows (§4.13 reading 130).
+        let answers = last || !c.change.is_purge();
 
         // One snapshot: snapshot-moved, or `before` at the snapshot's revision.
         let store = MemoryStore::new();
@@ -1537,8 +1552,8 @@ fn a_change_between_rounds_answers_snapshot_moved_or_the_old_answer() {
         match outcome {
             Ok(read) => {
                 assert!(
-                    last,
-                    "{name}: the memory store refuses a call after the change"
+                    answers,
+                    "{name}: the memory store refuses a call after a purge"
                 );
                 assert_eq!(read.revision, start);
                 check(
@@ -1551,7 +1566,7 @@ fn a_change_between_rounds_answers_snapshot_moved_or_the_old_answer() {
                 assert_eq!(seen, read.rounds, "{name}: the hook saw every round");
             }
             Err(err) => {
-                assert!(!last, "{name}: {err}");
+                assert!(!answers, "{name}: {err}");
                 assert_eq!(
                     err.store_code(),
                     Some(StoreErrorCode::SnapshotMoved),
@@ -1598,7 +1613,7 @@ fn a_change_between_rounds_answers_snapshot_moved_or_the_old_answer() {
             &c.after,
         )
         .unwrap_or_else(|why| panic!("{name}/reactor: {why}"));
-        assert_eq!(read.snapshots, if last { 1 } else { 2 }, "{name}");
+        assert_eq!(read.snapshots, if answers { 1 } else { 2 }, "{name}");
         let releases = trace.borrow().iter().filter(|c| c.op == "release").count();
         assert_eq!(
             (reads.get(), releases),
@@ -1698,6 +1713,12 @@ impl Snapshot for Released {
     }
     fn count(&self) -> u64 {
         self.inner.count()
+    }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.inner.get(ids)
@@ -1824,6 +1845,12 @@ impl Snapshot for Restamped {
     }
     fn count(&self) -> u64 {
         self.inner.count()
+    }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.inner.get(ids)
@@ -2135,9 +2162,11 @@ fn a_reader_that_goes_on_mid_read_on_a_new_snapshot_answers_neither() {
         let peer = fx.load(&store);
         let writer = store.peer(fx.peer_id()).unwrap();
         let snapshot = peer.read().unwrap();
+        // The purge after the append moves the snapshot (§4.13 reading 130).
         let mut hook = |round: usize| {
             if round == c.after_round {
                 c.change.apply(writer.as_ref());
+                crate::move_snapshot::move_by_purge(writer.as_ref());
             }
         };
         // On `snapshot-moved` it takes a new snapshot and goes on with what it holds.
@@ -2162,8 +2191,9 @@ fn a_reader_that_goes_on_mid_read_on_a_new_snapshot_answers_neither() {
 }
 
 /// A wrapper that starts again on a new snapshot but keeps its old cache (README §5.8; SPEC-18
-/// §4.12 reading 11). Under appends alone it answers `after`, because everything it kept is still
-/// held. After the purge it answers `before` at the later revision, and the wrapper rule fails it.
+/// §4.12 reading 11). A purge of a sacrificial delta follows each change, so the snapshot moves.
+/// Under appends alone it answers `after`, because everything it kept is still held. After the
+/// purge it answers `before` at the later revision, and the wrapper rule fails it.
 #[test]
 fn a_wrapper_that_keeps_its_cache_when_it_starts_again_fails_the_purge_case() {
     let fx = fixture();
@@ -2179,6 +2209,7 @@ fn a_wrapper_that_keeps_its_cache_when_it_starts_again_fails_the_purge_case() {
             if round == c.after_round && !changed {
                 changed = true;
                 c.change.apply(writer.as_ref());
+                crate::move_snapshot::move_by_purge(writer.as_ref());
             }
         };
         let mut cache = ScopeSource::default();
@@ -2281,7 +2312,7 @@ fn loaded_beside(fx: &Fixture, noise: usize) -> (MemoryStore, Box<dyn PeerStore>
                             id: delta.id.clone(),
                             at: 9000.0,
                             sequence,
-                            transfer: 9,
+                            transfer: sequence,
                             sender: "noise".into(),
                         },
                         delta,
@@ -2778,8 +2809,9 @@ fn a_memo_kept_across_two_reads_fails_a_case_with_another_selection() {
 }
 
 /// A wrapper that starts again on `snapshot-moved` with a new cache but keeps its memo (README
-/// §5.8; SPEC-18 §4.12 reading 25). After round 3 the memo holds `Leaf` at `cutting:1`, and the
-/// append strikes `c1-height` there, so the second attempt answers neither. Round 1 finishes no
+/// §5.8; SPEC-18 §4.12 reading 25). A purge of a sacrificial delta follows each change, so the
+/// snapshot moves. After round 3 the memo holds `Leaf` at `cutting:1`, and the append strikes
+/// `c1-height` there, so the second attempt answers neither. Round 1 finishes no
 /// child, so the cases that change the peer after round 1 answer right.
 #[test]
 fn a_wrapper_that_keeps_its_memo_when_it_starts_again_fails_the_third_round_append() {
@@ -2795,6 +2827,7 @@ fn a_wrapper_that_keeps_its_memo_when_it_starts_again_fails_the_third_round_appe
             if r.round == c.after_round && !changed {
                 changed = true;
                 c.change.apply(writer.as_ref());
+                crate::move_snapshot::move_by_purge(writer.as_ref());
             }
         };
         let mut memo = FinalChildMemo::new();
