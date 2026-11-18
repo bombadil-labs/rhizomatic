@@ -21,10 +21,10 @@ use crate::store::{
     negated_ids, signature_form, target_entities, Admission, Anchor, AppendResult, ArrivalRecord,
     AtRest, ChangePage, ChangeRecord, ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture,
     Exporter, Listing, PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport,
-    PurgeSurface, PurgeTarget, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult,
-    Snapshot, Store, StoreCapabilities, StoreError, StoreErrorCode, StoreProfile, StoreWriters,
-    SurfaceState, VerifiedDelta, LOCAL_HISTORY_PREFIX, MAX_ARRIVAL_COUNTER, MAX_REVISION,
-    PURGE_BOUNDARY,
+    PurgeSurface, PurgeTarget, Pushdown, PushdownFields, Retained, RetainedSurface, Revision,
+    ScopeRequest, ScopeResult, Snapshot, Store, StoreCapabilities, StoreError, StoreErrorCode,
+    StoreProfile, StoreWriters, SurfaceState, VerifiedDelta, LOCAL_HISTORY_PREFIX,
+    MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
 };
 use crate::types::{Claims, Delta};
 
@@ -190,6 +190,9 @@ struct State {
     meter: StoreMeter,
     stored: Index<Stored>,
     peers: Index<PeerState>,
+    /// How many peers owe each id: a purge report names `purge-debt` from it (§4.13 reading
+    /// 108), without a walk of the peers.
+    debtors: Index<u64>,
     mint: Option<HistoryMint>,
     /// Every history this store has issued, kept after its peer is gone: none is issued twice.
     issued: BTreeSet<String>,
@@ -226,6 +229,16 @@ fn local_history() -> String {
     format!("{LOCAL_HISTORY_PREFIX}{}", *next)
 }
 
+/// One peer fewer owes `id`.
+fn settle(debtors: &mut Index<u64>, meter: &mut StoreMeter, id: &str) {
+    match debtors.get(meter, id).copied() {
+        Some(owing) if owing > 1 => debtors.insert(meter, id.to_string(), owing - 1),
+        _ => {
+            debtors.remove(meter, id);
+        }
+    }
+}
+
 fn refuse<T>(code: StoreErrorCode, message: impl Into<String>) -> Result<T, StoreError> {
     Err(StoreError::new(code, message))
 }
@@ -260,6 +273,7 @@ impl State {
             meter,
             stored,
             peers,
+            debtors,
             retention,
             ..
         } = self;
@@ -350,7 +364,9 @@ impl State {
             for negated in negated_ids(&delta.claims) {
                 peer.negators.add_member(meter, negated, id);
             }
-            peer.debts.remove(meter, id);
+            if peer.debts.remove(meter, id).is_some() {
+                settle(debtors, meter, id);
+            }
         }
         if let Some(last) = sequences.last() {
             peer.last_sequence = *last;
@@ -384,6 +400,7 @@ impl State {
             meter,
             stored,
             peers,
+            debtors,
             retention,
             ..
         } = self;
@@ -415,6 +432,8 @@ impl State {
                     PurgeOutcome::Removed
                 } else {
                     peer.debts.insert(meter, id.to_string(), ());
+                    let owing = debtors.get(meter, id).copied().unwrap_or(0);
+                    debtors.insert(meter, id.to_string(), owing + 1);
                     PurgeOutcome::HeldByOtherPeer
                 }
             } else if !peer.debts.contains(meter, id) {
@@ -423,6 +442,7 @@ impl State {
                 PurgeOutcome::HeldByOtherPeer
             } else {
                 peer.debts.remove(meter, id);
+                settle(debtors, meter, id);
                 PurgeOutcome::Removed
             };
             targets.push(PurgeTarget {
@@ -444,6 +464,9 @@ impl State {
             );
         }
         let removed = targets.iter().any(|t| t.outcome == PurgeOutcome::Removed);
+        let owed = targets
+            .iter()
+            .any(|t| t.outcome != PurgeOutcome::NotHeld && debtors.contains(meter, &t.id));
         let surface = |surface: &str, state| PurgeSurface {
             surface: surface.to_string(),
             state,
@@ -465,6 +488,11 @@ impl State {
                 surface("index-entries", SurfaceState::Absent),
                 surface("process-memory", SurfaceState::Unprovable),
             ],
+            // This store always keeps a feed. A target the peer did not hold adds nothing.
+            retains: std::iter::once(RetainedSurface::ChangeFeed)
+                .chain(owed.then_some(RetainedSurface::PurgeDebt))
+                .map(|surface| Retained { surface })
+                .collect(),
         })
     }
 
@@ -753,6 +781,7 @@ impl MemoryStore {
                 meter: StoreMeter::default(),
                 stored: Index::new(),
                 peers: Index::new(),
+                debtors: Index::new(),
                 mint: None,
                 issued: BTreeSet::new(),
             })),

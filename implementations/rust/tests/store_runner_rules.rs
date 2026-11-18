@@ -17,6 +17,8 @@
 //!
 //! - **A surface state outside the three.** `SurfaceState` is an enum of three values, so no
 //!   store can report a fourth.
+//! - **A `retains` entry with another name, or one that holds more than the id.**
+//!   `RetainedSurface` has three values, and `Retained::holds` always answers `id`.
 //! - **The trim comparison against a wrong store.** The runner takes the held deltas of a scope
 //!   case from its own bookkeeping, not from `get`. With held deltas fixed, the case's lower and
 //!   upper bounds imply the trim lemma for any answer, so no store can fail the trim comparison
@@ -32,11 +34,11 @@ use std::rc::Rc;
 
 use rhizomatic::memory_store::{MemoryStore, MEMORY_STORE_FORMAT};
 use rhizomatic::store::{
-    target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ErasureClaim,
-    ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter, PeerStore,
-    PurgeOutcome, PurgeReport, PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot,
-    Store, StoreError, StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta,
-    MAX_ARRIVAL_COUNTER,
+    target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ChangeRetention,
+    ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter,
+    PeerStore, PurgeOutcome, PurgeReport, PushdownFields, Retained, RetainedSurface, Revision,
+    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
+    SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER,
 };
 use rhizomatic::store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceReport,
@@ -91,6 +93,11 @@ enum Wrong {
     ProvenWithoutSurface,
     ProvenNotAbsent,
     ReferenceSurfaces,
+    RetainsOmitsDebt,
+    RetainsTwice,
+    RetainsMore,
+    /// Right, not wrong: the profile serves no feed, and `retains` never names it.
+    NoFeed,
     // The bookkeeping.
     HoldsLastOfBatch,
     ServesPurged,
@@ -252,6 +259,9 @@ impl Rig {
         profile.pushdown = MemoryStore::new().profile().pushdown;
         if !setup.reference {
             profile.format_version = "rhizomatic.test.wrong/1".into();
+        }
+        if wrong == Wrong::NoFeed {
+            profile.change_retention = ChangeRetention::None;
         }
         assert_eq!(
             profile.format_version == MEMORY_STORE_FORMAT,
@@ -626,6 +636,18 @@ impl PeerStore for RigPeer {
             Wrong::ReferenceSurfaces => {
                 report.surfaces.pop();
             }
+            Wrong::RetainsOmitsDebt => report
+                .retains
+                .retain(|r| r.surface != RetainedSurface::PurgeDebt),
+            Wrong::RetainsTwice => report.retains.push(Retained {
+                surface: RetainedSurface::ChangeFeed,
+            }),
+            Wrong::RetainsMore => report.retains.push(Retained {
+                surface: RetainedSurface::SurfaceDebt,
+            }),
+            Wrong::NoFeed => report
+                .retains
+                .retain(|r| r.surface != RetainedSurface::ChangeFeed),
             _ => {}
         }
         Ok(report)
@@ -1079,6 +1101,16 @@ fn a_claim_with_another_key(vectors: &mut StoreVectors) {
     }
 }
 
+/// A first purge step whose `retains` names a surface that is not one of the three.
+fn a_retains_with_another_name(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        let steps = script["steps"].as_array_mut().unwrap();
+        if let Some(purge) = steps.iter_mut().find(|step| step["op"] == "purge") {
+            purge["expect"]["retains"] = serde_json::json!(["change-feed", "bytes"]);
+        }
+    }
+}
+
 /// A `claim` without its `proven` key; the runner of an unprovable store never reads that key.
 fn a_claim_without_a_key(vectors: &mut StoreVectors) {
     for claim in first_claims(vectors) {
@@ -1462,6 +1494,27 @@ const TABLE: &[Row] = &[
         W::ReferenceSurfaces,
         REFERENCE,
         &["reference surfaces: expected"],
+        S,
+    ),
+    row(
+        "purge: retains omits purge-debt",
+        W::RetainsOmitsDebt,
+        PLAIN,
+        &["purge retains: the report omits purge-debt"],
+        S,
+    ),
+    row(
+        "purge: retains names a surface twice, out of order",
+        W::RetainsTwice,
+        PLAIN,
+        &["is not in the order change-feed, purge-debt, surface-debt, each once"],
+        S,
+    ),
+    row(
+        "purge: the reference retains",
+        W::RetainsMore,
+        REFERENCE,
+        &["purge retains: expected "],
         S,
     ),
     // The bookkeeping (§3.3).
@@ -1848,6 +1901,13 @@ const TABLE: &[Row] = &[
         &["scripts"],
     ),
     doc_row(
+        "documents: a purge retains with another name",
+        W::Nothing,
+        a_retains_with_another_name,
+        &["purge: the document's `retains` is not a list of retained surfaces"],
+        &["scripts"],
+    ),
+    doc_row(
         "documents: an unknown script requirement",
         W::Nothing,
         an_unknown_requirement,
@@ -1982,6 +2042,7 @@ fn the_same_answers_conform_where_no_rule_forbids_them() {
         (W::ReferenceIgnoresExclude, PLAIN),
         (W::ReferenceIgnoresExcludeUnpushed, PLAIN),
         (W::ReferenceSurfaces, PLAIN),
+        (W::RetainsMore, PLAIN),
     ];
     for (wrong, setup) in controls {
         let report = run_with(wrong, setup, &vectors)
@@ -2057,6 +2118,32 @@ fn a_class_none_store_skips_the_purge_scripts() {
         .failures
         .iter()
         .all(|f| f.message.contains("purge refused `capability-absent`")));
+}
+
+/// README §3.4: a store whose profile serves no feed is not asked to name `change-feed` in
+/// `retains`. It skips the scripts that require `changes` and passes the others, also as the
+/// reference store.
+#[test]
+fn a_store_without_a_feed_is_not_asked_for_the_feed_in_retains() {
+    let feed_scripts: Vec<String> = vectors().scripts["scripts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|s| {
+            s["requires"]
+                .as_array()
+                .is_some_and(|r| r.contains(&"changes".into()))
+        })
+        .map(|s| format!("scripts/{}", s["name"].as_str().unwrap()))
+        .collect();
+    assert!(!feed_scripts.is_empty());
+    for setup in [PLAIN, REFERENCE] {
+        let report = run_with(W::NoFeed, setup, &vectors()).unwrap_or_else(|e| panic!("{e}"));
+        let skipped: Vec<&str> = report.skipped.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(skipped, feed_scripts);
+        assert!(report.skipped.iter().all(|s| s.missing == "changes"));
+        assert_eq!(report.passed.len(), 25 + 15 - feed_scripts.len());
+    }
 }
 
 /// README §3: a store with a journal skips the script that requires its absence, and only it.

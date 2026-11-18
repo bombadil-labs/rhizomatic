@@ -438,6 +438,7 @@ follows per S4-10.
 | Whole-peer version address | 4d, done in TypeScript: the holdings digest and its root (proposal §4.13 readings 139 to 142) |
 | Journal frames and payload; purge and the head compare-and-set; arrival history after a purge | 4d |
 | Release-mode cost rails | 4e |
+| The Rust part of S4-5 and of reading 105: `PurgeReport.retains` on the memory store, `expect.retains` on every shared purge step, and the code `store-unavailable` (proposal §4.13 readings 105 and 108) | 4e, done |
 | A refused open of a file that is not a whole store writes nothing: the schema, format and retention check before the journal mode (proposal §4.13 reading 126) | 4e |
 | The open asks again while the switch to WAL answers busy, then refuses `store-unavailable` (proposal §4.13 reading 126) | 4e |
 | `with_snapshot`: the public form of `on_snapshots`, with `SnapshotRetry { snapshots, within, clock }` (the host gives the clock), and its tests: the contract tests over both stores, the SQLite test that no transaction is held, and the process tests M1 to M5 (proposal §4.13 readings 127 to 129). Since step 4d, M1 expects one attempt at revision 0 without the child's delta, and M2 expects no failure and one attempt in every run | 4e |

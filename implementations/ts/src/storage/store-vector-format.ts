@@ -10,6 +10,7 @@ import type {
   ChangeRetention,
   ErasurePosture,
   PurgeOutcome,
+  PurgeReport,
   Pushdown,
   StoreErrorCode,
   SurfaceState,
@@ -103,6 +104,8 @@ export type PurgeStep = {
       readonly surface: string;
       readonly state: SurfaceState;
     }[];
+    /** The surfaces a memory reference store names in `retains`, in their fixed order. */
+    readonly retains: readonly PurgeReport["retains"][number]["surface"][];
   };
 };
 export type ReadStep = { readonly op: "read"; readonly peer: string; readonly snapshot: string };

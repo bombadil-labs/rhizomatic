@@ -1149,3 +1149,49 @@ fn heads_sequences_and_forged_entries() {
         Ok(AppendResult::Committed { .. })
     ));
 }
+
+/// SPEC-18 §4.13 reading 2 lists the refusal codes, and reading 105 adds `store-unavailable`.
+/// The match in `listed` names every variant, so a new code must join the list here.
+#[test]
+fn the_refusal_codes_are_the_shared_list() {
+    use StoreErrorCode::*;
+    fn listed(code: StoreErrorCode) -> &'static str {
+        match code {
+            StoreClosed => "store-closed",
+            UnknownScheme => "unknown-scheme",
+            InvalidUrl => "invalid-url",
+            SchemeExists => "scheme-exists",
+            OpenFailed => "open-failed",
+            CapabilityAbsent => "capability-absent",
+            PeerAbsent => "peer-absent",
+            PeerExists => "peer-exists",
+            PostureRefused => "posture-refused",
+            InvalidAdmission => "invalid-admission",
+            InvalidRequest => "invalid-request",
+            SnapshotMoved => "snapshot-moved",
+            SnapshotReleased => "snapshot-released",
+            StoreUnavailable => "store-unavailable",
+        }
+    }
+    let codes = [
+        StoreClosed,
+        UnknownScheme,
+        InvalidUrl,
+        SchemeExists,
+        OpenFailed,
+        CapabilityAbsent,
+        PeerAbsent,
+        PeerExists,
+        PostureRefused,
+        InvalidAdmission,
+        InvalidRequest,
+        SnapshotMoved,
+        SnapshotReleased,
+        StoreUnavailable,
+    ];
+    for code in codes {
+        assert_eq!(code.as_str(), listed(code));
+    }
+    let names: std::collections::BTreeSet<&str> = codes.iter().map(|c| c.as_str()).collect();
+    assert_eq!(names.len(), codes.len());
+}

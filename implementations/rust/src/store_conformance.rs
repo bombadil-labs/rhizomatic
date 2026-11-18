@@ -207,6 +207,9 @@ fn field<'a>(v: &'a Value, key: &str) -> Check<&'a Value> {
         .ok_or_else(|| format!("the vector has no `{key}`"))
 }
 
+/// The surfaces a purge report may name in `retains`, in their fixed order (README §1.5).
+const RETAINED: [&str; 3] = ["change-feed", "purge-debt", "surface-debt"];
+
 fn text<'a>(v: &'a Value, key: &str) -> Check<&'a str> {
     field(v, key)?
         .as_str()
@@ -1775,6 +1778,10 @@ impl<'a> Run<'a> {
                 "purge: the document's `claim` has the keys {keys:?}, and a claim has exactly `unprovable` and `proven`; the document is defective"
             ));
         }
+        let retains = texts(expect, "retains")
+            .ok()
+            .filter(|names| names.iter().all(|n| RETAINED.contains(&n.as_str())))
+            .ok_or("purge: the document's `retains` is not a list of retained surfaces; the document is defective")?;
         let report =
             result.map_err(|e| format!("purge refused `{}`: {}", e.code.as_str(), e.message))?;
 
@@ -1849,6 +1856,41 @@ impl<'a> Run<'a> {
                     "reference surfaces: expected {want:?}, the store reported {got:?}"
                 ));
             }
+        }
+        // README §3.4: a store may name more surfaces than the reference store, never fewer,
+        // and a store without a feed is not asked for it.
+        let got: Vec<&str> = report.retains.iter().map(|r| r.surface.as_str()).collect();
+        if report
+            .retains
+            .windows(2)
+            .any(|w| w[0].surface >= w[1].surface)
+        {
+            return Err(format!(
+                "purge retains: {} is not in the order {}, each once",
+                got.join(", "),
+                RETAINED.join(", ")
+            ));
+        }
+        let feedless = self.profile.change_retention == ChangeRetention::None;
+        let asked: Vec<&str> = retains
+            .iter()
+            .map(String::as_str)
+            .filter(|name| !feedless || *name != "change-feed")
+            .collect();
+        if let Some(name) = asked.iter().find(|name| !got.contains(name)) {
+            return Err(format!("purge retains: the report omits {name}"));
+        }
+        let named: Vec<&str> = got
+            .iter()
+            .copied()
+            .filter(|name| !feedless || *name != "change-feed")
+            .collect();
+        if self.reference && named != asked {
+            return Err(format!(
+                "purge retains: expected {}, the store reported {}",
+                asked.join(", "),
+                got.join(", ")
+            ));
         }
         let peer = self.peer_name(name)?;
         // What left the holdings: the targets the bookkeeping held when the purge began. The

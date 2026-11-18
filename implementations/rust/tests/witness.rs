@@ -73,6 +73,7 @@ mod store_follow;
 mod store_freshness;
 mod store_open;
 mod store_read_families;
+mod store_retains;
 mod store_rounds;
 mod store_runner;
 mod store_runner_rules;
