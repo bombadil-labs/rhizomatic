@@ -96,8 +96,11 @@ enum Wrong {
     RetainsOmitsDebt,
     RetainsTwice,
     RetainsMore,
+    RetainsOmitsFeed,
     /// Right, not wrong: the profile serves no feed, and `retains` never names it.
     NoFeed,
+    /// Right, not wrong: the profile serves no feed, and `retains` still names it.
+    NoFeedNamesFeed,
     // The bookkeeping.
     HoldsLastOfBatch,
     ServesPurged,
@@ -260,7 +263,7 @@ impl Rig {
         if !setup.reference {
             profile.format_version = "rhizomatic.test.wrong/1".into();
         }
-        if wrong == Wrong::NoFeed {
+        if matches!(wrong, Wrong::NoFeed | Wrong::NoFeedNamesFeed) {
             profile.change_retention = ChangeRetention::None;
         }
         assert_eq!(
@@ -645,7 +648,7 @@ impl PeerStore for RigPeer {
             Wrong::RetainsMore => report.retains.push(Retained {
                 surface: RetainedSurface::SurfaceDebt,
             }),
-            Wrong::NoFeed => report
+            Wrong::NoFeed | Wrong::RetainsOmitsFeed => report
                 .retains
                 .retain(|r| r.surface != RetainedSurface::ChangeFeed),
             _ => {}
@@ -1111,6 +1114,16 @@ fn a_retains_with_another_name(vectors: &mut StoreVectors) {
     }
 }
 
+/// A first purge step without `retains`.
+fn a_purge_without_retains(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        let steps = script["steps"].as_array_mut().unwrap();
+        if let Some(purge) = steps.iter_mut().find(|step| step["op"] == "purge") {
+            purge["expect"].as_object_mut().unwrap().remove("retains");
+        }
+    }
+}
+
 /// A `claim` without its `proven` key; the runner of an unprovable store never reads that key.
 fn a_claim_without_a_key(vectors: &mut StoreVectors) {
     for claim in first_claims(vectors) {
@@ -1501,6 +1514,13 @@ const TABLE: &[Row] = &[
         W::RetainsOmitsDebt,
         PLAIN,
         &["purge retains: the report omits purge-debt"],
+        S,
+    ),
+    row(
+        "purge: retains omits change-feed from a store with a feed",
+        W::RetainsOmitsFeed,
+        PLAIN,
+        &["purge retains: the report omits change-feed"],
         S,
     ),
     row(
@@ -1908,6 +1928,13 @@ const TABLE: &[Row] = &[
         &["scripts"],
     ),
     doc_row(
+        "documents: a purge step without retains",
+        W::Nothing,
+        a_purge_without_retains,
+        &["purge: the document's `retains` is not a list of retained surfaces"],
+        &["scripts"],
+    ),
+    doc_row(
         "documents: an unknown script requirement",
         W::Nothing,
         an_unknown_requirement,
@@ -2121,8 +2148,8 @@ fn a_class_none_store_skips_the_purge_scripts() {
 }
 
 /// README §3.4: a store whose profile serves no feed is not asked to name `change-feed` in
-/// `retains`. It skips the scripts that require `changes` and passes the others, also as the
-/// reference store.
+/// `retains`, and may still name it. It skips the scripts that require `changes` and passes the
+/// others, also as the reference store.
 #[test]
 fn a_store_without_a_feed_is_not_asked_for_the_feed_in_retains() {
     let feed_scripts: Vec<String> = vectors().scripts["scripts"]
@@ -2137,8 +2164,13 @@ fn a_store_without_a_feed_is_not_asked_for_the_feed_in_retains() {
         .map(|s| format!("scripts/{}", s["name"].as_str().unwrap()))
         .collect();
     assert!(!feed_scripts.is_empty());
-    for setup in [PLAIN, REFERENCE] {
-        let report = run_with(W::NoFeed, setup, &vectors()).unwrap_or_else(|e| panic!("{e}"));
+    for (wrong, setup) in [
+        (W::NoFeed, PLAIN),
+        (W::NoFeed, REFERENCE),
+        (W::NoFeedNamesFeed, REFERENCE),
+    ] {
+        let report = run_with(wrong, setup, &vectors())
+            .unwrap_or_else(|e| panic!("{wrong:?} {setup:?}: {e}"));
         let skipped: Vec<&str> = report.skipped.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(skipped, feed_scripts);
         assert!(report.skipped.iter().all(|s| s.missing == "changes"));

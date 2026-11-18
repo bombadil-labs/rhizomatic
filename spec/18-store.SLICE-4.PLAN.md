@@ -57,8 +57,8 @@ Each is made here under the store-arc delegation. Each moves to §12 when its st
   `reference(peer, ref, role, delta)`. `negators` is that table at `role = 'negates'`.
 - **S4-5. The purge report names what it retains, conservatively.** `PurgeReport` gains
   `retains: readonly { surface: "change-feed" | "purge-debt" | "surface-debt"; holds: "id" }[]`. It lists
-  `change-feed` whenever the peer's retention is not `none`, and `purge-debt` whenever a debt row
-  names a removed target. The list may name a surface that no longer holds the id; it never omits
+  `change-feed` whenever the store's retention is not `none`, and `purge-debt` whenever a debt row
+  names a target whose outcome is `removed` or `held-by-other-peer` (reading 108). The list may name a surface that no longer holds the id; it never omits
   one that does. The claim rule is unchanged (decision O4). A purge debt ends when the owing peer
   asks again and is answered `removed`. The memory store reports the same field. This is a
   contract change in both witnesses.
