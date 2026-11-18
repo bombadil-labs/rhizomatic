@@ -6,7 +6,7 @@ use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::store::{
     Admission, AppendResult, ArrivalRecord, ChangePage, ChangeRecord, CreatePeerOptions, Exporter,
     PeerErasure, PeerStore, PurgeReport, PushdownFields, Revision, ScopeRequest, ScopeResult,
-    Snapshot, Store, StoreError, StoreErrorCode, StoreProfile, VerifiedDelta,
+    Snapshot, Store, StoreError, StoreErrorCode, StoreFailure, StoreProfile, VerifiedDelta,
 };
 use rhizomatic::types::Delta;
 
@@ -155,21 +155,18 @@ impl PeerStore for Peer {
             other => Ok(other),
         }
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         let mut report = self.inner.purge(ids)?;
         report.revision = self.out(report.revision);
         Ok(report)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         let k = self.twist.scale();
         if k == 1 {
             return self.inner.changes(from, to);
         }
         if to.is_some_and(|to| to < from) {
-            return Err(StoreError::new(
-                StoreErrorCode::InvalidRequest,
-                "to is below from",
-            ));
+            return Err(StoreError::new(StoreErrorCode::InvalidRequest, "to is below from").into());
         }
         let current = self.out(self.current()?);
         if from > current {
@@ -227,19 +224,19 @@ impl Snapshot for Snap {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.inner.arrivals(ids)
     }
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.targets(entities)
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.negators(ids)
     }
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         let mut answer = self.inner.scope(request)?;
         if let Twist::ReportsNothing = self.twist {
             answer.applied = PushdownFields::default();
@@ -330,20 +327,20 @@ impl Snapshot for Fabricated {
     fn last_transfer(&self) -> u64 {
         0
     }
-    fn get(&self, _: &[String]) -> Result<Vec<Delta>, StoreError> {
-        Err(fabricated())
+    fn get(&self, _: &[String]) -> Result<Vec<Delta>, StoreFailure> {
+        Err(fabricated().into())
     }
-    fn arrivals(&self, _: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
-        Err(fabricated())
+    fn arrivals(&self, _: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
+        Err(fabricated().into())
     }
-    fn targets(&self, _: &[String]) -> Result<Vec<String>, StoreError> {
-        Err(fabricated())
+    fn targets(&self, _: &[String]) -> Result<Vec<String>, StoreFailure> {
+        Err(fabricated().into())
     }
-    fn negators(&self, _: &[String]) -> Result<Vec<String>, StoreError> {
-        Err(fabricated())
+    fn negators(&self, _: &[String]) -> Result<Vec<String>, StoreFailure> {
+        Err(fabricated().into())
     }
-    fn scope(&self, _: &ScopeRequest) -> Result<ScopeResult, StoreError> {
-        Err(fabricated())
+    fn scope(&self, _: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
+        Err(fabricated().into())
     }
     fn release(&mut self) {}
 }
@@ -395,10 +392,10 @@ impl PeerStore for Odd<'_> {
     fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
         self.inner.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         self.inner.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.inner.changes(from, to)
     }
 }
@@ -427,25 +424,25 @@ impl Snapshot for OddSnap {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         let mut got = self.inner.get(ids)?;
         got.extend(self.extra.iter().map(|e| e.delta.clone()));
         got.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(got)
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         let mut got = self.inner.arrivals(ids)?;
         got.extend(self.extra.iter().map(|e| e.arrival.clone()));
         got.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(got)
     }
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.targets(entities)
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.negators(ids)
     }
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         self.inner.scope(request)
     }
     fn release(&mut self) {

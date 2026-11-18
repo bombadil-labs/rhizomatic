@@ -43,6 +43,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::refused::as_refusal;
 use rhizomatic::anchored::{eval_anchored, scope_ids, DeltaSource};
 use rhizomatic::eval::result_canonical_hex;
 use rhizomatic::json_profile::parse_claims;
@@ -334,7 +335,10 @@ fn a_closed_store_refuses_everything_but_what_a_snapshot_fixed() {
     );
     assert_eq!(code(store.peer("peer:a")), StoreErrorCode::StoreClosed);
     assert_eq!(code(peer.read()), StoreErrorCode::StoreClosed);
-    assert_eq!(code(peer.purge(&[])), StoreErrorCode::StoreClosed);
+    assert_eq!(
+        code(peer.purge(&[]).map_err(as_refusal)),
+        StoreErrorCode::StoreClosed
+    );
     let batch = Admission {
         expected_head: None,
         next_head: "h".into(),
@@ -342,17 +346,30 @@ fn a_closed_store_refuses_everything_but_what_a_snapshot_fixed() {
         added: vec![],
     };
     assert_eq!(code(peer.append(&batch)), StoreErrorCode::StoreClosed);
-    assert_eq!(code(snapshot.get(&[])), StoreErrorCode::StoreClosed);
     assert_eq!(
-        code(snapshot.scope(&ScopeRequest::default())),
+        code(snapshot.get(&[]).map_err(as_refusal)),
         StoreErrorCode::StoreClosed
     );
     assert_eq!(
-        code(admin.peers().collect::<Result<Vec<_>, _>>()),
+        code(snapshot.scope(&ScopeRequest::default()).map_err(as_refusal)),
         StoreErrorCode::StoreClosed
     );
     assert_eq!(
-        code(admin.stored_ids().collect::<Result<Vec<_>, _>>()),
+        code(
+            admin
+                .peers()
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(as_refusal)
+        ),
+        StoreErrorCode::StoreClosed
+    );
+    assert_eq!(
+        code(
+            admin
+                .stored_ids()
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(as_refusal)
+        ),
         StoreErrorCode::StoreClosed
     );
     assert_eq!(code(admin.peer("peer:a")), StoreErrorCode::StoreClosed);
@@ -775,14 +792,20 @@ fn non_finite_and_out_of_range_numbers_are_refused() {
             timestamp_at_most: Some(t),
             ..Pushdown::default()
         });
-        assert_eq!(code(refused), StoreErrorCode::InvalidRequest);
+        assert_eq!(
+            code(refused.map_err(as_refusal)),
+            StoreErrorCode::InvalidRequest
+        );
     }
     for n in [MAX_ARRIVAL_COUNTER + 1, u64::MAX] {
         let refused = scope(Pushdown {
             arrival_at_most: Some(n),
             ..Pushdown::default()
         });
-        assert_eq!(code(refused), StoreErrorCode::InvalidRequest);
+        assert_eq!(
+            code(refused.map_err(as_refusal)),
+            StoreErrorCode::InvalidRequest
+        );
     }
     let none = scope(Pushdown {
         arrival_at_most: Some(0),
@@ -1050,23 +1073,23 @@ fn an_invalid_scope_bound_is_refused_before_snapshot_state() {
 
     crate::move_snapshot::move_by_purge(peer.as_ref());
     assert_eq!(
-        code(scope(snapshot.as_ref(), None)),
+        code(scope(snapshot.as_ref(), None).map_err(as_refusal)),
         StoreErrorCode::SnapshotMoved
     );
     for bound in &bad_bounds {
         assert_eq!(
-            code(scope(snapshot.as_ref(), Some(bound.clone()))),
+            code(scope(snapshot.as_ref(), Some(bound.clone())).map_err(as_refusal)),
             StoreErrorCode::InvalidRequest
         );
     }
     snapshot.release();
     assert_eq!(
-        code(scope(snapshot.as_ref(), None)),
+        code(scope(snapshot.as_ref(), None).map_err(as_refusal)),
         StoreErrorCode::SnapshotReleased
     );
     for bound in &bad_bounds {
         assert_eq!(
-            code(scope(snapshot.as_ref(), Some(bound.clone()))),
+            code(scope(snapshot.as_ref(), Some(bound.clone())).map_err(as_refusal)),
             StoreErrorCode::InvalidRequest
         );
     }

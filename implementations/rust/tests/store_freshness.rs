@@ -22,13 +22,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
+use crate::refused::as_refusal;
 use rhizomatic::memory_store::{HistoryMint, MemoryStore, MemoryStoreOptions};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSource};
 use rhizomatic::store::{
     negated_ids, target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage,
     ChangeRecord, ChangeRetention, CreatePeerOptions, ErasurePosture, PeerStore, Pushdown,
     PushdownFields, Revision, ScopeRequest, Snapshot, Store, StoreError, StoreErrorCode,
-    VerifiedDelta, LOCAL_HISTORY_PREFIX, MAX_REVISION,
+    StoreFailure, VerifiedDelta, LOCAL_HISTORY_PREFIX, MAX_REVISION,
 };
 use rhizomatic::store_conformance::{
     run_freshness_conformance, FreshnessReader, StoreConformanceError, StoreConformanceReport,
@@ -408,7 +409,7 @@ impl Mutant {
         entities: &[String],
         now: f64,
         pushdown: Option<&Pushdown>,
-    ) -> Result<Capture, StoreError> {
+    ) -> Result<Capture, StoreFailure> {
         let w = self.0;
 
         let standard = capture_scope(snapshot, entities, now, select(pushdown))?.1;
@@ -524,6 +525,7 @@ impl Mutant {
             members,
             ValidityWindow { since, expires_at },
         )
+        .map_err(StoreFailure::from)
     }
 }
 
@@ -534,7 +536,7 @@ impl FreshnessReader for Mutant {
         entities: &[String],
         now: f64,
         pushdown: Option<&Pushdown>,
-    ) -> Result<Capture, StoreError> {
+    ) -> Result<Capture, StoreFailure> {
         self.captured(snapshot, entities, now, pushdown)
     }
 
@@ -1129,7 +1131,7 @@ impl FreshnessReader for OverStuck {
         entities: &[String],
         now: f64,
         pushdown: Option<&Pushdown>,
-    ) -> Result<Capture, StoreError> {
+    ) -> Result<Capture, StoreFailure> {
         StoreFreshness.capture(snapshot, entities, now, pushdown)
     }
     fn touching(
@@ -1689,10 +1691,10 @@ impl PeerStore for Moving<'_> {
     fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
         self.inner.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<rhizomatic::store::PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<rhizomatic::store::PurgeReport, StoreFailure> {
         self.inner.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         let page = self.inner.changes(from, to);
         let next = self.commits.borrow_mut().pop();
         if let Some(deltas) = next {
@@ -1729,19 +1731,19 @@ impl Snapshot for Counted {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.inner.arrivals(ids)
     }
-    fn targets(&self, e: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, e: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.targets(e)
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.negators(ids)
     }
-    fn scope(&self, r: &ScopeRequest) -> Result<rhizomatic::store::ScopeResult, StoreError> {
+    fn scope(&self, r: &ScopeRequest) -> Result<rhizomatic::store::ScopeResult, StoreFailure> {
         self.inner.scope(r)
     }
     fn release(&mut self) {
@@ -1835,6 +1837,7 @@ fn check_fresh_and_capture_scope_refuse_a_now_that_is_not_finite() {
         let mut snapshot = peer.read().unwrap();
         assert_eq!(
             capture_scope(snapshot.as_ref(), &["plant:a".into()], now, select(None))
+                .map_err(as_refusal)
                 .map(|_| ())
                 .map_err(|e| e.code),
             Err(StoreErrorCode::InvalidRequest),
@@ -1866,10 +1869,10 @@ impl PeerStore for Stuck<'_> {
     fn append(&self, admission: &Admission) -> Result<AppendResult, StoreError> {
         self.0.append(admission)
     }
-    fn purge(&self, ids: &[String]) -> Result<rhizomatic::store::PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<rhizomatic::store::PurgeReport, StoreFailure> {
         self.0.purge(ids)
     }
-    fn changes(&self, from: Revision, _: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, _: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         Ok(ChangePage::Ok {
             records: Vec::new(),
             through: from,
@@ -1923,10 +1926,10 @@ impl PeerStore for PastTo<'_> {
     fn append(&self, admission: &Admission) -> Result<AppendResult, StoreError> {
         self.0.append(admission)
     }
-    fn purge(&self, ids: &[String]) -> Result<rhizomatic::store::PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<rhizomatic::store::PurgeReport, StoreFailure> {
         self.0.purge(ids)
     }
-    fn changes(&self, _: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, _: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         Ok(ChangePage::Ok {
             records: Vec::new(),
             through: Revision(to.map_or(0, |to| to.0) + 5),
@@ -2057,10 +2060,10 @@ impl PeerStore for FaultyPage<'_> {
     fn append(&self, admission: &Admission) -> Result<AppendResult, StoreError> {
         self.inner.append(admission)
     }
-    fn purge(&self, ids: &[String]) -> Result<rhizomatic::store::PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<rhizomatic::store::PurgeReport, StoreFailure> {
         self.inner.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         Ok((self.page)(from, to))
     }
 }

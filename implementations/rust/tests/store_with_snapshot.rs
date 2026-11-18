@@ -9,12 +9,13 @@ use std::cell::{Cell, RefCell};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::rc::Rc;
 
+use crate::refused::as_refusal;
 use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::set::make_delta;
 use rhizomatic::store::{
-    AppendResult, ArrivalRecord, ChangePage, CreatePeerOptions, ErasurePosture, PeerErasure,
-    PeerStore, PurgeReport, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError,
-    StoreErrorCode, MAX_REVISION,
+    AppendResult, ArrivalRecord, ChangePage, CreatePeerOptions, ErasurePosture, IntegrityFault,
+    IntegrityFaultKind, PeerErasure, PeerStore, PurgeReport, Revision, ScopeRequest, ScopeResult,
+    Snapshot, Store, StoreError, StoreErrorCode, StoreFailure, MAX_REVISION,
 };
 use rhizomatic::store_admission::{admission_of, AdmissionOptions};
 use rhizomatic::store_fresh::{FeedError, StoreFault};
@@ -148,10 +149,10 @@ impl PeerStore for Watched<'_> {
     fn append(&self, batch: &rhizomatic::store::Admission) -> Result<AppendResult, StoreError> {
         self.inner.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         self.inner.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.inner.changes(from, to)
     }
 }
@@ -175,19 +176,19 @@ impl Snapshot for Tracked {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.inner.arrivals(ids)
     }
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.targets(entities)
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.negators(ids)
     }
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         self.inner.scope(request)
     }
     fn release(&mut self) {
@@ -312,11 +313,15 @@ fn a_body_that_the_peer_always_moves_takes_exactly_the_bound_4_by_default_1_and_
                 runs.set(runs.get() + 1);
                 snapshot.targets(&entities(&[X]))?;
                 move_by_purge(peer.as_ref());
-                snapshot.targets(&entities(&[Y])).map_err(|e| {
-                    let e = StoreError::new(e.code, format!("{} (attempt {attempt})", e.message));
-                    met.borrow_mut().push(e.clone());
-                    FeedError::Refused(e)
-                })
+                snapshot
+                    .targets(&entities(&[Y]))
+                    .map_err(as_refusal)
+                    .map_err(|e| {
+                        let e =
+                            StoreError::new(e.code, format!("{} (attempt {attempt})", e.message));
+                        met.borrow_mut().push(e.clone());
+                        FeedError::Refused(e)
+                    })
             },
             &retry,
         );
@@ -850,4 +855,141 @@ fn after_close_the_read_refuses_store_closed_and_the_body_never_runs_a_close_ins
         &SnapshotRetry::default(),
     );
     assert_eq!((code(&closed), runs.get()), ("store-closed".to_string(), 0));
+}
+
+/// A peer whose snapshots meet damage: `targets` and `scope` answer one integrity fault. Each
+/// other call passes to the peer it wraps (§4.13 reading 136).
+struct Damaged<'a> {
+    inner: &'a dyn PeerStore,
+    fault: IntegrityFault,
+}
+
+struct DamagedSnapshot {
+    inner: Box<dyn Snapshot>,
+    fault: IntegrityFault,
+}
+
+impl PeerStore for Damaged<'_> {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+    fn erasure(&self) -> PeerErasure {
+        self.inner.erasure()
+    }
+    fn history(&self) -> Result<&str, StoreError> {
+        self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        Ok(Box::new(DamagedSnapshot {
+            inner: self.inner.read()?,
+            fault: self.fault.clone(),
+        }))
+    }
+    fn append(&self, batch: &rhizomatic::store::Admission) -> Result<AppendResult, StoreError> {
+        self.inner.append(batch)
+    }
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
+        self.inner.purge(ids)
+    }
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
+        self.inner.changes(from, to)
+    }
+}
+
+impl Snapshot for DamagedSnapshot {
+    fn revision(&self) -> Revision {
+        self.inner.revision()
+    }
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
+    fn head(&self) -> Option<&str> {
+        self.inner.head()
+    }
+    fn count(&self) -> u64 {
+        self.inner.count()
+    }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
+    }
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
+        self.inner.get(ids)
+    }
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
+        self.inner.arrivals(ids)
+    }
+    fn targets(&self, _: &[String]) -> Result<Vec<String>, StoreFailure> {
+        Err(StoreFailure::Integrity(self.fault.clone()))
+    }
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
+        self.inner.negators(ids)
+    }
+    fn scope(&self, _: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
+        Err(StoreFailure::Integrity(self.fault.clone()))
+    }
+    fn release(&mut self) {
+        self.inner.release();
+    }
+}
+
+#[test]
+fn an_integrity_fault_passes_up_unchanged_after_one_read_and_one_run_in_feed_error_and_in_store_read_error_and_the_snapshot_is_released(
+) {
+    let (_store, peer) = seeded();
+    let fault = IntegrityFault {
+        kind: IntegrityFaultKind::ClaimsUnreadable,
+        peer: Some("peer:p".into()),
+        id: Some("an-id".into()),
+        key: None,
+        detail: "a held delta has no stored claims".into(),
+    };
+    let watch = watched(peer.as_ref());
+    let damaged = Damaged {
+        inner: &watch,
+        fault: fault.clone(),
+    };
+    let runs = Cell::new(0);
+    let feed = with_snapshot(
+        &damaged,
+        |snapshot, _| {
+            runs.set(runs.get() + 1);
+            snapshot.targets(&entities(&[X]))?;
+            Ok::<_, FeedError>(())
+        },
+        &SnapshotRetry::default(),
+    );
+    assert_eq!(feed.unwrap_err(), FeedError::Integrity(fault.clone()));
+    assert_eq!(
+        (watch.reads.get(), runs.get(), watch.releases()),
+        (1, 1, vec![1])
+    );
+    let watch = watched(peer.as_ref());
+    let damaged = Damaged {
+        inner: &watch,
+        fault: fault.clone(),
+    };
+    let runs = Cell::new(0);
+    let read = with_snapshot(
+        &damaged,
+        |snapshot, _| {
+            runs.set(runs.get() + 1);
+            Ok::<_, StoreReadError>(fetch_scope(
+                snapshot,
+                &entities(&[X]),
+                Selection::default(),
+            )?)
+        },
+        &SnapshotRetry::default(),
+    );
+    assert_eq!(read.unwrap_err(), StoreReadError::Integrity(fault));
+    assert_eq!(
+        (watch.reads.get(), runs.get(), watch.releases()),
+        (1, 1, vec![1])
+    );
 }

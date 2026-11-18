@@ -237,6 +237,14 @@ Step 4d adds more, listed under Breaking.
   a clock with no bound in time is never read, and the bound in time also ends the call on a
   refused `read()`. Two comments of the TypeScript `with-snapshot.ts` now say that only a purge
   that releases a holding moves a snapshot. No behavior changes.
+- Step 4e: a Rust read can fail with damage that is not a refusal (§4.13 reading 136). The new
+  `store::StoreFailure` is `Refused(StoreError)` or `Integrity(IntegrityFault)`. The five
+  `Snapshot` reads, `PeerStore::purge`, `PeerStore::changes` and every `Listing` answer it. The
+  new `IntegrityFault {kind, peer, id, key, detail}` and `IntegrityFaultKind` (the eleven kinds
+  of TypeScript) are data only: no Rust store produces a fault yet. `FeedError` and
+  `StoreReadError` gain an `Integrity` arm and `From<StoreFailure>`. An integrity fault has no
+  refusal code, so `with_snapshot` and every reader pass it up after one run. No behavior
+  changes. What a purge removes does not change.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
@@ -268,6 +276,17 @@ Step 4d adds more, listed under Breaking.
   module path changes the path.
 - **Rust `StoreError` no longer implements `StoreRefusal`.** A Rust caller that called
   `store_code` on a `StoreError` reads its `code` field.
+- **Rust reads, `purge`, `changes` and listings return `StoreFailure`, not `StoreError`.**
+  This covers `Snapshot::get`, `arrivals`, `targets`, `negators` and `scope`,
+  `PeerStore::purge` and `changes`, and the item of `Listing`. A Rust `impl Snapshot`,
+  `impl PeerStore`, `impl Exporter` or `impl PeerExporter` changes these signatures, and wraps
+  a refusal with `.into()`. A Rust caller matches `StoreFailure::Refused(e)` where it read `e`,
+  and handles `StoreFailure::Integrity`.
+- **Rust functions that read a snapshot or a listing return `StoreFailure`.** These are
+  `store::collect_delta_set`, `store_fresh::raw_scope`, `store_read::fetch_scope`,
+  `store_read::capture_scope` and the trait method `FreshnessReader::capture`.
+- **Rust `FeedError` and `StoreReadError` have a new arm, `Integrity(IntegrityFault)`.** A
+  Rust `match` on either type handles it.
 - **`admissionOf` has no `transfer` option.** It numbers the transfer itself. Drop the field. The
   option shipped in no release.
 - **A body no longer runs again after its own append.** A `withSnapshot` body, a held-views pass

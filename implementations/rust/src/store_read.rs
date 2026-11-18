@@ -35,8 +35,9 @@ use crate::pred::Bindings;
 use crate::schema::SchemaRegistry;
 use crate::set::{fork, DeltaSource};
 use crate::store::{
-    collect_delta_set, Anchor, ArrivalRecord, ChangeRecord, PeerExporter, PeerStore, Pushdown,
-    PushdownFields, Revision, ScopeRequest, ScopeSource, Snapshot, StoreError, StoreErrorCode,
+    collect_delta_set, Anchor, ArrivalRecord, ChangeRecord, IntegrityFault, PeerExporter,
+    PeerStore, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeSource, Snapshot, StoreError,
+    StoreErrorCode, StoreFailure,
 };
 use crate::store_conformance::FreshnessReader;
 use crate::store_follow::{follow_feed, position_of, FeedCursor, Position};
@@ -275,6 +276,8 @@ pub enum StoreReadError {
     Eval(String),
     /// The store broke its contract (`revision-out-of-range`, from `StoreReactor::read`).
     Fault(StoreFault),
+    /// The store met damage in its own data (§4.13 reading 136). It is not a refusal.
+    Integrity(IntegrityFault),
 }
 
 impl StoreReadError {
@@ -304,6 +307,7 @@ impl fmt::Display for StoreReadError {
             Self::Fault(fault) => {
                 f.write_str(&format!("the store broke {}: {fault}", fault.rule()))
             }
+            Self::Integrity(fault) => f.write_str(&fault.detail),
         }
     }
 }
@@ -313,6 +317,15 @@ impl std::error::Error for StoreReadError {}
 impl From<StoreError> for StoreReadError {
     fn from(e: StoreError) -> Self {
         Self::Store(e)
+    }
+}
+
+impl From<StoreFailure> for StoreReadError {
+    fn from(failure: StoreFailure) -> Self {
+        match failure {
+            StoreFailure::Refused(e) => Self::Store(e),
+            StoreFailure::Integrity(fault) => Self::Integrity(fault),
+        }
     }
 }
 
@@ -419,7 +432,7 @@ fn capture_of(
     pushdown: Option<&Pushdown>,
     cache: &ScopeSource,
     window: ValidityWindow,
-) -> Result<Capture, StoreError> {
+) -> Result<Capture, StoreFailure> {
     let entities: Vec<String> = asked.iter().cloned().collect();
     let members = match pushes(pushdown) {
         true => raw_scope(snapshot, &entities)?,
@@ -434,6 +447,7 @@ fn capture_of(
         members,
         window,
     )
+    .map_err(StoreFailure::Refused)
 }
 
 /// The window of a read's operand: the exact members, each from the cache.
@@ -621,7 +635,7 @@ pub fn fetch_scope(
     snapshot: &dyn Snapshot,
     entities: &[String],
     selection: Selection<'_>,
-) -> Result<FetchedScope, StoreError> {
+) -> Result<FetchedScope, StoreFailure> {
     fetched(snapshot, entities, selection).map(|(fetched, _, _)| fetched)
 }
 
@@ -634,12 +648,12 @@ pub fn capture_scope(
     entities: &[String],
     now: f64,
     selection: Selection<'_>,
-) -> Result<(FetchedScope, Capture), StoreError> {
+) -> Result<(FetchedScope, Capture), StoreFailure> {
     if !now.is_finite() {
-        return Err(StoreError::new(
+        return Err(StoreFailure::Refused(StoreError::new(
             StoreErrorCode::InvalidRequest,
             "captureScope needs a now that is a finite number",
-        ));
+        )));
     }
     let (fetched, anchors, cache) = fetched(snapshot, entities, selection)?;
     let window = fetched.validity_at(now);
@@ -652,7 +666,7 @@ fn fetched(
     snapshot: &dyn Snapshot,
     entities: &[String],
     selection: Selection<'_>,
-) -> Result<(FetchedScope, BTreeSet<String>, ScopeSource), StoreError> {
+) -> Result<(FetchedScope, BTreeSet<String>, ScopeSource), StoreFailure> {
     let anchors: BTreeSet<String> = entities.iter().cloned().collect();
     let call = scope_request(
         &anchors.iter().cloned().collect::<Vec<_>>(),
@@ -867,7 +881,7 @@ impl FreshnessReader for StoreFreshness {
         entities: &[String],
         now: f64,
         pushdown: Option<&Pushdown>,
-    ) -> Result<Capture, StoreError> {
+    ) -> Result<Capture, StoreFailure> {
         let selection = Selection {
             pushdown,
             admits: None,

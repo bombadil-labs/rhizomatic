@@ -23,8 +23,9 @@ use crate::store::{
     ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter, PeerStore,
     PurgeOutcome, PurgeReport, PurgeSurface, PurgeTarget, Pushdown, PushdownFields, Retained,
     RetainedSurface, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreCapabilities,
-    StoreError, StoreErrorCode, StoreProfile, StoreWriters, SurfaceState, VerifiedDelta,
-    APP_FORMAT_MAX_BYTES, LOCAL_HISTORY_PREFIX, MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
+    StoreError, StoreErrorCode, StoreFailure, StoreProfile, StoreWriters, SurfaceState,
+    VerifiedDelta, APP_FORMAT_MAX_BYTES, LOCAL_HISTORY_PREFIX, MAX_ARRIVAL_COUNTER, MAX_REVISION,
+    PURGE_BOUNDARY,
 };
 use crate::types::{Claims, Delta};
 
@@ -1022,12 +1023,12 @@ impl PeerStore for MemoryPeer {
         with(&self.state, |state| state.append(&self.id, batch))
     }
 
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
-        with(&self.state, |state| state.purge(&self.id, ids))
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
+        with(&self.state, |state| state.purge(&self.id, ids)).map_err(StoreFailure::Refused)
     }
 
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
-        with(&self.state, |state| state.changes(&self.id, from, to))
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
+        with(&self.state, |state| state.changes(&self.id, from, to)).map_err(StoreFailure::Refused)
     }
 }
 
@@ -1110,7 +1111,7 @@ impl Snapshot for MemorySnapshot {
         self.last_transfer
     }
 
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.query(|view| {
             distinct(ids)
                 .into_iter()
@@ -1119,9 +1120,10 @@ impl Snapshot for MemorySnapshot {
                 .map(|member| member.delta)
                 .collect()
         })
+        .map_err(StoreFailure::Refused)
     }
 
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.query(|view| {
             distinct(ids)
                 .into_iter()
@@ -1130,9 +1132,10 @@ impl Snapshot for MemorySnapshot {
                 .map(|holding| holding.arrival.clone())
                 .collect()
         })
+        .map_err(StoreFailure::Refused)
     }
 
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.query(|mut view| {
             let mut ids = BTreeSet::new();
             for entity in distinct(entities) {
@@ -1144,9 +1147,10 @@ impl Snapshot for MemorySnapshot {
             }
             ids.into_iter().collect()
         })
+        .map_err(StoreFailure::Refused)
     }
 
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.query(|mut view| {
             let mut negators = BTreeSet::new();
             for id in distinct(ids) {
@@ -1158,9 +1162,10 @@ impl Snapshot for MemorySnapshot {
             }
             negators.into_iter().collect()
         })
+        .map_err(StoreFailure::Refused)
     }
 
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         let pushdown = request.pushdown.as_ref();
         if pushdown
             .and_then(|p| p.timestamp_at_most)
@@ -1169,7 +1174,8 @@ impl Snapshot for MemorySnapshot {
             return refuse(
                 StoreErrorCode::InvalidRequest,
                 "timestampAtMost must be a finite number",
-            );
+            )
+            .map_err(StoreFailure::Refused);
         }
         if pushdown
             .and_then(|p| p.arrival_at_most)
@@ -1178,9 +1184,11 @@ impl Snapshot for MemorySnapshot {
             return refuse(
                 StoreErrorCode::InvalidRequest,
                 "arrivalAtMost must be an integer from 0 to 2^53 - 1",
-            );
+            )
+            .map_err(StoreFailure::Refused);
         }
         self.query(|view| State::scope(view, request))
+            .map_err(StoreFailure::Refused)
     }
 
     fn release(&mut self) {
@@ -1195,7 +1203,7 @@ struct MemoryExporter {
 fn listing<'a, T: 'a>(items: Result<Vec<T>, StoreError>) -> Listing<'a, T> {
     match items {
         Ok(items) => Box::new(items.into_iter().map(Ok)),
-        Err(refusal) => Box::new(std::iter::once(Err(refusal))),
+        Err(refusal) => Box::new(std::iter::once(Err(StoreFailure::Refused(refusal)))),
     }
 }
 

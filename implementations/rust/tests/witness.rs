@@ -7,6 +7,8 @@ mod freshness_doubles;
 mod materialization_assertions;
 #[path = "support/move_snapshot.rs"]
 mod move_snapshot;
+#[path = "support/refused.rs"]
+mod refused;
 #[path = "support/timed.rs"]
 mod timed;
 

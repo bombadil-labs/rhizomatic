@@ -32,13 +32,14 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
+use crate::refused::as_refusal;
 use rhizomatic::memory_store::{MemoryStore, MEMORY_STORE_FORMAT};
 use rhizomatic::store::{
     target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ChangeRetention,
     CreatePeerOptions, ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure,
     PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PushdownFields, Retained, RetainedSurface,
-    Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
-    SurfaceState, VerifiedDelta, APP_FORMAT_MAX_BYTES, MAX_ARRIVAL_COUNTER,
+    Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreFailure,
+    StoreProfile, SurfaceState, VerifiedDelta, APP_FORMAT_MAX_BYTES, MAX_ARRIVAL_COUNTER,
 };
 use rhizomatic::store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceReport,
@@ -245,7 +246,7 @@ fn toggle_sig(delta: &mut Delta) {
     };
 }
 
-fn listing<'a, T: 'a>(items: Result<Vec<T>, StoreError>) -> Listing<'a, T> {
+fn listing<'a, T: 'a>(items: Result<Vec<T>, StoreFailure>) -> Listing<'a, T> {
     match items {
         Ok(items) => Box::new(items.into_iter().map(Ok)),
         Err(e) => Box::new(std::iter::once(Err(e))),
@@ -594,12 +595,12 @@ impl PeerStore for RigPeer {
         }
     }
 
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         if self.setup.class == ErasureClass::None {
-            return Err(refusal(StoreErrorCode::CapabilityAbsent));
+            return Err(refusal(StoreErrorCode::CapabilityAbsent).into());
         }
         if self.wrong == Wrong::PurgeRefuses {
-            return Err(refusal(StoreErrorCode::InvalidRequest));
+            return Err(refusal(StoreErrorCode::InvalidRequest).into());
         }
         let mut snapshot = self.inner.read()?;
         let deltas = snapshot.get(ids)?;
@@ -701,7 +702,7 @@ impl PeerStore for RigPeer {
         }
         Ok(report)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.inner.changes(from, to)
     }
 }
@@ -725,17 +726,17 @@ impl RigSnapshot {
     /// the peer's present state.
     fn ask<T>(
         &self,
-        query: impl Fn(&dyn Snapshot) -> Result<T, StoreError>,
+        query: impl Fn(&dyn Snapshot) -> Result<T, StoreFailure>,
     ) -> Result<T, StoreError> {
         let now = || self.store.peer(&self.id).and_then(|peer| peer.read());
-        match (self.wrong, query(self.inner.as_ref())) {
+        match (self.wrong, query(self.inner.as_ref()).map_err(as_refusal)) {
             (Wrong::RefusesAfterAppend, Ok(_))
                 if now().is_ok_and(|now| now.revision() != self.inner.revision()) =>
             {
                 Err(refusal(StoreErrorCode::SnapshotMoved))
             }
             (Wrong::AnswersWhenMoved, Err(e)) if e.code == StoreErrorCode::SnapshotMoved => {
-                query(now()?.as_ref())
+                query(now()?.as_ref()).map_err(as_refusal)
             }
             (_, result) => result,
         }
@@ -843,7 +844,7 @@ impl Snapshot for RigSnapshot {
         self.inner.last_transfer() + u64::from(self.wrong == Wrong::LastTransfer)
     }
 
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         let mut deltas = self.answer(self.ask(|s| s.get(ids)), Vec::new)?;
         reorder(self.wrong, Wrong::GetDrops, Wrong::GetReverses, &mut deltas);
         if let Some(first) = deltas.first_mut() {
@@ -856,7 +857,7 @@ impl Snapshot for RigSnapshot {
         Ok(deltas)
     }
 
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         let mut records = self.answer(self.ask(|s| s.arrivals(ids)), Vec::new)?;
         records.iter_mut().for_each(|r| self.last_of_batch(r));
         reorder(
@@ -871,9 +872,9 @@ impl Snapshot for RigSnapshot {
         Ok(records)
     }
 
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
         if self.wrong == Wrong::TargetsRefuse {
-            return Err(refusal(StoreErrorCode::InvalidRequest));
+            return Err(refusal(StoreErrorCode::InvalidRequest).into());
         }
         let mut ids = self.answer(self.ask(|s| s.targets(entities)), Vec::new)?;
         reorder(
@@ -885,7 +886,7 @@ impl Snapshot for RigSnapshot {
         Ok(ids)
     }
 
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         let mut found = self.answer(self.ask(|s| s.negators(ids)), Vec::new)?;
         reorder(
             self.wrong,
@@ -896,7 +897,7 @@ impl Snapshot for RigSnapshot {
         Ok(found)
     }
 
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         let mut asked = request.clone();
         match self.wrong {
             Wrong::OutsideScope => asked.anchors.push(Anchor::Entity {
@@ -2376,7 +2377,10 @@ fn a_class_none_store_skips_the_purge_scripts() {
         .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     assert_eq!(
-        peer.purge(&["1e20".to_string()]).err().map(|e| e.code),
+        peer.purge(&["1e20".to_string()])
+            .map_err(as_refusal)
+            .err()
+            .map(|e| e.code),
         Some(StoreErrorCode::CapabilityAbsent)
     );
 

@@ -12,8 +12,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::Value;
 
 use crate::store::{
-    negated_ids, target_entities, Anchor, ChangePage, ChangeRecord, PeerStore, Revision, Snapshot,
-    StoreError, StoreErrorCode, LOCAL_HISTORY_PREFIX, MAX_REVISION,
+    negated_ids, target_entities, Anchor, ChangePage, ChangeRecord, IntegrityFault, PeerStore,
+    Revision, Snapshot, StoreError, StoreErrorCode, StoreFailure, LOCAL_HISTORY_PREFIX,
+    MAX_REVISION,
 };
 use crate::store_with_snapshot::{with_snapshot, SnapshotRetry};
 use crate::types::Delta;
@@ -115,11 +116,23 @@ pub enum FeedError {
     /// It carries that error's message unchanged (SPEC-18 §4.6, "Held views"). The storage layer
     /// cannot name the reactor's error type, so the message is what passes up.
     Read(String),
+    /// The store met damage in its own data (§4.13 reading 136). It is not a refusal, so no
+    /// reader starts again on it.
+    Integrity(IntegrityFault),
 }
 
 impl From<StoreError> for FeedError {
     fn from(error: StoreError) -> Self {
         Self::Refused(error)
+    }
+}
+
+impl From<StoreFailure> for FeedError {
+    fn from(failure: StoreFailure) -> Self {
+        match failure {
+            StoreFailure::Refused(error) => Self::Refused(error),
+            StoreFailure::Integrity(fault) => Self::Integrity(fault),
+        }
     }
 }
 
@@ -135,6 +148,7 @@ impl std::fmt::Display for FeedError {
             Self::Refused(error) => error.to_string(),
             Self::Fault(fault) => format!("the store broke {}: {fault}", fault.rule()),
             Self::Read(message) => message.clone(),
+            Self::Integrity(fault) => fault.detail.clone(),
         };
         f.write_str(&text)
     }
@@ -147,7 +161,7 @@ impl FeedError {
     pub fn code(&self) -> Option<StoreErrorCode> {
         match self {
             Self::Refused(error) => Some(error.code),
-            Self::Fault(_) | Self::Read(_) => None,
+            Self::Fault(_) | Self::Read(_) | Self::Integrity(_) => None,
         }
     }
 }
@@ -756,7 +770,10 @@ fn check_on_one_snapshot(
 /// The raw scope of these entities on one snapshot (SPEC-18 §4.13 reading 29): `targets` of the
 /// entities once, then `negators` of each new layer until a layer adds nothing. It asks for each
 /// member once, so it costs O(|members| × log N) in closure depth plus one calls. Ascending.
-pub fn raw_scope(snapshot: &dyn Snapshot, entities: &[String]) -> Result<Vec<String>, StoreError> {
+pub fn raw_scope(
+    snapshot: &dyn Snapshot,
+    entities: &[String],
+) -> Result<Vec<String>, StoreFailure> {
     let mut members: BTreeSet<String> = BTreeSet::new();
     let mut layer: Vec<String> = snapshot
         .targets(entities)?

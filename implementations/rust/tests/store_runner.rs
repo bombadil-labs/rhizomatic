@@ -15,8 +15,8 @@ use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::store::{
     Admission, AppendResult, ArrivalRecord, ChangePage, CreatePeerOptions, ErasureClaim,
     ErasureClass, ErasurePosture, Exporter, PeerErasure, PeerStore, PurgeReport, Revision,
-    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
-    SurfaceState,
+    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreFailure,
+    StoreProfile, SurfaceState,
 };
 use rhizomatic::store_conformance::{run_store_conformance, StoreConformanceError, StoreVectors};
 use rhizomatic::types::Delta;
@@ -179,7 +179,7 @@ impl PeerStore for StandinPeer {
             }
         }
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         let mut report = self.inner.purge(ids)?;
         report.revision = self.revision(report.revision);
         let removed = report.claim == ErasureClaim::Unproven;
@@ -199,7 +199,7 @@ impl PeerStore for StandinPeer {
         }
         Ok(report)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.inner.changes(from, to)
     }
 }
@@ -213,11 +213,11 @@ struct StandinSnapshot {
 }
 
 impl StandinSnapshot {
-    fn answer<T>(&self, result: Result<T, StoreError>) -> Result<T, StoreError> {
+    fn answer<T>(&self, result: Result<T, StoreFailure>) -> Result<T, StoreFailure> {
         if self.quirk == Quirk::WrongCodeWhenMoved {
             let now = self.store.peer(&self.id).and_then(|peer| peer.read());
             if now.is_ok_and(|now| now.revision() != self.inner.revision()) {
-                return Err(StoreError::new(StoreErrorCode::PeerAbsent, "moved"));
+                return Err(StoreError::new(StoreErrorCode::PeerAbsent, "moved").into());
             }
         }
         result
@@ -243,19 +243,19 @@ impl Snapshot for StandinSnapshot {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.answer(self.inner.get(ids))
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.answer(self.inner.arrivals(ids))
     }
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.answer(self.inner.targets(entities))
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.answer(self.inner.negators(ids))
     }
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         let mut answer = self.answer(self.inner.scope(request))?;
         if self.quirk == Quirk::AnotherArrivalInScope {
             for member in &mut answer.deltas {
