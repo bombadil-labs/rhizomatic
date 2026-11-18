@@ -22,8 +22,8 @@ use rhizomatic::memory_store::{MemoryStore, MemoryStoreOptions};
 use rhizomatic::set::make_delta;
 use rhizomatic::store::{
     Admission, AppendResult, ArrivalRecord, ChangePage, ChangeRecord, ChangeRetention,
-    ErasurePosture, PeerErasure, PeerStore, PurgeReport, Revision, ScopeRequest, ScopeResult,
-    Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta, MAX_REVISION,
+    CreatePeerOptions, ErasurePosture, PeerErasure, PeerStore, PurgeReport, Revision, ScopeRequest,
+    ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta, MAX_REVISION,
 };
 use rhizomatic::store_conformance::{
     run_follow_conformance, FollowCaseStore, FollowReader, Follower, StoreConformanceError,
@@ -917,7 +917,9 @@ fn here(peer: &dyn PeerStore) -> Position {
 }
 
 fn new_peer(store: &MemoryStore, name: &str) -> Box<dyn PeerStore> {
-    store.create_peer(name, ErasurePosture::Unproven).unwrap()
+    store
+        .create_peer(name, &CreatePeerOptions::new(ErasurePosture::Unproven))
+        .unwrap()
 }
 
 /// A feed answer a probe gives instead of the store's.

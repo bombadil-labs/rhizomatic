@@ -11,9 +11,9 @@ use rhizomatic::eval::result_canonical_hex;
 use rhizomatic::memory_store::{MemoryStore, MemoryStoreOptions};
 use rhizomatic::set::{make_delta, make_negation_claims};
 use rhizomatic::store::{
-    Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ChangeRetention, ErasureClaim,
-    ErasurePosture, PeerErasure, PeerStore, PurgeOutcome, PurgeReport, Pushdown, Revision,
-    ScopeRequest, Snapshot, Store, StoreError, VerifiedDelta, MAX_ARRIVAL_COUNTER,
+    Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ChangeRetention, CreatePeerOptions,
+    ErasureClaim, ErasurePosture, PeerErasure, PeerStore, PurgeOutcome, PurgeReport, Pushdown,
+    Revision, ScopeRequest, Snapshot, Store, StoreError, VerifiedDelta, MAX_ARRIVAL_COUNTER,
 };
 use rhizomatic::store_follow::{follow_feed, position_of, Position, Pull};
 use rhizomatic::store_fresh::{check_fresh, Freshness};
@@ -73,7 +73,7 @@ impl Writer {
 
     fn with(store: MemoryStore) -> Self {
         let peer = store
-            .create_peer("peer:p", ErasurePosture::Unproven)
+            .create_peer("peer:p", &CreatePeerOptions::new(ErasurePosture::Unproven))
             .unwrap();
         Self {
             store,
@@ -335,7 +335,7 @@ fn a_purge_that_releases_nothing_and_a_purge_of_another_peer_move_no_older_snaps
     w.append(&[&fact(Y)]);
     let other = w
         .store
-        .create_peer("peer:q", ErasurePosture::Unproven)
+        .create_peer("peer:q", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let shared = fact(X);
     other
@@ -377,7 +377,7 @@ fn two_peers_share_ids_across_a_snapshot_and_the_other_peers_holding_neither_add
     let strike = negation(&held);
     let other = w
         .store
-        .create_peer("peer:q", ErasurePosture::Unproven)
+        .create_peer("peer:q", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let added = [(&late, 1), (&strike, 2), (&held, 100)]
         .into_iter()

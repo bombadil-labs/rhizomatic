@@ -35,9 +35,9 @@ use std::rc::Rc;
 use rhizomatic::memory_store::{MemoryStore, MEMORY_STORE_FORMAT};
 use rhizomatic::store::{
     target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ChangeRetention,
-    ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter,
-    PeerStore, PurgeOutcome, PurgeReport, PushdownFields, Retained, RetainedSurface, Revision,
-    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
+    CreatePeerOptions, ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure,
+    PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PushdownFields, Retained, RetainedSurface,
+    Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
     SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER,
 };
 use rhizomatic::store_conformance::{
@@ -303,21 +303,26 @@ impl Store for Rig {
         &self.profile
     }
 
-    fn create_peer(&self, id: &str, e: ErasurePosture) -> Result<Box<dyn PeerStore>, StoreError> {
+    fn create_peer(
+        &self,
+        id: &str,
+        options: &CreatePeerOptions,
+    ) -> Result<Box<dyn PeerStore>, StoreError> {
+        let e = options.erasure;
         if self.wrong == Wrong::RefusesPromisedProof && e == ErasurePosture::Proven {
             return Err(refusal(StoreErrorCode::PostureRefused));
         }
         // The memory store takes no peer that promises proof. A proven rig records the promise.
         let promised =
             self.setup.class == ErasureClass::Proven || self.wrong == Wrong::CreatesPromisedProof;
-        let asked = if promised {
+        let asked = CreatePeerOptions::new(if promised {
             ErasurePosture::Unproven
         } else {
             e
-        };
+        });
         let inner = self
             .inner
-            .create_peer(id, asked)
+            .create_peer(id, &asked)
             .map_err(|e| match self.wrong {
                 Wrong::CreatePeerCode => recode(e.clone(), e.code, StoreErrorCode::PeerAbsent),
                 _ => e,
@@ -2259,7 +2264,7 @@ fn a_class_none_store_skips_the_purge_scripts() {
     };
     let store = Rig::new(W::Nothing, none);
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     assert_eq!(
         peer.purge(&["1e20".to_string()]).err().map(|e| e.code),
@@ -2348,9 +2353,9 @@ fn each_script_gets_a_new_store() {
         fn create_peer(
             &self,
             id: &str,
-            e: ErasurePosture,
+            options: &CreatePeerOptions,
         ) -> Result<Box<dyn PeerStore>, StoreError> {
-            self.0.create_peer(id, e)
+            self.0.create_peer(id, options)
         }
         fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError> {
             self.0.peer(id)

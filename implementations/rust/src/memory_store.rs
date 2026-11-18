@@ -19,12 +19,12 @@ use std::sync::{Arc, Mutex};
 use crate::delta::compute_id;
 use crate::store::{
     negated_ids, signature_form, target_entities, Admission, Anchor, AppendResult, ArrivalRecord,
-    AtRest, ChangePage, ChangeRecord, ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture,
-    Exporter, Listing, PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport,
-    PurgeSurface, PurgeTarget, Pushdown, PushdownFields, Retained, RetainedSurface, Revision,
-    ScopeRequest, ScopeResult, Snapshot, Store, StoreCapabilities, StoreError, StoreErrorCode,
-    StoreProfile, StoreWriters, SurfaceState, VerifiedDelta, LOCAL_HISTORY_PREFIX,
-    MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
+    AtRest, ChangePage, ChangeRecord, ChangeRetention, CreatePeerOptions, ErasureClaim,
+    ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter, PeerStore,
+    PurgeOutcome, PurgeReport, PurgeSurface, PurgeTarget, Pushdown, PushdownFields, Retained,
+    RetainedSurface, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreCapabilities,
+    StoreError, StoreErrorCode, StoreProfile, StoreWriters, SurfaceState, VerifiedDelta,
+    LOCAL_HISTORY_PREFIX, MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
 };
 use crate::types::{Claims, Delta};
 
@@ -864,8 +864,9 @@ impl Store for MemoryStore {
     fn create_peer(
         &self,
         id: &str,
-        erasure: ErasurePosture,
+        options: &CreatePeerOptions,
     ) -> Result<Box<dyn PeerStore>, StoreError> {
+        let erasure = options.erasure;
         let history = with(&self.state, |state| {
             state.open()?;
             if id.is_empty() {

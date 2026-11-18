@@ -34,9 +34,10 @@ use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSet, DeltaSource};
 use rhizomatic::store::{
     collect_delta_set, negated_ids, scope_source, target_entities, Admission, Anchor, AppendResult,
-    ArrivalRecord, ChangePage, ErasurePosture, PeerErasure, PeerExporter, PeerStore, PurgeOutcome,
-    PurgeReport, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource,
-    Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta, MAX_REVISION,
+    ArrivalRecord, ChangePage, CreatePeerOptions, ErasurePosture, PeerErasure, PeerExporter,
+    PeerStore, PurgeOutcome, PurgeReport, Pushdown, PushdownFields, Revision, ScopeRequest,
+    ScopeResult, ScopeSource, Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta,
+    MAX_REVISION,
 };
 use rhizomatic::store_fresh::{raw_scope, validity_window, FeedError};
 use rhizomatic::store_read::{
@@ -205,7 +206,10 @@ impl Fixture {
     fn load(&self, store: &MemoryStore) -> Box<dyn PeerStore> {
         assert_eq!(self.doc["load"]["erasure"], "unproven");
         let peer = store
-            .create_peer(self.peer_id(), ErasurePosture::Unproven)
+            .create_peer(
+                self.peer_id(),
+                &CreatePeerOptions::new(ErasurePosture::Unproven),
+            )
             .unwrap();
         for entry in self.doc["load"]["admissions"].as_array().unwrap() {
             commit(peer.as_ref(), &self.admission(entry));

@@ -16,9 +16,9 @@ use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSource};
 use rhizomatic::store::{
     scope_source, target_entities, Admission, AppendResult, ArrivalRecord, ChangePage,
-    ChangeRetention, ErasurePosture, PeerErasure, PeerStore, PurgeReport, Pushdown, Revision,
-    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta,
-    MAX_REVISION,
+    ChangeRetention, CreatePeerOptions, ErasurePosture, PeerErasure, PeerStore, PurgeReport,
+    Pushdown, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode,
+    VerifiedDelta, MAX_REVISION,
 };
 use rhizomatic::store_conformance::{
     run_views_conformance, FollowCaseStore, RegisterRefusal, StoreConformanceError,
@@ -978,7 +978,9 @@ impl Snapshot for SpySnapshot {
 }
 
 fn new_peer(store: &MemoryStore, name: &str) -> Box<dyn PeerStore> {
-    store.create_peer(name, ErasurePosture::Unproven).unwrap()
+    store
+        .create_peer(name, &CreatePeerOptions::new(ErasurePosture::Unproven))
+        .unwrap()
 }
 
 fn holder_over<'a>(spy: &Spy<'a>, max_views: usize) -> StoreViews<'a> {
@@ -2832,8 +2834,12 @@ impl Store for StuckWhenOpened {
     fn profile(&self) -> &rhizomatic::store::StoreProfile {
         self.0.profile()
     }
-    fn create_peer(&self, id: &str, e: ErasurePosture) -> Result<Box<dyn PeerStore>, StoreError> {
-        self.0.create_peer(id, e)
+    fn create_peer(
+        &self,
+        id: &str,
+        options: &CreatePeerOptions,
+    ) -> Result<Box<dyn PeerStore>, StoreError> {
+        self.0.create_peer(id, options)
     }
     fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError> {
         Ok(Box::new(Stuck(self.0.peer(id)?)))

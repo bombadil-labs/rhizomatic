@@ -192,6 +192,9 @@ Step 4d adds more, listed under Breaking.
   last transfer. The new script
   `a-transfer-must-pass-the-peers-last` holds the rule, and every `read` step carries
   `expect.lastTransfer`. The format names do not change. What a purge removes does not change.
+- Step 4e: Rust `Store::create_peer` takes `&CreatePeerOptions`, as TypeScript's `createPeer`
+  takes its options (decision D10 of the 4e plan). `CreatePeerOptions { erasure }` has `new`
+  and a `Default` that declares `Unproven`. Behavior does not change.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
@@ -212,6 +215,9 @@ Step 4d adds more, listed under Breaking.
 - **The store checks transfer ordinals.** A new holding's `transfer` must pass the peer's last
   one. A host that gave every append the same transfer, such as 1, is refused
   `invalid-admission` at its second append. Number each transfer from `snapshot.lastTransfer + 1`.
+- **Rust `Store::create_peer(id, erasure)` is now `create_peer(id, &options)`.** A Rust caller
+  passes `&CreatePeerOptions::new(posture)`. A Rust `impl Store` takes the options and passes
+  them on.
 - **`admissionOf` has no `transfer` option.** It numbers the transfer itself. Drop the field. The
   option shipped in no release.
 - **A body no longer runs again after its own append.** A `withSnapshot` body, a held-views pass

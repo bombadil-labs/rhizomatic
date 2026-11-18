@@ -28,8 +28,8 @@ use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::set::{make_delta, negation_predicate, negation_witnesses, DeltaSource};
 use rhizomatic::store::{
-    target_entities, Admission, AppendResult, ArrivalRecord, ErasurePosture, PeerStore, Pushdown,
-    Store, VerifiedDelta,
+    target_entities, Admission, AppendResult, ArrivalRecord, CreatePeerOptions, ErasurePosture,
+    PeerStore, Pushdown, Store, VerifiedDelta,
 };
 use rhizomatic::store_read::{
     fetch_scope, read_anchored, read_full_surface, FullSurfaceRequest, ReadRequest, Selection,
@@ -93,7 +93,9 @@ fn delta_of(entry: &Value) -> Delta {
 /// id order, so the load does not depend on the order given. Test fixtures only.
 fn loaded(deltas: &[Delta]) -> (MemoryStore, Box<dyn PeerStore>) {
     let store = MemoryStore::new();
-    let peer = store.create_peer(PEER, ErasurePosture::Unproven).unwrap();
+    let peer = store
+        .create_peer(PEER, &CreatePeerOptions::new(ErasurePosture::Unproven))
+        .unwrap();
     let mut sorted: Vec<&Delta> = deltas.iter().collect();
     sorted.sort_by(|a, b| a.id.cmp(&b.id));
     sorted.dedup_by(|a, b| a.id == b.id);

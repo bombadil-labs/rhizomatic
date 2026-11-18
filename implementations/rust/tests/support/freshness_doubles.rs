@@ -4,7 +4,7 @@
 
 use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::store::{
-    Admission, AppendResult, ArrivalRecord, ChangePage, ChangeRecord, ErasurePosture, Exporter,
+    Admission, AppendResult, ArrivalRecord, ChangePage, ChangeRecord, CreatePeerOptions, Exporter,
     PeerErasure, PeerStore, PurgeReport, PushdownFields, Revision, ScopeRequest, ScopeResult,
     Snapshot, Store, StoreError, StoreErrorCode, StoreProfile, VerifiedDelta,
 };
@@ -46,8 +46,15 @@ impl Store for ReportsNothingApplied {
     fn profile(&self) -> &StoreProfile {
         self.inner.profile()
     }
-    fn create_peer(&self, id: &str, e: ErasurePosture) -> Result<Box<dyn PeerStore>, StoreError> {
-        Ok(wrap(self.inner.create_peer(id, e)?, Twist::ReportsNothing))
+    fn create_peer(
+        &self,
+        id: &str,
+        options: &CreatePeerOptions,
+    ) -> Result<Box<dyn PeerStore>, StoreError> {
+        Ok(wrap(
+            self.inner.create_peer(id, options)?,
+            Twist::ReportsNothing,
+        ))
     }
     fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError> {
         Ok(wrap(self.inner.peer(id)?, Twist::ReportsNothing))
@@ -79,9 +86,13 @@ impl Store for Scaled {
     fn profile(&self) -> &StoreProfile {
         self.inner.profile()
     }
-    fn create_peer(&self, id: &str, e: ErasurePosture) -> Result<Box<dyn PeerStore>, StoreError> {
+    fn create_peer(
+        &self,
+        id: &str,
+        options: &CreatePeerOptions,
+    ) -> Result<Box<dyn PeerStore>, StoreError> {
         Ok(wrap(
-            self.inner.create_peer(id, e)?,
+            self.inner.create_peer(id, options)?,
             Twist::Scale(self.scale),
         ))
     }
@@ -255,8 +266,12 @@ impl Store for DeclaresNoFeed {
     fn profile(&self) -> &StoreProfile {
         &self.profile
     }
-    fn create_peer(&self, id: &str, e: ErasurePosture) -> Result<Box<dyn PeerStore>, StoreError> {
-        self.inner.create_peer(id, e)
+    fn create_peer(
+        &self,
+        id: &str,
+        options: &CreatePeerOptions,
+    ) -> Result<Box<dyn PeerStore>, StoreError> {
+        self.inner.create_peer(id, options)
     }
     fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError> {
         self.inner.peer(id)

@@ -6,7 +6,8 @@ use rhizomatic::memory_store::{MemoryStore, MemoryStoreOptions};
 use rhizomatic::set::make_delta;
 use rhizomatic::store::{
     Admission, AppendResult, ArrivalRecord, ChangePage, ChangeRecord, ChangeRetention,
-    ErasurePosture, PeerStore, Revision, Store, StoreErrorCode, VerifiedDelta, MAX_REVISION,
+    CreatePeerOptions, ErasurePosture, PeerStore, Revision, Store, StoreErrorCode, VerifiedDelta,
+    MAX_REVISION,
 };
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 
@@ -83,7 +84,7 @@ fn resync(page: ChangePage) -> Revision {
 fn three_commits(options: MemoryStoreOptions) -> (MemoryStore, Box<dyn PeerStore>) {
     let store = MemoryStore::with_options(options).unwrap();
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     append(peer.as_ref(), None, "h1", vec![]);
     append(peer.as_ref(), Some("h1"), "h2", vec![]);
@@ -245,10 +246,10 @@ fn records_keep_the_ids_of_purged_deltas_until_they_are_dropped() {
         })
         .unwrap();
         let a = store
-            .create_peer("peer:a", ErasurePosture::Unproven)
+            .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
             .unwrap();
         let b = store
-            .create_peer("peer:b", ErasurePosture::Unproven)
+            .create_peer("peer:b", &CreatePeerOptions::new(ErasurePosture::Unproven))
             .unwrap();
         append(a.as_ref(), None, "a1", vec![held(&x, 1), held(&y, 2)]);
         let conflict = a

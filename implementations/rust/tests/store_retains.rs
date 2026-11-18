@@ -5,8 +5,8 @@
 use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::set::make_delta;
 use rhizomatic::store::{
-    Admission, AppendResult, ArrivalRecord, ErasurePosture, PeerStore, PurgeOutcome, PurgeReport,
-    Retained, RetainedSurface, Store, VerifiedDelta,
+    Admission, AppendResult, ArrivalRecord, CreatePeerOptions, ErasurePosture, PeerStore,
+    PurgeOutcome, PurgeReport, Retained, RetainedSurface, Store, VerifiedDelta,
 };
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 
@@ -80,7 +80,9 @@ const FEED: &[&str] = &["change-feed"];
 const BOTH: &[&str] = &["change-feed", "purge-debt"];
 
 fn peer(store: &MemoryStore, id: &str) -> Box<dyn PeerStore> {
-    store.create_peer(id, ErasurePosture::Unproven).unwrap()
+    store
+        .create_peer(id, &CreatePeerOptions::new(ErasurePosture::Unproven))
+        .unwrap()
 }
 
 #[test]

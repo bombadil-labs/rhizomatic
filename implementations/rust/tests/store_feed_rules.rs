@@ -35,7 +35,7 @@ use std::rc::Rc;
 use rhizomatic::memory_store::{MemoryStore, MemoryStoreOptions};
 use rhizomatic::store::{
     Admission, AppendResult, ArrivalRecord, ChangePage, ChangeRecord, ChangeRetention,
-    ErasurePosture, Exporter, PeerErasure, PeerStore, PurgeOutcome, PurgeReport, Revision,
+    CreatePeerOptions, Exporter, PeerErasure, PeerStore, PurgeOutcome, PurgeReport, Revision,
     ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
     MAX_REVISION,
 };
@@ -219,8 +219,12 @@ impl Store for Feedy {
     fn profile(&self) -> &StoreProfile {
         &self.profile
     }
-    fn create_peer(&self, id: &str, e: ErasurePosture) -> Result<Box<dyn PeerStore>, StoreError> {
-        let inner = self.inner.create_peer(id, e)?;
+    fn create_peer(
+        &self,
+        id: &str,
+        options: &CreatePeerOptions,
+    ) -> Result<Box<dyn PeerStore>, StoreError> {
+        let inner = self.inner.create_peer(id, options)?;
         self.books.borrow_mut().peers.push(id.to_string());
         Ok(self.handle(id, inner))
     }

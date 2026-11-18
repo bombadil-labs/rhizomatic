@@ -13,9 +13,10 @@ use std::rc::Rc;
 
 use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::store::{
-    Admission, AppendResult, ArrivalRecord, ChangePage, ErasureClaim, ErasureClass, ErasurePosture,
-    Exporter, PeerErasure, PeerStore, PurgeReport, Revision, ScopeRequest, ScopeResult, Snapshot,
-    Store, StoreError, StoreErrorCode, StoreProfile, SurfaceState,
+    Admission, AppendResult, ArrivalRecord, ChangePage, CreatePeerOptions, ErasureClaim,
+    ErasureClass, ErasurePosture, Exporter, PeerErasure, PeerStore, PurgeReport, Revision,
+    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
+    SurfaceState,
 };
 use rhizomatic::store_conformance::{run_store_conformance, StoreConformanceError, StoreVectors};
 use rhizomatic::types::Delta;
@@ -86,10 +87,18 @@ impl Store for Standin {
     fn profile(&self) -> &StoreProfile {
         &self.profile
     }
-    fn create_peer(&self, id: &str, e: ErasurePosture) -> Result<Box<dyn PeerStore>, StoreError> {
+    fn create_peer(
+        &self,
+        id: &str,
+        options: &CreatePeerOptions,
+    ) -> Result<Box<dyn PeerStore>, StoreError> {
         // The memory store takes no peer that promises proof; the stand-in records the promise.
-        let inner = self.inner.create_peer(id, ErasurePosture::Unproven)?;
-        self.postures.borrow_mut().insert(id.to_string(), e);
+        let inner = self
+            .inner
+            .create_peer(id, &CreatePeerOptions::new(ErasurePosture::Unproven))?;
+        self.postures
+            .borrow_mut()
+            .insert(id.to_string(), options.erasure);
         Ok(self.handle(id, inner))
     }
     fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError> {
