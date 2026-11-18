@@ -1676,6 +1676,9 @@ impl PeerStore for Moving<'_> {
     fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
+    }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.reads.set(self.reads.get() + 1);
         Ok(Box::new(Counted {
@@ -1854,6 +1857,9 @@ impl PeerStore for Stuck<'_> {
     fn history(&self) -> Result<&str, StoreError> {
         self.0.history()
     }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.0.app_format()
+    }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.0.read()
     }
@@ -1907,6 +1913,9 @@ impl PeerStore for PastTo<'_> {
     }
     fn history(&self) -> Result<&str, StoreError> {
         self.0.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.0.app_format()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.0.read()
@@ -2038,6 +2047,9 @@ impl PeerStore for FaultyPage<'_> {
     }
     fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.inner.read()

@@ -714,6 +714,9 @@ impl PeerStore for TracingPeer {
     fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
+    }
     fn id(&self) -> &str {
         self.inner.id()
     }
@@ -1674,6 +1677,9 @@ impl PeerStore for ScriptedPeer {
     fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
+    }
     fn id(&self) -> &str {
         self.inner.id()
     }
@@ -1809,6 +1815,9 @@ impl PeerStore for AtRevision {
     fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
+    }
     fn id(&self) -> &str {
         self.inner.id()
     }
@@ -1927,6 +1936,9 @@ struct MovingRead {
 impl PeerStore for MovingRead {
     fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn id(&self) -> &str {
         self.inner.id()

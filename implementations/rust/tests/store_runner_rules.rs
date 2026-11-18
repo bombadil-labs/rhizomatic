@@ -38,7 +38,7 @@ use rhizomatic::store::{
     CreatePeerOptions, ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure,
     PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PushdownFields, Retained, RetainedSurface,
     Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
-    SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER,
+    SurfaceState, VerifiedDelta, APP_FORMAT_MAX_BYTES, MAX_ARRIVAL_COUNTER,
 };
 use rhizomatic::store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceReport,
@@ -117,6 +117,10 @@ enum Wrong {
     Count,
     LastSequence,
     LastTransfer,
+    /// A new handle reads no application format string.
+    CreatedAppFormat,
+    /// An opened handle reads another application format string.
+    OpenedAppFormat,
     GetDrops,
     GetReverses,
     GetSig,
@@ -309,17 +313,25 @@ impl Store for Rig {
         options: &CreatePeerOptions,
     ) -> Result<Box<dyn PeerStore>, StoreError> {
         let e = options.erasure;
-        if self.wrong == Wrong::RefusesPromisedProof && e == ErasurePosture::Proven {
+        // A bad `app_format` is refused before the posture, so the rig lets the store answer it.
+        let good_format = options
+            .app_format
+            .as_ref()
+            .is_none_or(|f| !f.is_empty() && f.len() <= APP_FORMAT_MAX_BYTES);
+        if self.wrong == Wrong::RefusesPromisedProof && e == ErasurePosture::Proven && good_format {
             return Err(refusal(StoreErrorCode::PostureRefused));
         }
         // The memory store takes no peer that promises proof. A proven rig records the promise.
         let promised =
             self.setup.class == ErasureClass::Proven || self.wrong == Wrong::CreatesPromisedProof;
-        let asked = CreatePeerOptions::new(if promised {
-            ErasurePosture::Unproven
-        } else {
-            e
-        });
+        let asked = CreatePeerOptions {
+            erasure: if promised {
+                ErasurePosture::Unproven
+            } else {
+                e
+            },
+            ..options.clone()
+        };
         let inner = self
             .inner
             .create_peer(id, &asked)
@@ -403,6 +415,13 @@ impl PeerStore for RigPeer {
             Wrong::HistoryShared => Ok("one-history-for-every-peer"),
             Wrong::OpenedHistory if self.opened => Ok("another-history"),
             _ => self.inner.history(),
+        }
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        match self.wrong {
+            Wrong::CreatedAppFormat if !self.opened => Ok(None),
+            Wrong::OpenedAppFormat if self.opened => Ok(Some("host/2")),
+            _ => self.inner.app_format(),
         }
     }
     fn id(&self) -> &str {
@@ -1159,6 +1178,28 @@ fn a_retains_with_another_name(vectors: &mut StoreVectors) {
     }
 }
 
+/// Every `createPeer` step that creates, without `expect.appFormat`.
+fn a_create_without_app_format(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        for step in script["steps"].as_array_mut().unwrap() {
+            if step["op"] == "createPeer" && step["expect"]["status"] == "created" {
+                step["expect"].as_object_mut().unwrap().remove("appFormat");
+            }
+        }
+    }
+}
+
+/// Every `openPeer` step that opens, with an `appFormat` that is not a string or null.
+fn an_open_with_a_number_as_app_format(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        for step in script["steps"].as_array_mut().unwrap() {
+            if step["op"] == "openPeer" && step["expect"]["status"] == "opened" {
+                step["expect"]["appFormat"] = serde_json::json!(7);
+            }
+        }
+    }
+}
+
 /// Every `read` step without `expect.lastTransfer`.
 fn a_read_without_last_transfer(vectors: &mut StoreVectors) {
     for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
@@ -1388,6 +1429,20 @@ const TABLE: &[Row] = &[
         PLAIN,
         &["read: the snapshot's lastTransfer is"],
         S,
+    ),
+    row(
+        "createPeer: a new handle reads no appFormat",
+        W::CreatedAppFormat,
+        PLAIN,
+        &["createPeer: the peer's appFormat is None, expected Some(\"host/1\")"],
+        S,
+    ),
+    row(
+        "openPeer: an opened handle reads another appFormat",
+        W::OpenedAppFormat,
+        PLAIN,
+        &["openPeer: the peer's appFormat is Some(\"host/2\"), expected"],
+        SC,
     ),
     row(
         "query: a snapshot older than a releasing purge answers",
@@ -2052,6 +2107,20 @@ const TABLE: &[Row] = &[
         &["scripts"],
     ),
     doc_row(
+        "documents: a createPeer step without appFormat",
+        W::Nothing,
+        a_create_without_app_format,
+        &["createPeer: the document's `appFormat` is not a string or null"],
+        &["scripts"],
+    ),
+    doc_row(
+        "documents: an openPeer step with an appFormat that is not a string or null",
+        W::Nothing,
+        an_open_with_a_number_as_app_format,
+        &["openPeer: the document's `appFormat` is not a string or null"],
+        &["scripts"],
+    ),
+    doc_row(
         "documents: a read step without lastTransfer",
         W::Nothing,
         a_read_without_last_transfer,
@@ -2222,7 +2291,7 @@ fn the_same_answers_conform_where_no_rule_forbids_them() {
             .unwrap_or_else(|failures| panic!("{wrong:?} {setup:?}: {failures}"));
         assert_eq!(
             (report.passed.len(), report.skipped.len()),
-            (26 + 15, 0),
+            (27 + 15, 0),
             "{wrong:?}"
         );
     }
@@ -2275,7 +2344,7 @@ fn a_class_none_store_skips_the_purge_scripts() {
     // The two feed scripts that purge list `changes` first; this store serves a feed, so it
     // reports `purge` as what they lack.
     assert_eq!(report.skipped, skipped(&PURGE_SCRIPTS, "purge"));
-    assert_eq!(report.passed.len(), 26 + 15 - PURGE_SCRIPTS.len());
+    assert_eq!(report.passed.len(), 27 + 15 - PURGE_SCRIPTS.len());
     assert!(report
         .passed
         .iter()
@@ -2321,7 +2390,7 @@ fn a_store_without_a_feed_is_not_asked_for_the_feed_in_retains() {
         let skipped: Vec<&str> = report.skipped.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(skipped, feed_scripts);
         assert!(report.skipped.iter().all(|s| s.missing == "changes"));
-        assert_eq!(report.passed.len(), 26 + 15 - feed_scripts.len());
+        assert_eq!(report.passed.len(), 27 + 15 - feed_scripts.len());
     }
 }
 
@@ -2337,7 +2406,7 @@ fn a_store_with_a_journal_skips_the_journal_absent_script() {
         report.skipped,
         skipped(&["scripts/a-frame-needs-the-journal"], "journal-absent")
     );
-    assert_eq!(report.passed.len(), 26 + 15 - 1);
+    assert_eq!(report.passed.len(), 27 + 15 - 1);
 }
 
 /// README §3: each script runs on a new, empty store. A factory that hands out one store again

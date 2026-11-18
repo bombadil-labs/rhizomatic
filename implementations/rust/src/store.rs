@@ -103,17 +103,29 @@ impl ErasurePosture {
     }
 }
 
+/// The most UTF-8 bytes an application format string holds (§4.13 reading 134).
+pub const APP_FORMAT_MAX_BYTES: usize = 256;
+
 /// What `Store::create_peer` fixes for a new peer (SPEC-18 §4.1). The default declares
-/// `Unproven`, the posture that every store accepts.
+/// `Unproven`, the posture that every store accepts, and no application format string.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreatePeerOptions {
     /// `Unproven` is the operator's acknowledgement that erasure reports may say `unproven`.
     pub erasure: ErasurePosture,
+    /// The application format string (§4.13 reading 134): a host's own marker for the format of
+    /// what it keeps in this peer, 1 to [`APP_FORMAT_MAX_BYTES`] UTF-8 bytes. `None`, the peer
+    /// has none. It is fixed at creation and never changes. It lies outside erasure: no purge
+    /// removes it. A host must not put personal data in it.
+    pub app_format: Option<String>,
 }
 
 impl CreatePeerOptions {
+    /// Options with this posture and no application format string.
     pub fn new(erasure: ErasurePosture) -> Self {
-        Self { erasure }
+        Self {
+            erasure,
+            app_format: None,
+        }
     }
 }
 
@@ -523,7 +535,9 @@ pub type Listing<'a, T> = Box<dyn Iterator<Item = Result<T, StoreError>> + 'a>;
 /// One store: shared delta bytes, and one logical store per peer (SPEC-18 §4.1).
 pub trait Store {
     fn profile(&self) -> &StoreProfile;
-    /// Makes a peer with no holdings. Refuses `posture-refused` and `peer-exists`.
+    /// Makes a peer with no holdings. Refuses `invalid-request` for an empty id or an
+    /// `app_format` of 0 or more than [`APP_FORMAT_MAX_BYTES`] bytes, then `posture-refused`,
+    /// then `peer-exists`.
     fn create_peer(
         &self,
         id: &str,
@@ -546,6 +560,10 @@ pub trait PeerStore {
     /// created anew, also under a name that existed before, carries another value. Refuses
     /// `store-closed` after the store is closed.
     fn history(&self) -> Result<&str, StoreError>;
+    /// The application format string given at `create_peer`, or `None` when none was given
+    /// (§4.13 reading 134). Every handle of the peer reads the same value. O(1). Refuses
+    /// `store-closed` after the store is closed.
+    fn app_format(&self) -> Result<Option<&str>, StoreError>;
     /// A repeatable view at the peer's current revision.
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError>;
     /// Atomic and idempotent by id. A refusal commits nothing.

@@ -24,7 +24,7 @@ use crate::store::{
     PurgeOutcome, PurgeReport, PurgeSurface, PurgeTarget, Pushdown, PushdownFields, Retained,
     RetainedSurface, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreCapabilities,
     StoreError, StoreErrorCode, StoreProfile, StoreWriters, SurfaceState, VerifiedDelta,
-    LOCAL_HISTORY_PREFIX, MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
+    APP_FORMAT_MAX_BYTES, LOCAL_HISTORY_PREFIX, MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
 };
 use crate::types::{Claims, Delta};
 
@@ -167,6 +167,8 @@ struct PeerState {
     posture: ErasurePosture,
     /// Minted at creation and never changed: this store neither deletes nor restores a peer.
     history: String,
+    /// Given at creation and never changed (§4.13 reading 134).
+    app_format: Option<String>,
     head: Option<String>,
     revision: u64,
     /// The largest arrival sequence this peer ever committed. A purge does not lower it.
@@ -843,11 +845,18 @@ impl MemoryStore {
         with(&self.state, |state| state.meter = StoreMeter::default());
     }
 
-    fn handle(&self, id: &str, posture: ErasurePosture, history: String) -> Box<dyn PeerStore> {
+    fn handle(
+        &self,
+        id: &str,
+        posture: ErasurePosture,
+        history: String,
+        app_format: Option<String>,
+    ) -> Box<dyn PeerStore> {
         Box::new(MemoryPeer {
             state: self.state.clone(),
             id: id.to_string(),
             history,
+            app_format,
             erasure: PeerErasure {
                 posture,
                 store_class: self.profile.capabilities.erasure,
@@ -867,6 +876,7 @@ impl Store for MemoryStore {
         options: &CreatePeerOptions,
     ) -> Result<Box<dyn PeerStore>, StoreError> {
         let erasure = options.erasure;
+        let app_format = options.app_format.clone();
         let history = with(&self.state, |state| {
             state.open()?;
             if id.is_empty() {
@@ -874,6 +884,16 @@ impl Store for MemoryStore {
                     StoreErrorCode::InvalidRequest,
                     "a peer id must not be empty",
                 );
+            }
+            if let Some(format) = &app_format {
+                if format.is_empty() || format.len() > APP_FORMAT_MAX_BYTES {
+                    return refuse(
+                        StoreErrorCode::InvalidRequest,
+                        format!(
+                            "app_format is a string of 1 to {APP_FORMAT_MAX_BYTES} UTF-8 bytes"
+                        ),
+                    );
+                }
             }
             if erasure == ErasurePosture::Proven
                 && self.profile.capabilities.erasure != ErasureClass::Proven
@@ -911,6 +931,7 @@ impl Store for MemoryStore {
                 PeerState {
                     posture: erasure,
                     history: history.clone(),
+                    app_format: app_format.clone(),
                     head: None,
                     revision: 0,
                     last_sequence: 0,
@@ -925,18 +946,18 @@ impl Store for MemoryStore {
             );
             Ok(history)
         })?;
-        Ok(self.handle(id, erasure, history))
+        Ok(self.handle(id, erasure, history, app_format))
     }
 
     fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError> {
-        let (posture, history) = with(&self.state, |state| {
+        let (posture, history, app_format) = with(&self.state, |state| {
             state.open()?;
             match state.peers.get(&mut state.meter, id) {
-                Some(peer) => Ok((peer.posture, peer.history.clone())),
+                Some(peer) => Ok((peer.posture, peer.history.clone(), peer.app_format.clone())),
                 None => refuse(StoreErrorCode::PeerAbsent, "no such peer"),
             }
         })?;
-        Ok(self.handle(id, posture, history))
+        Ok(self.handle(id, posture, history, app_format))
     }
 
     fn open_admin(&self) -> Box<dyn Exporter> {
@@ -954,6 +975,7 @@ struct MemoryPeer {
     state: Shared,
     id: String,
     history: String,
+    app_format: Option<String>,
     erasure: PeerErasure,
 }
 
@@ -967,7 +989,13 @@ impl PeerStore for MemoryPeer {
     }
 
     fn history(&self) -> Result<&str, StoreError> {
+        with(&self.state, |state| state.open())?;
         Ok(&self.history)
+    }
+
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        with(&self.state, |state| state.open())?;
+        Ok(self.app_format.as_deref())
     }
 
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {

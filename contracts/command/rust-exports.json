@@ -24206,6 +24206,17 @@
     {
       "form": "syn-import",
       "owner": "delta",
+      "rawTarget": "crate::store::APP_FORMAT_MAX_BYTES",
+      "resolvedTarget": "crate::store::APP_FORMAT_MAX_BYTES",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store::APP_FORMAT_MAX_BYTES",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
       "rawTarget": "crate::store::Admission",
       "resolvedTarget": "crate::store::Admission",
       "source": "implementations/rust/src/lib.rs",
@@ -47810,6 +47821,17 @@
     {
       "form": "syn-import",
       "owner": "storage",
+      "rawTarget": "crate::store::APP_FORMAT_MAX_BYTES",
+      "resolvedTarget": "crate::store::APP_FORMAT_MAX_BYTES",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::APP_FORMAT_MAX_BYTES",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
       "rawTarget": "crate::store::Admission",
       "resolvedTarget": "crate::store::Admission",
       "source": "implementations/rust/src/memory_store.rs",
@@ -49973,6 +49995,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::APP_FORMAT_MAX_BYTES",
+      "resolvedTarget": "crate::store::APP_FORMAT_MAX_BYTES",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemoryStore::create_peer",
+      "target": "crate::store::APP_FORMAT_MAX_BYTES",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::CreatePeerOptions",
       "resolvedTarget": "crate::store::CreatePeerOptions",
       "source": "implementations/rust/src/memory_store.rs",
@@ -50229,6 +50262,39 @@
       "sourceRegion": "semantic-owner",
       "symbol": "MemoryPeer",
       "target": "crate::store::PeerStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::MemoryPeer",
+      "resolvedTarget": "crate::memory_store::MemoryPeer",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemoryPeer::app_format",
+      "target": "crate::memory_store::MemoryPeer",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::with",
+      "resolvedTarget": "crate::memory_store::with",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemoryPeer::app_format",
+      "target": "crate::memory_store::with",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemoryPeer::app_format",
+      "target": "crate::store::StoreError",
       "targetOwner": "storage"
     },
     {
@@ -80763,6 +80829,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerStore::app_format",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::Admission",
       "resolvedTarget": "crate::store::Admission",
       "source": "implementations/rust/src/store.rs",
@@ -80802,6 +80879,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "PeerStore::erasure",
       "target": "crate::store::PeerErasure",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerStore::history",
+      "target": "crate::store::StoreError",
       "targetOwner": "storage"
     },
     {
@@ -82946,6 +83034,62 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::PeerStore",
+      "resolvedTarget": "crate::store::PeerStore",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "same_app_format",
+      "target": "crate::store::PeerStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Check",
+      "resolvedTarget": "crate::store_conformance::Check",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "same_app_format",
+      "target": "crate::store_conformance::Check",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "same_app_format",
+      "target": "serde_json::Value"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "same_app_format",
+      "target": "serde_json::Value::Null"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "same_app_format",
+      "target": "serde_json::Value::String"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "same_app_format"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::StoreError",
       "resolvedTarget": "crate::store::StoreError",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -83919,6 +84063,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store_conformance::same_app_format",
+      "resolvedTarget": "crate::store_conformance::same_app_format",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::create_peer",
+      "target": "crate::store_conformance::same_app_format",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store_conformance::text",
       "resolvedTarget": "crate::store_conformance::text",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -83945,6 +84100,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Run::create_peer",
       "target": "serde_json::Value"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::create_peer",
+      "target": "serde_json::Value::String"
     },
     {
       "form": "syn-external-path",
@@ -84476,6 +84639,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Run::open_peer",
       "target": "crate::store_conformance::refused",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::same_app_format",
+      "resolvedTarget": "crate::store_conformance::same_app_format",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::open_peer",
+      "target": "crate::store_conformance::same_app_format",
       "targetOwner": "storage"
     },
     {
@@ -98821,6 +98995,28 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::memory_store::with",
+      "resolvedTarget": "crate::memory_store::with",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemoryPeer::history",
+      "target": "crate::memory_store::with",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemoryPeer::history",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::memory_store::MemorySnapshot",
       "resolvedTarget": "crate::memory_store::MemorySnapshot",
       "source": "implementations/rust/src/memory_store.rs",
@@ -99225,12 +99421,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store::CreatePeerOptions::new",
-      "resolvedTarget": "crate::store::CreatePeerOptions::new",
+      "rawTarget": "crate::store::CreatePeerOptions",
+      "resolvedTarget": "crate::store::CreatePeerOptions",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "Run::create_peer",
-      "target": "crate::store::CreatePeerOptions::new",
+      "target": "crate::store::CreatePeerOptions",
       "targetOwner": "storage"
     },
     {
@@ -100235,6 +100431,28 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "LoggedPeer::app_format",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::LoggedPeer",
+      "resolvedTarget": "crate::store_conformance::LoggedPeer",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "LoggedPeer::app_format",
+      "target": "crate::store_conformance::LoggedPeer",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::Admission",
       "resolvedTarget": "crate::store::Admission",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -100362,6 +100580,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "LoggedPeer::erasure",
       "target": "crate::store_conformance::LoggedPeer",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "LoggedPeer::history",
+      "target": "crate::store::StoreError",
       "targetOwner": "storage"
     },
     {
@@ -101628,6 +101857,28 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Borrowed::app_format",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Borrowed",
+      "resolvedTarget": "crate::store_conformance::Borrowed",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Borrowed::app_format",
+      "target": "crate::store_conformance::Borrowed",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::Admission",
       "resolvedTarget": "crate::store::Admission",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -101733,6 +101984,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Borrowed::erasure",
       "target": "crate::store_conformance::Borrowed",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Borrowed::history",
+      "target": "crate::store::StoreError",
       "targetOwner": "storage"
     },
     {
@@ -102925,6 +103187,28 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Refusing::app_format",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Refusing",
+      "resolvedTarget": "crate::store_conformance::Refusing",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Refusing::app_format",
+      "target": "crate::store_conformance::Refusing",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::Admission",
       "resolvedTarget": "crate::store::Admission",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -103074,6 +103358,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Refusing::erasure",
       "target": "crate::store_conformance::Refusing",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Refusing::history",
+      "target": "crate::store::StoreError",
       "targetOwner": "storage"
     },
     {
@@ -106220,6 +106515,28 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_follow.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Borrowed::app_format",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_follow::Borrowed",
+      "resolvedTarget": "crate::store_follow::Borrowed",
+      "source": "implementations/rust/src/store_follow.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Borrowed::app_format",
+      "target": "crate::store_follow::Borrowed",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::Admission",
       "resolvedTarget": "crate::store::Admission",
       "source": "implementations/rust/src/store_follow.rs",
@@ -106325,6 +106642,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Borrowed::erasure",
       "target": "crate::store_follow::Borrowed",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_follow.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Borrowed::history",
+      "target": "crate::store::StoreError",
       "targetOwner": "storage"
     },
     {
@@ -115993,6 +116321,18 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:APP_FORMAT_MAX_BYTES",
+      "owner": "storage",
+      "semantics": "storage owns the existing lib::APP_FORMAT_MAX_BYTES reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "APP_FORMAT_MAX_BYTES",
+      "target": "crate::store::APP_FORMAT_MAX_BYTES"
+    },
+    {
+      "cfg": [],
       "classification": "compatibility_reexport",
       "contract": "rhizomatic.storage/native-api/1",
       "definition": "reexport",
@@ -124013,6 +124353,17 @@
       "cfg": [],
       "classification": "native_extension",
       "contract": "rhizomatic.storage/native-api/1",
+      "definition": "constant",
+      "id": "rust:store:APP_FORMAT_MAX_BYTES",
+      "owner": "storage",
+      "semantics": "storage owns the existing store::APP_FORMAT_MAX_BYTES constant; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "APP_FORMAT_MAX_BYTES"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "struct",
       "id": "rust:store:Admission",
       "owner": "storage",
@@ -124338,6 +124689,17 @@
       "semantics": "storage owns the existing store::PeerStore trait; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/store.rs",
       "symbol": "PeerStore"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "trait-method",
+      "id": "rust:store:PeerStore::app_format",
+      "owner": "storage",
+      "semantics": "storage owns the existing store::PeerStore::app_format trait-method; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "PeerStore::app_format"
     },
     {
       "cfg": [],

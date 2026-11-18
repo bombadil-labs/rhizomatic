@@ -130,7 +130,7 @@ pub use store::{
     PeerStore, PurgeOutcome, PurgeReport, PurgeSurface, PurgeTarget, Pushdown, PushdownFields,
     Revision, ScopeRequest, ScopeResult, ScopeSource, Snapshot, Store, StoreCapabilities,
     StoreError, StoreErrorCode, StoreProfile, StoreRequirement, StoreWriters, SurfaceState,
-    VerifiedDelta, MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
+    VerifiedDelta, APP_FORMAT_MAX_BYTES, MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
 };
 pub use store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceFailure,

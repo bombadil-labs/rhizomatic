@@ -974,6 +974,9 @@ impl PeerStore for Probe<'_> {
     fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
     }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
+    }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.log("read");
         Ok(Box::new(ProbeSnapshot {
@@ -2121,6 +2124,9 @@ impl PeerStore for StuckPeer<'_> {
     }
     fn history(&self) -> Result<&str, StoreError> {
         self.0.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.0.app_format()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.0.read()

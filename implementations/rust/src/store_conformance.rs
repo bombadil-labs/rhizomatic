@@ -723,6 +723,29 @@ fn refused<T>(op: &str, result: Result<T, StoreError>, codes: &[&str]) -> Check 
 
 /// A value the vector carries and this witness's types cannot hold. The step counts as refused
 /// with this code at the witness's own boundary (§3.3, §3.7). An append compares the head first.
+/// A new or opened handle reads the application format string the document expects, a string
+/// or null, on every store (§4.13 reading 134).
+fn same_app_format(op: &str, handle: &dyn PeerStore, expect: &Value) -> Check {
+    let want = match expect.get("appFormat") {
+        Some(Value::String(format)) => Some(format.as_str()),
+        Some(Value::Null) => None,
+        _ => {
+            return Err(format!(
+            "{op}: the document's `appFormat` is not a string or null; the document is defective"
+        ))
+        }
+    };
+    let got = handle
+        .app_format()
+        .map_err(|e| format!("{op}: appFormat refused `{}`", e.code.as_str()))?;
+    if got != want {
+        return Err(format!(
+            "{op}: the peer's appFormat is {got:?}, expected {want:?}"
+        ));
+    }
+    Ok(())
+}
+
 fn unrepresentable(code: StoreErrorCode, what: &str) -> StoreError {
     StoreError::new(code, format!("{what} does not fit this witness's type"))
 }
@@ -1599,12 +1622,24 @@ impl<'a> Run<'a> {
             Some("unproven") => Ok(ErasurePosture::Unproven),
             _ => Err(unrepresentable(StoreErrorCode::InvalidRequest, "erasure")),
         };
+        // An `appFormat` that is not a string, null included, cannot reach a typed store.
+        let app_format = match step.get("appFormat") {
+            None => Ok(None),
+            Some(Value::String(format)) => Ok(Some(format.clone())),
+            Some(_) => Err(unrepresentable(StoreErrorCode::InvalidRequest, "appFormat")),
+        };
         let expect = field(step, "expect")?;
         let class = self.profile.capabilities.erasure;
         let id = self.corpus.peer(name)?;
-        let result = posture
-            .clone()
-            .and_then(|posture| self.store.create_peer(id, &CreatePeerOptions::new(posture)));
+        let result = posture.clone().and_then(|erasure| {
+            self.store.create_peer(
+                id,
+                &CreatePeerOptions {
+                    erasure,
+                    app_format: app_format?,
+                },
+            )
+        });
         let excepted =
             expect.get("unlessStoreErasure").and_then(Value::as_str) == Some(class.as_str());
         if let (Some(codes), false) = (codes_of(expect), excepted) {
@@ -1624,6 +1659,10 @@ impl<'a> Run<'a> {
                 erasure.store_class.as_str(),
                 class.as_str()
             ));
+        }
+        // A peer that a proven store created against `unlessStoreErasure` has no expectation.
+        if codes_of(expect).is_none() {
+            same_app_format("createPeer", handle.as_ref(), expect)?;
         }
         let history = handle
             .history()
@@ -1666,6 +1705,7 @@ impl<'a> Run<'a> {
                 "openPeer: the opened peer does not report the posture it was created with".into(),
             );
         }
+        same_app_format("openPeer", handle.as_ref(), expect)?;
         let history = handle
             .history()
             .map_err(|e| format!("openPeer: history refused `{}`", e.code.as_str()))?;
@@ -2356,6 +2396,9 @@ impl PeerStore for Borrowed<'_> {
     fn history(&self) -> Result<&str, StoreError> {
         self.0.history()
     }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.0.app_format()
+    }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.0.read()
     }
@@ -2386,6 +2429,9 @@ impl PeerStore for LoggedPeer<'_> {
     }
     fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         // Each call is logged when it is made, also one that then refuses (README §10.3).
@@ -4072,6 +4118,9 @@ impl PeerStore for Refusing {
     }
     fn history(&self) -> Result<&str, StoreError> {
         Ok("refusing")
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        Ok(None)
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         Err(StoreError::new(StoreErrorCode::StoreClosed, "closed"))

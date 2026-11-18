@@ -93,9 +93,13 @@ impl Store for Standin {
         options: &CreatePeerOptions,
     ) -> Result<Box<dyn PeerStore>, StoreError> {
         // The memory store takes no peer that promises proof; the stand-in records the promise.
-        let inner = self
-            .inner
-            .create_peer(id, &CreatePeerOptions::new(ErasurePosture::Unproven))?;
+        let inner = self.inner.create_peer(
+            id,
+            &CreatePeerOptions {
+                erasure: ErasurePosture::Unproven,
+                ..options.clone()
+            },
+        )?;
         self.postures
             .borrow_mut()
             .insert(id.to_string(), options.erasure);
@@ -136,6 +140,9 @@ impl StandinPeer {
 impl PeerStore for StandinPeer {
     fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn id(&self) -> &str {
         &self.id
@@ -314,13 +321,13 @@ const PURGES_THAT_REMOVE: [&str; 8] = [
 /// store refuses. §3.4: where a target is removed, a proven store's claim is `proven`.
 #[test]
 fn a_proven_store_passes_and_creates_the_peer_that_promises_proof() {
-    assert_eq!(run(Quirk::None).unwrap(), 26 + 15);
+    assert_eq!(run(Quirk::None).unwrap(), 27 + 15);
 }
 
 /// §3.4: "where E is `proven`, `unproven` also conforms."
 #[test]
 fn a_proven_store_may_claim_less() {
-    assert_eq!(run(Quirk::ClaimsLess).unwrap(), 26 + 15);
+    assert_eq!(run(Quirk::ClaimsLess).unwrap(), 27 + 15);
 }
 
 /// §3.4: "If `claim` is `proven`: the surface list is not empty and every state is `absent`."
