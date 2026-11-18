@@ -109827,6 +109827,58 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::Snapshot",
+      "resolvedTarget": "crate::store::Snapshot",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::on_snapshot",
+      "target": "crate::store::Snapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Check",
+      "resolvedTarget": "crate::store_conformance::Check",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::on_snapshot",
+      "target": "crate::store_conformance::Check",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::DigestRun",
+      "resolvedTarget": "crate::store_conformance::DigestRun",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::on_snapshot",
+      "target": "crate::store_conformance::DigestRun",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::text",
+      "resolvedTarget": "crate::store_conformance::text",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::on_snapshot",
+      "target": "crate::store_conformance::text",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::on_snapshot",
+      "target": "serde_json::Value"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::CreatePeerOptions::new",
       "resolvedTarget": "crate::store::CreatePeerOptions::new",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -109911,58 +109963,6 @@
       "symbol": "DigestRun::read",
       "target": "crate::store_conformance::DigestRun",
       "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::Snapshot",
-      "resolvedTarget": "crate::store::Snapshot",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "DigestRun::snapshot",
-      "target": "crate::store::Snapshot",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store_conformance::Check",
-      "resolvedTarget": "crate::store_conformance::Check",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "DigestRun::snapshot",
-      "target": "crate::store_conformance::Check",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store_conformance::DigestRun",
-      "resolvedTarget": "crate::store_conformance::DigestRun",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "DigestRun::snapshot",
-      "target": "crate::store_conformance::DigestRun",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store_conformance::text",
-      "resolvedTarget": "crate::store_conformance::text",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "DigestRun::snapshot",
-      "target": "crate::store_conformance::text",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-external-path",
-      "owner": "storage",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "DigestRun::snapshot",
-      "target": "serde_json::Value"
     },
     {
       "form": "syn-resolved-path",
@@ -110123,6 +110123,16 @@
       "owner": "storage",
       "source": "implementations/rust/src/store_conformance.rs",
       "status": "parsed-known-macro-arguments",
+      "symbol": "DigestRun::on_snapshot"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
       "symbol": "DigestRun::peer"
     },
     {
@@ -110139,26 +110149,6 @@
       "form": "macro-region",
       "macros": [
         "format"
-      ],
-      "owner": "storage",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "status": "parsed-known-macro-arguments",
-      "symbol": "DigestRun::snapshot"
-    },
-    {
-      "form": "macro-region",
-      "macros": [
-        "format"
-      ],
-      "owner": "storage",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "status": "parsed-known-macro-arguments",
-      "symbol": "DigestRun::step"
-    },
-    {
-      "form": "macro-region",
-      "macros": [
-        "unreachable"
       ],
       "owner": "storage",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -110607,12 +110597,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store_digest::leaf_hash",
-      "resolvedTarget": "crate::store_digest::leaf_hash",
+      "rawTarget": "crate::store_digest::EMPTY_HASH",
+      "resolvedTarget": "crate::store_digest::EMPTY_HASH",
       "source": "implementations/rust/src/store_digest.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "empty_digest",
-      "target": "crate::store_digest::leaf_hash",
+      "target": "crate::store_digest::EMPTY_HASH",
       "targetOwner": "storage"
     },
     {
