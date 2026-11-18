@@ -721,8 +721,6 @@ fn refused<T>(op: &str, result: Result<T, StoreError>, codes: &[&str]) -> Check 
     }
 }
 
-/// A value the vector carries and this witness's types cannot hold. The step counts as refused
-/// with this code at the witness's own boundary (§3.3, §3.7). An append compares the head first.
 /// A new or opened handle reads the application format string the document expects, a string
 /// or null, on every store (§4.13 reading 134).
 fn same_app_format(op: &str, handle: &dyn PeerStore, expect: &Value) -> Check {
@@ -746,6 +744,8 @@ fn same_app_format(op: &str, handle: &dyn PeerStore, expect: &Value) -> Check {
     Ok(())
 }
 
+/// A value the vector carries and this witness's types cannot hold. The step counts as refused
+/// with this code at the witness's own boundary (§3.3, §3.7). An append compares the head first.
 fn unrepresentable(code: StoreErrorCode, what: &str) -> StoreError {
     StoreError::new(code, format!("{what} does not fit this witness's type"))
 }
@@ -1632,13 +1632,12 @@ impl<'a> Run<'a> {
         let class = self.profile.capabilities.erasure;
         let id = self.corpus.peer(name)?;
         let result = posture.clone().and_then(|erasure| {
-            self.store.create_peer(
-                id,
-                &CreatePeerOptions {
-                    erasure,
-                    app_format: app_format?,
-                },
-            )
+            let options = CreatePeerOptions::new(erasure);
+            let options = match app_format? {
+                Some(format) => options.with_app_format(format),
+                None => options,
+            };
+            self.store.create_peer(id, &options)
         });
         let excepted =
             expect.get("unlessStoreErasure").and_then(Value::as_str) == Some(class.as_str());

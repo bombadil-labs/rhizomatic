@@ -264,8 +264,8 @@ export class Model {
     return this.peers.get(this.handles.get(handle) ?? handle)!;
   }
 
-  /** `appFormat` undefined gives the step no `appFormat` key; null asks for a bad value. */
-  createPeer(peer: string, erasure: ErasurePosture, appFormat?: string | null): void {
+  /** `appFormat` undefined gives the step no `appFormat` key; null or a number is a bad value. */
+  createPeer(peer: string, erasure: ErasurePosture, appFormat?: string | null | number): void {
     const step = {
       op: "createPeer",
       peer,
@@ -276,7 +276,7 @@ export class Model {
     // §4.13 reading 134: 1 to 256 UTF-8 bytes, checked before the posture and the id's use.
     const badFormat =
       appFormat !== undefined &&
-      (appFormat === null ||
+      (typeof appFormat !== "string" ||
         appFormat === "" ||
         new TextEncoder().encode(appFormat).length > APP_FORMAT_MAX_BYTES);
     if (PEERS[peer] === "" || badFormat) {
@@ -293,10 +293,11 @@ export class Model {
     } else if (exists) {
       this.steps.push({ ...step, expect: { error: "peer-exists" } });
     } else {
+      const format = typeof appFormat === "string" ? appFormat : null;
       this.peers.set(peer, {
         name: peer,
         posture: erasure,
-        appFormat: appFormat ?? null,
+        appFormat: format,
         feed: [],
         head: null,
         revision: 0,
@@ -307,7 +308,7 @@ export class Model {
         owed: new Set(),
       });
       this.handles.set(peer, peer);
-      this.steps.push({ ...step, expect: { status: "created", appFormat: appFormat ?? null } });
+      this.steps.push({ ...step, expect: { status: "created", appFormat: format } });
       if (this.feed) this.mark(peer, `${peer}.0`);
     }
   }
@@ -1178,6 +1179,11 @@ function scripts(named: readonly Named[]): StoreScript[] {
       m.openPeer("C");
       m.createPeer("C", "unproven", "é".repeat(128));
       m.openPeer("C", "C2");
+      // Any well-formed string is kept byte for byte, a NUL and a control character included.
+      m.createPeer("P", "unproven", "host\u0000/\u00077");
+      m.openPeer("P");
+      // A value that is not a string is refused invalid-request before peer-exists.
+      m.createPeer("P", "unproven", 7);
     }),
     s("a-skipped-entry-spends-no-sequence", "SPEC-18 §4.5", (m) => {
       m.createPeer("A", "unproven");

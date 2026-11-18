@@ -200,12 +200,16 @@ Step 4d adds more, listed under Breaking.
   `CreatePeerOptions.app_format` takes 1 to 256 UTF-8 bytes (`APP_FORMAT_MAX_BYTES`); the
   Rust memory store refuses any other value `invalid-request` before `posture-refused` and
   `peer-exists`, and creates nothing. `PeerStore::app_format` reads it, `None` when none was
-  given. It is fixed at creation. After `close`, the memory store's `history` and `app_format`
-  refuse `store-closed`. The new script `a-peer-carries-an-application-format-string` holds the
+  given. `CreatePeerOptions::new(erasure).with_app_format(f)` gives it. It is fixed at creation.
+  After `close`, the memory store's `history` and `app_format` refuse `store-closed`. The new
+  script `a-peer-carries-an-application-format-string` holds the
   rules, and every `createPeer` step that creates and every `openPeer` step that opens carries
-  `expect.appFormat`; both runners check it on every store. The script
-  `a-transfer-must-pass-the-peers-last` gains a last step: a new id twice in one batch, whose
-  first appearance does not pass the last transfer, is refused although its repeat would pass.
+  `expect.appFormat`; both runners check it on every store. The script also gives a string
+  with a NUL and a control character, kept byte for byte, and a number, refused. Each runner's
+  rule table has a handle whose `appFormat` or `history` refuses on an open store. The script
+  `a-transfer-must-pass-the-peers-last` gains two last steps: an append of a new id twice in one
+  batch, whose first appearance does not pass the last transfer, is refused although its repeat
+  would pass; a read then shows that the refusal changed nothing.
   The format names do not change. What a purge removes does not change.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher

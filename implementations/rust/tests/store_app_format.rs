@@ -11,10 +11,7 @@ use rhizomatic::store::{
 };
 
 fn with_format(format: &str) -> CreatePeerOptions {
-    CreatePeerOptions {
-        app_format: Some(format.to_string()),
-        ..CreatePeerOptions::new(ErasurePosture::Unproven)
-    }
+    CreatePeerOptions::new(ErasurePosture::Unproven).with_app_format(format)
 }
 
 fn refusal(store: &MemoryStore, id: &str, options: &CreatePeerOptions) -> Option<StoreErrorCode> {
@@ -94,10 +91,7 @@ fn a_bad_app_format_with_a_proven_posture_is_refused_invalid_request_on_the_memo
         refusal(&store, "peer:p", &proven),
         Some(StoreErrorCode::PostureRefused)
     );
-    let bad = CreatePeerOptions {
-        app_format: Some(String::new()),
-        ..proven
-    };
+    let bad = proven.with_app_format("");
     assert_eq!(
         refusal(&store, "peer:p", &bad),
         Some(StoreErrorCode::InvalidRequest)

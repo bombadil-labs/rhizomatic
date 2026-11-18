@@ -79734,6 +79734,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::CreatePeerOptions",
+      "resolvedTarget": "crate::store::CreatePeerOptions",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CreatePeerOptions::with_app_format",
+      "target": "crate::store::CreatePeerOptions",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::ErasureClass",
       "resolvedTarget": "crate::store::ErasureClass",
       "source": "implementations/rust/src/store.rs",
@@ -99377,12 +99388,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store::CreatePeerOptions",
-      "resolvedTarget": "crate::store::CreatePeerOptions",
+      "rawTarget": "crate::store::CreatePeerOptions::new",
+      "resolvedTarget": "crate::store::CreatePeerOptions::new",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "Run::create_peer",
-      "target": "crate::store::CreatePeerOptions",
+      "target": "crate::store::CreatePeerOptions::new",
       "targetOwner": "storage"
     },
     {
@@ -124425,6 +124436,17 @@
       "semantics": "storage owns the existing store::CreatePeerOptions::new method; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/store.rs",
       "symbol": "CreatePeerOptions::new"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "method",
+      "id": "rust:store:CreatePeerOptions::with_app_format",
+      "owner": "storage",
+      "semantics": "storage owns the existing store::CreatePeerOptions::with_app_format method; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "CreatePeerOptions::with_app_format"
     },
     {
       "cfg": [],

@@ -371,6 +371,15 @@ function onePoolOfRecords(): Break {
 
 // ---- the table ------------------------------------------------------------------------------
 
+/** The handle with one getter that refuses `store-closed` on an open store. */
+function refusing(peer: PeerStore, key: "history" | "appFormat"): PeerStore {
+  return Object.defineProperty({ ...peer }, key, {
+    get() {
+      throw new StoreError("store-closed", `a wrong store refused its ${key}`);
+    },
+  });
+}
+
 type Rule = {
   /** The document the failure must be in. */
   readonly doc: "scripts" | "scope";
@@ -856,6 +865,22 @@ const RULES: Readonly<Record<string, Rule>> = {
     says: /a snapshot of \w+ reports another history than the peer's/,
     store: { snapshot: () => ({ history: "elsewhere" }) },
   },
+  "a new handle refuses its history": {
+    doc: "scripts",
+    says: "(createPeer): a wrong store refused its history",
+    store: {
+      store: (store) => ({
+        createPeer: async (id, options) => refusing(await store.createPeer(id, options), "history"),
+      }),
+    },
+  },
+  "an opened handle refuses its history": {
+    doc: "scripts",
+    says: "(openPeer): a wrong store refused its history",
+    store: {
+      store: (store) => ({ peer: async (id) => refusing(await store.peer(id), "history") }),
+    },
+  },
   // -- refusals (README §3, "Refusals") --
   "createPeer refuses with a code the step does not list": {
     doc: "scripts",
@@ -984,6 +1009,16 @@ const RULES: Readonly<Record<string, Rule>> = {
           ...(await store.createPeer(id, options)),
           appFormat: null,
         }),
+      }),
+    },
+  },
+  "a new handle that refuses its appFormat": {
+    doc: "scripts",
+    says: "(createPeer): a wrong store refused its appFormat",
+    store: {
+      store: (store) => ({
+        createPeer: async (id, options) =>
+          refusing(await store.createPeer(id, options), "appFormat"),
       }),
     },
   },

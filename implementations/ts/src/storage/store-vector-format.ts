@@ -60,8 +60,8 @@ export type CreatePeerStep = {
   readonly op: "createPeer";
   readonly peer: string;
   readonly erasure: ErasurePosture;
-  /** The application format string to ask for; absent, none is given. `null` is a bad value. */
-  readonly appFormat?: string | null;
+  /** The application format string to ask for; absent, none is given. `null` and a number are bad values. */
+  readonly appFormat?: string | null | number;
   readonly expect: /** `appFormat` is what the new handle reads: the string, or null for none. */
     | { readonly status: "created"; readonly appFormat: string | null }
     | { readonly error: VectorRefusal; readonly unlessStoreErasure?: "proven" };

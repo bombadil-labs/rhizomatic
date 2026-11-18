@@ -187,8 +187,10 @@ store, so each witness tests this itself. The runner checks, on every store:
 
 A typed witness cannot pass a null or a non-string `appFormat` to its store. Its runner answers
 such a step as refused `invalid-request` (§1.2, "A witness whose types make a case
-unrepresentable"). A Rust `String` is always well-formed, so no vector holds a lone surrogate;
-JSON readers differ on one.
+unrepresentable"). The script `a-peer-carries-an-application-format-string` gives a string that
+holds a NUL and a control character, which every store keeps byte for byte, and a number, which
+is refused. A Rust `String` is always well-formed, so no vector holds a lone surrogate; JSON
+readers differ on one.
 
 A store never issues one history twice. The memory store's `mintHistory(peer)` takes the peer's
 id and runs after every other check of `createPeer`, `peer-exists` included. A minted history
@@ -1575,7 +1577,9 @@ The table covers at least:
   a moved snapshot, a refusal that is not `snapshot-moved`; on a snapshot older than a purge that
   released a holding, an answer from the peer's later state.
 - **Peers:** a created or opened handle with another posture; a created handle with another
-  erasure class than the profile; `unlessStoreErasure` in both directions.
+  erasure class than the profile; `unlessStoreErasure` in both directions; a created handle whose
+  `appFormat` refuses on an open store; a created and an opened handle whose `history` refuses on
+  an open store.
 - **Append:** each answer that is not the expected one, `uncertain` included; the added ids, and
   their order; the result's revision; a refused append or a `conflict` that moves the revision,
   up and down; `revisionAdvanced` in both directions.

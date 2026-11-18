@@ -93,13 +93,9 @@ impl Store for Standin {
         options: &CreatePeerOptions,
     ) -> Result<Box<dyn PeerStore>, StoreError> {
         // The memory store takes no peer that promises proof; the stand-in records the promise.
-        let inner = self.inner.create_peer(
-            id,
-            &CreatePeerOptions {
-                erasure: ErasurePosture::Unproven,
-                ..options.clone()
-            },
-        )?;
+        let mut asked = options.clone();
+        asked.erasure = ErasurePosture::Unproven;
+        let inner = self.inner.create_peer(id, &asked)?;
         self.postures
             .borrow_mut()
             .insert(id.to_string(), options.erasure);

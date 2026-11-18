@@ -127,6 +127,14 @@ impl CreatePeerOptions {
             app_format: None,
         }
     }
+
+    /// These options with this application format string.
+    pub fn with_app_format(self, format: impl Into<String>) -> Self {
+        Self {
+            app_format: Some(format.into()),
+            ..self
+        }
+    }
 }
 
 /// What a store can prove about physical absence.

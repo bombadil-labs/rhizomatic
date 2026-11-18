@@ -121,6 +121,8 @@ enum Wrong {
     CreatedAppFormat,
     /// An opened handle reads another application format string.
     OpenedAppFormat,
+    /// Every handle refuses its application format string on an open store.
+    AppFormatRefuses,
     GetDrops,
     GetReverses,
     GetSig,
@@ -173,6 +175,10 @@ enum Wrong {
     HistoryShared,
     OpenedHistory,
     SnapshotHistory,
+    /// A new handle refuses its history on an open store.
+    CreatedHistoryRefuses,
+    /// An opened handle refuses its history on an open store.
+    OpenedHistoryRefuses,
 }
 
 /// What the wrapped store declares about itself.
@@ -324,14 +330,10 @@ impl Store for Rig {
         // The memory store takes no peer that promises proof. A proven rig records the promise.
         let promised =
             self.setup.class == ErasureClass::Proven || self.wrong == Wrong::CreatesPromisedProof;
-        let asked = CreatePeerOptions {
-            erasure: if promised {
-                ErasurePosture::Unproven
-            } else {
-                e
-            },
-            ..options.clone()
-        };
+        let mut asked = options.clone();
+        if promised {
+            asked.erasure = ErasurePosture::Unproven;
+        }
         let inner = self
             .inner
             .create_peer(id, &asked)
@@ -414,6 +416,10 @@ impl PeerStore for RigPeer {
             Wrong::HistoryEmpty if !self.opened => Ok(""),
             Wrong::HistoryShared => Ok("one-history-for-every-peer"),
             Wrong::OpenedHistory if self.opened => Ok("another-history"),
+            Wrong::CreatedHistoryRefuses if !self.opened => {
+                Err(refusal(StoreErrorCode::StoreClosed))
+            }
+            Wrong::OpenedHistoryRefuses if self.opened => Err(refusal(StoreErrorCode::StoreClosed)),
             _ => self.inner.history(),
         }
     }
@@ -421,6 +427,7 @@ impl PeerStore for RigPeer {
         match self.wrong {
             Wrong::CreatedAppFormat if !self.opened => Ok(None),
             Wrong::OpenedAppFormat if self.opened => Ok(Some("host/2")),
+            Wrong::AppFormatRefuses => Err(refusal(StoreErrorCode::StoreClosed)),
             _ => self.inner.app_format(),
         }
     }
@@ -1356,6 +1363,20 @@ const TABLE: &[Row] = &[
         &["a snapshot of", "reports another history than the peer's"],
         SC,
     ),
+    row(
+        "createPeer: a new handle that refuses its history",
+        W::CreatedHistoryRefuses,
+        PLAIN,
+        &["createPeer: history refused `store-closed`"],
+        SC,
+    ),
+    row(
+        "openPeer: an opened handle that refuses its history",
+        W::OpenedHistoryRefuses,
+        PLAIN,
+        &["openPeer: history refused `store-closed`"],
+        SC,
+    ),
     // Refusals (README §3 "Refusals", §3.7).
     row(
         "createPeer: a refusal code outside the list",
@@ -1442,6 +1463,13 @@ const TABLE: &[Row] = &[
         W::OpenedAppFormat,
         PLAIN,
         &["openPeer: the peer's appFormat is Some(\"host/2\"), expected"],
+        SC,
+    ),
+    row(
+        "createPeer: a new handle that refuses its appFormat",
+        W::AppFormatRefuses,
+        PLAIN,
+        &["createPeer: appFormat refused `store-closed`"],
         SC,
     ),
     row(
