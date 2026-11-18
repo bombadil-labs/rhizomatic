@@ -587,6 +587,12 @@ impl Snapshot for FeedySnapshot {
     fn count(&self) -> u64 {
         self.inner.count()
     }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.inner.get(ids)
     }
@@ -1186,7 +1192,7 @@ fn the_same_feeds_conform_where_no_rule_forbids_them() {
             .unwrap_or_else(|failures| panic!("{wrong:?} {setup:?}: {failures}"));
         assert_eq!(
             (report.passed.len(), report.skipped.len()),
-            (25 + 15, 0),
+            (26 + 15, 0),
             "{wrong:?} {setup:?}"
         );
     }
@@ -1205,17 +1211,17 @@ fn a_store_without_a_feed_skips_the_feed_scripts() {
         })
         .collect();
     assert_eq!(report.skipped, skipped);
-    assert_eq!(report.passed.len(), 21 + 15);
+    assert_eq!(report.passed.len(), 22 + 15);
 
     // A store without a feed whose `changes` would refuse every call still passes: the runner
     // makes no feed check on it.
     let refusing = run_with(W::Refuses, NO_FEED, &vectors()).unwrap_or_else(|e| panic!("{e}"));
-    assert_eq!(refusing.passed.len(), 21 + 15);
+    assert_eq!(refusing.passed.len(), 22 + 15);
 }
 
 /// Every script and the scope setup that commit twice to one peer: a wrong page that needs two
 /// pending records shows in the check after their second commit.
-const TWO_COMMITS: [&str; 21] = [
+const TWO_COMMITS: [&str; 22] = [
     "scripts/negation-chains",
     "scripts/negation-before-its-target",
     "scripts/duplicates-add-nothing",
@@ -1228,6 +1234,7 @@ const TWO_COMMITS: [&str; 21] = [
     "scripts/a-snapshot-across-a-purge",
     "scripts/the-last-sequence-survives-a-purge",
     "scripts/the-last-sequence-survives-an-empty-peer",
+    "scripts/a-transfer-must-pass-the-peers-last",
     "scripts/a-skipped-entry-spends-no-sequence",
     "scripts/the-first-appearance-is-kept",
     "scripts/an-older-handle-stays-valid",
@@ -1258,6 +1265,7 @@ fn the_broken_feeds_fail_where_their_fault_first_shows() {
         failed(W::NoHeadOnlyRecord, "the head-only commit to revision"),
         [
             "scripts/duplicates-add-nothing",
+            "scripts/a-transfer-must-pass-the-peers-last",
             "scripts/a-skipped-entry-spends-no-sequence",
             "scripts/the-first-appearance-is-kept",
             "scripts/append-checks-before-and-after-the-head",

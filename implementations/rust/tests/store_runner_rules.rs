@@ -17,6 +17,8 @@
 //!
 //! - **A surface state outside the three.** `SurfaceState` is an enum of three values, so no
 //!   store can report a fourth.
+//! - **A `retains` entry with another name, or one that holds more than the id.**
+//!   `RetainedSurface` has three values, and `Retained::holds` always answers `id`.
 //! - **The trim comparison against a wrong store.** The runner takes the held deltas of a scope
 //!   case from its own bookkeeping, not from `get`. With held deltas fixed, the case's lower and
 //!   upper bounds imply the trim lemma for any answer, so no store can fail the trim comparison
@@ -32,11 +34,11 @@ use std::rc::Rc;
 
 use rhizomatic::memory_store::{MemoryStore, MEMORY_STORE_FORMAT};
 use rhizomatic::store::{
-    target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ErasureClaim,
-    ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter, PeerStore,
-    PurgeOutcome, PurgeReport, PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot,
-    Store, StoreError, StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta,
-    MAX_ARRIVAL_COUNTER,
+    target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ChangeRetention,
+    ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter,
+    PeerStore, PurgeOutcome, PurgeReport, PushdownFields, Retained, RetainedSurface, Revision,
+    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
+    SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER,
 };
 use rhizomatic::store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceReport,
@@ -58,6 +60,10 @@ enum Wrong {
     AnswersWhenReleased,
     TargetsRefuse,
     MovedCode,
+    /// Refuses `snapshot-moved` after any advance, as the Rust memory store did before 4e.
+    RefusesAfterAppend,
+    /// Answers a `snapshot-moved` call from a new snapshot, the peer's later state.
+    AnswersWhenMoved,
     // Peers.
     CreatedPosture,
     CreatedClass,
@@ -91,6 +97,14 @@ enum Wrong {
     ProvenWithoutSurface,
     ProvenNotAbsent,
     ReferenceSurfaces,
+    RetainsOmitsDebt,
+    RetainsTwice,
+    RetainsMore,
+    RetainsOmitsFeed,
+    /// Right, not wrong: the profile serves no feed, and `retains` never names it.
+    NoFeed,
+    /// Right, not wrong: the profile serves no feed, and `retains` still names it.
+    NoFeedNamesFeed,
     // The bookkeeping.
     HoldsLastOfBatch,
     ServesPurged,
@@ -101,6 +115,8 @@ enum Wrong {
     Head,
     HeadEmpty,
     Count,
+    LastSequence,
+    LastTransfer,
     GetDrops,
     GetReverses,
     GetSig,
@@ -253,6 +269,9 @@ impl Rig {
         if !setup.reference {
             profile.format_version = "rhizomatic.test.wrong/1".into();
         }
+        if matches!(wrong, Wrong::NoFeed | Wrong::NoFeedNamesFeed) {
+            profile.change_retention = ChangeRetention::None;
+        }
         assert_eq!(
             profile.format_version == MEMORY_STORE_FORMAT,
             setup.reference
@@ -269,6 +288,7 @@ impl Rig {
     fn handle(&self, id: &str, inner: Box<dyn PeerStore>, opened: bool) -> Box<dyn PeerStore> {
         Box::new(RigPeer {
             inner,
+            store: self.inner.clone(),
             id: id.to_string(),
             wrong: self.wrong,
             setup: self.setup,
@@ -330,6 +350,7 @@ impl Store for Rig {
 
 struct RigPeer {
     inner: Box<dyn PeerStore>,
+    store: Rc<MemoryStore>,
     id: String,
     wrong: Wrong,
     setup: Setup,
@@ -446,6 +467,8 @@ impl PeerStore for RigPeer {
         Ok(Box::new(RigSnapshot {
             revision: self.revision(inner.revision()),
             inner,
+            store: self.store.clone(),
+            id: self.id.clone(),
             wrong: self.wrong,
             others,
             last,
@@ -626,6 +649,18 @@ impl PeerStore for RigPeer {
             Wrong::ReferenceSurfaces => {
                 report.surfaces.pop();
             }
+            Wrong::RetainsOmitsDebt => report
+                .retains
+                .retain(|r| r.surface != RetainedSurface::PurgeDebt),
+            Wrong::RetainsTwice => report.retains.push(Retained {
+                surface: RetainedSurface::ChangeFeed,
+            }),
+            Wrong::RetainsMore => report.retains.push(Retained {
+                surface: RetainedSurface::SurfaceDebt,
+            }),
+            Wrong::NoFeed | Wrong::RetainsOmitsFeed => report
+                .retains
+                .retain(|r| r.surface != RetainedSurface::ChangeFeed),
             _ => {}
         }
         Ok(report)
@@ -637,6 +672,8 @@ impl PeerStore for RigPeer {
 
 struct RigSnapshot {
     inner: Box<dyn Snapshot>,
+    store: Rc<MemoryStore>,
+    id: String,
     revision: Revision,
     wrong: Wrong,
     /// Entries other peers committed.
@@ -648,6 +685,26 @@ struct RigSnapshot {
 }
 
 impl RigSnapshot {
+    /// One query on the memory store's snapshot, or, for the two rules of a moved snapshot, on
+    /// the peer's present state.
+    fn ask<T>(
+        &self,
+        query: impl Fn(&dyn Snapshot) -> Result<T, StoreError>,
+    ) -> Result<T, StoreError> {
+        let now = || self.store.peer(&self.id).and_then(|peer| peer.read());
+        match (self.wrong, query(self.inner.as_ref())) {
+            (Wrong::RefusesAfterAppend, Ok(_))
+                if now().is_ok_and(|now| now.revision() != self.inner.revision()) =>
+            {
+                Err(refusal(StoreErrorCode::SnapshotMoved))
+            }
+            (Wrong::AnswersWhenMoved, Err(e)) if e.code == StoreErrorCode::SnapshotMoved => {
+                query(now()?.as_ref())
+            }
+            (_, result) => result,
+        }
+    }
+
     fn answer<T>(
         &self,
         result: Result<T, StoreError>,
@@ -742,8 +799,16 @@ impl Snapshot for RigSnapshot {
         self.inner.count() + u64::from(self.wrong == Wrong::Count)
     }
 
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence() + u64::from(self.wrong == Wrong::LastSequence)
+    }
+
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer() + u64::from(self.wrong == Wrong::LastTransfer)
+    }
+
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
-        let mut deltas = self.answer(self.inner.get(ids), Vec::new)?;
+        let mut deltas = self.answer(self.ask(|s| s.get(ids)), Vec::new)?;
         reorder(self.wrong, Wrong::GetDrops, Wrong::GetReverses, &mut deltas);
         if let Some(first) = deltas.first_mut() {
             match self.wrong {
@@ -756,7 +821,7 @@ impl Snapshot for RigSnapshot {
     }
 
     fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
-        let mut records = self.answer(self.inner.arrivals(ids), Vec::new)?;
+        let mut records = self.answer(self.ask(|s| s.arrivals(ids)), Vec::new)?;
         records.iter_mut().for_each(|r| self.last_of_batch(r));
         reorder(
             self.wrong,
@@ -774,7 +839,7 @@ impl Snapshot for RigSnapshot {
         if self.wrong == Wrong::TargetsRefuse {
             return Err(refusal(StoreErrorCode::InvalidRequest));
         }
-        let mut ids = self.answer(self.inner.targets(entities), Vec::new)?;
+        let mut ids = self.answer(self.ask(|s| s.targets(entities)), Vec::new)?;
         reorder(
             self.wrong,
             Wrong::TargetsDrop,
@@ -785,7 +850,7 @@ impl Snapshot for RigSnapshot {
     }
 
     fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
-        let mut found = self.answer(self.inner.negators(ids), Vec::new)?;
+        let mut found = self.answer(self.ask(|s| s.negators(ids)), Vec::new)?;
         reorder(
             self.wrong,
             Wrong::NegatorsDrop,
@@ -822,7 +887,7 @@ impl Snapshot for RigSnapshot {
             deltas: Vec::new(),
             applied: PushdownFields::default(),
         };
-        let mut answer = self.answer(self.inner.scope(&asked), empty)?;
+        let mut answer = self.answer(self.ask(|s| s.scope(&asked)), empty)?;
         let requested = request.pushdown.clone().unwrap_or_default();
         let entities: BTreeSet<&str> = request
             .anchors
@@ -1079,6 +1144,73 @@ fn a_claim_with_another_key(vectors: &mut StoreVectors) {
     }
 }
 
+/// A first purge step whose `retains` names a surface that is not one of the three.
+fn a_retains_with_another_name(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        let steps = script["steps"].as_array_mut().unwrap();
+        if let Some(purge) = steps.iter_mut().find(|step| step["op"] == "purge") {
+            purge["expect"]["retains"] = serde_json::json!(["change-feed", "bytes"]);
+        }
+    }
+}
+
+/// Every `read` step without `expect.lastTransfer`.
+fn a_read_without_last_transfer(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        for step in script["steps"].as_array_mut().unwrap() {
+            if step["op"] == "read" {
+                step["expect"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("lastTransfer");
+            }
+        }
+    }
+}
+
+/// Every `read` step without its `expect`.
+fn a_read_without_last_sequence(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        for step in script["steps"].as_array_mut().unwrap() {
+            if step["op"] == "read" {
+                step.as_object_mut().unwrap().remove("expect");
+            }
+        }
+    }
+}
+
+/// Every `read` step with a `lastSequence` that is not a whole number.
+fn a_read_with_a_fraction_as_last_sequence(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        for step in script["steps"].as_array_mut().unwrap() {
+            if step["op"] == "read" {
+                step["expect"]["lastSequence"] = serde_json::json!(0.5);
+            }
+        }
+    }
+}
+
+/// Every `read` step with a `lastTransfer` that is not a whole number.
+fn a_read_with_a_fraction_as_last_transfer(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        for step in script["steps"].as_array_mut().unwrap() {
+            if step["op"] == "read" {
+                step["expect"]["lastTransfer"] = serde_json::json!(0.5);
+            }
+        }
+    }
+}
+
+/// A first purge step without `retains`.
+fn a_purge_without_retains(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        let steps = script["steps"].as_array_mut().unwrap();
+        if let Some(purge) = steps.iter_mut().find(|step| step["op"] == "purge") {
+            purge["expect"].as_object_mut().unwrap().remove("retains");
+        }
+    }
+}
+
 /// A `claim` without its `proven` key; the runner of an unprovable store never reads that key.
 fn a_claim_without_a_key(vectors: &mut StoreVectors) {
     for claim in first_claims(vectors) {
@@ -1239,13 +1371,31 @@ const TABLE: &[Row] = &[
         S,
     ),
     row(
+        "read: the snapshot's lastSequence",
+        W::LastSequence,
+        PLAIN,
+        &["read: the snapshot's lastSequence is"],
+        S,
+    ),
+    row(
+        "read: the snapshot's lastTransfer",
+        W::LastTransfer,
+        PLAIN,
+        &["read: the snapshot's lastTransfer is"],
+        S,
+    ),
+    row(
+        "query: a snapshot older than a releasing purge answers",
+        W::AnswersWhenMoved,
+        PLAIN,
+        &["expected a refusal `snapshot-moved`, the store answered"],
+        S,
+    ),
+    row(
         "scope: a bound the type holds reaches the store",
         W::BoundReachesStore,
         PLAIN,
-        &[
-            "scope: expected a refusal `invalid-request`, the store answered",
-            "scope: expected a refusal `invalid-request`, the store refused `snapshot-moved`",
-        ],
+        &["scope: expected a refusal `invalid-request`, the store answered"],
         S,
     ),
     // Peers (§3.1, §3.2).
@@ -1462,6 +1612,34 @@ const TABLE: &[Row] = &[
         W::ReferenceSurfaces,
         REFERENCE,
         &["reference surfaces: expected"],
+        S,
+    ),
+    row(
+        "purge: retains omits purge-debt",
+        W::RetainsOmitsDebt,
+        PLAIN,
+        &["purge retains: the report omits purge-debt"],
+        S,
+    ),
+    row(
+        "purge: retains omits change-feed from a store with a feed",
+        W::RetainsOmitsFeed,
+        PLAIN,
+        &["purge retains: the report omits change-feed"],
+        S,
+    ),
+    row(
+        "purge: retains names a surface twice, out of order",
+        W::RetainsTwice,
+        PLAIN,
+        &["is not in the order change-feed, purge-debt, surface-debt, each once"],
+        S,
+    ),
+    row(
+        "purge: the reference retains",
+        W::RetainsMore,
+        REFERENCE,
+        &["purge retains: expected "],
         S,
     ),
     // The bookkeeping (§3.3).
@@ -1724,6 +1902,13 @@ const TABLE: &[Row] = &[
     ),
     // Reference rules (§3.4, §3.7, §4).
     row(
+        "reference: a snapshot that appends alone moved answers",
+        W::RefusesAfterAppend,
+        REFERENCE,
+        &["the reference store refused `snapshot-moved` on a snapshot that appends alone moved"],
+        S,
+    ),
+    row(
         "reference: the applied fields",
         W::ReferenceAppliesLess,
         REFERENCE,
@@ -1845,6 +2030,48 @@ const TABLE: &[Row] = &[
         W::Nothing,
         a_claim_without_a_key,
         &["purge: the document's `claim` has the keys"],
+        &["scripts"],
+    ),
+    doc_row(
+        "documents: a purge retains with another name",
+        W::Nothing,
+        a_retains_with_another_name,
+        &["purge: the document's `retains` is not a list of retained surfaces"],
+        &["scripts"],
+    ),
+    doc_row(
+        "documents: a purge step without retains",
+        W::Nothing,
+        a_purge_without_retains,
+        &["purge: the document's `retains` is not a list of retained surfaces"],
+        &["scripts"],
+    ),
+    doc_row(
+        "documents: a read step without lastTransfer",
+        W::Nothing,
+        a_read_without_last_transfer,
+        &["read: the document's `lastTransfer` is not a whole number"],
+        &["scripts"],
+    ),
+    doc_row(
+        "documents: a read step with a lastTransfer that is not a whole number",
+        W::Nothing,
+        a_read_with_a_fraction_as_last_transfer,
+        &["read: the document's `lastTransfer` is not a whole number"],
+        &["scripts"],
+    ),
+    doc_row(
+        "documents: a read step without lastSequence",
+        W::Nothing,
+        a_read_without_last_sequence,
+        &["read: the document's `lastSequence` is not a whole number"],
+        &["scripts"],
+    ),
+    doc_row(
+        "documents: a read step with a lastSequence that is not a whole number",
+        W::Nothing,
+        a_read_with_a_fraction_as_last_sequence,
+        &["read: the document's `lastSequence` is not a whole number"],
         &["scripts"],
     ),
     doc_row(
@@ -1982,24 +2209,27 @@ fn the_same_answers_conform_where_no_rule_forbids_them() {
         (W::ReferenceIgnoresExclude, PLAIN),
         (W::ReferenceIgnoresExcludeUnpushed, PLAIN),
         (W::ReferenceSurfaces, PLAIN),
+        (W::RetainsMore, PLAIN),
+        (W::RefusesAfterAppend, PLAIN),
     ];
     for (wrong, setup) in controls {
         let report = run_with(wrong, setup, &vectors)
             .unwrap_or_else(|failures| panic!("{wrong:?} {setup:?}: {failures}"));
         assert_eq!(
             (report.passed.len(), report.skipped.len()),
-            (25 + 15, 0),
+            (26 + 15, 0),
             "{wrong:?}"
         );
     }
 }
 
-const PURGE_SCRIPTS: [&str; 7] = [
+const PURGE_SCRIPTS: [&str; 8] = [
     "scripts/purge",
     "scripts/purge-clears-a-debt-on-append",
     "scripts/a-snapshot-across-a-purge",
     "scripts/the-last-sequence-survives-a-purge",
     "scripts/the-last-sequence-survives-an-empty-peer",
+    "scripts/a-transfer-must-pass-the-peers-last",
     "scripts/feed-purge-and-debts",
     "scripts/feed-a-debt-ends-on-append",
 ];
@@ -2040,7 +2270,7 @@ fn a_class_none_store_skips_the_purge_scripts() {
     // The two feed scripts that purge list `changes` first; this store serves a feed, so it
     // reports `purge` as what they lack.
     assert_eq!(report.skipped, skipped(&PURGE_SCRIPTS, "purge"));
-    assert_eq!(report.passed.len(), 25 + 15 - PURGE_SCRIPTS.len());
+    assert_eq!(report.passed.len(), 26 + 15 - PURGE_SCRIPTS.len());
     assert!(report
         .passed
         .iter()
@@ -2059,6 +2289,37 @@ fn a_class_none_store_skips_the_purge_scripts() {
         .all(|f| f.message.contains("purge refused `capability-absent`")));
 }
 
+/// README §3.4: a store whose profile serves no feed is not asked to name `change-feed` in
+/// `retains`, and may still name it. It skips the scripts that require `changes` and passes the
+/// others, also as the reference store.
+#[test]
+fn a_store_without_a_feed_is_not_asked_for_the_feed_in_retains() {
+    let feed_scripts: Vec<String> = vectors().scripts["scripts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|s| {
+            s["requires"]
+                .as_array()
+                .is_some_and(|r| r.contains(&"changes".into()))
+        })
+        .map(|s| format!("scripts/{}", s["name"].as_str().unwrap()))
+        .collect();
+    assert!(!feed_scripts.is_empty());
+    for (wrong, setup) in [
+        (W::NoFeed, PLAIN),
+        (W::NoFeed, REFERENCE),
+        (W::NoFeedNamesFeed, REFERENCE),
+    ] {
+        let report = run_with(wrong, setup, &vectors())
+            .unwrap_or_else(|e| panic!("{wrong:?} {setup:?}: {e}"));
+        let skipped: Vec<&str> = report.skipped.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(skipped, feed_scripts);
+        assert!(report.skipped.iter().all(|s| s.missing == "changes"));
+        assert_eq!(report.passed.len(), 26 + 15 - feed_scripts.len());
+    }
+}
+
 /// README §3: a store with a journal skips the script that requires its absence, and only it.
 #[test]
 fn a_store_with_a_journal_skips_the_journal_absent_script() {
@@ -2071,7 +2332,7 @@ fn a_store_with_a_journal_skips_the_journal_absent_script() {
         report.skipped,
         skipped(&["scripts/a-frame-needs-the-journal"], "journal-absent")
     );
-    assert_eq!(report.passed.len(), 25 + 15 - 1);
+    assert_eq!(report.passed.len(), 26 + 15 - 1);
 }
 
 /// README §3: each script runs on a new, empty store. A factory that hands out one store again

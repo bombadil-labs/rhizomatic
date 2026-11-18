@@ -59,7 +59,7 @@ fn append(peer: &dyn PeerStore, head: (Option<&str>, &str), last: u64, deltas: &
                 id: delta.id.clone(),
                 at: 1000.0,
                 sequence,
-                transfer: 1,
+                transfer: sequence,
                 sender: "local".into(),
             },
         })
@@ -148,7 +148,7 @@ fn measure(n: usize) -> Vec<(&'static str, StoreMeter)> {
                     id: name.id.clone(),
                     at: 1.0,
                     sequence: last + 20,
-                    transfer: 2,
+                    transfer: last + 20,
                     sender: "local".into(),
                 },
             }],
@@ -255,6 +255,128 @@ fn core_operations_cost_their_footprint_not_the_store() {
     );
 }
 
+/// The index work of one purge that finds another peer's debt (§4.13 reading 108), beside `n`
+/// peers that each owe an id of their own.
+fn purge_beside_debtors(n: usize) -> StoreMeter {
+    let store = MemoryStore::new();
+    let keeper = store
+        .create_peer("peer:keeper", ErasurePosture::Unproven)
+        .unwrap();
+    let owed: Vec<Delta> = (0..n)
+        .map(|i| fact(&format!("owed:{i}"), "height", i as f64, 1.0))
+        .collect();
+    append(keeper.as_ref(), (None, "k-1"), 0, &owed);
+    for (i, delta) in owed.iter().enumerate() {
+        let debtor = store
+            .create_peer(&format!("peer:debtor-{i}"), ErasurePosture::Unproven)
+            .unwrap();
+        append(
+            debtor.as_ref(),
+            (None, "d-1"),
+            0,
+            std::slice::from_ref(delta),
+        );
+        debtor.purge(std::slice::from_ref(&delta.id)).unwrap();
+    }
+    let x = fact("plant:x", "height", 1.0, 1.0);
+    let a = store
+        .create_peer("peer:a", ErasurePosture::Unproven)
+        .unwrap();
+    let b = store
+        .create_peer("peer:b", ErasurePosture::Unproven)
+        .unwrap();
+    append(a.as_ref(), (None, "a-1"), 0, std::slice::from_ref(&x));
+    append(b.as_ref(), (None, "b-1"), 0, std::slice::from_ref(&x));
+    a.purge(std::slice::from_ref(&x.id)).unwrap();
+    store.reset_meter();
+    let report = b.purge(std::slice::from_ref(&x.id)).unwrap();
+    let names: Vec<&str> = report.retains.iter().map(|r| r.surface.as_str()).collect();
+    assert_eq!(names, ["change-feed", "purge-debt"]);
+    store.meter()
+}
+
+/// A purge finds a debt of another peer through the count of peers that owe each id, not by a
+/// walk of the peers: the same index work beside 64 and 512 peers that owe other ids.
+#[test]
+fn another_peers_debt_is_found_without_a_walk_of_the_peers() {
+    let few = purge_beside_debtors(64);
+    let many = purge_beside_debtors(512);
+    assert_eq!(few, many, "the purge's index work grew with the peers");
+    assert_eq!(many.scans, 0, "the purge walked a whole map");
+}
+
+/// The index work of each read on a snapshot taken before `n` unrelated appends and eight later
+/// deltas at its own entity, beside the same read on a current snapshot. Each answer is checked
+/// against the snapshot's set.
+fn tolerant_reads(n: usize) -> Vec<(&'static str, StoreMeter, StoreMeter)> {
+    let store = MemoryStore::new();
+    let peer = store
+        .create_peer("peer:a", ErasurePosture::Unproven)
+        .unwrap();
+    let height = fact("plant:a", "height", 10.0, 10.0);
+    let struck = negation(&height, 20.0);
+    let name = fact("plant:a", "name", 1.0, 30.0);
+    let footprint = [height.clone(), struck.clone(), name.clone()];
+    append(peer.as_ref(), (None, "a-1"), 0, &footprint);
+    let old = peer.read().unwrap();
+    let later: Vec<Delta> = (0..8)
+        .map(|i| fact("plant:a", "later", i as f64, 40.0 + i as f64))
+        .chain([negation(&height, 60.0), negation(&struck, 61.0)])
+        .collect();
+    append(peer.as_ref(), (Some("a-1"), "a-2"), 3, &later);
+    append(peer.as_ref(), (Some("a-2"), "a-3"), 20, &noise(n));
+    let current = peer.read().unwrap();
+
+    let ids: Vec<String> = footprint
+        .iter()
+        .chain(&later)
+        .map(|d| d.id.clone())
+        .collect();
+    let entities = vec!["plant:a".to_string()];
+    let anchored = ScopeRequest {
+        anchors: vec![Anchor::Entity {
+            entity: "plant:a".into(),
+        }],
+        ..ScopeRequest::default()
+    };
+    let struck_ids = vec![height.id.clone(), struck.id.clone()];
+    let mut work = Vec::new();
+    let mut measured = |name: &'static str,
+                        op: &dyn Fn(&dyn rhizomatic::store::Snapshot) -> usize,
+                        want: usize| {
+        store.reset_meter();
+        assert_eq!(op(old.as_ref()), want, "{name}: the old snapshot's answer");
+        let before = store.meter();
+        store.reset_meter();
+        op(current.as_ref());
+        work.push((name, before, store.meter()));
+    };
+    measured("get", &|s| s.get(&ids).unwrap().len(), 3);
+    measured("arrivals", &|s| s.arrivals(&ids).unwrap().len(), 3);
+    measured("targets", &|s| s.targets(&entities).unwrap().len(), 2);
+    measured("negators", &|s| s.negators(&struck_ids).unwrap().len(), 1);
+    measured("scope", &|s| s.scope(&anchored).unwrap().deltas.len(), 3);
+    work
+}
+
+/// A snapshot that appends moved answers by reading the present rows of each key and keeping
+/// those within its last sequence (§4.13 reading 131). Its index work does not grow with what
+/// the peer admitted elsewhere, walks no whole map, and is at most a current snapshot's work.
+#[test]
+fn a_tolerant_read_costs_the_present_rows_of_its_keys_not_the_peer() {
+    let few = tolerant_reads(0);
+    let many = tolerant_reads(4000);
+    for ((name, old_few, _), (_, old_many, current)) in few.iter().zip(&many) {
+        assert_eq!(old_few, old_many, "{name}: the work grew with the peer");
+        assert_eq!(old_many.scans, 0, "{name}: the read walked a whole map");
+        assert!(old_many.lookups > 0, "{name}: the meter counted no lookup");
+        assert!(
+            old_many.lookups <= current.lookups && old_many.visited <= current.visited,
+            "{name}: the old snapshot did more work than a current one: {old_many:?} {current:?}"
+        );
+    }
+}
+
 #[test]
 fn only_the_exporter_scans() {
     let store = MemoryStore::new();
@@ -284,7 +406,7 @@ fn member(delta: Delta, sequence: u64) -> VerifiedDelta {
             id: delta.id.clone(),
             at: 1000.0,
             sequence,
-            transfer: 1,
+            transfer: sequence,
             sender: "local".into(),
         },
         delta,

@@ -204,7 +204,10 @@ The checks:
      entry may carry the same number, and it does not raise the peer's largest committed sequence.
      This holds for both kinds of skipped entry, and a vector pins each: an entry whose id the
      peer held before the batch, and a repeat of an id inside the batch.
-  6. Otherwise the entry is **new**.
+  6. `transfer` is not greater than the peer's last transfer ordinal: refuse
+     `invalid-admission` (reading 135). It is compared with the last one before the batch, not
+     with other entries of the batch. A skipped entry is not compared.
+  7. Otherwise the entry is **new**.
 - **(d) Commit**, all together: the peer holds every new delta with its arrival record and
   signature; the head becomes `nextHead`. Answer `committed` with the new ids (ascending) and the
   revision.
@@ -231,11 +234,13 @@ The store checks sequences for two things only: greater than the peer's largest,
 among the batch's new entries. That sequences follow ascending id inside a transfer, and that one batch shares
 one transfer ordinal, are admission's rules (SPEC-6 vNext §3). The store does not check them.
 
-Owed in step 4e: the transfer rule (SPEC-18 proposal §4.13 reading 135). The TypeScript stores
-keep each peer's last transfer ordinal and refuse `invalid-admission` for a new entry whose
-`transfer` does not pass it. A skipped entry is not compared and does not raise it. No vector
-holds a case of this rule yet, and the Rust stores do not check it. Step 4e adds the vector and
-the Rust check together.
+The store also keeps each peer's last transfer ordinal (SPEC-18 proposal §4.13 reading 135). A
+new entry whose `transfer` is not above it is refused `invalid-admission`, and nothing changes.
+A skipped entry (held, or repeated in the batch) is not compared and does not raise it. The
+commit sets it to the largest `transfer` among the new entries. A head-only append, an append
+whose every entry is skipped, and a purge keep it. The store does not check that one batch
+shares one transfer. Each peer has its own last transfer: one peer may commit a transfer below
+another peer's last one. The script `a-transfer-must-pass-the-peers-last` holds each case.
 
 A store that cannot tell whether an append committed answers `uncertain`. The memory reference
 store never does. In a conformance run `uncertain` fails the step.
@@ -265,8 +270,11 @@ learn that they remain. It learns nothing about an id it never held.
 
 ### 1.4 Snapshot
 
-A snapshot has a `revision`, the peer's `history`, a `head`, and a `count` (how many deltas the
-peer holds). All four are fixed when it is read.
+A snapshot has a `revision`, the peer's `history`, a `head`, a `count` (how many deltas the
+peer holds), a `lastSequence` (the highest arrival sequence the peer had admitted, 0 before
+the first; SPEC-18 §4.13 reading 131) and a `lastTransfer` (the highest transfer ordinal of a new
+holding the peer had committed, 0 before the first; reading 135). All six are fixed when it is
+read.
 
 | Operation | Answer |
 |---|---|
@@ -294,8 +302,9 @@ the bound that pins this order for a typed store.
 refuse `snapshot-moved` or answer exactly as it would have at the snapshot's revision. It MUST NOT
 answer from the later state. Once the peer has released a holding by a purge after the snapshot
 was read, every operation on the snapshot MUST refuse `snapshot-moved`, also one that would find
-nothing. The TypeScript memory reference store answers after appends and refuses after such a
-purge; the Rust memory store refuses after any advance. Both conform.
+nothing. The memory reference store of each witness answers after appends and refuses after such
+a purge (SPEC-18 §4.13 reading 130). A store that refuses after any advance also conforms; the
+runner holds only a memory reference store to the answer (§3.7).
 
 #### 1.4.1 Scope
 
@@ -334,7 +343,7 @@ bound.
 
 ### 1.5 Purge report
 
-`{claim, boundary, revision, targets, surfaces}`:
+`{claim, boundary, revision, targets, surfaces, retains}`:
 
 - `targets`: `{id, outcome}` for each distinct requested id, ascending.
 - `revision`: the peer's revision after the purge.
@@ -356,6 +365,19 @@ bound.
 Surface names and their number are the store's own. Only the memory reference store's are fixed:
 `rows`, `index-entries` (targets, negators and arrival records), `process-memory`, in that order,
 with states `absent`, `absent`, `unprovable`.
+
+- `retains`: `{surface, holds}` for each store-controlled surface that may still hold the **id**
+  of a target this report marks `removed` or `held-by-other-peer` (SPEC-18 §4.13 reading 108).
+  `holds` is always `id`. `surface` is one of three names, in this fixed order, each at most
+  once:
+  - `change-feed`: whenever the store's `changeRetention` is not `none`;
+  - `purge-debt`: while a purge debt of any peer names such a target, read after the purge;
+  - `surface-debt`: while a record of a removal (reading 107) of any peer names such a target.
+
+  A target that is `not-held` never adds a name. A store may name a surface that no longer holds
+  the id. It never omits one that does. The claim does not cover ids. The memory reference store
+  names exactly `change-feed`, and `purge-debt` when a purge debt names such a target. It never
+  names `surface-debt`.
 
 ### 1.6 Profile
 
@@ -537,7 +559,8 @@ record. Later steps check store answers against this record.
     "claim": { "unprovable": "unproven", "proven": "proven" },
     "referenceSurfaces": [ { "surface": "rows", "state": "absent" },
                            { "surface": "index-entries", "state": "absent" },
-                           { "surface": "process-memory", "state": "unprovable" } ] } }
+                           { "surface": "process-memory", "state": "unprovable" } ],
+    "retains": ["change-feed", "purge-debt"] } }
 ```
 
 `revisionAs` (optional) names the peer's revision after the step, as in §3.3.
@@ -565,16 +588,37 @@ Checks:
 - Every surface state is one of the three values.
 - If `claim` is `proven`: the surface list is not empty and every state is `absent`.
 - **Reference:** a memory reference store's `surfaces` equal `referenceSurfaces` exactly, in order.
+- `expect.retains` is a list of names of §1.5 `retains`. Any other value is a defect of the
+  document: the step fails, whatever the store answers.
+- Every entry of the report's `retains` has one of the three names and `holds` `id`. Else the
+  step fails with `purge retains: <entry> is not a retained surface`.
+- The entries are in the fixed order, none twice. Else the step fails with
+  `purge retains: <names> is not in the order change-feed, purge-debt, surface-debt, each once`.
+- Let W be `expect.retains`, without `change-feed` when the store's `changeRetention` is `none`.
+  Every name of W is in the report's `retains`. Else the step fails with
+  `purge retains: the report omits <name>`. A store may name more.
+- **Reference:** a memory reference store's `retains` names exactly W, in order. A store whose
+  `changeRetention` is `none` may also name `change-feed`; the comparison leaves it out. Else the
+  step fails with `purge retains: expected <W>, the store reported <names>`.
 
 ### 3.5 `read` and `release`
 
 ```json
-{ "op": "read", "peer": "A", "snapshot": "s1" }
+{ "op": "read", "peer": "A", "snapshot": "s1", "expect": { "lastSequence": 3, "lastTransfer": 2 } }
 { "op": "release", "snapshot": "s1" }
 ```
 
 `read` takes a snapshot of the peer and keeps it under the name `snapshot`, with the peer it
-belongs to. `release` releases it. Neither has an `expect`.
+belongs to. `release` releases it and has no `expect`.
+
+Checks of `read`:
+
+- `expect.lastSequence` and `expect.lastTransfer` are whole numbers. Any other value, or none, is
+  a defect of the document: the step fails, whatever the store answers.
+- The snapshot's `lastSequence` equals `expect.lastSequence`, for every store. Else the step
+  fails with `the snapshot's lastSequence is <got>, expected <want>`.
+- The snapshot's `lastTransfer` equals `expect.lastTransfer`, for every store. Else the step
+  fails with `the snapshot's lastTransfer is <got>, expected <want>`.
 
 ### 3.6 Snapshot fields: `head`, `count`
 
@@ -608,7 +652,9 @@ a refusal fails for that, whatever it answered.
 1. A result, as below. The operation must answer, and the answer must match.
 2. A result with `"orError": "snapshot-moved"`. The operation either refuses `snapshot-moved`, or
    answers and the answer matches. Any other answer or refusal fails. A snapshot that the peer
-   has moved past by appends only carries this shape.
+   has moved past by appends only carries this shape. **Reference:** a memory reference store
+   answers (SPEC-18 §4.13 reading 130). Its refusal fails with `the reference store refused
+   snapshot-moved on a snapshot that appends alone moved; it must answer`.
 3. `{"error": …}`. The operation must refuse (see "Refusals"). A snapshot that is both released
    and moved carries `["snapshot-released", "snapshot-moved"]`. A snapshot older than a purge
    that released a holding carries `"snapshot-moved"`.
@@ -1250,9 +1296,9 @@ Anything else fails, in particular `expect.after` from a reader given one snapsh
 answer that is neither. After a purge that a store call follows, only the refusal conforms
 (§1.4, "Repeatability"). The appended deltas are chosen so that a reader which goes on against
 the later state shows some of them and not others, which is neither answer. The purged delta is
-one that round 1 fetches. The TypeScript memory reference answers `before` after an append, and
-refuses when a store call follows the purge. The Rust memory store refuses when a store call
-follows either change. Each answers `before` when `afterRound` is the last round. A store with
+one that round 1 fetches. The memory reference store of each witness answers `before` after an
+append, and refuses when a store call follows the purge. Each answers `before` when
+`afterRound` is the last round. A store with
 read transactions answers `before` after an append every time.
 
 A witness that offers a wrapper which opens the snapshot itself and starts again on
@@ -1500,7 +1546,8 @@ The table covers at least:
 
 - **Refusals:** a code outside the step's list, for `createPeer`, `openPeer`, `append`, a query
   and `export`; an answer where a refusal is expected; a refusal where an answer is expected; on
-  a moved snapshot, a refusal that is not `snapshot-moved`.
+  a moved snapshot, a refusal that is not `snapshot-moved`; on a snapshot older than a purge that
+  released a holding, an answer from the peer's later state.
 - **Peers:** a created or opened handle with another posture; a created handle with another
   erasure class than the profile; `unlessStoreErasure` in both directions.
 - **Append:** each answer that is not the expected one, `uncertain` included; the added ids, and
@@ -1509,14 +1556,15 @@ The table covers at least:
 - **Purge:** outcomes (not ids only), their order, a repeated id; the report's revision;
   `revisionAdvanced` in both directions; the boundary text, exactly; each claim that is not the
   expected one; `proven` with no surface and with a surface that is not `absent`; a surface state
-  outside the three.
+  outside the three. In `retains`: a store that omits `purge-debt`; one that names a surface
+  twice and out of order; an entry whose `holds` is not `id`.
 - **The bookkeeping:** the first entry of a batch with an id is the one held; a purge forgets
   the id, so an id appended again is held under its new arrival record. Both outcomes that end
   a holding: a store that keeps the old record after `removed`, and one that keeps it after
   `held-by-other-peer`. And a store that keeps the record while a debt is owed and forgets it
   when an append clears the debt, but not when a later purge settles it.
 - **Point reads:** `head`, and a new peer's head that is the empty string instead of null;
-  `count`; ids and their order for `get`, `arrivals`, `targets`, `negators`; a returned delta's
+  `count`; a snapshot's `lastSequence` and `lastTransfer`; ids and their order for `get`, `arrivals`, `targets`, `negators`; a returned delta's
   signature and claims; each of the four fields of an arrival record.
 - **Scope members:** order, a repeat, claims, the arrival record's id and fields, the signature,
   a member the peer does not hold.
@@ -1524,13 +1572,15 @@ The table covers at least:
   scope case; the trim comparison. In a scope case, the lower bound twice: a store that leaves
   out the first id of the bound, and one that leaves out a later id.
 - **Reference rules:** the applied fields, the exact ids in a script and in a scope case, the
-  surfaces. For each, the same wrong answer under another `formatVersion` conforms. The exact
+  surfaces, the exact `retains` (a store that adds `surface-debt`), the answer on a snapshot that
+  appends alone moved (a store that refuses `snapshot-moved` after any advance). For each, the same wrong answer under another `formatVersion` conforms. The exact
   ids in a script also for a step with no `pushdown`: a store that ignores `exclude` only when
   no pushdown is asked.
 - **Export:** ids, their order, the count of deltas in both directions (fewer deltas than ids,
   and more), a delta's appearance; the stored listing and the peer listing.
 - **Requirements:** each one skips exactly its scripts and reports them; each script gets a new
-  store.
+  store. A store whose `changeRetention` is `none` and that never names `change-feed` passes the
+  scripts it runs.
 - **Stores that must pass.** Right answers the runner must accept: stores whose revisions are the
   reference store's times 2, times 3 with pages of one record, times 2 keeping two records, and
   times 3 keeping two records with pages of one record. Each answers every rule of §3.9.1,
@@ -1556,6 +1606,8 @@ The table covers at least:
     again of check 14 differently) stands in for the live rows and holds the re-ask to its
     message. The shape check on the asking again (TypeScript row "an extra key only on the
     answer asked again") is type-unreachable in Rust for the same reason.
+  - Rust has no row for a `retains` entry with another name or a `holds` other than `id`.
+    `RetainedSurface` has three values, and `Retained::holds` always answers `id`.
   - TypeScript has no `AnswersTwoWays` row. Its rows for live records and live id lists reach
     the same message, `changes answered differently after the caller changed what it
     returned`, through the change the runner makes.
@@ -1590,7 +1642,7 @@ The table covers at least:
   needs two rows: one with a script that has no `changes` step, and one with a store that is
   wrong only when a `to` is given, which the check after every step never gives.
 - **Documents:** an unknown `format`; a corpus id that does not recompute and is not `forged`; a
-  purge `claim` with a key other than `unprovable` and `proven`; an unknown script requirement;
+  purge `claim` with a key other than `unprovable` and `proven`; a purge step without `retains`; a `read` step without `lastSequence` or without `lastTransfer`, or with either one not a whole number; an unknown script requirement;
   a script `requires` that is `null`; a revision name that is unknown, of another peer, or given
   twice; a `mark` before its peer; `changes` expectations that are wrong; a `changes` step on a
   store without a feed; a profile whose `changeRetention` is malformed, among them

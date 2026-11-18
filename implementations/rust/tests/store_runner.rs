@@ -33,7 +33,8 @@ enum Quirk {
     ProvenWithAnUnprovableSurface,
     /// Says `unproven` when it removed nothing.
     UnprovenForNothing,
-    /// Refuses a query on a moved snapshot with a code that is not `snapshot-moved`.
+    /// Refuses a query on a snapshot the peer has moved past, by any advance, with a code that is
+    /// not `snapshot-moved`.
     WrongCodeWhenMoved,
     /// A scope member carries an arrival record the peer did not admit.
     AnotherArrivalInScope,
@@ -46,7 +47,7 @@ enum Quirk {
 type Shared<T> = Rc<RefCell<BTreeMap<String, T>>>;
 
 struct Standin {
-    inner: MemoryStore,
+    inner: Rc<MemoryStore>,
     quirk: Quirk,
     profile: StoreProfile,
     postures: Shared<ErasurePosture>,
@@ -56,7 +57,7 @@ struct Standin {
 
 impl Standin {
     fn new(quirk: Quirk) -> Self {
-        let inner = MemoryStore::new();
+        let inner = Rc::new(MemoryStore::new());
         let mut profile = inner.profile().clone();
         profile.capabilities.erasure = ErasureClass::Proven;
         profile.format_version = "rhizomatic.test.proven-standin/1".into();
@@ -72,6 +73,7 @@ impl Standin {
     fn handle(&self, id: &str, inner: Box<dyn PeerStore>) -> Box<dyn PeerStore> {
         Box::new(StandinPeer {
             inner,
+            store: self.inner.clone(),
             quirk: self.quirk,
             id: id.to_string(),
             posture: self.postures.borrow()[id],
@@ -103,6 +105,7 @@ impl Store for Standin {
 
 struct StandinPeer {
     inner: Box<dyn PeerStore>,
+    store: Rc<MemoryStore>,
     quirk: Quirk,
     id: String,
     posture: ErasurePosture,
@@ -139,6 +142,8 @@ impl PeerStore for StandinPeer {
         Ok(Box::new(StandinSnapshot {
             revision: self.revision(inner.revision()),
             inner,
+            store: self.store.clone(),
+            id: self.id.clone(),
             quirk: self.quirk,
         }))
     }
@@ -189,20 +194,21 @@ impl PeerStore for StandinPeer {
 
 struct StandinSnapshot {
     inner: Box<dyn Snapshot>,
+    store: Rc<MemoryStore>,
+    id: String,
     revision: Revision,
     quirk: Quirk,
 }
 
 impl StandinSnapshot {
     fn answer<T>(&self, result: Result<T, StoreError>) -> Result<T, StoreError> {
-        result.map_err(|mut refusal| {
-            if self.quirk == Quirk::WrongCodeWhenMoved
-                && refusal.code == StoreErrorCode::SnapshotMoved
-            {
-                refusal.code = StoreErrorCode::PeerAbsent;
+        if self.quirk == Quirk::WrongCodeWhenMoved {
+            let now = self.store.peer(&self.id).and_then(|peer| peer.read());
+            if now.is_ok_and(|now| now.revision() != self.inner.revision()) {
+                return Err(StoreError::new(StoreErrorCode::PeerAbsent, "moved"));
             }
-            refusal
-        })
+        }
+        result
     }
 }
 
@@ -218,6 +224,12 @@ impl Snapshot for StandinSnapshot {
     }
     fn count(&self) -> u64 {
         self.inner.count()
+    }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.answer(self.inner.get(ids))
@@ -278,12 +290,13 @@ fn failed(quirk: Quirk, reason: &str) -> Vec<String> {
     error.failures.into_iter().map(|f| f.name).collect()
 }
 
-const PURGES_THAT_REMOVE: [&str; 7] = [
+const PURGES_THAT_REMOVE: [&str; 8] = [
     "scripts/purge",
     "scripts/purge-clears-a-debt-on-append",
     "scripts/a-snapshot-across-a-purge",
     "scripts/the-last-sequence-survives-a-purge",
     "scripts/the-last-sequence-survives-an-empty-peer",
+    "scripts/a-transfer-must-pass-the-peers-last",
     "scripts/feed-purge-and-debts",
     "scripts/feed-a-debt-ends-on-append",
 ];
@@ -292,13 +305,13 @@ const PURGES_THAT_REMOVE: [&str; 7] = [
 /// store refuses. §3.4: where a target is removed, a proven store's claim is `proven`.
 #[test]
 fn a_proven_store_passes_and_creates_the_peer_that_promises_proof() {
-    assert_eq!(run(Quirk::None).unwrap(), 25 + 15);
+    assert_eq!(run(Quirk::None).unwrap(), 26 + 15);
 }
 
 /// §3.4: "where E is `proven`, `unproven` also conforms."
 #[test]
 fn a_proven_store_may_claim_less() {
-    assert_eq!(run(Quirk::ClaimsLess).unwrap(), 25 + 15);
+    assert_eq!(run(Quirk::ClaimsLess).unwrap(), 26 + 15);
 }
 
 /// §3.4: "If `claim` is `proven`: the surface list is not empty and every state is `absent`."

@@ -743,7 +743,7 @@ impl Writer {
                         id: delta.id.clone(),
                         at: self.last as f64,
                         sequence: self.last,
-                        transfer: 1,
+                        transfer: self.last,
                         sender: "local".into(),
                     },
                 }
@@ -786,6 +786,8 @@ enum Fault {
     UnaskedIds,
     /// `scope` refuses: a read in the pass fails with a store refusal.
     RefusesScope,
+    /// `read` refuses `store-unavailable` (§4.13 reading 105).
+    Unavailable,
     /// A snapshot reports a revision above 2^53 − 1, and `changes` answers `ok` with no records.
     WildRevision,
 }
@@ -850,6 +852,12 @@ impl PeerStore for Spy<'_> {
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.log("read");
+        if self.fault.get() == Some(Fault::Unavailable) {
+            return Err(StoreError::new(
+                StoreErrorCode::StoreUnavailable,
+                "the store is busy",
+            ));
+        }
         let (left, at) = self.moves.get();
         if left > 0 && at == Moves::AtRead {
             self.moves.set((left - 1, at));
@@ -922,6 +930,12 @@ impl Snapshot for SpySnapshot {
     }
     fn count(&self) -> u64 {
         self.inner.count()
+    }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.log("get");
@@ -1296,6 +1310,40 @@ fn a_snapshot_revision_out_of_range_is_a_fault_and_a_failed_hold_changes_nothing
     assert_eq!(again.from, ViewFrom::New);
     assert_eq!(again.bytes, fresh(peer.as_ref(), "leaf", "e:a", 5.0));
     assert_eq!(again.position.revision, Revision(2));
+}
+
+/// SPEC-18 §4.13 reading 105: `store-unavailable` is not `snapshot-moved`. A views pass,
+/// `check_fresh` and a pull each take one snapshot and pass the refusal up unchanged.
+#[test]
+fn a_reader_does_not_retry_store_unavailable() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:u");
+    let mut writer = Writer::default();
+    writer.append(peer.as_ref(), &[fact("e:a", "name", "a")]);
+    let spy = Spy::new(peer.as_ref());
+    let mut views = holder_over(&spy, 4);
+    register_leaf(&mut views, "leaf");
+    let held = views.hold("leaf", "e:a", 5.0).unwrap();
+    writer.append(peer.as_ref(), &[fact("e:a", "note", "a2")]);
+    spy.take();
+    spy.fault.set(Some(Fault::Unavailable));
+    let handle = spy.handle();
+    let answers = [
+        feed_refused(views.refresh(5.0)),
+        feed_refused(views.hold("leaf", "e:a", 5.0)),
+        feed_refused(check_fresh(handle.as_ref(), &held.capture, 5.0)),
+        feed_refused(
+            follow_feed(handle.as_ref(), held.position.clone())
+                .unwrap()
+                .pull(),
+        ),
+    ];
+    assert_eq!(answers, [Some(StoreErrorCode::StoreUnavailable); 4]);
+    let calls = spy.take();
+    assert_eq!(
+        calls, ["read"; 4],
+        "one snapshot each, and nothing after it"
+    );
 }
 
 /// SPEC-18 §4.13 reading 95: a read counts when it starts. A refresh whose one read refuses adds
@@ -2074,7 +2122,7 @@ impl<'f> World<'f> {
                             id: delta.id.clone(),
                             at: 2000.0 + self.sequence as f64,
                             sequence: self.sequence,
-                            transfer: 9,
+                            transfer: self.sequence,
                             sender: "local".into(),
                         },
                     }
@@ -2111,7 +2159,7 @@ impl<'f> World<'f> {
                 id: delta.id.clone(),
                 at: 3000.0,
                 sequence: self.sequence,
-                transfer: 1,
+                transfer: self.sequence,
                 sender: "local".into(),
             },
         }];

@@ -134,6 +134,8 @@ export type ModelPeer = {
   head: string | null;
   revision: number;
   lastSequence: number;
+  /** The highest transfer ordinal of a committed new holding; 0 before the first. */
+  lastTransfer: number;
   /** The revision of the last purge that released a holding; 0 before one. */
   removedAt: number;
   held: Entry[];
@@ -283,6 +285,7 @@ export class Model {
         head: null,
         revision: 0,
         lastSequence: 0,
+        lastTransfer: 0,
         removedAt: 0,
         held: [],
         owed: new Set(),
@@ -360,6 +363,8 @@ export class Model {
         continue;
       if (arrival.sequence <= state.lastSequence || sequences.has(arrival.sequence))
         return invalid();
+      // A new holding's transfer passes the peer's last one (§4.13 reading 135).
+      if (arrival.transfer <= state.lastTransfer) return invalid();
       sequences.add(arrival.sequence);
       fresh.push({
         name,
@@ -378,6 +383,7 @@ export class Model {
     for (const entry of fresh) {
       state.owed.delete(entry.delta.id);
       state.lastSequence = Math.max(state.lastSequence, entry.arrival.sequence);
+      state.lastTransfer = Math.max(state.lastTransfer, entry.arrival.transfer);
     }
     state.head = nextHead;
     const newly = this.names(fresh);
@@ -431,6 +437,18 @@ export class Model {
           { surface: "index-entries", state: "absent" },
           { surface: "process-memory", state: "unprovable" },
         ],
+        // The reference store keeps a feed. A purge debt of any peer counts, read after the
+        // purge, for a target this peer released or owes (§4.13 reading 108).
+        retains: [
+          "change-feed",
+          ...(targets.some(
+            (t) =>
+              t.outcome !== "not-held" &&
+              [...this.peers.values()].some((p) => p.owed.has(this.id(t.delta))),
+          )
+            ? ["purge-debt" as const]
+            : []),
+        ],
       },
     });
   }
@@ -444,7 +462,12 @@ export class Model {
       held: state.held,
       released: false,
     });
-    this.steps.push({ op: "read", peer, snapshot });
+    this.steps.push({
+      op: "read",
+      peer,
+      snapshot,
+      expect: { lastSequence: state.lastSequence, lastTransfer: state.lastTransfer },
+    });
   }
 
   release(snapshot: string): void {
@@ -1056,6 +1079,61 @@ function scripts(named: readonly Named[]): StoreScript[] {
         m.append("A", "head-1", "head-2", [{ delta: "a-height", sequence: 5 }]);
         m.read("A", "s2");
         m.arrivals("s2", ["a-height"]);
+      },
+      ["purge"],
+    ),
+    s(
+      "a-transfer-must-pass-the-peers-last",
+      "SPEC-18 §4.13 reading 135; SPEC-6 vNext §3",
+      (m) => {
+        m.createPeer("A", "unproven");
+        m.append("A", null, "head-1", [{ delta: "a-height", sequence: 1, transfer: 5 }]);
+        m.read("A", "s1");
+        // A new entry's transfer must pass the last one: equal and lower are refused.
+        m.append("A", "head-1", "head-2", [{ delta: "b-name", sequence: 2, transfer: 5 }]);
+        m.append("A", "head-1", "head-2", [{ delta: "b-name", sequence: 2, transfer: 4 }]);
+        // One bad entry refuses the whole batch.
+        m.append("A", "head-1", "head-2", [
+          { delta: "b-name", sequence: 2, transfer: 6 },
+          { delta: "far", sequence: 3, transfer: 5 },
+        ]);
+        // A skipped entry is not compared: a-height is held, and the repeat of b-name inside
+        // the batch is skipped. Neither raises the last transfer.
+        m.append("A", "head-1", "head-2", [
+          { delta: "a-height", sequence: 2, transfer: 1 },
+          { delta: "b-name", sequence: 3, transfer: 6 },
+          { delta: "b-name", sequence: 4, transfer: 90 },
+        ]);
+        m.read("A", "s2");
+        // A head-only append keeps the last transfer.
+        m.append("A", "head-2", "head-3", []);
+        m.read("A", "s3");
+        // The store does not ask one batch for one transfer. The largest becomes the last.
+        m.append("A", "head-3", "head-4", [
+          { delta: "far", sequence: 5, transfer: 8 },
+          { delta: "ghost", sequence: 6, transfer: 7 },
+        ]);
+        m.read("A", "s4");
+        // A purge never lowers it.
+        m.purge("A", ["far", "ghost"]);
+        m.read("A", "s5");
+        m.append("A", "head-4", "head-5", [{ delta: "far", sequence: 7, transfer: 8 }]);
+        m.append("A", "head-4", "head-5", [{ delta: "far", sequence: 7, transfer: 9 }]);
+        m.read("A", "s6");
+        m.arrivals("s6", ["a-height", "b-name", "far", "ghost"]);
+        // A repeat inside the batch is skipped, also when its transfer does not pass the last.
+        m.append("A", "head-5", "head-6", [
+          { delta: "a-name", sequence: 8, transfer: 10 },
+          { delta: "a-name", sequence: 9, transfer: 9 },
+        ]);
+        m.read("A", "s7");
+        // An append whose every entry is skipped keeps the last transfer.
+        m.append("A", "head-6", "head-6", [{ delta: "far", sequence: 10, transfer: 99 }]);
+        m.read("A", "s8");
+        // Each peer has its own last transfer. B may commit a transfer below A's last one.
+        m.createPeer("B", "unproven");
+        m.append("B", null, "b-head-1", [{ delta: "a-height", sequence: 1, transfer: 3 }]);
+        m.read("B", "b1");
       },
       ["purge"],
     ),

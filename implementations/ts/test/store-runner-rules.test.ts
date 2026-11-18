@@ -95,6 +95,39 @@ const queries =
       ]),
     ) as Partial<Snapshot>;
 
+/**
+ * A snapshot that refuses `snapshot-moved` after any revision advance, as the Rust memory store
+ * did before step 4e. A malformed request is still refused first.
+ */
+const movedByAnyAdvance = (s: Snapshot, peer: PeerStore): Partial<Snapshot> =>
+  queries(async (run) => {
+    const answer = await run();
+    const now = await peer.read();
+    now.release();
+    if (now.revision !== s.revision) throw new StoreError("snapshot-moved", "moved");
+    return answer;
+  })(s);
+
+/** A snapshot that answers a `snapshot-moved` call from a new snapshot of the peer. */
+const answersWhenMoved = (s: Snapshot, peer: PeerStore): Partial<Snapshot> =>
+  Object.fromEntries(
+    QUERIES.map((name) => {
+      const call = (from: Snapshot, argument: never): Promise<unknown> =>
+        (from[name] as (a: never) => Promise<unknown>)(argument);
+      return [
+        name,
+        async (argument: never) => {
+          try {
+            return await call(s, argument);
+          } catch (error) {
+            if (codeOf(error) !== "snapshot-moved") throw error;
+            return call(await peer.read(), argument);
+          }
+        },
+      ];
+    }),
+  ) as Partial<Snapshot>;
+
 const scope =
   (
     change: (
@@ -932,6 +965,100 @@ const RULES: Readonly<Record<string, Rule>> = {
     says: "expected a refusal: snapshot-released",
     store: { snapshot: () => ({ release: () => {} }) },
   },
+  "a snapshot that reports another lastSequence": {
+    doc: "scripts",
+    says: /\(read\): the snapshot's lastSequence is \d+, expected \d+/,
+    store: join(other, { snapshot: (s) => ({ lastSequence: s.lastSequence + 1 }) }),
+  },
+  "a snapshot that reports another lastTransfer": {
+    doc: "scripts",
+    says: /\(read\): the snapshot's lastTransfer is \d+, expected \d+/,
+    store: join(other, { snapshot: (s) => ({ lastTransfer: s.lastTransfer + 1 }) }),
+  },
+  "the reference store refuses a snapshot that appends alone moved": {
+    doc: "scripts",
+    says: /the reference store refused snapshot-moved on a snapshot that appends alone moved/,
+    store: { snapshot: movedByAnyAdvance },
+  },
+  "a snapshot older than a releasing purge answers from the peer's later state": {
+    doc: "scripts",
+    says: "expected a refusal: snapshot-moved",
+    store: join(other, { snapshot: answersWhenMoved }),
+  },
+  "a read step without lastTransfer": {
+    doc: "scripts",
+    says: "(read): the vector's lastTransfer is not a whole number; the document is defective",
+    store: {},
+    vectors: {
+      ...vectors,
+      scripts: {
+        ...vectors.scripts,
+        scripts: vectors.scripts.scripts.map((script) => ({
+          ...script,
+          steps: script.steps.map((step) =>
+            step.op === "read"
+              ? ({ ...step, expect: { lastSequence: step.expect.lastSequence } } as never)
+              : step,
+          ),
+        })),
+      },
+    },
+  },
+  "a read step without lastSequence": {
+    doc: "scripts",
+    says: "(read): the vector's lastSequence is not a whole number; the document is defective",
+    store: {},
+    vectors: {
+      ...vectors,
+      scripts: {
+        ...vectors.scripts,
+        scripts: vectors.scripts.scripts.map((script) => ({
+          ...script,
+          steps: script.steps.map((step) =>
+            step.op === "read" ? ({ ...step, expect: undefined } as never) : step,
+          ),
+        })),
+      },
+    },
+  },
+  "a read step with a lastSequence that is not a whole number": {
+    doc: "scripts",
+    says: "(read): the vector's lastSequence is not a whole number; the document is defective",
+    store: {},
+    vectors: {
+      ...vectors,
+      scripts: {
+        ...vectors.scripts,
+        scripts: vectors.scripts.scripts.map((script) => ({
+          ...script,
+          steps: script.steps.map((step) =>
+            step.op === "read"
+              ? ({ ...step, expect: { ...step.expect, lastSequence: 0.5 } } as never)
+              : step,
+          ),
+        })),
+      },
+    },
+  },
+  "a read step with a lastTransfer that is not a whole number": {
+    doc: "scripts",
+    says: "(read): the vector's lastTransfer is not a whole number; the document is defective",
+    store: {},
+    vectors: {
+      ...vectors,
+      scripts: {
+        ...vectors.scripts,
+        scripts: vectors.scripts.scripts.map((script) => ({
+          ...script,
+          steps: script.steps.map((step) =>
+            step.op === "read"
+              ? ({ ...step, expect: { ...step.expect, lastTransfer: 0.5 } } as never)
+              : step,
+          ),
+        })),
+      },
+    },
+  },
 
   // -- createPeer and openPeer (§3.1, §3.2) --
   "createPeer refuses a peer it must create": {
@@ -1311,6 +1438,69 @@ const RULES: Readonly<Record<string, Rule>> = {
       surfaces: report.surfaces.map((s) => ({ ...s, state: "unprovable" })),
     })),
   },
+  "a purge report that omits purge-debt": {
+    doc: "scripts",
+    says: "(purge): purge retains: the report omits purge-debt",
+    store: join(
+      other,
+      purge((report) => ({
+        ...report,
+        retains: report.retains.filter((r) => r.surface !== "purge-debt"),
+      })),
+    ),
+  },
+  "a purge report that names a surface twice, out of order": {
+    doc: "scripts",
+    says: "(purge): purge retains: change-feed, change-feed is not in the order",
+    store: join(
+      other,
+      purge((report) => ({
+        ...report,
+        retains: [...report.retains, { surface: "change-feed", holds: "id" }],
+      })),
+    ),
+  },
+  "a retained entry that holds more than the id": {
+    doc: "scripts",
+    says: '(purge): purge retains: {"surface":"change-feed","holds":"bytes"} is not a retained surface',
+    store: join(
+      other,
+      purge(
+        (report) =>
+          ({
+            ...report,
+            retains: report.retains.map((r) => ({ ...r, holds: "bytes" })),
+          }) as unknown as PurgeReport,
+      ),
+    ),
+  },
+  "the reference store names a surface it does not keep": {
+    doc: "scripts",
+    says: "(purge): purge retains: expected change-feed, the store reported change-feed, surface-debt",
+    store: purge((report) => ({
+      ...report,
+      retains: [...report.retains, { surface: "surface-debt", holds: "id" }],
+    })),
+  },
+  "a purge step without retains": {
+    doc: "scripts",
+    says: "(purge): the vector's purge retains is not a list of retained surfaces",
+    store: {},
+    vectors: {
+      ...vectors,
+      scripts: {
+        ...vectors.scripts,
+        scripts: vectors.scripts.scripts.map((script) => ({
+          ...script,
+          steps: script.steps.map((step) =>
+            step.op === "purge"
+              ? ({ ...step, expect: { ...step.expect, retains: undefined } } as never)
+              : step,
+          ),
+        })),
+      },
+    },
+  },
   "a store of class none answers a purge": {
     doc: "scripts",
     says: "(purge): the vector's purge claim has no entry for erasure class none",
@@ -1338,6 +1528,7 @@ const RULES: Readonly<Record<string, Rule>> = {
                   revisionAdvanced: false,
                   claim: { unprovable: "nothing-removed", proven: "nothing-removed" },
                   referenceSurfaces: [],
+                  retains: [],
                 },
               },
             ],
@@ -1917,6 +2108,11 @@ describe("runner rules: what binds the reference store only", () => {
       ...report,
       surfaces: [{ surface: "pages", state: "unprovable" }],
     })),
+    "naming a surface it does not keep in retains": purge((report) => ({
+      ...report,
+      retains: [...report.retains, { surface: "surface-debt", holds: "id" }],
+    })),
+    "refusing a snapshot that appends alone moved": { snapshot: movedByAnyAdvance },
   };
   for (const [name, fault] of Object.entries(allowed)) {
     it(`${name} conforms for a store that is not the reference`, async () => {
@@ -1950,6 +2146,37 @@ describe("runner rules: what the profile makes the runner do", () => {
     expect(report.passed).toHaveLength(
       vectors.scripts.scripts.length - needPurge.length + vectors.scope.cases.length,
     );
+  });
+
+  it("a store without a feed is not asked to name the feed in retains", async () => {
+    const feedless = join(
+      profiled((p) => ({ ...p, changeRetention: "none" })),
+      purge((report) => ({
+        ...report,
+        retains: report.retains.filter((r) => r.surface !== "change-feed"),
+      })),
+    );
+    const report = await runStoreConformance(broken(feedless), vectors);
+    const needFeed = vectors.scripts.scripts.filter(
+      (s) => s.requires?.includes("changes") === true,
+    );
+    expect(report.skipped).toEqual(
+      needFeed.map((s) => ({ name: `scripts/${s.name}`, missing: "changes" })),
+    );
+    expect(report.passed).toHaveLength(
+      vectors.scripts.scripts.length - needFeed.length + vectors.scope.cases.length,
+    );
+    await expect(
+      runStoreConformance(
+        broken(
+          join(
+            other,
+            purge((r) => ({ ...r, retains: [] })),
+          ),
+        ),
+        vectors,
+      ),
+    ).rejects.toThrow("purge retains: the report omits change-feed");
   });
 
   it("a store with a journal skips exactly the script that needs its absence", async () => {
@@ -2101,7 +2328,9 @@ describe("runner rules: a wrong document", () => {
       says: "the vector names an unknown peer Z",
     },
     "a step that uses a peer before creating it": {
-      vectors: only([{ op: "read", peer: "A", snapshot: "s" }]),
+      vectors: only([
+        { op: "read", peer: "A", snapshot: "s", expect: { lastSequence: 0, lastTransfer: 0 } },
+      ]),
       says: "the vector uses peer A before creating it",
     },
     "a step that uses a snapshot before reading it": {
