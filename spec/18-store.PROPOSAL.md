@@ -2560,6 +2560,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      commits, and its sequences and transfer are above every committed one. A host that used
      `count + 1` as the next sequence is refused after a purge, because a purge lowers `count`
      and not the last sequence. Step 4d's follow-up removed the `transfer` option (unreleased).
+     Step 4e gave Rust the same function, `admission_of(snapshot, deltas, AdmissionOptions {at,
+     sender, next_head})`, with the same rules and refusals; a check for a value of the wrong
+     type has no Rust form.
 134. **The application format string** (slice 4, step 4d, §4.7.3). `createPeer(id, {erasure,
      appFormat})` takes an optional string: a host's own marker for the format of what it keeps
      in the peer. It is a well-formed string of 1 to 256 UTF-8 bytes; any other value, null

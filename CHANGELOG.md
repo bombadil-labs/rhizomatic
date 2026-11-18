@@ -211,6 +211,15 @@ Step 4d adds more, listed under Breaking.
   batch, whose first appearance does not pass the last transfer, is refused although its repeat
   would pass; a read then shows that the refusal changed nothing.
   The format names do not change. What a purge removes does not change.
+- Step 4e: a Rust host with no journal builds an admission (§4.13 reading 133).
+  `store_admission::admission_of(snapshot, deltas, AdmissionOptions {at, sender, next_head})`
+  has the rules of TypeScript's `admissionOf`: the snapshot's head as `expected_head`, no frame,
+  sequences from `last_sequence() + 1` in ascending id order, one entry per id with the first
+  kept, the transfer `last_transfer() + 1`, and `at + 0`. It checks every entry, a repeat too, and
+  refuses `invalid-request` as TypeScript does. It has no `transfer` option and calls no snapshot
+  query. `AdmissionOptions` has no `Default`. Each runner's rule table now also has an opened
+  handle whose `appFormat` refuses on an open store (finding N1 of the #110 review). What a purge
+  removes does not change.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
