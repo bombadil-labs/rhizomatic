@@ -15,6 +15,7 @@ import {
   type ChangeRecord,
   type ChangeRetention,
   type PeerStore,
+  type PurgeReport,
   type Pushdown,
   type Snapshot,
   type Store,
@@ -62,6 +63,12 @@ const key = (fields: readonly PushdownField[]): string =>
   PUSHDOWN_FIELDS.filter((f) => fields.includes(f)).join(",");
 const same = (a: readonly string[], b: readonly string[]): boolean =>
   a.length === b.length && a.every((x, i) => x === b[i]);
+/** The surfaces a purge report may name in `retains`, in their fixed order (README §1.5). */
+const RETAINED: readonly PurgeReport["retains"][number]["surface"][] = [
+  "change-feed",
+  "purge-debt",
+  "surface-debt",
+];
 const show = (ids: readonly string[]): string => `[${ids.map((id) => id.slice(0, 12)).join(" ")}]`;
 
 const hexToBytes = (hex: string): Uint8Array =>
@@ -856,6 +863,35 @@ export class Run {
               step.expect.referenceSurfaces.map((s) => `${s.surface} ${s.state}`),
             ),
             "the reference store's surfaces differ",
+          );
+        // README §3.4: the surfaces that may still hold a target's id. A store may name more than
+        // the reference store, never fewer, and a store without a feed is not asked for it.
+        const wanted: unknown = step.expect.retains;
+        check(
+          Array.isArray(wanted) && wanted.every((name) => RETAINED.includes(name as never)),
+          "the vector's purge retains is not a list of retained surfaces; the document is defective",
+        );
+        const retained = report.retains.map((r) => r.surface);
+        for (const entry of report.retains)
+          check(
+            RETAINED.includes(entry.surface) && entry.holds === "id",
+            `purge retains: ${JSON.stringify(entry)} is not a retained surface`,
+          );
+        check(
+          retained.every(
+            (name, i) => i === 0 || RETAINED.indexOf(retained[i - 1]!) < RETAINED.indexOf(name),
+          ),
+          `purge retains: ${retained.join(", ")} is not in the order ${RETAINED.join(", ")}, each once`,
+        );
+        const feedless = this.store.profile.changeRetention === "none";
+        const asked = step.expect.retains.filter((name) => !feedless || name !== "change-feed");
+        for (const name of asked)
+          check(retained.includes(name), `purge retains: the report omits ${name}`);
+        const named = retained.filter((name) => !feedless || name !== "change-feed");
+        if (this.reference)
+          check(
+            same(named, asked),
+            `purge retains: expected ${asked.join(", ")}, the store reported ${retained.join(", ")}`,
           );
         // Every outcome ends what the peer holds: `removed` and `held-by-other-peer` both stop
         // the holding, and the others find none. An id appended again is held anew.

@@ -1311,6 +1311,69 @@ const RULES: Readonly<Record<string, Rule>> = {
       surfaces: report.surfaces.map((s) => ({ ...s, state: "unprovable" })),
     })),
   },
+  "a purge report that omits purge-debt": {
+    doc: "scripts",
+    says: "(purge): purge retains: the report omits purge-debt",
+    store: join(
+      other,
+      purge((report) => ({
+        ...report,
+        retains: report.retains.filter((r) => r.surface !== "purge-debt"),
+      })),
+    ),
+  },
+  "a purge report that names a surface twice, out of order": {
+    doc: "scripts",
+    says: "(purge): purge retains: change-feed, change-feed is not in the order",
+    store: join(
+      other,
+      purge((report) => ({
+        ...report,
+        retains: [...report.retains, { surface: "change-feed", holds: "id" }],
+      })),
+    ),
+  },
+  "a retained entry that holds more than the id": {
+    doc: "scripts",
+    says: '(purge): purge retains: {"surface":"change-feed","holds":"bytes"} is not a retained surface',
+    store: join(
+      other,
+      purge(
+        (report) =>
+          ({
+            ...report,
+            retains: report.retains.map((r) => ({ ...r, holds: "bytes" })),
+          }) as unknown as PurgeReport,
+      ),
+    ),
+  },
+  "the reference store names a surface it does not keep": {
+    doc: "scripts",
+    says: "(purge): purge retains: expected change-feed, the store reported change-feed, surface-debt",
+    store: purge((report) => ({
+      ...report,
+      retains: [...report.retains, { surface: "surface-debt", holds: "id" }],
+    })),
+  },
+  "a purge step without retains": {
+    doc: "scripts",
+    says: "(purge): the vector's purge retains is not a list of retained surfaces",
+    store: {},
+    vectors: {
+      ...vectors,
+      scripts: {
+        ...vectors.scripts,
+        scripts: vectors.scripts.scripts.map((script) => ({
+          ...script,
+          steps: script.steps.map((step) =>
+            step.op === "purge"
+              ? ({ ...step, expect: { ...step.expect, retains: undefined } } as never)
+              : step,
+          ),
+        })),
+      },
+    },
+  },
   "a store of class none answers a purge": {
     doc: "scripts",
     says: "(purge): the vector's purge claim has no entry for erasure class none",
@@ -1338,6 +1401,7 @@ const RULES: Readonly<Record<string, Rule>> = {
                   revisionAdvanced: false,
                   claim: { unprovable: "nothing-removed", proven: "nothing-removed" },
                   referenceSurfaces: [],
+                  retains: [],
                 },
               },
             ],
@@ -1917,6 +1981,10 @@ describe("runner rules: what binds the reference store only", () => {
       ...report,
       surfaces: [{ surface: "pages", state: "unprovable" }],
     })),
+    "naming a surface it does not keep in retains": purge((report) => ({
+      ...report,
+      retains: [...report.retains, { surface: "surface-debt", holds: "id" }],
+    })),
   };
   for (const [name, fault] of Object.entries(allowed)) {
     it(`${name} conforms for a store that is not the reference`, async () => {
@@ -1950,6 +2018,37 @@ describe("runner rules: what the profile makes the runner do", () => {
     expect(report.passed).toHaveLength(
       vectors.scripts.scripts.length - needPurge.length + vectors.scope.cases.length,
     );
+  });
+
+  it("a store without a feed is not asked to name the feed in retains", async () => {
+    const feedless = join(
+      profiled((p) => ({ ...p, changeRetention: "none" })),
+      purge((report) => ({
+        ...report,
+        retains: report.retains.filter((r) => r.surface !== "change-feed"),
+      })),
+    );
+    const report = await runStoreConformance(broken(feedless), vectors);
+    const needFeed = vectors.scripts.scripts.filter(
+      (s) => s.requires?.includes("changes") === true,
+    );
+    expect(report.skipped).toEqual(
+      needFeed.map((s) => ({ name: `scripts/${s.name}`, missing: "changes" })),
+    );
+    expect(report.passed).toHaveLength(
+      vectors.scripts.scripts.length - needFeed.length + vectors.scope.cases.length,
+    );
+    await expect(
+      runStoreConformance(
+        broken(
+          join(
+            other,
+            purge((r) => ({ ...r, retains: [] })),
+          ),
+        ),
+        vectors,
+      ),
+    ).rejects.toThrow("purge retains: the report omits change-feed");
   });
 
   it("a store with a journal skips exactly the script that needs its absence", async () => {

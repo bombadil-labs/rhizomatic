@@ -431,6 +431,18 @@ export class Model {
           { surface: "index-entries", state: "absent" },
           { surface: "process-memory", state: "unprovable" },
         ],
+        // The reference store keeps a feed. A purge debt of any peer counts, read after the
+        // purge, for a target this peer released or owes (§4.13 reading 108).
+        retains: [
+          "change-feed",
+          ...(targets.some(
+            (t) =>
+              t.outcome !== "not-held" &&
+              [...this.peers.values()].some((p) => p.owed.has(this.id(t.delta))),
+          )
+            ? ["purge-debt" as const]
+            : []),
+        ],
       },
     });
   }

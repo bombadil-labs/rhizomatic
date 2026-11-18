@@ -79406,6 +79406,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode::StoreUnavailable",
+      "resolvedTarget": "crate::store::StoreErrorCode::StoreUnavailable",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreErrorCode::as_str",
+      "target": "crate::store::StoreErrorCode::StoreUnavailable",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::StoreErrorCode",
       "resolvedTarget": "crate::store::StoreErrorCode",
       "source": "implementations/rust/src/store.rs",
@@ -80516,6 +80527,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "PurgeReport",
       "target": "crate::store::Revision",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Retained",
+      "resolvedTarget": "crate::store::Retained",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PurgeReport",
+      "target": "crate::store::Retained",
       "targetOwner": "storage"
     },
     {
@@ -96238,6 +96260,28 @@
       "targetOwner": "storage"
     },
     {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::Retained",
+      "resolvedTarget": "crate::store::Retained",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::Retained",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::RetainedSurface",
+      "resolvedTarget": "crate::store::RetainedSurface",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::RetainedSurface",
+      "targetOwner": "storage"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "storage",
       "rawTarget": "crate::store::ChangeRecord",
@@ -96370,6 +96414,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "State::append",
       "target": "std::vec::Vec::new"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::settle",
+      "resolvedTarget": "crate::memory_store::settle",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::append",
+      "target": "crate::memory_store::settle",
+      "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
@@ -96513,6 +96568,58 @@
       "symbol": "State::purge",
       "target": "crate::store::ChangeRecord",
       "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::settle",
+      "resolvedTarget": "crate::memory_store::settle",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::purge",
+      "target": "crate::memory_store::settle",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Retained",
+      "resolvedTarget": "crate::store::Retained",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::purge",
+      "target": "crate::store::Retained",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::RetainedSurface::ChangeFeed",
+      "resolvedTarget": "crate::store::RetainedSurface::ChangeFeed",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::purge",
+      "target": "crate::store::RetainedSurface::ChangeFeed",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::RetainedSurface::PurgeDebt",
+      "resolvedTarget": "crate::store::RetainedSurface::PurgeDebt",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::purge",
+      "target": "crate::store::RetainedSurface::PurgeDebt",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::purge",
+      "target": "std::iter::once"
     },
     {
       "form": "syn-resolved-path",
@@ -96945,6 +97052,94 @@
       "sourceRegion": "semantic-owner",
       "symbol": "PeerStore::changes",
       "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::RetainedSurface",
+      "resolvedTarget": "crate::store::RetainedSurface",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "RetainedSurface",
+      "target": "crate::store::RetainedSurface",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::RetainedSurface",
+      "resolvedTarget": "crate::store::RetainedSurface",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "RetainedSurface::as_str",
+      "target": "crate::store::RetainedSurface",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::RetainedSurface::ChangeFeed",
+      "resolvedTarget": "crate::store::RetainedSurface::ChangeFeed",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "RetainedSurface::as_str",
+      "target": "crate::store::RetainedSurface::ChangeFeed",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::RetainedSurface::PurgeDebt",
+      "resolvedTarget": "crate::store::RetainedSurface::PurgeDebt",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "RetainedSurface::as_str",
+      "target": "crate::store::RetainedSurface::PurgeDebt",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::RetainedSurface::SurfaceDebt",
+      "resolvedTarget": "crate::store::RetainedSurface::SurfaceDebt",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "RetainedSurface::as_str",
+      "target": "crate::store::RetainedSurface::SurfaceDebt",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::RetainedSurface",
+      "resolvedTarget": "crate::store::RetainedSurface",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Retained",
+      "target": "crate::store::RetainedSurface",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Retained",
+      "resolvedTarget": "crate::store::Retained",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Retained",
+      "target": "crate::store::Retained",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Retained",
+      "resolvedTarget": "crate::store::Retained",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Retained::holds",
+      "target": "crate::store::Retained",
       "targetOwner": "storage"
     },
     {
@@ -98133,6 +98328,39 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::ChangeRetention::None",
+      "resolvedTarget": "crate::store::ChangeRetention::None",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::purge",
+      "target": "crate::store::ChangeRetention::None",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::RETAINED",
+      "resolvedTarget": "crate::store_conformance::RETAINED",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::purge",
+      "target": "crate::store_conformance::RETAINED",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::texts",
+      "resolvedTarget": "crate::store_conformance::texts",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::purge",
+      "target": "crate::store_conformance::texts",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::Revision",
       "resolvedTarget": "crate::store::Revision",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -98456,6 +98684,28 @@
       "sourceRegion": "semantic-owner",
       "symbol": "MemorySnapshot::history",
       "target": "crate::memory_store::MemorySnapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::Index",
+      "resolvedTarget": "crate::memory_store::Index",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "settle",
+      "target": "crate::memory_store::Index",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::StoreMeter",
+      "resolvedTarget": "crate::memory_store::StoreMeter",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "settle",
+      "target": "crate::memory_store::StoreMeter",
       "targetOwner": "storage"
     },
     {
@@ -123988,6 +124238,50 @@
       "semantics": "storage owns the existing store::PurgeTarget struct; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/store.rs",
       "symbol": "PurgeTarget"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "struct",
+      "id": "rust:store:Retained",
+      "owner": "storage",
+      "semantics": "storage owns the existing store::Retained struct; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "Retained"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "method",
+      "id": "rust:store:Retained::holds",
+      "owner": "storage",
+      "semantics": "storage owns the existing store::Retained::holds method; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "Retained::holds"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "enum",
+      "id": "rust:store:RetainedSurface",
+      "owner": "storage",
+      "semantics": "storage owns the existing store::RetainedSurface enum; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "RetainedSurface"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "method",
+      "id": "rust:store:RetainedSurface::as_str",
+      "owner": "storage",
+      "semantics": "storage owns the existing store::RetainedSurface::as_str method; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "RetainedSurface::as_str"
     },
     {
       "cfg": [],

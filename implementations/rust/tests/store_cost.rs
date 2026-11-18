@@ -255,6 +255,56 @@ fn core_operations_cost_their_footprint_not_the_store() {
     );
 }
 
+/// The index work of one purge that finds another peer's debt (§4.13 reading 108), beside `n`
+/// peers that each owe an id of their own.
+fn purge_beside_debtors(n: usize) -> StoreMeter {
+    let store = MemoryStore::new();
+    let keeper = store
+        .create_peer("peer:keeper", ErasurePosture::Unproven)
+        .unwrap();
+    let owed: Vec<Delta> = (0..n)
+        .map(|i| fact(&format!("owed:{i}"), "height", i as f64, 1.0))
+        .collect();
+    append(keeper.as_ref(), (None, "k-1"), 0, &owed);
+    for (i, delta) in owed.iter().enumerate() {
+        let debtor = store
+            .create_peer(&format!("peer:debtor-{i}"), ErasurePosture::Unproven)
+            .unwrap();
+        append(
+            debtor.as_ref(),
+            (None, "d-1"),
+            0,
+            std::slice::from_ref(delta),
+        );
+        debtor.purge(std::slice::from_ref(&delta.id)).unwrap();
+    }
+    let x = fact("plant:x", "height", 1.0, 1.0);
+    let a = store
+        .create_peer("peer:a", ErasurePosture::Unproven)
+        .unwrap();
+    let b = store
+        .create_peer("peer:b", ErasurePosture::Unproven)
+        .unwrap();
+    append(a.as_ref(), (None, "a-1"), 0, std::slice::from_ref(&x));
+    append(b.as_ref(), (None, "b-1"), 0, std::slice::from_ref(&x));
+    a.purge(std::slice::from_ref(&x.id)).unwrap();
+    store.reset_meter();
+    let report = b.purge(std::slice::from_ref(&x.id)).unwrap();
+    let names: Vec<&str> = report.retains.iter().map(|r| r.surface.as_str()).collect();
+    assert_eq!(names, ["change-feed", "purge-debt"]);
+    store.meter()
+}
+
+/// A purge finds a debt of another peer through the count of peers that owe each id, not by a
+/// walk of the peers: the same index work beside 64 and 512 peers that owe other ids.
+#[test]
+fn another_peers_debt_is_found_without_a_walk_of_the_peers() {
+    let few = purge_beside_debtors(64);
+    let many = purge_beside_debtors(512);
+    assert_eq!(few, many, "the purge's index work grew with the peers");
+    assert_eq!(many.scans, 0, "the purge walked a whole map");
+}
+
 #[test]
 fn only_the_exporter_scans() {
     let store = MemoryStore::new();

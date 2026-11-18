@@ -334,7 +334,7 @@ bound.
 
 ### 1.5 Purge report
 
-`{claim, boundary, revision, targets, surfaces}`:
+`{claim, boundary, revision, targets, surfaces, retains}`:
 
 - `targets`: `{id, outcome}` for each distinct requested id, ascending.
 - `revision`: the peer's revision after the purge.
@@ -356,6 +356,19 @@ bound.
 Surface names and their number are the store's own. Only the memory reference store's are fixed:
 `rows`, `index-entries` (targets, negators and arrival records), `process-memory`, in that order,
 with states `absent`, `absent`, `unprovable`.
+
+- `retains`: `{surface, holds}` for each store-controlled surface that may still hold the **id**
+  of a target this report marks `removed` or `held-by-other-peer` (SPEC-18 §4.13 reading 108).
+  `holds` is always `id`. `surface` is one of three names, in this fixed order, each at most
+  once:
+  - `change-feed`: whenever the store's `changeRetention` is not `none`;
+  - `purge-debt`: while a purge debt of any peer names such a target, read after the purge;
+  - `surface-debt`: while a record of a removal (reading 107) of any peer names such a target.
+
+  A target that is `not-held` never adds a name. A store may name a surface that no longer holds
+  the id. It never omits one that does. The claim does not cover ids. The memory reference store
+  names exactly `change-feed`, and `purge-debt` when a purge debt names such a target. It never
+  names `surface-debt`.
 
 ### 1.6 Profile
 
@@ -537,7 +550,8 @@ record. Later steps check store answers against this record.
     "claim": { "unprovable": "unproven", "proven": "proven" },
     "referenceSurfaces": [ { "surface": "rows", "state": "absent" },
                            { "surface": "index-entries", "state": "absent" },
-                           { "surface": "process-memory", "state": "unprovable" } ] } }
+                           { "surface": "process-memory", "state": "unprovable" } ],
+    "retains": ["change-feed", "purge-debt"] } }
 ```
 
 `revisionAs` (optional) names the peer's revision after the step, as in §3.3.
@@ -565,6 +579,18 @@ Checks:
 - Every surface state is one of the three values.
 - If `claim` is `proven`: the surface list is not empty and every state is `absent`.
 - **Reference:** a memory reference store's `surfaces` equal `referenceSurfaces` exactly, in order.
+- `expect.retains` is a list of names of §1.5 `retains`. Any other value is a defect of the
+  document: the step fails, whatever the store answers.
+- Every entry of the report's `retains` has one of the three names and `holds` `id`. Else the
+  step fails with `purge retains: <entry> is not a retained surface`.
+- The entries are in the fixed order, none twice. Else the step fails with
+  `purge retains: <names> is not in the order change-feed, purge-debt, surface-debt, each once`.
+- Let W be `expect.retains`, without `change-feed` when the store's `changeRetention` is `none`.
+  Every name of W is in the report's `retains`. Else the step fails with
+  `purge retains: the report omits <name>`. A store may name more.
+- **Reference:** a memory reference store's `retains` names exactly W, in order. A store whose
+  `changeRetention` is `none` may also name `change-feed`; the comparison leaves it out. Else the
+  step fails with `purge retains: expected <W>, the store reported <names>`.
 
 ### 3.5 `read` and `release`
 
@@ -1509,7 +1535,8 @@ The table covers at least:
 - **Purge:** outcomes (not ids only), their order, a repeated id; the report's revision;
   `revisionAdvanced` in both directions; the boundary text, exactly; each claim that is not the
   expected one; `proven` with no surface and with a surface that is not `absent`; a surface state
-  outside the three.
+  outside the three. In `retains`: a store that omits `purge-debt`; one that names a surface
+  twice and out of order; an entry whose `holds` is not `id`.
 - **The bookkeeping:** the first entry of a batch with an id is the one held; a purge forgets
   the id, so an id appended again is held under its new arrival record. Both outcomes that end
   a holding: a store that keeps the old record after `removed`, and one that keeps it after
@@ -1524,13 +1551,14 @@ The table covers at least:
   scope case; the trim comparison. In a scope case, the lower bound twice: a store that leaves
   out the first id of the bound, and one that leaves out a later id.
 - **Reference rules:** the applied fields, the exact ids in a script and in a scope case, the
-  surfaces. For each, the same wrong answer under another `formatVersion` conforms. The exact
+  surfaces, the exact `retains` (a store that adds `surface-debt`). For each, the same wrong answer under another `formatVersion` conforms. The exact
   ids in a script also for a step with no `pushdown`: a store that ignores `exclude` only when
   no pushdown is asked.
 - **Export:** ids, their order, the count of deltas in both directions (fewer deltas than ids,
   and more), a delta's appearance; the stored listing and the peer listing.
 - **Requirements:** each one skips exactly its scripts and reports them; each script gets a new
-  store.
+  store. A store whose `changeRetention` is `none` and that never names `change-feed` passes the
+  scripts it runs.
 - **Stores that must pass.** Right answers the runner must accept: stores whose revisions are the
   reference store's times 2, times 3 with pages of one record, times 2 keeping two records, and
   times 3 keeping two records with pages of one record. Each answers every rule of §3.9.1,
@@ -1556,6 +1584,8 @@ The table covers at least:
     again of check 14 differently) stands in for the live rows and holds the re-ask to its
     message. The shape check on the asking again (TypeScript row "an extra key only on the
     answer asked again") is type-unreachable in Rust for the same reason.
+  - Rust has no row for a `retains` entry with another name or a `holds` other than `id`.
+    `RetainedSurface` has three values, and `Retained::holds` always answers `id`.
   - TypeScript has no `AnswersTwoWays` row. Its rows for live records and live id lists reach
     the same message, `changes answered differently after the caller changed what it
     returned`, through the change the runner makes.
@@ -1590,7 +1620,7 @@ The table covers at least:
   needs two rows: one with a script that has no `changes` step, and one with a store that is
   wrong only when a `to` is given, which the check after every step never gives.
 - **Documents:** an unknown `format`; a corpus id that does not recompute and is not `forged`; a
-  purge `claim` with a key other than `unprovable` and `proven`; an unknown script requirement;
+  purge `claim` with a key other than `unprovable` and `proven`; a purge step without `retains`; an unknown script requirement;
   a script `requires` that is `null`; a revision name that is unknown, of another peer, or given
   twice; a `mark` before its peer; `changes` expectations that are wrong; a `changes` step on a
   store without a feed; a profile whose `changeRetention` is malformed, among them

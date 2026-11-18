@@ -37,6 +37,9 @@ pub enum StoreErrorCode {
     InvalidRequest,
     SnapshotMoved,
     SnapshotReleased,
+    /// A durable store cannot serve the call now (§4.13 reading 105). The memory store never
+    /// gives it.
+    StoreUnavailable,
 }
 
 impl StoreErrorCode {
@@ -55,6 +58,7 @@ impl StoreErrorCode {
             Self::InvalidRequest => "invalid-request",
             Self::SnapshotMoved => "snapshot-moved",
             Self::SnapshotReleased => "snapshot-released",
+            Self::StoreUnavailable => "store-unavailable",
         }
     }
 }
@@ -442,6 +446,38 @@ pub struct PurgeSurface {
     pub state: SurfaceState,
 }
 
+/// A store-controlled surface that may still hold a target's id (§4.13 reading 108). The order
+/// of the variants is the order of a report's `retains`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum RetainedSurface {
+    ChangeFeed,
+    PurgeDebt,
+    SurfaceDebt,
+}
+
+impl RetainedSurface {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ChangeFeed => "change-feed",
+            Self::PurgeDebt => "purge-debt",
+            Self::SurfaceDebt => "surface-debt",
+        }
+    }
+}
+
+/// One entry of `retains`: the surface may hold the id of a target, never its bytes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Retained {
+    pub surface: RetainedSurface,
+}
+
+impl Retained {
+    /// What the surface may hold. It is always the id.
+    pub fn holds(&self) -> &'static str {
+        "id"
+    }
+}
+
 /// The only boundary a purge report states: the files and objects the store controls.
 pub const PURGE_BOUNDARY: &str = "store-controlled-surfaces";
 
@@ -455,6 +491,10 @@ pub struct PurgeReport {
     pub revision: Revision,
     pub targets: Vec<PurgeTarget>,
     pub surfaces: Vec<PurgeSurface>,
+    /// The surfaces that may still hold the id of a target the peer released or owes, in the
+    /// order of `RetainedSurface`. It may name more than hold the id, never fewer. The claim does
+    /// not cover ids.
+    pub retains: Vec<Retained>,
 }
 
 /// A whole-store or whole-peer listing. Reading it costs the surface it lists.

@@ -57,8 +57,8 @@ Each is made here under the store-arc delegation. Each moves to §12 when its st
   `reference(peer, ref, role, delta)`. `negators` is that table at `role = 'negates'`.
 - **S4-5. The purge report names what it retains, conservatively.** `PurgeReport` gains
   `retains: readonly { surface: "change-feed" | "purge-debt" | "surface-debt"; holds: "id" }[]`. It lists
-  `change-feed` whenever the peer's retention is not `none`, and `purge-debt` whenever a debt row
-  names a removed target. The list may name a surface that no longer holds the id; it never omits
+  `change-feed` whenever the store's retention is not `none`, and `purge-debt` whenever a debt row
+  names a target whose outcome is `removed` or `held-by-other-peer` (reading 108). The list may name a surface that no longer holds the id; it never omits
   one that does. The claim rule is unchanged (decision O4). A purge debt ends when the owing peer
   asks again and is answered `removed`. The memory store reports the same field. This is a
   contract change in both witnesses.
@@ -438,6 +438,7 @@ follows per S4-10.
 | Whole-peer version address | 4d, done in TypeScript: the holdings digest and its root (proposal §4.13 readings 139 to 142) |
 | Journal frames and payload; purge and the head compare-and-set; arrival history after a purge | 4d |
 | Release-mode cost rails | 4e |
+| The Rust part of S4-5 and of reading 105: `PurgeReport.retains` on the memory store, `expect.retains` on every shared purge step, and the code `store-unavailable` (proposal §4.13 readings 105 and 108) | 4e, done |
 | A refused open of a file that is not a whole store writes nothing: the schema, format and retention check before the journal mode (proposal §4.13 reading 126) | 4e |
 | The open asks again while the switch to WAL answers busy, then refuses `store-unavailable` (proposal §4.13 reading 126) | 4e |
 | `with_snapshot`: the public form of `on_snapshots`, with `SnapshotRetry { snapshots, within, clock }` (the host gives the clock), and its tests: the contract tests over both stores, the SQLite test that no transaction is held, and the process tests M1 to M5 (proposal §4.13 readings 127 to 129). Since step 4d, M1 expects one attempt at revision 0 without the child's delta, and M2 expects no failure and one attempt in every run | 4e |

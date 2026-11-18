@@ -170,6 +170,13 @@ Step 4d adds more, listed under Breaking.
 - The memory store's test meter counts the digest's path in `append` and `purge`. A rail bounds
   their lookups by a fixed cost per level of the tree for each changed id, with the levels
   counted from the ids.
+- Step 4e starts. The Rust purge report gains `retains` (`Retained`, `RetainedSurface`), and
+  the Rust refusal codes gain `StoreErrorCode::StoreUnavailable` (§4.13 readings 105 and 108).
+  The Rust memory store names `change-feed`, and `purge-debt` while a purge debt of any peer
+  names a target the peer released or owes. It counts the peers that owe each id, so it finds a
+  debt without a walk of the peers. Every purge step of the shared store vectors now carries
+  `expect.retains`, and both runners check it (README §3.4). The format names do not change.
+  What a purge removes does not change.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
