@@ -393,8 +393,8 @@ class MemoryStore implements Store {
   /**
    * The peer delete (§4.13 reading 144), all at once: no writer can come between its steps. A
    * held id without its stored claims, or whose row counts no holder, refuses the delete before
-   * it removes anything, as the purge of that id does (reading 136). Process memory cannot prove absence, so the claim is
-   * `unproven`.
+   * it removes anything, as the purge of that id does (reading 136). Process memory cannot
+   * prove absence, so the claim is `unproven`.
    */
   async deletePeer(id: PeerId): Promise<DeleteReport> {
     this.#open();

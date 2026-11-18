@@ -3022,8 +3022,16 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        row is gone throws `StoreIntegrityError` (`claims-unreadable`) before the delete removes
        anything, as the purge of that id does (reading 136). A held id whose row counts fewer
        than 1 holder throws `count-mismatch` (key `holders`, with the peer and the id) the same
-       way, by the same check as the purge. **Known limit:** until a remedy for
-       that purge lands, no call deletes such a peer.
+       way, by the same check as the purge. **Known limit:** no call deletes a peer that holds
+       either id. A remedy is proposed only for the id with no stored claims: a wider purge of
+       that id (rhizomatic PR #99). No remedy is proposed for the count fault.
+       **Known gap:** a row can count 1 or more holders but fewer than hold it. A delete of one
+       holder then takes the count to 0 and removes the row that another peer still holds. Its
+       report says `rows: absent`, `released: 1`, `keptByOtherPeers: 0`, and the other peer's
+       `get` of the id fails `claims-unreadable`. The purge has the same gap. `fsck` reports the
+       row before the call (`count-mismatch`, key `holders`). The SQLite store keeps no count and
+       cannot reach this state. A fix is planned as its own change: the memory store keeps which
+       peers hold each id.
      - **A handle names one peer.** After a delete, every call of an old handle with a
        well-formed request refuses `peer-absent`, on both stores, also after a `createPeer` of
        the same id. Both stores check a call in one order: `store-closed`, then the form of the

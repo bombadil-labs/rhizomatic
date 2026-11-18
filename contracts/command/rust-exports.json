@@ -82970,6 +82970,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::IntegrityFaultKind::PeerDeleting",
+      "resolvedTarget": "crate::store::IntegrityFaultKind::PeerDeleting",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "IntegrityFaultKind::as_str",
+      "target": "crate::store::IntegrityFaultKind::PeerDeleting",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::IntegrityFaultKind::SequenceMismatch",
       "resolvedTarget": "crate::store::IntegrityFaultKind::SequenceMismatch",
       "source": "implementations/rust/src/store.rs",

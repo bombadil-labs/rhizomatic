@@ -113,6 +113,9 @@ pub enum IntegrityFaultKind {
     Engine,
     /// A stored node of the holdings digest, or the stored root, is not the one the holdings give.
     DigestMismatch,
+    /// TypeScript's `fsck` reports a peer whose `deletePeer` began and did not end (reading 144).
+    /// No Rust store produces it yet: Rust has no peer delete until step 4e.
+    PeerDeleting,
 }
 
 impl IntegrityFaultKind {
@@ -129,6 +132,7 @@ impl IntegrityFaultKind {
             Self::OrphanBytes => "orphan-bytes",
             Self::Engine => "engine",
             Self::DigestMismatch => "digest-mismatch",
+            Self::PeerDeleting => "peer-deleting",
         }
     }
 }

@@ -485,4 +485,58 @@ describe("peer delete on the memory store, with a damaged holding", () => {
     await holds(b, bystander);
     expect((await store.openAdmin().fsck()).faults).toEqual(faults);
   });
+
+  it("[gap: a row that counts fewer holders than hold it] fsck reports count-mismatch (holders) before the call; a delete of one holder answers, counts the id as not kept, removes the row, and the other holder's get throws claims-unreadable", async () => {
+    const store = createMemoryStore();
+    const a = await store.createPeer("peer:a", { erasure: "unproven" });
+    const b = await store.createPeer("peer:b", { erasure: "unproven" });
+    const shared = fact("e:shared");
+    const bystander = facts("gap", 2);
+    await add(a, [shared]);
+    await add(b, [shared, ...bystander]);
+    // The shared row, recorded while one read runs, then its count of holders is set from 2 to 1.
+    const snapshot = await a.read();
+    const real = Map.prototype.get;
+    const rows: { holders: number }[] = [];
+    Map.prototype.get = function (this: Map<unknown, unknown>, key: unknown) {
+      const value: unknown = real.call(this, key);
+      if (key === shared.id && typeof value === "object" && value !== null && "holders" in value)
+        rows.push(value as { holders: number });
+      return value;
+    };
+    let pending: Promise<unknown>;
+    try {
+      pending = snapshot.get([shared.id]);
+    } finally {
+      Map.prototype.get = real;
+    }
+    await pending;
+    snapshot.release();
+    expect(rows.map((row) => row.holders)).toEqual([2]);
+    rows[0]!.holders = 1;
+    const faults = (await store.openAdmin().fsck()).faults;
+    expect(faults.map(({ kind, key, id }) => ({ kind, key, id }))).toEqual([
+      { kind: "count-mismatch", key: "holders", id: shared.id },
+    ]);
+
+    const report = await store.deletePeer("peer:a");
+    expect([report.released, report.keptByOtherPeers]).toEqual([1, 0]);
+    expect(report.surfaces.find(({ surface }) => surface === "rows")?.state).toBe("absent");
+
+    expect(await listed(store.openAdmin().storedIds())).toEqual(ids(bystander));
+    const now = await b.read();
+    expect(now.count).toBe(3);
+    const thrown = await now.get([shared.id]).catch((e: unknown) => e);
+    expect(thrown).toBeInstanceOf(StoreIntegrityError);
+    const { kind, peer, id } = (thrown as StoreIntegrityError).fault;
+    expect({ kind, peer, id }).toEqual({
+      kind: "claims-unreadable",
+      peer: "peer:b",
+      id: shared.id,
+    });
+    expect(await now.get(ids(bystander))).toEqual(
+      [...bystander].sort((x, y) => (x.id < y.id ? -1 : 1)),
+    );
+    now.release();
+  });
 });

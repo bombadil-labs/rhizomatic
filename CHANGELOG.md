@@ -225,6 +225,12 @@ Step 4d adds more, listed under Breaking.
   counts fewer than 1 holder, before it removes anything, by the purge's check. Before, it
   removed the peer and its report counted that id as kept by another peer, though none held it.
   What a delete removes does not grow.
+- Known gap: on a damaged memory store, a row can count 1 or more holders but fewer than hold
+  it. A delete of one holder then removes the row, and another holder's `get` fails
+  `claims-unreadable`. The purge has the same gap. `fsck` reports the row before the call
+  (`count-mismatch`, key `holders`). The SQLite store keeps no count and cannot reach it.
+- `IntegrityFaultKind` gains `peer-deleting` in both witnesses; the Rust witness has it as data,
+  with no producer until step 4e.
 - What can now be deleted that could not be deleted before: every holding, index entry, change
   record, purge debt, record of a removal, digest row and peer row of one peer, and the bytes of
   each delta that no other peer holds, by one call. Never a peer created later under the same
@@ -301,8 +307,8 @@ Step 4d adds more, listed under Breaking.
 - Step 4e: a Rust read can fail with damage that is not a refusal (§4.13 reading 136). The new
   `store::StoreFailure` is `Refused(StoreError)` or `Integrity(IntegrityFault)`. The five
   `Snapshot` reads, `PeerStore::purge`, `PeerStore::changes` and every `Listing` answer it. The
-  new `IntegrityFault {kind, peer, id, key, detail}` and `IntegrityFaultKind` (the eleven kinds
-  of TypeScript) are data only: no Rust store produces a fault yet. `FeedError` and
+  new `IntegrityFault {kind, peer, id, key, detail}` and `IntegrityFaultKind` (the kinds of
+  TypeScript) are data only: no Rust store produces a fault yet. `FeedError` and
   `StoreReadError` gain an `Integrity` arm and `From<StoreFailure>`. An integrity fault has no
   refusal code, so `with_snapshot` and every reader pass it up after one run. No behavior
   changes. What a purge removes does not change.
