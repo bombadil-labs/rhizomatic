@@ -292,6 +292,78 @@ for (const [name, open] of STORES)
         expect(codeOf(await outcome(snapshot.targets([X])))).toBe("snapshot-released");
     });
 
+    it("at each start of the body, every earlier snapshot is already released: [0], then [1, 0], then [1, 1, 0], then [1, 1, 1, 0]", async () => {
+      const { peer, move } = await seeded(open);
+      const released: number[] = [];
+      const tracked = withRead(peer, async () => {
+        const snapshot = await peer.read();
+        const at = released.push(0) - 1;
+        return {
+          ...snapshot,
+          release: () => {
+            released[at] = released[at]! + 1;
+            snapshot.release();
+          },
+        };
+      });
+      const starts: number[][] = [];
+      const failure = await outcome(
+        withSnapshot(tracked, async (snapshot) => {
+          starts.push([...released]);
+          await snapshot.targets([X]);
+          await move();
+          return snapshot.targets([Y]);
+        }),
+      );
+      expect(codeOf(failure)).toBe("snapshot-moved");
+      expect(starts).toEqual([[0], [1, 0], [1, 1, 0], [1, 1, 1, 0]]);
+      expect(released).toEqual([1, 1, 1, 1]);
+    });
+
+    it("a clock with no withinMs is never read: 0 readings on an answer and on 4 moved snapshots", async () => {
+      const { peer, move } = await seeded(open);
+      let readings = 0;
+      const clock = (): number => {
+        readings += 1;
+        return 1_000;
+      };
+      const answer = await withSnapshot(peer, (s) => s.revision, { clock });
+      const { peer: watched, reads } = counted(peer);
+      const failure = await outcome(
+        withSnapshot(
+          watched,
+          async (snapshot) => {
+            await snapshot.targets([X]);
+            await move();
+            return snapshot.targets([Y]);
+          },
+          { clock },
+        ),
+      );
+      expect([answer.attempts, codeOf(failure), reads()]).toEqual([1, "snapshot-moved", 4]);
+      expect(readings).toBe(0);
+    });
+
+    it("withinMs also ends the call on a refused read(): 10 ms, and 30 ms per reading, pass the first refusal up after 1 read and 2 readings", async () => {
+      const { peer } = await seeded(open);
+      let readings = 0;
+      const clock = (): number => {
+        readings += 1;
+        return 1_000 + 30 * readings;
+      };
+      const refused: StoreError[] = [];
+      const moving = withRead(peer, () => {
+        refused.push(new StoreError("snapshot-moved", "moved before the snapshot"));
+        return Promise.reject(refused.at(-1)!);
+      });
+      let runs = 0;
+      const failure = await outcome(
+        withSnapshot(moving, () => (runs += 1), { withinMs: 10, clock }),
+      );
+      expect(failure).toBe(refused[0]);
+      expect([refused.length, readings, runs]).toEqual([1, 2, 0]);
+    });
+
     it("withinMs bounds the snapshots after the first by the host's clock: 0 still runs the first; a body that passes the bound gets no second; a bound not passed reaches the count", async () => {
       const { peer, move } = await seeded(open);
       let now = 1_000;

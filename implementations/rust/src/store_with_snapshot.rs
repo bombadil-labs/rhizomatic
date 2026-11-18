@@ -58,12 +58,6 @@ pub trait StoreRefusal {
     fn store_code(&self) -> Option<StoreErrorCode>;
 }
 
-impl StoreRefusal for StoreError {
-    fn store_code(&self) -> Option<StoreErrorCode> {
-        Some(self.code)
-    }
-}
-
 impl StoreRefusal for FeedError {
     fn store_code(&self) -> Option<StoreErrorCode> {
         match self {
@@ -142,6 +136,10 @@ impl Drop for Held {
 /// `body` reads only, through the snapshot it is given. It keeps nothing from an earlier attempt,
 /// and its side effects go after this returns: it can run up to `retry.snapshots` times. A purge
 /// of the same peer inside it moves its own snapshot; an append does not (§4.13 reading 130).
+///
+/// The body's error type `E` holds a store refusal, a store fault, and the refusal's code. The
+/// crate has two: [`FeedError`], the smallest, and `store_read::StoreReadError`. A body that
+/// only calls `Snapshot` methods uses `FeedError`, and `?` turns each `StoreError` into it.
 pub fn with_snapshot<T, E>(
     peer: &dyn PeerStore,
     mut body: impl FnMut(&dyn Snapshot, usize) -> Result<T, E>,
