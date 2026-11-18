@@ -27,6 +27,10 @@ use crate::store::{
     StoreFailure, StoreProfile, StoreWriters, SurfaceState, VerifiedDelta, APP_FORMAT_MAX_BYTES,
     LOCAL_HISTORY_PREFIX, MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
 };
+use crate::store_digest::{
+    children_of, digest_rows, empty_digest, is_digest_prefix, leaf_hash, update_digest, DigestNode,
+    DigestRow, DigestStore,
+};
 use crate::types::{Claims, Delta};
 
 /// The format version that names a memory reference store to the conformance runner.
@@ -186,6 +190,126 @@ struct PeerState {
     /// Ids this peer purged while another peer still held the bytes.
     debts: Index<()>,
     feed: Feed,
+    /// The holdings digest by prefix (§4.7.6): the root and each child of a node of more than 16
+    /// ids that holds an id. A leaf keeps its ids.
+    digest: Index<DigestRow>,
+    root: DigestNode,
+}
+
+/// One peer's digest rows for `update_digest`. A leaf row keeps its ids, so the ids under a
+/// prefix are read from the rows as they were before the change, with the ids `added`, and kept
+/// when the peer holds them now.
+struct PeerDigest<'a> {
+    meter: &'a mut StoreMeter,
+    rows: &'a mut Index<DigestRow>,
+    holdings: &'a Index<Holding>,
+    added: &'a [String],
+}
+
+impl PeerDigest<'_> {
+    fn before(&mut self, prefix: &str) -> Vec<String> {
+        if let Some(row) = self.rows.get(self.meter, prefix) {
+            return match &row.ids {
+                Some(ids) => ids.clone(),
+                None => children_of(prefix)
+                    .iter()
+                    .flat_map(|child| self.before(child))
+                    .collect(),
+            };
+        }
+        (0..prefix.len())
+            .rev()
+            .find_map(|k| self.rows.get(self.meter, &prefix[..k]))
+            .map(|above| {
+                above
+                    .ids
+                    .iter()
+                    .flatten()
+                    .filter(|id| id.starts_with(prefix))
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+}
+
+impl DigestStore for PeerDigest<'_> {
+    fn rows(&mut self, prefixes: &[String]) -> Vec<Option<DigestNode>> {
+        prefixes
+            .iter()
+            .map(|prefix| self.rows.get(self.meter, prefix).map(DigestRow::node))
+            .collect()
+    }
+
+    fn held(&mut self, prefix: &str) -> Vec<String> {
+        let mut ids: BTreeSet<String> = self.before(prefix).into_iter().collect();
+        ids.extend(
+            self.added
+                .iter()
+                .filter(|id| id.starts_with(prefix))
+                .cloned(),
+        );
+        ids.into_iter()
+            .filter(|id| self.holdings.contains(self.meter, id))
+            .collect()
+    }
+
+    fn put(&mut self, prefix: &str, node: &DigestNode, leaf: Option<&[String]>) {
+        let row = DigestRow {
+            count: node.count,
+            hash: node.hash.clone(),
+            ids: leaf.map(<[String]>::to_vec),
+        };
+        self.rows.insert(self.meter, prefix.to_string(), row);
+    }
+
+    fn drop_row(&mut self, prefix: &str) {
+        self.rows.remove(self.meter, prefix);
+    }
+
+    fn drop_under(&mut self, prefix: &str) {
+        for child in children_of(prefix) {
+            if self.rows.contains(self.meter, &child) {
+                self.drop_under(&child);
+                self.rows.remove(self.meter, &child);
+            }
+        }
+    }
+}
+
+/// Moves the peer's digest by a change its holdings already include, and its root with it.
+fn move_digest(meter: &mut StoreMeter, peer: &mut PeerState, added: &[String], removed: &[String]) {
+    let mut rows = PeerDigest {
+        meter,
+        rows: &mut peer.digest,
+        holdings: &peer.holdings,
+        added,
+    };
+    peer.root = update_digest(&mut rows, added, removed);
+}
+
+/// The node of `prefix`: its row, or, below a leaf, the leaf over the leaf's ids that start with
+/// it. A prefix whose nearest row above it is a node of more than 16 ids holds no id.
+fn digest_at(meter: &mut StoreMeter, rows: &Index<DigestRow>, prefix: &str) -> DigestNode {
+    if let Some(row) = rows.get(meter, prefix) {
+        return row.node();
+    }
+    for k in (0..prefix.len()).rev() {
+        if let Some(above) = rows.get(meter, &prefix[..k]) {
+            let ids: Vec<String> = above
+                .ids
+                .iter()
+                .flatten()
+                .filter(|id| id.starts_with(prefix))
+                .cloned()
+                .collect();
+            return DigestNode {
+                count: ids.len() as u64,
+                hash: leaf_hash(&ids),
+            };
+        }
+    }
+    empty_digest()
 }
 
 #[derive(Debug)]
@@ -425,6 +549,10 @@ impl State {
                 settle(debtors, meter, id);
             }
         }
+        if !fresh.is_empty() {
+            let added: Vec<String> = fresh.keys().map(|id| id.to_string()).collect();
+            move_digest(meter, peer, &added, &[]);
+        }
         if let Some(last) = sequences.last() {
             peer.last_sequence = *last;
         }
@@ -532,6 +660,7 @@ impl State {
             });
         }
         if !released.is_empty() {
+            move_digest(meter, peer, &[], &released);
             peer.revision += 1;
             peer.removed_at = peer.revision;
             // A purge does not move the head; its record carries the peer's head.
@@ -786,8 +915,10 @@ impl State {
                 })
             };
             let mut expected: [BTreeMap<&str, BTreeSet<&str>>; 2] = Default::default();
+            let mut held = Vec::new();
             for (id, holding) in peer.holdings.scan(meter) {
                 checked.holdings += 1;
+                held.push(id.clone());
                 *holders.entry(id).or_default() += 1;
                 let here = Some(id.as_str());
                 if holding.arrival.sequence > peer.last_sequence {
@@ -875,6 +1006,45 @@ impl State {
                 .all(|(after, record)| feed.floor.checked_add(after) == Some(record.revision.0));
             if feed.floor.checked_add(kept) != Some(peer.revision) || !runs {
                 faults.push(gap(peer_id, feed, peer.revision));
+            }
+            // The digest against the tree its holdings give (§4.13 reading 141).
+            let rows = digest_rows(&held);
+            let root = rows
+                .last()
+                .filter(|(prefix, _)| prefix.is_empty())
+                .map_or_else(|| empty_digest().hash, |(_, row)| row.hash.clone());
+            let mut want: BTreeMap<&str, &DigestRow> =
+                rows.iter().map(|(p, row)| (p.as_str(), row)).collect();
+            let mut digest_fault = |prefix: &str, detail: &str| {
+                faults.push(IntegrityFault {
+                    kind: IntegrityFaultKind::DigestMismatch,
+                    peer: Some(peer_id.clone()),
+                    id: None,
+                    key: Some(format!("digest:{prefix}")),
+                    detail: detail.to_string(),
+                })
+            };
+            for (prefix, row) in peer.digest.scan(meter) {
+                if want.remove(prefix.as_str()) != Some(row) {
+                    let detail =
+                        "memory store: a stored digest node is not the node the holdings give";
+                    digest_fault(prefix, detail);
+                }
+            }
+            // In the order the holdings give them, children before their parent, as TypeScript.
+            for (prefix, _) in rows.iter().filter(|(p, _)| want.contains_key(p.as_str())) {
+                let detail = "memory store: a digest node the holdings give is not stored";
+                digest_fault(prefix, detail);
+            }
+            if peer.root.hash != root || peer.root.count != held.len() as u64 {
+                faults.push(IntegrityFault {
+                    kind: IntegrityFaultKind::DigestMismatch,
+                    peer: Some(peer_id.clone()),
+                    id: None,
+                    key: Some("root".to_string()),
+                    detail: "memory store: the peer's root is not the root its holdings give"
+                        .to_string(),
+                });
             }
         }
         for (id, row) in stored.scan(meter) {
@@ -996,7 +1166,7 @@ pub fn memory_store_profile() -> StoreProfile {
             journal: false,
             views: false,
             derived_indexes: false,
-            digest: false,
+            digest: true,
             erasure: ErasureClass::Unprovable,
         },
         indexed_value_roles: Vec::new(),
@@ -1189,6 +1359,8 @@ impl Store for MemoryStore {
                     negators: Index::new(),
                     debts: Index::new(),
                     feed: Feed::default(),
+                    digest: Index::new(),
+                    root: empty_digest(),
                 },
             );
             Ok(history)
@@ -1260,6 +1432,7 @@ impl PeerStore for MemoryPeer {
                 count: peer.holdings.len() as u64,
                 last_sequence: peer.last_sequence,
                 last_transfer: peer.last_transfer,
+                root: peer.root.hash.clone(),
                 released: false,
             }) as Box<dyn Snapshot>)
         })
@@ -1287,6 +1460,7 @@ struct MemorySnapshot {
     count: u64,
     last_sequence: u64,
     last_transfer: u64,
+    root: String,
     released: bool,
 }
 
@@ -1300,6 +1474,16 @@ impl MemorySnapshot {
     /// `StoreFailure::Integrity`.
     fn query<R>(
         &self,
+        f: impl FnOnce(SnapshotView<'_>) -> Result<R, IntegrityFault>,
+    ) -> Result<R, StoreFailure> {
+        self.guarded(false, f)
+    }
+
+    /// `query`, and when `strict`, a refusal `snapshot-moved` also once an append added an id
+    /// after the read (§4.13 reading 140).
+    fn guarded<R>(
+        &self,
+        strict: bool,
         f: impl FnOnce(SnapshotView<'_>) -> Result<R, IntegrityFault>,
     ) -> Result<R, StoreFailure> {
         if self.released {
@@ -1326,6 +1510,13 @@ impl MemorySnapshot {
                 return refuse(
                     StoreErrorCode::SnapshotMoved,
                     "the peer released a holding after this snapshot; read a new one",
+                )
+                .map_err(StoreFailure::Refused);
+            }
+            if strict && peer.last_sequence != self.last_sequence {
+                return refuse(
+                    StoreErrorCode::SnapshotMoved,
+                    "digest: the peer's holdings moved past this snapshot, and a digest call is strict",
                 )
                 .map_err(StoreFailure::Refused);
             }
@@ -1365,6 +1556,25 @@ impl Snapshot for MemorySnapshot {
 
     fn last_transfer(&self) -> u64 {
         self.last_transfer
+    }
+
+    fn root(&self) -> Option<&str> {
+        Some(&self.root)
+    }
+
+    /// Strict (§4.13 reading 140): the digest keeps no sequence, so it answers only while the held
+    /// set is the snapshot's. The shape of the prefix comes first.
+    fn digest(&self, prefix: &str) -> Result<DigestNode, StoreFailure> {
+        if !is_digest_prefix(prefix) {
+            return refuse(
+                StoreErrorCode::InvalidRequest,
+                "digest: the prefix is a string of lowercase hex digits",
+            )
+            .map_err(StoreFailure::Refused);
+        }
+        self.guarded(true, |view| {
+            Ok(digest_at(view.meter, &view.peer.digest, prefix))
+        })
     }
 
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
@@ -2197,4 +2407,133 @@ fn a_feed_floor_at_the_largest_u64_is_feed_gap_by_fsck_with_records_and_with_non
             "{clear}"
         );
     }
+}
+
+/// Peer A holds 40 facts, so its root is a node of 16 children and each child a leaf of a few
+/// ids. Answers the store, the peer, the facts, and one leaf's prefix with its row.
+#[cfg(test)]
+fn forty() -> (
+    MemoryStore,
+    Box<dyn PeerStore>,
+    Vec<Delta>,
+    String,
+    DigestRow,
+) {
+    let store = MemoryStore::new();
+    let a = store
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
+        .unwrap();
+    let facts: Vec<Delta> = (0..40).map(|i| fact(&format!("e:{i}"))).collect();
+    add(a.as_ref(), &facts.iter().collect::<Vec<_>>());
+    assert_eq!(places(&store), []);
+    let leaf = with(&store.state, |state| {
+        let rows = &state.peers.map["peer:a"].digest.map;
+        assert_eq!(rows[""].ids, None, "the root is a node of 16 children");
+        let (prefix, row) = rows.iter().find(|(p, _)| p.len() == 5).unwrap();
+        assert!(row.ids.is_some(), "the child {prefix} is a leaf");
+        (prefix.clone(), row.clone())
+    });
+    (store, a, facts, leaf.0, leaf.1)
+}
+
+#[cfg(test)]
+fn digest_fault(key: &str) -> Place {
+    let key = Some(key.to_string());
+    ("digest-mismatch", Some("peer:a".to_string()), None, key)
+}
+
+#[cfg(test)]
+fn digest_rows_of(state: &mut State) -> &mut BTreeMap<String, DigestRow> {
+    &mut state.peers.map.get_mut("peer:a").unwrap().digest.map
+}
+
+#[cfg(test)]
+#[test]
+fn a_stored_digest_node_whose_hash_changed_is_one_digest_mismatch_with_its_key() {
+    let (store, _, _, prefix, _) = forty();
+    damage(&store, |state| {
+        digest_rows_of(state).get_mut(&prefix).unwrap().hash = empty_digest().hash;
+    });
+    assert_eq!(places(&store), [digest_fault(&format!("digest:{prefix}"))]);
+}
+
+#[cfg(test)]
+#[test]
+fn a_copy_of_a_leaf_at_a_prefix_no_held_id_starts_with_is_one_digest_mismatch_with_its_key() {
+    let (store, _, _, _, leaf) = forty();
+    damage(&store, |state| {
+        digest_rows_of(state).insert("ff".into(), leaf);
+    });
+    assert_eq!(places(&store), [digest_fault("digest:ff")]);
+}
+
+#[cfg(test)]
+#[test]
+fn a_lost_digest_node_is_one_digest_mismatch_with_its_key() {
+    let (store, _, _, prefix, _) = forty();
+    damage(&store, |state| {
+        digest_rows_of(state).remove(&prefix);
+    });
+    assert_eq!(places(&store), [digest_fault(&format!("digest:{prefix}"))]);
+}
+
+#[cfg(test)]
+#[test]
+fn a_root_whose_hash_or_count_changed_is_one_digest_mismatch_with_the_key_root() {
+    for count in [false, true] {
+        let (store, _, _, _, _) = forty();
+        damage(&store, |state| {
+            let root = &mut state.peers.map.get_mut("peer:a").unwrap().root;
+            if count {
+                root.count += 1;
+            } else {
+                root.hash = empty_digest().hash;
+            }
+        });
+        assert_eq!(places(&store), [digest_fault("root")], "count {count}");
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn fsck_reports_the_digest_after_the_feed_of_its_peer_and_before_the_stored_rows() {
+    let (store, _, _, _, _) = forty();
+    let orphan = fact("e:orphan");
+    damage(&store, |state| {
+        state.peers.map.get_mut("peer:a").unwrap().root.count += 1;
+        state
+            .peers
+            .map
+            .get_mut("peer:a")
+            .unwrap()
+            .feed
+            .records
+            .pop_back();
+        state.stored.map.insert(
+            orphan.id.clone(),
+            Stored {
+                claims: orphan.claims.clone(),
+                holders: 1,
+            },
+        );
+    });
+    let kinds: Vec<&str> = places(&store).into_iter().map(|p| p.0).collect();
+    assert_eq!(kinds, ["feed-gap", "digest-mismatch", "orphan-bytes"]);
+}
+
+#[cfg(test)]
+#[test]
+fn a_damaged_count_in_the_digest_does_not_stop_a_purge_the_purge_removes_the_ids_and_fsck_then_reports_digest_mismatch(
+) {
+    let (store, a, facts, _, _) = forty();
+    damage(&store, |state| {
+        digest_rows_of(state).get_mut("").unwrap().count = 1;
+    });
+    let gone = ids(&[&facts[0], &facts[1]]);
+    let report = a.purge(&gone).unwrap();
+    let outcomes: Vec<PurgeOutcome> = report.targets.iter().map(|t| t.outcome).collect();
+    assert_eq!(outcomes, [PurgeOutcome::Removed, PurgeOutcome::Removed]);
+    assert_eq!(a.read().unwrap().get(&gone).unwrap(), []);
+    let kinds: BTreeSet<&str> = places(&store).into_iter().map(|p| p.0).collect();
+    assert_eq!(kinds, BTreeSet::from(["digest-mismatch"]));
 }

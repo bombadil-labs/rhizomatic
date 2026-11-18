@@ -16,6 +16,7 @@ use rhizomatic::store::{
     CreatePeerOptions, ErasurePosture, PeerStore, Pushdown, Revision, ScopeRequest, Store,
     VerifiedDelta,
 };
+use rhizomatic::store_digest::digest_of;
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 
 fn fact(entity: &str, context: &str, value: f64, timestamp: f64) -> Delta {
@@ -86,8 +87,9 @@ fn noise(n: usize) -> Vec<Delta> {
 }
 
 /// Runs every core operation over one fixed footprint beside `n` unrelated facts, and reports
-/// the index work of each.
-fn measure(n: usize) -> Vec<(&'static str, StoreMeter)> {
+/// the index work of each, and the levels of the digest on the path of each id that the append
+/// and the purge change.
+fn measure(n: usize) -> (Vec<(&'static str, StoreMeter)>, [usize; 2]) {
     let store = MemoryStore::new();
     let mut work = Vec::new();
     let mut measured = |name: &'static str, store: &MemoryStore, op: &mut dyn FnMut()| {
@@ -137,6 +139,12 @@ fn measure(n: usize) -> Vec<(&'static str, StoreMeter)> {
     ];
     let ids: Vec<String> = footprint.iter().map(|d| d.id.clone()).collect();
 
+    let mut held: Vec<String> = unrelated.iter().map(|d| d.id.clone()).collect();
+    held.extend(ids.iter().cloned());
+    let levels = [
+        digest_levels(&held, &ids),
+        digest_levels(&held, &[struck.id.clone(), shared.id.clone()]),
+    ];
     measured("append", &store, &mut || {
         append(peer.as_ref(), (Some("a-1"), "a-2"), last, &footprint)
     });
@@ -217,24 +225,72 @@ fn measure(n: usize) -> Vec<(&'static str, StoreMeter)> {
     measured("purge of a debt", &store, &mut || {
         peer.purge(std::slice::from_ref(&shared.id)).unwrap();
     });
-    work
+    (work, levels)
 }
 
+/// How many rows of the holdings digest over `held` lie on the paths of `changed`, summed over
+/// the changed ids: the root, and each child of a node of more than 16 ids that holds an id
+/// (`vectors/store/README.md` §12.2). The levels come from the ids, not from the store.
+fn digest_levels(held: &[String], changed: &[String]) -> usize {
+    let count = |prefix: &str| digest_of(held, prefix).unwrap().count;
+    changed
+        .iter()
+        .map(|id| {
+            1 + (1..=id.len())
+                .take_while(|&k| count(&id[..k - 1]) > 16 && count(&id[..k]) > 0)
+                .count()
+        })
+        .sum()
+}
+
+/// Lookups an append or a purge may make per level of the digest on the path of a changed id,
+/// on average over the path: the 16 child rows a level reads, the row it writes, and at the leaf
+/// its held ids and the rows below it. TypeScript's rail has the same bound.
+const PER_LEVEL: u64 = 24;
+
+/// Each core operation makes the same index calls beside 0 and beside N unrelated deltas, but
+/// append and purge, whose lookups stay within a fixed bound per digest level of each changed id
+/// (§4.13 reading 139). A walk of the digest tree, or a lookup per held id, goes over the bound.
 #[test]
 fn core_operations_cost_their_footprint_not_the_store() {
-    let empty = measure(0);
-    let full = measure(4000);
+    let (empty, empty_levels) = measure(0);
+    let (full, full_levels) = measure(4000);
     for ((name, beside_none), (_, beside_many)) in empty.iter().zip(&full) {
-        assert_eq!(
-            beside_none, beside_many,
-            "{name}: index work grew with unrelated deltas"
-        );
         assert_eq!(
             beside_many.scans, 0,
             "{name}: a core operation walked a whole map"
         );
+        let path = match *name {
+            "append" => Some(0),
+            "purge" => Some(1),
+            _ => None,
+        };
+        let Some(path) = path else {
+            assert_eq!(
+                beside_none, beside_many,
+                "{name}: index work grew with unrelated deltas"
+            );
+            continue;
+        };
+        assert_eq!(
+            (beside_none.visited, beside_none.scans),
+            (beside_many.visited, beside_many.scans),
+            "{name}: members read grew with unrelated deltas"
+        );
+        let bound = beside_none.lookups + PER_LEVEL * full_levels[path] as u64;
+        println!(
+            "memory cost, {name}: {} lookups beside 0 ({} levels), {} beside 6000 ({} levels), bound {bound}",
+            beside_none.lookups, empty_levels[path], beside_many.lookups, full_levels[path]
+        );
+        assert!(
+            beside_many.lookups <= bound,
+            "{name}: {} lookups over {} levels, bound {bound}",
+            beside_many.lookups,
+            full_levels[path]
+        );
     }
     // The meter is live: each operation that reads an index counted something.
+    assert!(full_levels[0] > empty_levels[0] && full_levels[1] > empty_levels[1]);
     for (name, meter) in &full {
         assert!(meter.lookups > 0, "{name}: the meter counted no lookup");
     }

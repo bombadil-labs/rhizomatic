@@ -42,10 +42,12 @@ use rhizomatic::store::{
     StoreErrorCode, StoreFailure, StoreProfile, SurfaceState, VerifiedDelta, APP_FORMAT_MAX_BYTES,
     MAX_ARRIVAL_COUNTER,
 };
+use rhizomatic::store::{IntegrityFault, IntegrityFaultKind};
 use rhizomatic::store_conformance::{
-    run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceReport,
-    StoreVectors,
+    run_digest_conformance, run_store_conformance, SkippedScript, StoreConformanceError,
+    StoreConformanceReport, StoreVectors,
 };
+use rhizomatic::store_digest::DigestNode;
 use rhizomatic::types::Delta;
 use serde_json::Value;
 
@@ -183,6 +185,27 @@ enum Wrong {
     CreatedHistoryRefuses,
     /// An opened handle refuses its history on an open store.
     OpenedHistoryRefuses,
+    // The holdings digest (§12).
+    /// The root of no id, whatever the peer holds.
+    RootEmpty,
+    /// The root of the peer's present holdings, read at the call and not at the read.
+    RootLive,
+    /// `digest("")` counts one id more than the root covers.
+    DigestTopCount,
+    /// A digest call answers from the peer's present holdings where it must refuse.
+    DigestNotStrict,
+    /// A digest call refuses `snapshot-moved` once the revision moved, after a head-only append too.
+    DigestStrictOnRevision,
+    /// A digest call refuses `peer-absent` where it must refuse `snapshot-moved`.
+    DigestMovedCode,
+    /// A prefix longer than 8 digits answers the empty node, also below a leaf that covers it.
+    DigestBelowLeafEmpty,
+    /// Every digest call answers an integrity fault.
+    DigestDamaged,
+    /// A prefix with an uppercase digit, a space or a letter past `f` answers as its lowercase hex.
+    DigestTakesAnyPrefix,
+    /// Right, not wrong: the profile has no `digest`, and no case runs.
+    NoDigest,
 }
 
 /// What the wrapped store declares about itself.
@@ -228,6 +251,9 @@ struct Books {
 }
 
 type Shared = Rc<RefCell<Books>>;
+
+/// The root of a peer that holds no id: `hash.empty` of `vectors/store/digest.json`.
+const EMPTY_ROOT: &str = "1e2053de1e1f40b83d7b30c20ec4c558637d025871f74c48d245ec58be7901006d3b";
 
 fn refusal(code: StoreErrorCode) -> StoreError {
     StoreError::new(code, "a wrong store refused")
@@ -285,6 +311,9 @@ impl Rig {
         }
         if matches!(wrong, Wrong::NoFeed | Wrong::NoFeedNamesFeed) {
             profile.change_retention = ChangeRetention::None;
+        }
+        if wrong == Wrong::NoDigest {
+            profile.capabilities.digest = false;
         }
         assert_eq!(
             profile.format_version == MEMORY_STORE_FORMAT,
@@ -843,6 +872,67 @@ impl Snapshot for RigSnapshot {
 
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer() + u64::from(self.wrong == Wrong::LastTransfer)
+    }
+
+    fn root(&self) -> Option<&str> {
+        match self.wrong {
+            Wrong::RootEmpty => Some(EMPTY_ROOT),
+            // A test double: the present root outlives the call only if it is leaked.
+            Wrong::RootLive => self
+                .store
+                .peer(&self.id)
+                .and_then(|peer| peer.read())
+                .ok()
+                .and_then(|now| now.root().map(|root| &*Box::leak(root.into())))
+                .or(self.inner.root()),
+            _ => self.inner.root(),
+        }
+    }
+
+    fn digest(&self, prefix: &str) -> Result<DigestNode, StoreFailure> {
+        let now = || self.store.peer(&self.id).and_then(|peer| peer.read());
+        let asked = match self.wrong {
+            Wrong::DigestTakesAnyPrefix => prefix
+                .to_ascii_lowercase()
+                .chars()
+                .filter(char::is_ascii_hexdigit)
+                .collect(),
+            _ => prefix.to_string(),
+        };
+        let answer = self.inner.digest(&asked);
+        match (self.wrong, answer) {
+            (Wrong::DigestTopCount, Ok(mut node)) if prefix.is_empty() => {
+                node.count += 1;
+                Ok(node)
+            }
+            (Wrong::DigestNotStrict, Err(StoreFailure::Refused(e)))
+                if e.code == StoreErrorCode::SnapshotMoved =>
+            {
+                now()?.digest(&asked)
+            }
+            (Wrong::DigestStrictOnRevision, Ok(_))
+                if now().is_ok_and(|now| now.revision() != self.inner.revision()) =>
+            {
+                Err(StoreFailure::Refused(refusal(
+                    StoreErrorCode::SnapshotMoved,
+                )))
+            }
+            (Wrong::DigestMovedCode, Err(StoreFailure::Refused(e))) => Err(StoreFailure::Refused(
+                recode(e, StoreErrorCode::SnapshotMoved, StoreErrorCode::PeerAbsent),
+            )),
+            (Wrong::DigestBelowLeafEmpty, Ok(_)) if prefix.len() > 8 => Ok(DigestNode {
+                count: 0,
+                hash: EMPTY_ROOT.to_string(),
+            }),
+            (Wrong::DigestDamaged, _) => Err(StoreFailure::Integrity(IntegrityFault {
+                kind: IntegrityFaultKind::DigestMismatch,
+                peer: Some(self.id.clone()),
+                id: None,
+                key: Some(format!("digest:{prefix}")),
+                detail: "a wrong store met damage in its digest".into(),
+            })),
+            (_, answer) => answer,
+        }
     }
 
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
@@ -2497,5 +2587,249 @@ fn each_script_gets_a_new_store() {
             .iter()
             .any(|f| f.message.contains("createPeer refused `peer-exists`")),
         "{error}"
+    );
+}
+
+// ---------------------------------------------------------------------------------------------
+// The digest runner (§12). Each line of `run_digest_conformance` that judges an answer has one
+// wrong store here; the lines that judge the document have one wrong document.
+// ---------------------------------------------------------------------------------------------
+
+struct DigestRule {
+    rule: &'static str,
+    wrong: Wrong,
+    doc: Option<fn(&mut Value)>,
+    /// Every failure carries one of these, and each appears at least once.
+    messages: &'static [&'static str],
+    /// The parts that fail: `trees`, `digest` (the cases, or the whole file when it is refused).
+    parts: &'static [&'static str],
+}
+
+const TREES: &[&str] = &["trees"];
+const CASES: &[&str] = &["digest"];
+
+/// The first tree that has at least two nodes.
+fn first_tree_of_two_nodes(doc: &mut Value) -> &mut Value {
+    doc["trees"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|t| t["nodes"].as_array().unwrap().len() >= 2)
+        .unwrap()
+}
+
+const DIGEST_TABLE: &[DigestRule] = &[
+    DigestRule {
+        rule: "a root that is not the root of the peer's set",
+        wrong: W::RootEmpty,
+        doc: None,
+        messages: &["root is 1e2053de1e1f40b8"],
+        parts: CASES,
+    },
+    DigestRule {
+        rule: "a snapshot's root read at the call, not at the read",
+        wrong: W::RootLive,
+        doc: None,
+        messages: &["root is 1e20"],
+        parts: CASES,
+    },
+    DigestRule {
+        rule: "digest(\"\") that is not the root's node",
+        wrong: W::DigestTopCount,
+        doc: None,
+        messages: &[
+            "digest(\"\") of the new snapshot is {count ",
+            "digest(\"\") is {count ",
+        ],
+        parts: CASES,
+    },
+    DigestRule {
+        rule: "a digest call that answers after an append that adds an id or a purge that releases one",
+        wrong: W::DigestNotStrict,
+        doc: None,
+        messages: &[", expected a refusal snapshot-moved"],
+        parts: CASES,
+    },
+    DigestRule {
+        rule: "a digest call that refuses after a head-only append",
+        wrong: W::DigestStrictOnRevision,
+        doc: None,
+        messages: &["digest(\"\") refused snapshot-moved"],
+        parts: CASES,
+    },
+    DigestRule {
+        rule: "a digest call that refuses with another code",
+        wrong: W::DigestMovedCode,
+        doc: None,
+        messages: &["answered refusal peer-absent, expected a refusal snapshot-moved"],
+        parts: CASES,
+    },
+    DigestRule {
+        rule: "a prefix below a leaf that answers the empty node",
+        wrong: W::DigestBelowLeafEmpty,
+        doc: None,
+        messages: &[") is {count 0, hash 1e2053de1e1f40b8}, expected {count "],
+        parts: CASES,
+    },
+    DigestRule {
+        rule: "a digest call that answers an integrity fault",
+        wrong: W::DigestDamaged,
+        doc: None,
+        messages: &["failed: a wrong store met damage in its digest"],
+        parts: CASES,
+    },
+    DigestRule {
+        rule: "a prefix that is not lowercase hex digits, answered",
+        wrong: W::DigestTakesAnyPrefix,
+        doc: None,
+        messages: &[", expected a refusal invalid-request"],
+        parts: CASES,
+    },
+    DigestRule {
+        rule: "a file of another format",
+        wrong: W::Nothing,
+        doc: Some(|doc| doc["format"] = Value::from("rhizomatic-store-digest/0")),
+        messages: &["unknown store digest format"],
+        parts: CASES,
+    },
+    DigestRule {
+        rule: "a tree whose node is not the reference's",
+        wrong: W::Nothing,
+        doc: Some(|doc| {
+            let tree = first_tree_of_two_nodes(doc);
+            tree["nodes"][1]["count"] = Value::from(1000);
+        }),
+        messages: &["the node at "],
+        parts: TREES,
+    },
+    DigestRule {
+        rule: "a tree whose first node is not its root",
+        wrong: W::Nothing,
+        doc: Some(|doc| {
+            let tree = first_tree_of_two_nodes(doc);
+            tree["nodes"].as_array_mut().unwrap().swap(0, 1);
+        }),
+        messages: &["the first node is not the root"],
+        parts: TREES,
+    },
+    DigestRule {
+        rule: "a delta whose id does not recompute",
+        wrong: W::Nothing,
+        doc: Some(|doc| doc["deltas"][0]["claims"]["timestamp"] = Value::from(1)),
+        messages: &["the id does not recompute"],
+        parts: CASES,
+    },
+    DigestRule {
+        rule: "a case with an unknown requirement",
+        wrong: W::Nothing,
+        doc: Some(|doc| {
+            for case in doc["cases"].as_array_mut().unwrap() {
+                case["requires"] = serde_json::json!(["digests"]);
+            }
+        }),
+        messages: &["unknown script requirement `digests`"],
+        parts: CASES,
+    },
+    DigestRule {
+        rule: "a step of an unknown op",
+        wrong: W::Nothing,
+        doc: Some(|doc| {
+            for case in doc["cases"].as_array_mut().unwrap() {
+                case["steps"][0]["op"] = Value::from("digests");
+            }
+        }),
+        messages: &["unknown step digests"],
+        parts: CASES,
+    },
+];
+
+fn run_digest(wrong: Wrong, doc: &Value) -> Result<StoreConformanceReport, StoreConformanceError> {
+    run_digest_conformance(
+        &|| Ok(Box::new(Rig::new(wrong, PLAIN)) as Box<dyn Store>),
+        doc,
+    )
+}
+
+fn judge_digest(row: &DigestRule) -> Option<String> {
+    let mut doc = load("digest.json");
+    if let Some(change) = row.doc {
+        change(&mut doc);
+    }
+    let error = match run_digest(row.wrong, &doc) {
+        Ok(report) => {
+            return Some(format!(
+                "passed {} with nothing failed",
+                report.passed.len()
+            ))
+        }
+        Err(error) => error,
+    };
+    let mut problems: Vec<String> = error
+        .failures
+        .iter()
+        .filter(|f| !row.messages.iter().any(|m| f.message.contains(m)))
+        .map(|f| format!("{} failed for another reason: {}", f.name, f.message))
+        .collect();
+    for message in row.messages {
+        if !error.failures.iter().any(|f| f.message.contains(message)) {
+            problems.push(format!("no failure carries {message:?}"));
+        }
+    }
+    let parts: BTreeSet<&str> = error
+        .failures
+        .iter()
+        .map(|f| f.name.split('/').next().unwrap())
+        .collect();
+    if parts != row.parts.iter().copied().collect() {
+        problems.push(format!("failed in {parts:?}, expected {:?}", row.parts));
+    }
+    (!problems.is_empty()).then(|| problems.join("\n    "))
+}
+
+#[test]
+fn every_digest_runner_rule_fails_its_wrong_store_or_its_wrong_document() {
+    let mut seen = BTreeSet::new();
+    let red: Vec<String> = DIGEST_TABLE
+        .iter()
+        .inspect(|row| assert!(seen.insert(row.rule), "{} is listed twice", row.rule))
+        .filter_map(|row| judge_digest(row).map(|problem| format!("{}: {problem}", row.rule)))
+        .collect();
+    assert!(
+        red.is_empty(),
+        "{} of {} digest runner rules did not hold:\n  {}",
+        red.len(),
+        DIGEST_TABLE.len(),
+        red.join("\n  ")
+    );
+}
+
+/// The controls: a faithful rig passes every tree and case, and a rig whose profile has no
+/// `digest` passes every tree and skips every case with the requirement `digest`.
+#[test]
+fn a_faithful_store_passes_the_digest_file_and_a_store_without_digest_skips_its_cases() {
+    let doc = load("digest.json");
+    let trees = doc["trees"].as_array().unwrap().len();
+    let cases: Vec<String> = doc["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| format!("digest/{}", c["name"].as_str().unwrap()))
+        .collect();
+    let report = run_digest(W::Nothing, &doc).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(
+        (report.passed.len(), report.skipped.len()),
+        (trees + cases.len(), 0)
+    );
+    let report = run_digest(W::NoDigest, &doc).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(report.passed.len(), trees);
+    assert_eq!(
+        report.skipped,
+        cases
+            .into_iter()
+            .map(|name| SkippedScript {
+                name,
+                missing: "digest".into()
+            })
+            .collect::<Vec<_>>()
     );
 }

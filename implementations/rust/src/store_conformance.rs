@@ -38,6 +38,8 @@ use crate::store::{
     Snapshot, Store, StoreError, StoreErrorCode, StoreFailure, StoreProfile, SurfaceState,
     VerifiedDelta, MAX_REVISION, PURGE_BOUNDARY,
 };
+use crate::store_admission::{admission_of, AdmissionOptions};
+use crate::store_digest::{digest_of, DigestNode};
 use crate::store_follow::{Position, Pull};
 use crate::store_fresh::{
     json_revision, parse_capture, Capture, FeedError, Freshness, Touch, TouchReason,
@@ -50,6 +52,8 @@ const SCOPE_FORMAT: &str = "rhizomatic-store-scope/1";
 const FRESHNESS_FORMAT: &str = "rhizomatic-store-freshness/1";
 const FOLLOW_FORMAT: &str = "rhizomatic-store-follow/1";
 const VIEWS_FORMAT: &str = "rhizomatic-store-views/1";
+/// The format of `vectors/store/digest.json`.
+pub const STORE_DIGEST_FORMAT: &str = "rhizomatic-store-digest/1";
 
 /// Why `register` refused a program (`vectors/store/README.md` §11.2): the term is not anchored,
 /// with the SPEC-17 §5 reason of an anchored read, or another refusal (a name given twice).
@@ -872,6 +876,27 @@ fn arrival_differs(got: &ArrivalRecord, want: &ArrivalRecord) -> Option<&'static
     None
 }
 
+/// The first requirement of a script or a case that `profile` fails (§3). An absent `requires`
+/// means none; a name that is not a requirement is a defect of the document.
+fn unmet(profile: &StoreProfile, script: &Value) -> Check<Option<String>> {
+    if script.get("requires").is_none() {
+        return Ok(None);
+    }
+    for requirement in texts(script, "requires")? {
+        let holds = match requirement.as_str() {
+            "purge" => profile.capabilities.erasure != ErasureClass::None,
+            "journal-absent" => !profile.capabilities.journal,
+            "changes" => profile.change_retention != ChangeRetention::None,
+            "digest" => profile.capabilities.digest,
+            other => return Err(format!("unknown script requirement `{other}`")),
+        };
+        if !holds {
+            return Ok(Some(requirement));
+        }
+    }
+    Ok(None)
+}
+
 fn collect<T>(
     listing: impl Iterator<Item = Result<T, StoreFailure>>,
 ) -> Result<Vec<T>, StoreFailure> {
@@ -909,21 +934,7 @@ impl<'a> Run<'a> {
 
     /// The first requirement of a script this store's profile fails (§3).
     fn unmet(&self, script: &Value) -> Check<Option<String>> {
-        if script.get("requires").is_none() {
-            return Ok(None);
-        }
-        for requirement in texts(script, "requires")? {
-            let holds = match requirement.as_str() {
-                "purge" => self.profile.capabilities.erasure != ErasureClass::None,
-                "journal-absent" => !self.profile.capabilities.journal,
-                "changes" => self.profile.change_retention != ChangeRetention::None,
-                other => return Err(format!("unknown script requirement `{other}`")),
-            };
-            if !holds {
-                return Ok(Some(requirement));
-            }
-        }
-        Ok(None)
+        unmet(&self.profile, script)
     }
 
     fn peer(&self, handle: &str) -> Check<&dyn PeerStore> {
@@ -2526,6 +2537,13 @@ impl Snapshot for LoggedSnapshot {
     }
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
+    }
+    fn root(&self) -> Option<&str> {
+        self.inner.root()
+    }
+    fn digest(&self, prefix: &str) -> Result<DigestNode, StoreFailure> {
+        self.log.borrow_mut().push(Call::Other("digest"));
+        self.inner.digest(prefix)
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.log.borrow_mut().push(Call::Get(ids.to_vec()));
@@ -4185,4 +4203,285 @@ fn the_log_records_a_call_that_refuses() {
     assert!(logged.changes(Revision(1), Some(Revision(2))).is_err());
     let calls: Vec<String> = log.borrow().iter().map(Call::text).collect();
     assert_eq!(calls, ["read", "changes(1, 2)"]);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The holdings digest (§12)
+// ---------------------------------------------------------------------------------------------
+
+fn show_node(node: &DigestNode) -> String {
+    format!(
+        "{{count {}, hash {}}}",
+        node.count,
+        node.hash.get(..16).unwrap_or(&node.hash)
+    )
+}
+
+/// `{count, hash}` of a tree node or of a step's `expect`.
+fn digest_node(v: &Value) -> Check<DigestNode> {
+    Ok(DigestNode {
+        count: whole(v, "count")?,
+        hash: text(v, "hash")?.to_string(),
+    })
+}
+
+/// One tree of `digest.json`: each node and probe against `digest_of`, and the first node is the
+/// root (§12.2).
+fn digest_tree(tree: &Value) -> Check {
+    let ids = texts(tree, "ids")?;
+    let nodes = list(tree, "nodes")?;
+    for node in nodes.iter().chain(list(tree, "probes")?) {
+        let prefix = text(node, "prefix")?;
+        let want = digest_node(node)?;
+        let answer = digest_of(&ids, prefix).map_err(|e| e.to_string())?;
+        if answer != want {
+            return Err(format!(
+                "the node at {prefix:?} is {}, expected {}",
+                show_node(&answer),
+                show_node(&want)
+            ));
+        }
+    }
+    let root = digest_of(&ids, "").map_err(|e| e.to_string())?;
+    let first = match nodes.first() {
+        Some(node) => digest_node(node)?,
+        None => digest_of(&[], "").map_err(|e| e.to_string())?,
+    };
+    if root != first {
+        return Err("the first node is not the root".to_string());
+    }
+    Ok(())
+}
+
+/// The peers, the named snapshots and the heads of one digest case on one store (§12.3).
+struct DigestRun<'a> {
+    store: &'a dyn Store,
+    corpus: &'a Corpus,
+    peers: BTreeMap<String, Box<dyn PeerStore>>,
+    snapshots: BTreeMap<String, Box<dyn Snapshot>>,
+    heads: u64,
+}
+
+impl DigestRun<'_> {
+    /// The peer a step names, created with posture `unproven` the first time.
+    fn peer(&mut self, name: &str) -> Check<&dyn PeerStore> {
+        if !self.peers.contains_key(name) {
+            let options = CreatePeerOptions::new(ErasurePosture::Unproven);
+            let peer = self
+                .store
+                .create_peer(name, &options)
+                .map_err(|e| format!("createPeer refused with {}: {}", e.code.as_str(), e))?;
+            self.peers.insert(name.to_string(), peer);
+        }
+        Ok(self.peers[name].as_ref())
+    }
+
+    fn read(&mut self, name: &str) -> Check<Box<dyn Snapshot>> {
+        self.peer(name)?
+            .read()
+            .map_err(|e| format!("read refused with {}: {}", e.code.as_str(), e))
+    }
+
+    /// Runs `f` on the snapshot a step names: a named one, or a new one of its peer, which it
+    /// releases after `f`. `f` learns whether the snapshot is new.
+    fn on_snapshot<R>(
+        &mut self,
+        step: &Value,
+        f: impl FnOnce(&dyn Snapshot, bool) -> R,
+    ) -> Check<R> {
+        if let Some(name) = step.get("snapshot") {
+            let name = name.as_str().ok_or("`snapshot` is not text")?;
+            let snapshot = self
+                .snapshots
+                .get(name)
+                .ok_or_else(|| format!("no snapshot named {name}"))?;
+            return Ok(f(snapshot.as_ref(), false));
+        }
+        let peer = text(step, "peer").map_err(|_| "the step names no peer and no snapshot")?;
+        let mut own = self.read(peer)?;
+        let answer = f(own.as_ref(), true);
+        own.release();
+        Ok(answer)
+    }
+
+    fn step(&mut self, step: &Value) -> Check {
+        match text(step, "op")? {
+            "append" => {
+                let deltas = texts(step, "deltas")?
+                    .iter()
+                    .map(|name| self.corpus.delta(name).cloned())
+                    .collect::<Check<Vec<Delta>>>()?;
+                let mut snapshot = self.read(text(step, "peer")?)?;
+                snapshot.release();
+                self.heads += 1;
+                let options = AdmissionOptions {
+                    at: 1.0,
+                    sender: "digest-vectors".into(),
+                    next_head: format!("head-{}", self.heads),
+                };
+                let batch =
+                    admission_of(snapshot.as_ref(), &deltas, options).map_err(|e| e.to_string())?;
+                match self.peer(text(step, "peer")?)?.append(&batch) {
+                    Ok(AppendResult::Committed { .. }) => Ok(()),
+                    Ok(other) => Err(format!("the append answered {other:?}")),
+                    Err(e) => Err(format!("the append refused with {}: {e}", e.code.as_str())),
+                }
+            }
+            "purge" => {
+                let ids = texts(step, "deltas")?
+                    .iter()
+                    .map(|name| self.corpus.delta(name).map(|d| d.id.clone()))
+                    .collect::<Check<Vec<String>>>()?;
+                self.peer(text(step, "peer")?)?
+                    .purge(&ids)
+                    .map(|_| ())
+                    .map_err(|e| format!("the purge failed: {e}"))
+            }
+            "read" => {
+                let snapshot = self.read(text(step, "peer")?)?;
+                self.snapshots
+                    .insert(text(step, "as")?.to_string(), snapshot);
+                Ok(())
+            }
+            "root" => {
+                let want = digest_node(field(step, "expect")?)?;
+                self.on_snapshot(step, |snapshot, new| {
+                    if snapshot.root() != Some(want.hash.as_str()) {
+                        return Err(format!(
+                            "root is {}, expected {}",
+                            snapshot.root().unwrap_or("none"),
+                            want.hash
+                        ));
+                    }
+                    if !new {
+                        return Ok(());
+                    }
+                    let top = snapshot
+                        .digest("")
+                        .map_err(|e| format!("digest(\"\") failed: {e}"))?;
+                    if top != want {
+                        return Err(format!(
+                            "digest(\"\") of the new snapshot is {}, expected {}",
+                            show_node(&top),
+                            show_node(&want)
+                        ));
+                    }
+                    Ok(())
+                })?
+            }
+            "digest" => {
+                let prefix = text(step, "prefix")?;
+                let answer = match self.on_snapshot(step, |snapshot, _| snapshot.digest(prefix))? {
+                    Err(StoreFailure::Integrity(fault)) => {
+                        return Err(format!("digest({prefix:?}) failed: {}", fault.detail))
+                    }
+                    Err(StoreFailure::Refused(e)) => Err(e),
+                    Ok(node) => Ok(node),
+                };
+                match (step.get("error"), answer) {
+                    (Some(code), Err(e)) if code.as_str() == Some(e.code.as_str()) => Ok(()),
+                    (Some(code), answer) => Err(format!(
+                        "digest({prefix:?}) answered {}, expected a refusal {}",
+                        match answer {
+                            Ok(node) => show_node(&node),
+                            Err(e) => format!("refusal {}", e.code.as_str()),
+                        },
+                        code.as_str().unwrap_or("?")
+                    )),
+                    (None, Err(e)) => {
+                        Err(format!("digest({prefix:?}) refused {}", e.code.as_str()))
+                    }
+                    (None, Ok(node)) => {
+                        let want = digest_node(field(step, "expect")?)?;
+                        if node == want {
+                            Ok(())
+                        } else {
+                            Err(format!(
+                                "digest({prefix:?}) is {}, expected {}",
+                                show_node(&node),
+                                show_node(&want)
+                            ))
+                        }
+                    }
+                }
+            }
+            other => Err(format!("unknown step {other}")),
+        }
+    }
+}
+
+/// Runs `vectors/store/digest.json` (§12): each tree against `digest_of`, and each case on a new
+/// store from `factory`. A store whose profile lacks `digest` skips each case. Names are
+/// `trees/<tree>` and `digest/<case>`.
+pub fn run_digest_conformance(
+    factory: &StoreFactoryFn<'_>,
+    doc: &Value,
+) -> Result<StoreConformanceReport, StoreConformanceError> {
+    let mut report = StoreConformanceReport::default();
+    let mut failures = Vec::new();
+    let mut fail = |name: &str, step: Option<usize>, message: String| {
+        failures.push(StoreConformanceFailure {
+            name: name.to_string(),
+            step,
+            message,
+        })
+    };
+    let loaded = match doc.get("format").and_then(Value::as_str) {
+        Some(STORE_DIGEST_FORMAT) => list(doc, "trees").and_then(|trees| {
+            Corpus::load(doc, STORE_DIGEST_FORMAT)
+                .and_then(|corpus| Ok((trees, list(doc, "cases")?, corpus)))
+        }),
+        _ => Err("unknown store digest format".to_string()),
+    };
+    match loaded {
+        Err(message) => fail("digest", None, message),
+        Ok((trees, cases, corpus)) => {
+            for tree in trees {
+                let name = format!("trees/{}", tree["name"].as_str().unwrap_or("?"));
+                match digest_tree(tree) {
+                    Ok(()) => report.passed.push(name),
+                    Err(message) => fail(&name, None, message),
+                }
+            }
+            for case in cases {
+                let name = format!("digest/{}", case["name"].as_str().unwrap_or("?"));
+                let outcome = factory()
+                    .map_err(|e| (None, format!("the factory did not open a store: {e}")))
+                    .and_then(|store| {
+                        let ran = match unmet(store.profile(), case).map_err(|m| (None, m))? {
+                            Some(missing) => Ok(Some(missing)),
+                            None => {
+                                let mut run = DigestRun {
+                                    store: store.as_ref(),
+                                    corpus: &corpus,
+                                    peers: BTreeMap::new(),
+                                    snapshots: BTreeMap::new(),
+                                    heads: 0,
+                                };
+                                let steps = list(case, "steps").map_err(|m| (None, m))?;
+                                steps
+                                    .iter()
+                                    .enumerate()
+                                    .try_for_each(|(i, step)| {
+                                        run.step(step).map_err(|message| (Some(i), message))
+                                    })
+                                    .map(|()| None)
+                            }
+                        };
+                        store.close();
+                        ran
+                    });
+                match outcome {
+                    Ok(None) => report.passed.push(name),
+                    Ok(Some(missing)) => report.skipped.push(SkippedScript { name, missing }),
+                    Err((step, message)) => fail(&name, step, message),
+                }
+            }
+        }
+    }
+    if failures.is_empty() {
+        Ok(report)
+    } else {
+        Err(StoreConformanceError { failures, report })
+    }
 }
