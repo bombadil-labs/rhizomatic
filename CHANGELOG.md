@@ -235,8 +235,10 @@ Step 4d adds more, listed under Breaking.
   `From<StoreFault>`. The doc of `with_snapshot` names `FeedError` as the smallest body error.
   Both witnesses gain three tests: each earlier snapshot is released before the next body starts,
   a clock with no bound in time is never read, and the bound in time also ends the call on a
-  refused `read()`. Two comments of the TypeScript `with-snapshot.ts` now say that only a purge
-  that releases a holding moves a snapshot. No behavior changes.
+  refused `read()`. Two comments of the TypeScript `with-snapshot.ts` now say that a purge that
+  releases a holding moves a snapshot and an append does not. A purge is not the only cause:
+  reading 130 also names an absent peer row, another history and a lower revision. No behavior
+  changes.
 - Step 4e: a Rust read can fail with damage that is not a refusal (§4.13 reading 136). The new
   `store::StoreFailure` is `Refused(StoreError)` or `Integrity(IntegrityFault)`. The five
   `Snapshot` reads, `PeerStore::purge`, `PeerStore::changes` and every `Listing` answer it. The
@@ -287,6 +289,9 @@ Step 4d adds more, listed under Breaking.
   `store_read::capture_scope` and the trait method `FreshnessReader::capture`.
 - **Rust `FeedError` and `StoreReadError` have a new arm, `Integrity(IntegrityFault)`.** A
   Rust `match` on either type handles it.
+- **A host's own body error of `with_snapshot` needs `From<StoreFailure>`** when its body uses
+  `?` on a snapshot call. Its `store_code` must answer `None` for an integrity fault. A fault
+  that reads as `snapshot-moved` starts the body again.
 - **`admissionOf` has no `transfer` option.** It numbers the transfer itself. Drop the field. The
   option shipped in no release.
 - **A body no longer runs again after its own append.** A `withSnapshot` body, a held-views pass
