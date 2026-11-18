@@ -171,6 +171,9 @@ struct PeerState {
     revision: u64,
     /// The largest arrival sequence this peer ever committed. A purge does not lower it.
     last_sequence: u64,
+    /// The revision of the last purge that released a holding of this peer, 0 before one. A
+    /// snapshot read before it refuses every call (§4.13 reading 130).
+    removed_at: u64,
     holdings: Index<Holding>,
     targets: Index<BTreeSet<String>>,
     negators: Index<BTreeSet<String>>,
@@ -452,6 +455,7 @@ impl State {
         }
         if !released.is_empty() {
             peer.revision += 1;
+            peer.removed_at = peer.revision;
             // A purge does not move the head; its record carries the peer's head.
             peer.feed.write(
                 ChangeRecord {
@@ -584,6 +588,7 @@ impl State {
             stored,
             peer,
             offers,
+            bound,
         } = view;
         // Keep only the requested fields this store applies. The host applies the rest.
         let asked = request.pushdown.clone().unwrap_or_default();
@@ -607,9 +612,10 @@ impl State {
             let Some(member) = Self::held(meter, stored, peer, &id) else {
                 return;
             };
-            if pushdown
-                .arrival_at_most
-                .is_some_and(|n| member.arrival.sequence > n)
+            if member.arrival.sequence > bound
+                || pushdown
+                    .arrival_at_most
+                    .is_some_and(|n| member.arrival.sequence > n)
                 || pushdown
                     .timestamp_at_most
                     .is_some_and(|t| member.delta.claims.timestamp > t)
@@ -657,6 +663,18 @@ struct SnapshotView<'a> {
     stored: &'a Index<Stored>,
     peer: &'a PeerState,
     offers: PushdownFields,
+    /// The snapshot's last sequence: a holding with a later sequence arrived after the read.
+    bound: u64,
+}
+
+impl SnapshotView<'_> {
+    /// Whether the snapshot holds `id`: the peer holds it at a sequence within the bound.
+    fn within(&mut self, id: &str) -> bool {
+        self.peer
+            .holdings
+            .get(self.meter, id)
+            .is_some_and(|holding| holding.arrival.sequence <= self.bound)
+    }
 }
 
 type Shared = Arc<Mutex<State>>;
@@ -880,6 +898,7 @@ impl Store for MemoryStore {
                     head: None,
                     revision: 0,
                     last_sequence: 0,
+                    removed_at: 0,
                     holdings: Index::new(),
                     targets: Index::new(),
                     negators: Index::new(),
@@ -947,6 +966,7 @@ impl PeerStore for MemoryPeer {
                 history: peer.history.clone(),
                 head: peer.head.clone(),
                 count: peer.holdings.len() as u64,
+                last_sequence: peer.last_sequence,
                 released: false,
             }) as Box<dyn Snapshot>)
         })
@@ -972,12 +992,16 @@ struct MemorySnapshot {
     history: String,
     head: Option<String>,
     count: u64,
+    last_sequence: u64,
     released: bool,
 }
 
 impl MemorySnapshot {
-    /// Runs one query against the peer, unless the snapshot is released or the peer has moved.
-    /// This store keeps no old revisions, so a moved snapshot refuses.
+    /// Runs one query against the peer, unless the snapshot is released or the peer released a
+    /// holding after the read. An append gives each new holding a sequence past the snapshot's
+    /// last one, so each query keeps the holdings at or below it and answers as at the
+    /// snapshot's revision (§4.13 readings 130 and 131). This store neither deletes nor restores
+    /// a peer, so its history and revision never go back.
     fn query<R>(&self, f: impl FnOnce(SnapshotView<'_>) -> R) -> Result<R, StoreError> {
         if self.released {
             return refuse(
@@ -997,10 +1021,10 @@ impl MemorySnapshot {
             let Some(peer) = peers.get(meter, &self.peer) else {
                 return refuse(StoreErrorCode::PeerAbsent, "no such peer");
             };
-            if peer.revision != self.revision {
+            if peer.removed_at > self.revision {
                 return refuse(
                     StoreErrorCode::SnapshotMoved,
-                    "the peer has moved past this snapshot; read a new one",
+                    "the peer released a holding after this snapshot; read a new one",
                 );
             }
             Ok(f(SnapshotView {
@@ -1008,6 +1032,7 @@ impl MemorySnapshot {
                 stored,
                 peer,
                 offers: *pushdown,
+                bound: self.last_sequence,
             }))
         })
     }
@@ -1030,11 +1055,16 @@ impl Snapshot for MemorySnapshot {
         self.count
     }
 
+    fn last_sequence(&self) -> u64 {
+        self.last_sequence
+    }
+
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.query(|view| {
             distinct(ids)
                 .into_iter()
                 .filter_map(|id| State::held(view.meter, view.stored, view.peer, id))
+                .filter(|member| member.arrival.sequence <= view.bound)
                 .map(|member| member.delta)
                 .collect()
         })
@@ -1045,26 +1075,35 @@ impl Snapshot for MemorySnapshot {
             distinct(ids)
                 .into_iter()
                 .filter_map(|id| view.peer.holdings.get(view.meter, id))
+                .filter(|holding| holding.arrival.sequence <= view.bound)
                 .map(|holding| holding.arrival.clone())
                 .collect()
         })
     }
 
     fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
-        self.query(|view| {
+        self.query(|mut view| {
             let mut ids = BTreeSet::new();
             for entity in distinct(entities) {
-                ids.extend(view.peer.targets.members(view.meter, entity));
+                for id in view.peer.targets.members(view.meter, entity) {
+                    if view.within(&id) {
+                        ids.insert(id);
+                    }
+                }
             }
             ids.into_iter().collect()
         })
     }
 
     fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
-        self.query(|view| {
+        self.query(|mut view| {
             let mut negators = BTreeSet::new();
             for id in distinct(ids) {
-                negators.extend(view.peer.negators.members(view.meter, id));
+                for negator in view.peer.negators.members(view.meter, id) {
+                    if view.within(&negator) {
+                        negators.insert(negator);
+                    }
+                }
             }
             negators.into_iter().collect()
         })

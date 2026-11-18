@@ -177,6 +177,14 @@ Step 4d adds more, listed under Breaking.
   debt without a walk of the peers. Every purge step of the shared store vectors now carries
   `expect.retains`, and both runners check it (README §3.4). The format names do not change.
   What a purge removes does not change.
+- Step 4e: a Rust snapshot answers after appends (§4.13 readings 130 and 131).
+  `Snapshot::last_sequence` is fixed at read. The Rust memory store records `removed_at`, the
+  revision of the last purge that released a holding. A snapshot's five reads keep the holdings
+  within its last sequence, and refuse `snapshot-moved` once such a purge follows the read. Every
+  `read` step of `scripts.json` now carries `expect.lastSequence`, and both runners check it.
+  Both runners now hold a memory reference store to an answer where a step allows
+  `snapshot-moved` (README §3.7). The format names do not change. What a purge removes does not
+  change.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.

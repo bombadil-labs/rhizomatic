@@ -456,7 +456,7 @@ export class Model {
       held: state.held,
       released: false,
     });
-    this.steps.push({ op: "read", peer, snapshot });
+    this.steps.push({ op: "read", peer, snapshot, expect: { lastSequence: state.lastSequence } });
   }
 
   release(snapshot: string): void {

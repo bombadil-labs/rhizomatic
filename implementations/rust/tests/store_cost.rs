@@ -305,6 +305,78 @@ fn another_peers_debt_is_found_without_a_walk_of_the_peers() {
     assert_eq!(many.scans, 0, "the purge walked a whole map");
 }
 
+/// The index work of each read on a snapshot taken before `n` unrelated appends and eight later
+/// deltas at its own entity, beside the same read on a current snapshot. Each answer is checked
+/// against the snapshot's set.
+fn tolerant_reads(n: usize) -> Vec<(&'static str, StoreMeter, StoreMeter)> {
+    let store = MemoryStore::new();
+    let peer = store
+        .create_peer("peer:a", ErasurePosture::Unproven)
+        .unwrap();
+    let height = fact("plant:a", "height", 10.0, 10.0);
+    let struck = negation(&height, 20.0);
+    let name = fact("plant:a", "name", 1.0, 30.0);
+    let footprint = [height.clone(), struck.clone(), name.clone()];
+    append(peer.as_ref(), (None, "a-1"), 0, &footprint);
+    let old = peer.read().unwrap();
+    let later: Vec<Delta> = (0..8)
+        .map(|i| fact("plant:a", "later", i as f64, 40.0 + i as f64))
+        .chain([negation(&height, 60.0), negation(&struck, 61.0)])
+        .collect();
+    append(peer.as_ref(), (Some("a-1"), "a-2"), 3, &later);
+    append(peer.as_ref(), (Some("a-2"), "a-3"), 20, &noise(n));
+    let current = peer.read().unwrap();
+
+    let ids: Vec<String> = footprint
+        .iter()
+        .chain(&later)
+        .map(|d| d.id.clone())
+        .collect();
+    let entities = vec!["plant:a".to_string()];
+    let anchored = ScopeRequest {
+        anchors: vec![Anchor::Entity {
+            entity: "plant:a".into(),
+        }],
+        ..ScopeRequest::default()
+    };
+    let struck_ids = vec![height.id.clone(), struck.id.clone()];
+    let mut work = Vec::new();
+    let mut measured = |name: &'static str,
+                        op: &dyn Fn(&dyn rhizomatic::store::Snapshot) -> usize,
+                        want: usize| {
+        store.reset_meter();
+        assert_eq!(op(old.as_ref()), want, "{name}: the old snapshot's answer");
+        let before = store.meter();
+        store.reset_meter();
+        op(current.as_ref());
+        work.push((name, before, store.meter()));
+    };
+    measured("get", &|s| s.get(&ids).unwrap().len(), 3);
+    measured("arrivals", &|s| s.arrivals(&ids).unwrap().len(), 3);
+    measured("targets", &|s| s.targets(&entities).unwrap().len(), 2);
+    measured("negators", &|s| s.negators(&struck_ids).unwrap().len(), 1);
+    measured("scope", &|s| s.scope(&anchored).unwrap().deltas.len(), 3);
+    work
+}
+
+/// A snapshot that appends moved answers by reading the present rows of each key and keeping
+/// those within its last sequence (§4.13 reading 131). Its index work does not grow with what
+/// the peer admitted elsewhere, walks no whole map, and is at most a current snapshot's work.
+#[test]
+fn a_tolerant_read_costs_the_present_rows_of_its_keys_not_the_peer() {
+    let few = tolerant_reads(0);
+    let many = tolerant_reads(4000);
+    for ((name, old_few, _), (_, old_many, current)) in few.iter().zip(&many) {
+        assert_eq!(old_few, old_many, "{name}: the work grew with the peer");
+        assert_eq!(old_many.scans, 0, "{name}: the read walked a whole map");
+        assert!(old_many.lookups > 0, "{name}: the meter counted no lookup");
+        assert!(
+            old_many.lookups <= current.lookups && old_many.visited <= current.visited,
+            "{name}: the old snapshot did more work than a current one: {old_many:?} {current:?}"
+        );
+    }
+}
+
 #[test]
 fn only_the_exporter_scans() {
     let store = MemoryStore::new();

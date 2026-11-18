@@ -60,6 +60,10 @@ enum Wrong {
     AnswersWhenReleased,
     TargetsRefuse,
     MovedCode,
+    /// Refuses `snapshot-moved` after any advance, as the Rust memory store did before 4e.
+    RefusesAfterAppend,
+    /// Answers a `snapshot-moved` call from a new snapshot, the peer's later state.
+    AnswersWhenMoved,
     // Peers.
     CreatedPosture,
     CreatedClass,
@@ -111,6 +115,7 @@ enum Wrong {
     Head,
     HeadEmpty,
     Count,
+    LastSequence,
     GetDrops,
     GetReverses,
     GetSig,
@@ -282,6 +287,7 @@ impl Rig {
     fn handle(&self, id: &str, inner: Box<dyn PeerStore>, opened: bool) -> Box<dyn PeerStore> {
         Box::new(RigPeer {
             inner,
+            store: self.inner.clone(),
             id: id.to_string(),
             wrong: self.wrong,
             setup: self.setup,
@@ -343,6 +349,7 @@ impl Store for Rig {
 
 struct RigPeer {
     inner: Box<dyn PeerStore>,
+    store: Rc<MemoryStore>,
     id: String,
     wrong: Wrong,
     setup: Setup,
@@ -459,6 +466,8 @@ impl PeerStore for RigPeer {
         Ok(Box::new(RigSnapshot {
             revision: self.revision(inner.revision()),
             inner,
+            store: self.store.clone(),
+            id: self.id.clone(),
             wrong: self.wrong,
             others,
             last,
@@ -662,6 +671,8 @@ impl PeerStore for RigPeer {
 
 struct RigSnapshot {
     inner: Box<dyn Snapshot>,
+    store: Rc<MemoryStore>,
+    id: String,
     revision: Revision,
     wrong: Wrong,
     /// Entries other peers committed.
@@ -673,6 +684,26 @@ struct RigSnapshot {
 }
 
 impl RigSnapshot {
+    /// One query on the memory store's snapshot, or, for the two rules of a moved snapshot, on
+    /// the peer's present state.
+    fn ask<T>(
+        &self,
+        query: impl Fn(&dyn Snapshot) -> Result<T, StoreError>,
+    ) -> Result<T, StoreError> {
+        let now = || self.store.peer(&self.id).and_then(|peer| peer.read());
+        match (self.wrong, query(self.inner.as_ref())) {
+            (Wrong::RefusesAfterAppend, Ok(_))
+                if now().is_ok_and(|now| now.revision() != self.inner.revision()) =>
+            {
+                Err(refusal(StoreErrorCode::SnapshotMoved))
+            }
+            (Wrong::AnswersWhenMoved, Err(e)) if e.code == StoreErrorCode::SnapshotMoved => {
+                query(now()?.as_ref())
+            }
+            (_, result) => result,
+        }
+    }
+
     fn answer<T>(
         &self,
         result: Result<T, StoreError>,
@@ -767,8 +798,12 @@ impl Snapshot for RigSnapshot {
         self.inner.count() + u64::from(self.wrong == Wrong::Count)
     }
 
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence() + u64::from(self.wrong == Wrong::LastSequence)
+    }
+
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
-        let mut deltas = self.answer(self.inner.get(ids), Vec::new)?;
+        let mut deltas = self.answer(self.ask(|s| s.get(ids)), Vec::new)?;
         reorder(self.wrong, Wrong::GetDrops, Wrong::GetReverses, &mut deltas);
         if let Some(first) = deltas.first_mut() {
             match self.wrong {
@@ -781,7 +816,7 @@ impl Snapshot for RigSnapshot {
     }
 
     fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
-        let mut records = self.answer(self.inner.arrivals(ids), Vec::new)?;
+        let mut records = self.answer(self.ask(|s| s.arrivals(ids)), Vec::new)?;
         records.iter_mut().for_each(|r| self.last_of_batch(r));
         reorder(
             self.wrong,
@@ -799,7 +834,7 @@ impl Snapshot for RigSnapshot {
         if self.wrong == Wrong::TargetsRefuse {
             return Err(refusal(StoreErrorCode::InvalidRequest));
         }
-        let mut ids = self.answer(self.inner.targets(entities), Vec::new)?;
+        let mut ids = self.answer(self.ask(|s| s.targets(entities)), Vec::new)?;
         reorder(
             self.wrong,
             Wrong::TargetsDrop,
@@ -810,7 +845,7 @@ impl Snapshot for RigSnapshot {
     }
 
     fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
-        let mut found = self.answer(self.inner.negators(ids), Vec::new)?;
+        let mut found = self.answer(self.ask(|s| s.negators(ids)), Vec::new)?;
         reorder(
             self.wrong,
             Wrong::NegatorsDrop,
@@ -847,7 +882,7 @@ impl Snapshot for RigSnapshot {
             deltas: Vec::new(),
             applied: PushdownFields::default(),
         };
-        let mut answer = self.answer(self.inner.scope(&asked), empty)?;
+        let mut answer = self.answer(self.ask(|s| s.scope(&asked)), empty)?;
         let requested = request.pushdown.clone().unwrap_or_default();
         let entities: BTreeSet<&str> = request
             .anchors
@@ -1114,6 +1149,17 @@ fn a_retains_with_another_name(vectors: &mut StoreVectors) {
     }
 }
 
+/// Every `read` step without its `expect`.
+fn a_read_without_last_sequence(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        for step in script["steps"].as_array_mut().unwrap() {
+            if step["op"] == "read" {
+                step.as_object_mut().unwrap().remove("expect");
+            }
+        }
+    }
+}
+
 /// A first purge step without `retains`.
 fn a_purge_without_retains(vectors: &mut StoreVectors) {
     for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
@@ -1284,13 +1330,24 @@ const TABLE: &[Row] = &[
         S,
     ),
     row(
+        "read: the snapshot's lastSequence",
+        W::LastSequence,
+        PLAIN,
+        &["read: the snapshot's lastSequence is"],
+        S,
+    ),
+    row(
+        "query: a snapshot older than a releasing purge answers",
+        W::AnswersWhenMoved,
+        PLAIN,
+        &["expected a refusal `snapshot-moved`, the store answered"],
+        S,
+    ),
+    row(
         "scope: a bound the type holds reaches the store",
         W::BoundReachesStore,
         PLAIN,
-        &[
-            "scope: expected a refusal `invalid-request`, the store answered",
-            "scope: expected a refusal `invalid-request`, the store refused `snapshot-moved`",
-        ],
+        &["scope: expected a refusal `invalid-request`, the store answered"],
         S,
     ),
     // Peers (§3.1, §3.2).
@@ -1797,6 +1854,13 @@ const TABLE: &[Row] = &[
     ),
     // Reference rules (§3.4, §3.7, §4).
     row(
+        "reference: a snapshot that appends alone moved answers",
+        W::RefusesAfterAppend,
+        REFERENCE,
+        &["the reference store refused `snapshot-moved` on a snapshot that appends alone moved"],
+        S,
+    ),
+    row(
         "reference: the applied fields",
         W::ReferenceAppliesLess,
         REFERENCE,
@@ -1935,6 +1999,13 @@ const TABLE: &[Row] = &[
         &["scripts"],
     ),
     doc_row(
+        "documents: a read step without lastSequence",
+        W::Nothing,
+        a_read_without_last_sequence,
+        &["read: the document's `lastSequence` is not a whole number"],
+        &["scripts"],
+    ),
+    doc_row(
         "documents: an unknown script requirement",
         W::Nothing,
         an_unknown_requirement,
@@ -2070,6 +2141,7 @@ fn the_same_answers_conform_where_no_rule_forbids_them() {
         (W::ReferenceIgnoresExcludeUnpushed, PLAIN),
         (W::ReferenceSurfaces, PLAIN),
         (W::RetainsMore, PLAIN),
+        (W::RefusesAfterAppend, PLAIN),
     ];
     for (wrong, setup) in controls {
         let report = run_with(wrong, setup, &vectors)

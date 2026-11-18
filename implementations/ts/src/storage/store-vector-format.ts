@@ -108,7 +108,13 @@ export type PurgeStep = {
     readonly retains: readonly PurgeReport["retains"][number]["surface"][];
   };
 };
-export type ReadStep = { readonly op: "read"; readonly peer: string; readonly snapshot: string };
+export type ReadStep = {
+  readonly op: "read";
+  readonly peer: string;
+  readonly snapshot: string;
+  /** The snapshot's `lastSequence`: the highest sequence the peer had admitted. */
+  readonly expect: { readonly lastSequence: number };
+};
 export type ReleaseStep = { readonly op: "release"; readonly snapshot: string };
 export type HeadStep = {
   readonly op: "head";

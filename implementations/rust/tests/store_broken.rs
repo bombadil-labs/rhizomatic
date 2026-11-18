@@ -185,6 +185,9 @@ impl Snapshot for FaultySnapshot {
     fn count(&self) -> u64 {
         self.inner.count()
     }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.inner.get(ids)
     }
