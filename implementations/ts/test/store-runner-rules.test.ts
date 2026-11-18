@@ -982,7 +982,7 @@ const RULES: Readonly<Record<string, Rule>> = {
   },
   "a read step without lastSequence": {
     doc: "scripts",
-    says: "(read): the vector's read has no lastSequence; the document is defective",
+    says: "(read): the vector's lastSequence is not a whole number; the document is defective",
     store: {},
     vectors: {
       ...vectors,
@@ -992,6 +992,23 @@ const RULES: Readonly<Record<string, Rule>> = {
           ...script,
           steps: script.steps.map((step) =>
             step.op === "read" ? ({ ...step, expect: undefined } as never) : step,
+          ),
+        })),
+      },
+    },
+  },
+  "a read step with a lastSequence that is not a whole number": {
+    doc: "scripts",
+    says: "(read): the vector's lastSequence is not a whole number; the document is defective",
+    store: {},
+    vectors: {
+      ...vectors,
+      scripts: {
+        ...vectors.scripts,
+        scripts: vectors.scripts.scripts.map((script) => ({
+          ...script,
+          steps: script.steps.map((step) =>
+            step.op === "read" ? ({ ...step, expect: { lastSequence: 0.5 } } as never) : step,
           ),
         })),
       },

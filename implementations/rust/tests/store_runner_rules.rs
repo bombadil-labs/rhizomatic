@@ -1160,6 +1160,17 @@ fn a_read_without_last_sequence(vectors: &mut StoreVectors) {
     }
 }
 
+/// Every `read` step with a `lastSequence` that is not a whole number.
+fn a_read_with_a_fraction_as_last_sequence(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        for step in script["steps"].as_array_mut().unwrap() {
+            if step["op"] == "read" {
+                step["expect"] = serde_json::json!({ "lastSequence": 0.5 });
+            }
+        }
+    }
+}
+
 /// A first purge step without `retains`.
 fn a_purge_without_retains(vectors: &mut StoreVectors) {
     for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
@@ -2002,6 +2013,13 @@ const TABLE: &[Row] = &[
         "documents: a read step without lastSequence",
         W::Nothing,
         a_read_without_last_sequence,
+        &["read: the document's `lastSequence` is not a whole number"],
+        &["scripts"],
+    ),
+    doc_row(
+        "documents: a read step with a lastSequence that is not a whole number",
+        W::Nothing,
+        a_read_with_a_fraction_as_last_sequence,
         &["read: the document's `lastSequence` is not a whole number"],
         &["scripts"],
     ),

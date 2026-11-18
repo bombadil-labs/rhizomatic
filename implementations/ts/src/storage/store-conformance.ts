@@ -923,8 +923,8 @@ export class Run {
         const wanted: unknown = (step.expect as { lastSequence?: unknown } | undefined)
           ?.lastSequence;
         check(
-          typeof wanted === "number",
-          "the vector's read has no lastSequence; the document is defective",
+          typeof wanted === "number" && Number.isSafeInteger(wanted) && wanted >= 0,
+          "the vector's lastSequence is not a whole number; the document is defective",
         );
         const snapshot = await this.peer(step.peer).read();
         this.sameHistory(step.peer, snapshot.history, "a snapshot");

@@ -1633,7 +1633,7 @@ The table covers at least:
   needs two rows: one with a script that has no `changes` step, and one with a store that is
   wrong only when a `to` is given, which the check after every step never gives.
 - **Documents:** an unknown `format`; a corpus id that does not recompute and is not `forged`; a
-  purge `claim` with a key other than `unprovable` and `proven`; a purge step without `retains`; a `read` step without `lastSequence`; an unknown script requirement;
+  purge `claim` with a key other than `unprovable` and `proven`; a purge step without `retains`; a `read` step without `lastSequence`, or with one that is not a whole number; an unknown script requirement;
   a script `requires` that is `null`; a revision name that is unknown, of another peer, or given
   twice; a `mark` before its peer; `changes` expectations that are wrong; a `changes` step on a
   store without a feed; a profile whose `changeRetention` is malformed, among them
