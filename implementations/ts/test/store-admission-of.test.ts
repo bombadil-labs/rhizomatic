@@ -188,6 +188,8 @@ describe("admissionOf refuses a malformed call invalid-request, before any store
       "a forged delta": () => admissionOf(snapshot, [forged], options()),
       "a forged repeat of a delta": () => admissionOf(snapshot, [x, forged], options()),
       "a malformed signature": () => admissionOf(snapshot, [{ ...x, sig: "AB" }], options()),
+      "a repeat of a delta with a malformed signature": () =>
+        admissionOf(snapshot, [x, { ...x, sig: "AB" }], options()),
       "deltas not a list": () => admissionOf(snapshot, x as never, options()),
       "a delta without an id": () =>
         admissionOf(snapshot, [{ claims: x.claims } as never], options()),
@@ -211,6 +213,9 @@ describe("admissionOf refuses a malformed call invalid-request, before any store
     expect(codeOf(() => admissionOf(snapshot, [x], options()))).toBe("built");
     expect(
       codeOf(() => admissionOf(at({ lastTransfer: Number.MAX_SAFE_INTEGER }), [], options())),
+    ).toBe("built");
+    expect(
+      codeOf(() => admissionOf(at({ lastSequence: Number.MAX_SAFE_INTEGER }), [], options())),
     ).toBe("built");
   });
 });
@@ -238,6 +243,18 @@ describe("what admissionOf builds, before any store", () => {
     const second = { ...x, sig: "b".repeat(128) };
     const built = admissionOf(snapshot, [first, second], options());
     expect(built.added.map((m) => m.delta)).toEqual([first]);
+  });
+
+  it("a lastSequence of 2^53 - 2 with one id given twice builds one entry at 2^53 - 1", () => {
+    const x = fact("x");
+    const built = admissionOf(
+      { ...snapshot, lastSequence: Number.MAX_SAFE_INTEGER - 1 },
+      [x, x],
+      options(),
+    );
+    expect(built.added.map((m) => [m.delta.id, m.arrival.sequence])).toEqual([
+      [x.id, Number.MAX_SAFE_INTEGER],
+    ]);
   });
 
   it("keeps its own copy: a later change to a delta or to the options changes nothing built", () => {

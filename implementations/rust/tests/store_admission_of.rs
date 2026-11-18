@@ -333,7 +333,11 @@ fn refuses_each_bad_option_a_bad_snapshot_and_a_bad_delta_invalid_request_and_ca
         ),
         (
             "a malformed signature",
-            admission_of(&snapshot, &[unsigned], options()),
+            admission_of(&snapshot, std::slice::from_ref(&unsigned), options()),
+        ),
+        (
+            "a repeat of a delta with a malformed signature",
+            admission_of(&snapshot, &[x.clone(), unsigned.clone()], options()),
         ),
         (
             "a delta with an empty id",
@@ -367,6 +371,10 @@ fn refuses_each_bad_option_a_bad_snapshot_and_a_bad_delta_invalid_request_and_ca
     assert_eq!(code(admission_of(&snapshot, one, options())), "built");
     assert_eq!(
         code(admission_of(&at(None, 0, max), &[], options())),
+        "built"
+    );
+    assert_eq!(
+        code(admission_of(&at(None, max, 0), &[], options())),
         "built"
     );
     assert_eq!(snapshot.touched.get(), 0);
@@ -422,4 +430,22 @@ fn of_a_repeated_id_it_keeps_the_first_entry_also_when_the_repeat_carries_anothe
     let kept: Vec<Delta> = built.added.iter().map(|m| m.delta.clone()).collect();
     assert_eq!(ids(&kept), ids(std::slice::from_ref(&first)));
     assert_eq!(kept, vec![first]);
+}
+
+#[test]
+fn a_last_sequence_of_2_pow_53_minus_2_with_one_id_given_twice_builds_one_entry_at_2_pow_53_minus_1(
+) {
+    let x = fact("x");
+    let built = admission_of(
+        &at(Some("h"), MAX_ARRIVAL_COUNTER - 1, 0),
+        &[x.clone(), x.clone()],
+        options(),
+    )
+    .unwrap();
+    let numbered: Vec<(String, u64)> = built
+        .added
+        .iter()
+        .map(|m| (m.delta.id.clone(), m.arrival.sequence))
+        .collect();
+    assert_eq!(numbered, vec![(x.id.clone(), MAX_ARRIVAL_COUNTER)]);
 }

@@ -43,8 +43,9 @@ use rhizomatic::store_fresh::{raw_scope, validity_window, FeedError};
 use rhizomatic::store_read::{
     capture_scope, fetch_scope, read_anchored, read_anchored_with_memo, read_full_surface,
     EvalMemo, FetchCache, FinalChildMemo, FullSurfaceRequest, FullSurfaceRoute, ReadRequest,
-    RoundMemo, RoundReport, Selection, StoreReactor, StoreRead, StoreReadError, SNAPSHOT_RETRIES,
+    RoundMemo, RoundReport, Selection, StoreReactor, StoreRead, StoreReadError,
 };
+use rhizomatic::store_with_snapshot::SNAPSHOT_RETRIES;
 use rhizomatic::term_json::parse_term;
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 use serde_json::Value;

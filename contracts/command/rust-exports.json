@@ -24866,17 +24866,6 @@
     {
       "form": "syn-import",
       "owner": "delta",
-      "rawTarget": "crate::store_read::SNAPSHOT_RETRIES",
-      "resolvedTarget": "crate::store_read::SNAPSHOT_RETRIES",
-      "source": "implementations/rust/src/lib.rs",
-      "sourceRegion": "compatibility-aggregate",
-      "symbol": "<import>",
-      "target": "crate::store_read::SNAPSHOT_RETRIES",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-import",
-      "owner": "delta",
       "rawTarget": "crate::store_read::Selection",
       "resolvedTarget": "crate::store_read::Selection",
       "source": "implementations/rust/src/lib.rs",
@@ -25753,6 +25742,61 @@
       "symbol": "<import>",
       "target": "crate::store_read::read_full_surface",
       "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::store_with_snapshot::OnSnapshot",
+      "resolvedTarget": "crate::store_with_snapshot::OnSnapshot",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_with_snapshot::OnSnapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::store_with_snapshot::SNAPSHOT_RETRIES",
+      "resolvedTarget": "crate::store_with_snapshot::SNAPSHOT_RETRIES",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_with_snapshot::SNAPSHOT_RETRIES",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "resolvedTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_with_snapshot::SnapshotRetry",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::store_with_snapshot::StoreRefusal",
+      "resolvedTarget": "crate::store_with_snapshot::StoreRefusal",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_with_snapshot::StoreRefusal",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::store_with_snapshot::with_snapshot",
+      "resolvedTarget": "crate::store_with_snapshot::with_snapshot",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_with_snapshot::with_snapshot",
+      "targetOwner": "storage"
     },
     {
       "form": "syn-import",
@@ -87114,6 +87158,39 @@
       "targetOwner": "storage"
     },
     {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "resolvedTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_with_snapshot::SnapshotRetry",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::store_with_snapshot::StoreRefusal",
+      "resolvedTarget": "crate::store_with_snapshot::StoreRefusal",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_with_snapshot::StoreRefusal",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::store_with_snapshot::with_snapshot",
+      "resolvedTarget": "crate::store_with_snapshot::with_snapshot",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_with_snapshot::with_snapshot",
+      "targetOwner": "storage"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "reactor",
       "rawTarget": "crate::store::ArrivalRecord",
@@ -87455,6 +87532,17 @@
       "symbol": "StoreReadError",
       "target": "crate::store_read::StoreReadError",
       "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_with_snapshot::StoreRefusal",
+      "resolvedTarget": "crate::store_with_snapshot::StoreRefusal",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError",
+      "target": "crate::store_with_snapshot::StoreRefusal",
+      "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
@@ -88518,39 +88606,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::store::Snapshot",
-      "resolvedTarget": "crate::store::Snapshot",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Held",
-      "target": "crate::store::Snapshot",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::store_read::Held",
-      "resolvedTarget": "crate::store_read::Held",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Held",
-      "target": "crate::store_read::Held",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::store_read::Held",
-      "resolvedTarget": "crate::store_read::Held",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Held::drop",
-      "target": "crate::store_read::Held",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
       "rawTarget": "crate::store::PeerStore",
       "resolvedTarget": "crate::store::PeerStore",
       "source": "implementations/rust/src/store_read.rs",
@@ -88569,17 +88624,6 @@
       "symbol": "StoreReactor",
       "target": "crate::store_read::StoreReactor",
       "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::store::StoreErrorCode::SnapshotMoved",
-      "resolvedTarget": "crate::store::StoreErrorCode::SnapshotMoved",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "StoreReactor::fetch",
-      "target": "crate::store::StoreErrorCode::SnapshotMoved",
-      "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
@@ -88661,28 +88705,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::store_read::Held",
-      "resolvedTarget": "crate::store_read::Held",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "StoreReactor::on_snapshots",
-      "target": "crate::store_read::Held",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::store_read::SNAPSHOT_RETRIES",
-      "resolvedTarget": "crate::store_read::SNAPSHOT_RETRIES",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "StoreReactor::on_snapshots",
-      "target": "crate::store_read::SNAPSHOT_RETRIES",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
       "rawTarget": "crate::store_read::StoreReactor",
       "resolvedTarget": "crate::store_read::StoreReactor",
       "source": "implementations/rust/src/store_read.rs",
@@ -88694,12 +88716,34 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::store::StoreErrorCode::SnapshotMoved",
-      "resolvedTarget": "crate::store::StoreErrorCode::SnapshotMoved",
+      "rawTarget": "crate::store_with_snapshot::SnapshotRetry::default",
+      "resolvedTarget": "crate::store_with_snapshot::SnapshotRetry::default",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "StoreReactor::on_snapshots",
-      "target": "crate::store::StoreErrorCode::SnapshotMoved",
+      "target": "crate::store_with_snapshot::SnapshotRetry::default",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_with_snapshot::StoreRefusal",
+      "resolvedTarget": "crate::store_with_snapshot::StoreRefusal",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReactor::on_snapshots",
+      "target": "crate::store_with_snapshot::StoreRefusal",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_with_snapshot::with_snapshot",
+      "resolvedTarget": "crate::store_with_snapshot::with_snapshot",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReactor::on_snapshots",
+      "target": "crate::store_with_snapshot::with_snapshot",
       "targetOwner": "storage"
     },
     {
@@ -88755,17 +88799,6 @@
       "sourceRegion": "semantic-owner",
       "symbol": "StoreReactor::read",
       "target": "crate::store::ScopeSource::default",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::store::StoreErrorCode::SnapshotMoved",
-      "resolvedTarget": "crate::store::StoreErrorCode::SnapshotMoved",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "StoreReactor::read",
-      "target": "crate::store::StoreErrorCode::SnapshotMoved",
       "targetOwner": "storage"
     },
     {
@@ -89011,12 +89044,45 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::store::StoreErrorCode",
+      "resolvedTarget": "crate::store::StoreErrorCode",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::store_code",
+      "target": "crate::store::StoreErrorCode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::store_read::StoreReadError",
       "resolvedTarget": "crate::store_read::StoreReadError",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "StoreReadError::store_code",
       "target": "crate::store_read::StoreReadError",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError",
+      "resolvedTarget": "crate::store_read::StoreReadError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::store_code",
+      "target": "crate::store_read::StoreReadError",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError::store_code",
+      "resolvedTarget": "crate::store_read::StoreReadError::store_code",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::store_code",
+      "target": "crate::store_read::StoreReadError::store_code",
       "targetOwner": "reactor"
     },
     {
@@ -104036,6 +104102,28 @@
     {
       "form": "syn-import",
       "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "resolvedTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_with_snapshot::SnapshotRetry",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::with_snapshot",
+      "resolvedTarget": "crate::store_with_snapshot::with_snapshot",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_with_snapshot::with_snapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
       "rawTarget": "crate::types::Delta",
       "resolvedTarget": "crate::types::Delta",
       "source": "implementations/rust/src/store_fresh.rs",
@@ -105066,39 +105154,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store::Snapshot",
-      "resolvedTarget": "crate::store::Snapshot",
-      "source": "implementations/rust/src/store_fresh.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Held",
-      "target": "crate::store::Snapshot",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store_fresh::Held",
-      "resolvedTarget": "crate::store_fresh::Held",
-      "source": "implementations/rust/src/store_fresh.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Held",
-      "target": "crate::store_fresh::Held",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store_fresh::Held",
-      "resolvedTarget": "crate::store_fresh::Held",
-      "source": "implementations/rust/src/store_fresh.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Held::drop",
-      "target": "crate::store_fresh::Held",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
       "rawTarget": "crate::store::PeerStore",
       "resolvedTarget": "crate::store::PeerStore",
       "source": "implementations/rust/src/store_fresh.rs",
@@ -106015,17 +106070,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store::StoreErrorCode::SnapshotMoved",
-      "resolvedTarget": "crate::store::StoreErrorCode::SnapshotMoved",
-      "source": "implementations/rust/src/store_fresh.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "on_snapshots",
-      "target": "crate::store::StoreErrorCode::SnapshotMoved",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
       "rawTarget": "crate::store_fresh::FeedError",
       "resolvedTarget": "crate::store_fresh::FeedError",
       "source": "implementations/rust/src/store_fresh.rs",
@@ -106037,34 +106081,34 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store_fresh::FeedError::Refused",
-      "resolvedTarget": "crate::store_fresh::FeedError::Refused",
+      "rawTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "resolvedTarget": "crate::store_with_snapshot::SnapshotRetry",
       "source": "implementations/rust/src/store_fresh.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "on_snapshots",
-      "target": "crate::store_fresh::FeedError::Refused",
+      "target": "crate::store_with_snapshot::SnapshotRetry",
       "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store_fresh::FeedError::from",
-      "resolvedTarget": "crate::store_fresh::FeedError::from",
+      "rawTarget": "crate::store_with_snapshot::SnapshotRetry::default",
+      "resolvedTarget": "crate::store_with_snapshot::SnapshotRetry::default",
       "source": "implementations/rust/src/store_fresh.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "on_snapshots",
-      "target": "crate::store_fresh::FeedError::from",
+      "target": "crate::store_with_snapshot::SnapshotRetry::default",
       "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store_fresh::Held",
-      "resolvedTarget": "crate::store_fresh::Held",
+      "rawTarget": "crate::store_with_snapshot::with_snapshot",
+      "resolvedTarget": "crate::store_with_snapshot::with_snapshot",
       "source": "implementations/rust/src/store_fresh.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "on_snapshots",
-      "target": "crate::store_fresh::Held",
+      "target": "crate::store_with_snapshot::with_snapshot",
       "targetOwner": "storage"
     },
     {
@@ -113977,6 +114021,540 @@
       "symbol": "StoreViewsReader::holder"
     },
     {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::PeerStore",
+      "resolvedTarget": "crate::store::PeerStore",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::PeerStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::Snapshot",
+      "resolvedTarget": "crate::store::Snapshot",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::Snapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode",
+      "resolvedTarget": "crate::store::StoreErrorCode",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::StoreErrorCode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::FeedError",
+      "resolvedTarget": "crate::store_fresh::FeedError",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_fresh::FeedError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::StoreFault",
+      "resolvedTarget": "crate::store_fresh::StoreFault",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_fresh::StoreFault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::revision_in_range",
+      "resolvedTarget": "crate::store_fresh::revision_in_range",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_fresh::revision_in_range",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "resolvedTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "SnapshotRetry",
+      "target": "crate::store_with_snapshot::SnapshotRetry",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::SNAPSHOT_RETRIES",
+      "resolvedTarget": "crate::store_with_snapshot::SNAPSHOT_RETRIES",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "SnapshotRetry::default",
+      "target": "crate::store_with_snapshot::SNAPSHOT_RETRIES",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "resolvedTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "SnapshotRetry::default",
+      "target": "crate::store_with_snapshot::SnapshotRetry",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode",
+      "resolvedTarget": "crate::store::StoreErrorCode",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRefusal::store_code",
+      "target": "crate::store::StoreErrorCode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreError",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::StoreRefusal",
+      "resolvedTarget": "crate::store_with_snapshot::StoreRefusal",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreError",
+      "target": "crate::store_with_snapshot::StoreRefusal",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode",
+      "resolvedTarget": "crate::store::StoreErrorCode",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreError::store_code",
+      "target": "crate::store::StoreErrorCode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::StoreError",
+      "resolvedTarget": "crate::store_with_snapshot::StoreError",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreError::store_code",
+      "target": "crate::store_with_snapshot::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::FeedError",
+      "resolvedTarget": "crate::store_fresh::FeedError",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FeedError",
+      "target": "crate::store_fresh::FeedError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::StoreRefusal",
+      "resolvedTarget": "crate::store_with_snapshot::StoreRefusal",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FeedError",
+      "target": "crate::store_with_snapshot::StoreRefusal",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode",
+      "resolvedTarget": "crate::store::StoreErrorCode",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FeedError::store_code",
+      "target": "crate::store::StoreErrorCode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::FeedError",
+      "resolvedTarget": "crate::store_with_snapshot::FeedError",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FeedError::store_code",
+      "target": "crate::store_with_snapshot::FeedError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::FeedError::Refused",
+      "resolvedTarget": "crate::store_with_snapshot::FeedError::Refused",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FeedError::store_code",
+      "target": "crate::store_with_snapshot::FeedError::Refused",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "refuse",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError::new",
+      "resolvedTarget": "crate::store::StoreError::new",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "refuse",
+      "target": "crate::store::StoreError::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "resolvedTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "refuse",
+      "target": "crate::store::StoreErrorCode::InvalidRequest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "policy",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::MOST_SNAPSHOTS",
+      "resolvedTarget": "crate::store_with_snapshot::MOST_SNAPSHOTS",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "policy",
+      "target": "crate::store_with_snapshot::MOST_SNAPSHOTS",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::MOST_WITHIN_MS",
+      "resolvedTarget": "crate::store_with_snapshot::MOST_WITHIN_MS",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "policy",
+      "target": "crate::store_with_snapshot::MOST_WITHIN_MS",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::Policy",
+      "resolvedTarget": "crate::store_with_snapshot::Policy",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "policy",
+      "target": "crate::store_with_snapshot::Policy",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "resolvedTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "policy",
+      "target": "crate::store_with_snapshot::SnapshotRetry",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::refuse",
+      "resolvedTarget": "crate::store_with_snapshot::refuse",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "policy",
+      "target": "crate::store_with_snapshot::refuse",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "policy"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "reading",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::refuse",
+      "resolvedTarget": "crate::store_with_snapshot::refuse",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "reading",
+      "target": "crate::store_with_snapshot::refuse",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "reading"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Snapshot",
+      "resolvedTarget": "crate::store::Snapshot",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Held",
+      "target": "crate::store::Snapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::Held",
+      "resolvedTarget": "crate::store_with_snapshot::Held",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Held",
+      "target": "crate::store_with_snapshot::Held",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::Held",
+      "resolvedTarget": "crate::store_with_snapshot::Held",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Held::drop",
+      "target": "crate::store_with_snapshot::Held",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "with_snapshot",
+      "target": "core::primitive::f64::NEG_INFINITY"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::PeerStore",
+      "resolvedTarget": "crate::store::PeerStore",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "with_snapshot",
+      "target": "crate::store::PeerStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Snapshot",
+      "resolvedTarget": "crate::store::Snapshot",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "with_snapshot",
+      "target": "crate::store::Snapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "with_snapshot",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode::SnapshotMoved",
+      "resolvedTarget": "crate::store::StoreErrorCode::SnapshotMoved",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "with_snapshot",
+      "target": "crate::store::StoreErrorCode::SnapshotMoved",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::StoreFault",
+      "resolvedTarget": "crate::store_fresh::StoreFault",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "with_snapshot",
+      "target": "crate::store_fresh::StoreFault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::revision_in_range",
+      "resolvedTarget": "crate::store_fresh::revision_in_range",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "with_snapshot",
+      "target": "crate::store_fresh::revision_in_range",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::Held",
+      "resolvedTarget": "crate::store_with_snapshot::Held",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "with_snapshot",
+      "target": "crate::store_with_snapshot::Held",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::OnSnapshot",
+      "resolvedTarget": "crate::store_with_snapshot::OnSnapshot",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "with_snapshot",
+      "target": "crate::store_with_snapshot::OnSnapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "resolvedTarget": "crate::store_with_snapshot::SnapshotRetry",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "with_snapshot",
+      "target": "crate::store_with_snapshot::SnapshotRetry",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::StoreRefusal",
+      "resolvedTarget": "crate::store_with_snapshot::StoreRefusal",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "with_snapshot",
+      "target": "crate::store_with_snapshot::StoreRefusal",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::policy",
+      "resolvedTarget": "crate::store_with_snapshot::policy",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "with_snapshot",
+      "target": "crate::store_with_snapshot::policy",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_with_snapshot::reading",
+      "resolvedTarget": "crate::store_with_snapshot::reading",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "with_snapshot",
+      "target": "crate::store_with_snapshot::reading",
+      "targetOwner": "storage"
+    },
+    {
       "form": "syn-external-path",
       "owner": "reactor",
       "source": "implementations/rust/src/store_views.rs",
@@ -114380,17 +114958,6 @@
       "targetOwner": "storage"
     },
     {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store_fresh::revision_in_range",
-      "resolvedTarget": "crate::store_fresh::revision_in_range",
-      "source": "implementations/rust/src/store_fresh.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "on_snapshots",
-      "target": "crate::store_fresh::revision_in_range",
-      "targetOwner": "storage"
-    },
-    {
       "form": "syn-import",
       "owner": "reactor",
       "rawTarget": "crate::store_fresh::StoreFault",
@@ -114399,17 +114966,6 @@
       "sourceRegion": "semantic-owner",
       "symbol": "<import>",
       "target": "crate::store_fresh::StoreFault",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-import",
-      "owner": "reactor",
-      "rawTarget": "crate::store_fresh::revision_in_range",
-      "resolvedTarget": "crate::store_fresh::revision_in_range",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "<import>",
-      "target": "crate::store_fresh::revision_in_range",
       "targetOwner": "storage"
     },
     {
@@ -114422,6 +114978,17 @@
       "symbol": "StoreReadError",
       "target": "crate::store_fresh::StoreFault",
       "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError",
+      "resolvedTarget": "crate::store_read::StoreReadError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError",
+      "target": "crate::store_read::StoreReadError",
+      "targetOwner": "reactor"
     },
     {
       "form": "syn-resolved-path",
@@ -114503,17 +115070,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::store_fresh::FeedError::Refused",
-      "resolvedTarget": "crate::store_fresh::FeedError::Refused",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "StoreReactor::fetch",
-      "target": "crate::store_fresh::FeedError::Refused",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
       "rawTarget": "crate::store_fresh::FeedError::from",
       "resolvedTarget": "crate::store_fresh::FeedError::from",
       "source": "implementations/rust/src/store_read.rs",
@@ -114532,27 +115088,6 @@
       "symbol": "StoreReactor::on_snapshots",
       "target": "crate::store_fresh::StoreFault",
       "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::store_fresh::revision_in_range",
-      "resolvedTarget": "crate::store_fresh::revision_in_range",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "StoreReactor::on_snapshots",
-      "target": "crate::store_fresh::revision_in_range",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "macro-region",
-      "macros": [
-        "matches"
-      ],
-      "owner": "reactor",
-      "source": "implementations/rust/src/store_read.rs",
-      "status": "parsed-known-macro-arguments",
-      "symbol": "StoreReactor::fetch"
     },
     {
       "form": "syn-resolved-path",
@@ -117622,6 +118157,18 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:OnSnapshot",
+      "owner": "storage",
+      "semantics": "storage owns the existing lib::OnSnapshot reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "OnSnapshot",
+      "target": "crate::store_with_snapshot::OnSnapshot"
+    },
+    {
+      "cfg": [],
       "classification": "compatibility_reexport",
       "contract": "rhizomatic.storage/native-api/1",
       "definition": "reexport",
@@ -117995,14 +118542,14 @@
     {
       "cfg": [],
       "classification": "compatibility_reexport",
-      "contract": "rhizomatic.reactor/native-api/1",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "reexport",
       "id": "rust:lib:SNAPSHOT_RETRIES",
-      "owner": "reactor",
+      "owner": "storage",
       "semantics": "delta owns the existing lib::SNAPSHOT_RETRIES reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "SNAPSHOT_RETRIES",
-      "target": "crate::store_read::SNAPSHOT_RETRIES"
+      "target": "crate::store_with_snapshot::SNAPSHOT_RETRIES"
     },
     {
       "cfg": [],
@@ -118111,6 +118658,18 @@
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Snapshot",
       "target": "crate::store::Snapshot"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:SnapshotRetry",
+      "owner": "storage",
+      "semantics": "storage owns the existing lib::SnapshotRetry reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "SnapshotRetry",
+      "target": "crate::store_with_snapshot::SnapshotRetry"
     },
     {
       "cfg": [],
@@ -118279,6 +118838,18 @@
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreReadError",
       "target": "crate::store_read::StoreReadError"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:StoreRefusal",
+      "owner": "storage",
+      "semantics": "storage owns the existing lib::StoreRefusal reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "StoreRefusal",
+      "target": "crate::store_with_snapshot::StoreRefusal"
     },
     {
       "cfg": [],
@@ -119761,6 +120332,18 @@
       "source": "implementations/rust/src/lib.rs",
       "symbol": "view_canonical_hex",
       "target": "crate::resolution::view_canonical_hex"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:with_snapshot",
+      "owner": "storage",
+      "semantics": "storage owns the existing lib::with_snapshot reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "with_snapshot",
+      "target": "crate::store_with_snapshot::with_snapshot"
     },
     {
       "cfg": [],
@@ -126814,17 +127397,6 @@
       "cfg": [],
       "classification": "native_extension",
       "contract": "rhizomatic.reactor/native-api/1",
-      "definition": "constant",
-      "id": "rust:store_read:SNAPSHOT_RETRIES",
-      "owner": "reactor",
-      "semantics": "reactor owns the existing store_read::SNAPSHOT_RETRIES constant; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
-      "source": "implementations/rust/src/store_read.rs",
-      "symbol": "SNAPSHOT_RETRIES"
-    },
-    {
-      "cfg": [],
-      "classification": "native_extension",
-      "contract": "rhizomatic.reactor/native-api/1",
       "definition": "struct",
       "id": "rust:store_read:Selection",
       "owner": "reactor",
@@ -127871,6 +128443,83 @@
       "semantics": "reactor owns the existing lib::store_views module; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "store_views"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "struct",
+      "id": "rust:store_with_snapshot:OnSnapshot",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_with_snapshot::OnSnapshot struct; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "symbol": "OnSnapshot"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "constant",
+      "id": "rust:store_with_snapshot:SNAPSHOT_RETRIES",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_with_snapshot::SNAPSHOT_RETRIES constant; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "symbol": "SNAPSHOT_RETRIES"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "struct",
+      "id": "rust:store_with_snapshot:SnapshotRetry",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_with_snapshot::SnapshotRetry struct; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "symbol": "SnapshotRetry"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "trait",
+      "id": "rust:store_with_snapshot:StoreRefusal",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_with_snapshot::StoreRefusal trait; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "symbol": "StoreRefusal"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "trait-method",
+      "id": "rust:store_with_snapshot:StoreRefusal::store_code",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_with_snapshot::StoreRefusal::store_code trait-method; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "symbol": "StoreRefusal::store_code"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "module",
+      "id": "rust:store_with_snapshot:store_with_snapshot",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_with_snapshot::store_with_snapshot module; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "store_with_snapshot"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "function",
+      "id": "rust:store_with_snapshot:with_snapshot",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_with_snapshot::with_snapshot function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store_with_snapshot.rs",
+      "symbol": "with_snapshot"
     }
   ],
   "format": "rhizomatic-semantic-api-inventory/1",

@@ -70,6 +70,7 @@ pub mod store_held;
 pub mod store_open;
 pub mod store_read;
 pub mod store_views;
+pub mod store_with_snapshot;
 pub mod strict;
 pub mod term_io;
 pub mod term_json;
@@ -145,7 +146,9 @@ pub use store_read::{
     fetch_scope, read_anchored, read_anchored_with_memo, read_full_surface, EvalMemo, FetchCache,
     FetchedScope, FinalChildMemo, FullSurfaceRead, FullSurfaceRequest, FullSurfaceRoute,
     ReadRequest, RoundMemo, RoundReport, Selection, StoreReactor, StoreRead, StoreReadError,
-    SNAPSHOT_RETRIES,
+};
+pub use store_with_snapshot::{
+    with_snapshot, OnSnapshot, SnapshotRetry, StoreRefusal, SNAPSHOT_RETRIES,
 };
 pub use term_io::{
     cbor_to_json, json_to_cbor, schema_canonical_hex, schema_hash, term_canonical_hex, term_hash,

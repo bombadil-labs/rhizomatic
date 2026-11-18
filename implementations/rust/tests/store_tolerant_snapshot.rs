@@ -2,8 +2,7 @@
 //! keeps its last sequence. A later append gives every new holding a sequence past it, so each
 //! call keeps the holdings at or below it and answers as at the snapshot's revision. A purge that
 //! releases a holding moves every older snapshot. The scenarios are those of the TypeScript
-//! `test/store-tolerant-snapshot.test.ts` that apply to a memory store; its scenario 14 needs
-//! `with_snapshot`, which this witness does not have yet.
+//! `test/store-tolerant-snapshot.test.ts` that apply to a memory store, scenario 14 included.
 
 use std::cell::Cell;
 
@@ -16,8 +15,9 @@ use rhizomatic::store::{
     Revision, ScopeRequest, Snapshot, Store, StoreError, VerifiedDelta, MAX_ARRIVAL_COUNTER,
 };
 use rhizomatic::store_follow::{follow_feed, position_of, Position, Pull};
-use rhizomatic::store_fresh::{check_fresh, Freshness};
+use rhizomatic::store_fresh::{check_fresh, FeedError, Freshness};
 use rhizomatic::store_read::{capture_scope, read_anchored, ReadRequest, Selection};
+use rhizomatic::store_with_snapshot::{with_snapshot, OnSnapshot, SnapshotRetry};
 use rhizomatic::term_json::parse_term;
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Target};
 
@@ -558,4 +558,21 @@ fn a_pull_during_appends_answers_from_one_snapshot_at_that_snapshots_position_wi
     );
     let got: Vec<String> = deltas.iter().map(|d| d.delta.id.clone()).collect();
     assert_eq!(got, std::slice::from_ref(&first.id));
+}
+
+#[test]
+fn a_body_that_appends_and_then_reads_does_not_see_its_own_write_and_runs_once() {
+    let w = Writer::new();
+    let held = fact(X);
+    w.append(&[&held]);
+    let OnSnapshot { value, attempts } = with_snapshot(
+        w.peer.as_ref(),
+        |s, _| {
+            w.append(&[&fact(X)]);
+            s.targets(&[X.to_string()]).map_err(FeedError::from)
+        },
+        &SnapshotRetry::default(),
+    )
+    .unwrap();
+    assert_eq!((value, attempts), (vec![held.id.clone()], 1));
 }
