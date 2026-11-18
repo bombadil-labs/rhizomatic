@@ -26,9 +26,9 @@ use rhizomatic::memory_store::{HistoryMint, MemoryStore, MemoryStoreOptions};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSource};
 use rhizomatic::store::{
     negated_ids, target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage,
-    ChangeRecord, ChangeRetention, ErasurePosture, PeerStore, Pushdown, PushdownFields, Revision,
-    ScopeRequest, Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta, LOCAL_HISTORY_PREFIX,
-    MAX_REVISION,
+    ChangeRecord, ChangeRetention, CreatePeerOptions, ErasurePosture, PeerStore, Pushdown,
+    PushdownFields, Revision, ScopeRequest, Snapshot, Store, StoreError, StoreErrorCode,
+    VerifiedDelta, LOCAL_HISTORY_PREFIX, MAX_REVISION,
 };
 use rhizomatic::store_conformance::{
     run_freshness_conformance, FreshnessReader, StoreConformanceError, StoreConformanceReport,
@@ -1241,8 +1241,18 @@ fn capture_now(peer: &dyn PeerStore, entities: &[&str], now: f64) -> Capture {
 #[test]
 fn one_name_created_in_two_stores_has_two_histories() {
     let (a, b) = (MemoryStore::new(), MemoryStore::new());
-    let first = a.create_peer("peer:one", ErasurePosture::Unproven).unwrap();
-    let second = b.create_peer("peer:one", ErasurePosture::Unproven).unwrap();
+    let first = a
+        .create_peer(
+            "peer:one",
+            &CreatePeerOptions::new(ErasurePosture::Unproven),
+        )
+        .unwrap();
+    let second = b
+        .create_peer(
+            "peer:one",
+            &CreatePeerOptions::new(ErasurePosture::Unproven),
+        )
+        .unwrap();
     assert!(!first.history().is_empty());
     assert_ne!(first.history(), second.history());
     assert!(first.history().starts_with(LOCAL_HISTORY_PREFIX));
@@ -1253,7 +1263,12 @@ fn one_name_created_in_two_stores_has_two_histories() {
     assert_eq!(snapshot.history(), first.history());
     snapshot.release();
     // Another peer of the same store has another value.
-    let other = a.create_peer("peer:two", ErasurePosture::Unproven).unwrap();
+    let other = a
+        .create_peer(
+            "peer:two",
+            &CreatePeerOptions::new(ErasurePosture::Unproven),
+        )
+        .unwrap();
     assert_ne!(other.history(), first.history());
 
     // A capture of the first is checked on the second: another history, so resync-required,
@@ -1285,7 +1300,7 @@ fn a_hosts_mint_is_used_and_the_local_prefix_is_refused() {
         format!("host:7f3a:{n}")
     }));
     let peer = store
-        .create_peer("peer:m", ErasurePosture::Unproven)
+        .create_peer("peer:m", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     assert_eq!(peer.history(), "host:7f3a:1");
     assert_eq!(*minted.lock().unwrap(), 1);
@@ -1294,7 +1309,7 @@ fn a_hosts_mint_is_used_and_the_local_prefix_is_refused() {
         let store =
             MemoryStore::new().with_history_mint(HistoryMint::new(move |_| bad.to_string()));
         let refused = store
-            .create_peer("peer:m", ErasurePosture::Unproven)
+            .create_peer("peer:m", &CreatePeerOptions::new(ErasurePosture::Unproven))
             .err()
             .expect("a mint that answers the local prefix or nothing is refused");
         assert_eq!(refused.code, StoreErrorCode::InvalidRequest, "{bad:?}");
@@ -1326,11 +1341,11 @@ fn a_hosts_mint_is_used_and_the_local_prefix_is_refused() {
 fn a_mint_that_repeats_a_history_this_store_issued_is_refused() {
     let store = MemoryStore::new().with_history_mint(HistoryMint::new(|_| "host:same".to_string()));
     let first = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     assert_eq!(first.history(), "host:same");
     let refused = store
-        .create_peer("peer:b", ErasurePosture::Unproven)
+        .create_peer("peer:b", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .err()
         .expect("a repeated history is refused");
     assert_eq!(refused.code, StoreErrorCode::InvalidRequest);
@@ -1348,12 +1363,12 @@ fn a_mint_that_repeats_a_history_this_store_issued_is_refused() {
         format!("host:{peer}")
     }));
     let peer = store
-        .create_peer("peer:m", ErasurePosture::Unproven)
+        .create_peer("peer:m", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     assert_eq!(peer.history(), "host:peer:m");
     assert_eq!(
         store
-            .create_peer("peer:m", ErasurePosture::Unproven)
+            .create_peer("peer:m", &CreatePeerOptions::new(ErasurePosture::Unproven))
             .err()
             .map(|e| e.code),
         Some(StoreErrorCode::PeerExists)
@@ -1405,7 +1420,7 @@ fn every_witness_reads_the_capture_json_of_the_others() {
 fn a_process_local_capture_does_not_cross_a_process() {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:l", ErasurePosture::Unproven)
+        .create_peer("peer:l", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     commit(
         peer.as_ref(),
@@ -1737,7 +1752,10 @@ fn a_commit_during_a_check_starts_it_again_on_a_new_snapshot() {
     let setup = |moves: Vec<Vec<Delta>>| {
         let store = MemoryStore::new();
         let peer = store
-            .create_peer("peer:moving", ErasurePosture::Unproven)
+            .create_peer(
+                "peer:moving",
+                &CreatePeerOptions::new(ErasurePosture::Unproven),
+            )
             .unwrap();
         let fern = fact("plant:a", "name", 1.0, (10.0, None));
         commit(peer.as_ref(), 0, 0, &[fern]);
@@ -1802,7 +1820,7 @@ fn a_commit_during_a_check_starts_it_again_on_a_new_snapshot() {
 fn check_fresh_and_capture_scope_refuse_a_now_that_is_not_finite() {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:n", ErasurePosture::Unproven)
+        .create_peer("peer:n", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let capture = capture_now(peer.as_ref(), &["plant:a"], 100.0);
     for now in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
@@ -1857,7 +1875,7 @@ impl PeerStore for Stuck<'_> {
 fn a_page_that_makes_no_progress_fails_the_check_and_is_no_verdict() {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:s", ErasurePosture::Unproven)
+        .create_peer("peer:s", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let capture = capture_now(peer.as_ref(), &["plant:a"], 100.0);
     commit(
@@ -1913,7 +1931,10 @@ impl PeerStore for PastTo<'_> {
 fn a_page_past_the_asked_revision_fails_the_check_and_is_no_verdict() {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:past", ErasurePosture::Unproven)
+        .create_peer(
+            "peer:past",
+            &CreatePeerOptions::new(ErasurePosture::Unproven),
+        )
         .unwrap();
     let capture = capture_now(peer.as_ref(), &["plant:a"], 100.0);
     commit(
@@ -1939,7 +1960,10 @@ fn a_page_past_the_asked_revision_fails_the_check_and_is_no_verdict() {
 fn a_get_that_answers_an_id_it_was_not_asked_for_is_a_store_fault() {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:extra", ErasurePosture::Unproven)
+        .create_peer(
+            "peer:extra",
+            &CreatePeerOptions::new(ErasurePosture::Unproven),
+        )
         .unwrap();
     let capture = capture_now(peer.as_ref(), &["plant:a"], 100.0);
     let added = fact("plant:b", "c", 1.0, (1.0, None));
@@ -1973,7 +1997,10 @@ fn a_get_that_answers_an_id_it_was_not_asked_for_is_a_store_fault() {
 fn a_read_that_answers_snapshot_moved_starts_the_check_again() {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:moved", ErasurePosture::Unproven)
+        .create_peer(
+            "peer:moved",
+            &CreatePeerOptions::new(ErasurePosture::Unproven),
+        )
         .unwrap();
     let capture = capture_now(peer.as_ref(), &["plant:a"], 100.0);
     commit(
@@ -2033,7 +2060,10 @@ impl PeerStore for FaultyPage<'_> {
 fn a_faulty_page_that_adds_a_toucher_fails_and_does_not_answer_stale() {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:judged", ErasurePosture::Unproven)
+        .create_peer(
+            "peer:judged",
+            &CreatePeerOptions::new(ErasurePosture::Unproven),
+        )
         .unwrap();
     let capture = capture_now(peer.as_ref(), &["plant:a"], 100.0);
     let toucher = fact("plant:a", "note", 1.0, (1.0, None));
@@ -2111,7 +2141,10 @@ fn the_rust_entry_of_the_interchange_file_is_this_writers_output() {
     let store =
         MemoryStore::new().with_history_mint(HistoryMint::new(|_| "host:interchange".to_string()));
     let peer = store
-        .create_peer("peer:interchange", ErasurePosture::Unproven)
+        .create_peer(
+            "peer:interchange",
+            &CreatePeerOptions::new(ErasurePosture::Unproven),
+        )
         .unwrap();
     let interchange_fact = |t: f64| {
         make_delta(
@@ -2465,7 +2498,10 @@ fn fuzz_sequence(seed: u64, seen: &mut BTreeMap<&'static str, usize>) {
     })
     .unwrap();
     let peer = store
-        .create_peer("peer:fuzz", ErasurePosture::Unproven)
+        .create_peer(
+            "peer:fuzz",
+            &CreatePeerOptions::new(ErasurePosture::Unproven),
+        )
         .unwrap();
     let mut model = Model::default();
     let initial: Vec<Delta> = corpus.iter().filter(|_| rng.chance(60)).cloned().collect();
@@ -2678,7 +2714,10 @@ fn scales_linearly(what: &str, run: impl Fn(usize) -> Duration) -> Option<String
 fn costed(held: usize, earlier: usize) -> Built {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:cost", ErasurePosture::Unproven)
+        .create_peer(
+            "peer:cost",
+            &CreatePeerOptions::new(ErasurePosture::Unproven),
+        )
         .unwrap();
     let mut head = 0;
     let mut last = 0;

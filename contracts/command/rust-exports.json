@@ -24261,6 +24261,17 @@
     {
       "form": "syn-import",
       "owner": "delta",
+      "rawTarget": "crate::store::CreatePeerOptions",
+      "resolvedTarget": "crate::store::CreatePeerOptions",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store::CreatePeerOptions",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
       "rawTarget": "crate::store::ErasureClaim",
       "resolvedTarget": "crate::store::ErasureClaim",
       "source": "implementations/rust/src/lib.rs",
@@ -47865,6 +47876,17 @@
     {
       "form": "syn-import",
       "owner": "storage",
+      "rawTarget": "crate::store::CreatePeerOptions",
+      "resolvedTarget": "crate::store::CreatePeerOptions",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::CreatePeerOptions",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
       "rawTarget": "crate::store::ErasureClaim",
       "resolvedTarget": "crate::store::ErasureClaim",
       "source": "implementations/rust/src/memory_store.rs",
@@ -49951,23 +49973,23 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::CreatePeerOptions",
+      "resolvedTarget": "crate::store::CreatePeerOptions",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemoryStore::create_peer",
+      "target": "crate::store::CreatePeerOptions",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::ErasureClass::Proven",
       "resolvedTarget": "crate::store::ErasureClass::Proven",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "MemoryStore::create_peer",
       "target": "crate::store::ErasureClass::Proven",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::ErasurePosture",
-      "resolvedTarget": "crate::store::ErasurePosture",
-      "source": "implementations/rust/src/memory_store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "MemoryStore::create_peer",
-      "target": "crate::store::ErasurePosture",
       "targetOwner": "storage"
     },
     {
@@ -79602,6 +79624,50 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::ErasurePosture",
+      "resolvedTarget": "crate::store::ErasurePosture",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CreatePeerOptions",
+      "target": "crate::store::ErasurePosture",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::CreatePeerOptions",
+      "resolvedTarget": "crate::store::CreatePeerOptions",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CreatePeerOptions",
+      "target": "crate::store::CreatePeerOptions",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::CreatePeerOptions",
+      "resolvedTarget": "crate::store::CreatePeerOptions",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CreatePeerOptions::new",
+      "target": "crate::store::CreatePeerOptions",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ErasurePosture",
+      "resolvedTarget": "crate::store::ErasurePosture",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CreatePeerOptions::new",
+      "target": "crate::store::ErasurePosture",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::ErasureClass",
       "resolvedTarget": "crate::store::ErasureClass",
       "source": "implementations/rust/src/store.rs",
@@ -80576,12 +80642,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store::ErasurePosture",
-      "resolvedTarget": "crate::store::ErasurePosture",
+      "rawTarget": "crate::store::CreatePeerOptions",
+      "resolvedTarget": "crate::store::CreatePeerOptions",
       "source": "implementations/rust/src/store.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "Store::create_peer",
-      "target": "crate::store::ErasurePosture",
+      "target": "crate::store::CreatePeerOptions",
       "targetOwner": "storage"
     },
     {
@@ -81562,6 +81628,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "<import>",
       "target": "crate::store::ChangeRetention",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::CreatePeerOptions",
+      "resolvedTarget": "crate::store::CreatePeerOptions",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::CreatePeerOptions",
       "targetOwner": "storage"
     },
     {
@@ -99104,6 +99181,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::CreatePeerOptions::new",
+      "resolvedTarget": "crate::store::CreatePeerOptions::new",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::create_peer",
+      "target": "crate::store::CreatePeerOptions::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::Pushdown",
       "resolvedTarget": "crate::store::Pushdown",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -116077,6 +116165,18 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:CreatePeerOptions",
+      "owner": "storage",
+      "semantics": "storage owns the existing lib::CreatePeerOptions reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "CreatePeerOptions",
+      "target": "crate::store::CreatePeerOptions"
+    },
+    {
+      "cfg": [],
       "classification": "compatibility_reexport",
       "contract": "rhizomatic.algebra/native-api/1",
       "definition": "reexport",
@@ -123952,6 +124052,28 @@
       "semantics": "storage owns the existing store::ChangeRetention enum; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/store.rs",
       "symbol": "ChangeRetention"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "struct",
+      "id": "rust:store:CreatePeerOptions",
+      "owner": "storage",
+      "semantics": "storage owns the existing store::CreatePeerOptions struct; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "CreatePeerOptions"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "method",
+      "id": "rust:store:CreatePeerOptions::new",
+      "owner": "storage",
+      "semantics": "storage owns the existing store::CreatePeerOptions::new method; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "CreatePeerOptions::new"
     },
     {
       "cfg": [],

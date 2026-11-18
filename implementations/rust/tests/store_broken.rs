@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::store::{
-    Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ErasureClaim, ErasurePosture,
+    Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, CreatePeerOptions, ErasureClaim,
     Exporter, Listing, PeerErasure, PeerExporter, PeerStore, PurgeReport, PushdownFields, Revision,
     ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreProfile,
 };
@@ -77,8 +77,12 @@ impl Store for Faulty {
     fn profile(&self) -> &StoreProfile {
         &self.profile
     }
-    fn create_peer(&self, id: &str, e: ErasurePosture) -> Result<Box<dyn PeerStore>, StoreError> {
-        Ok(self.wrap(id, self.inner.create_peer(id, e)?))
+    fn create_peer(
+        &self,
+        id: &str,
+        options: &CreatePeerOptions,
+    ) -> Result<Box<dyn PeerStore>, StoreError> {
+        Ok(self.wrap(id, self.inner.create_peer(id, options)?))
     }
     fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError> {
         Ok(self.wrap(id, self.inner.peer(id)?))

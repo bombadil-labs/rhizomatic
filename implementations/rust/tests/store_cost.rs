@@ -13,7 +13,8 @@ use rhizomatic::memory_store::{MemoryStore, MemoryStoreOptions, StoreMeter};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSource};
 use rhizomatic::store::{
     scope_source, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ChangeRetention,
-    ErasurePosture, PeerStore, Pushdown, Revision, ScopeRequest, Store, VerifiedDelta,
+    CreatePeerOptions, ErasurePosture, PeerStore, Pushdown, Revision, ScopeRequest, Store,
+    VerifiedDelta,
 };
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 
@@ -97,7 +98,10 @@ fn measure(n: usize) -> Vec<(&'static str, StoreMeter)> {
 
     let unrelated = noise(n);
     let other = store
-        .create_peer("peer:other", ErasurePosture::Unproven)
+        .create_peer(
+            "peer:other",
+            &CreatePeerOptions::new(ErasurePosture::Unproven),
+        )
         .unwrap();
     append(other.as_ref(), (None, "o-1"), 0, &unrelated);
 
@@ -105,7 +109,7 @@ fn measure(n: usize) -> Vec<(&'static str, StoreMeter)> {
     measured("createPeer", &store, &mut || {
         peer = Some(
             store
-                .create_peer("peer:a", ErasurePosture::Unproven)
+                .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
                 .unwrap(),
         );
     });
@@ -260,7 +264,10 @@ fn core_operations_cost_their_footprint_not_the_store() {
 fn purge_beside_debtors(n: usize) -> StoreMeter {
     let store = MemoryStore::new();
     let keeper = store
-        .create_peer("peer:keeper", ErasurePosture::Unproven)
+        .create_peer(
+            "peer:keeper",
+            &CreatePeerOptions::new(ErasurePosture::Unproven),
+        )
         .unwrap();
     let owed: Vec<Delta> = (0..n)
         .map(|i| fact(&format!("owed:{i}"), "height", i as f64, 1.0))
@@ -268,7 +275,10 @@ fn purge_beside_debtors(n: usize) -> StoreMeter {
     append(keeper.as_ref(), (None, "k-1"), 0, &owed);
     for (i, delta) in owed.iter().enumerate() {
         let debtor = store
-            .create_peer(&format!("peer:debtor-{i}"), ErasurePosture::Unproven)
+            .create_peer(
+                &format!("peer:debtor-{i}"),
+                &CreatePeerOptions::new(ErasurePosture::Unproven),
+            )
             .unwrap();
         append(
             debtor.as_ref(),
@@ -280,10 +290,10 @@ fn purge_beside_debtors(n: usize) -> StoreMeter {
     }
     let x = fact("plant:x", "height", 1.0, 1.0);
     let a = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let b = store
-        .create_peer("peer:b", ErasurePosture::Unproven)
+        .create_peer("peer:b", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     append(a.as_ref(), (None, "a-1"), 0, std::slice::from_ref(&x));
     append(b.as_ref(), (None, "b-1"), 0, std::slice::from_ref(&x));
@@ -311,7 +321,7 @@ fn another_peers_debt_is_found_without_a_walk_of_the_peers() {
 fn tolerant_reads(n: usize) -> Vec<(&'static str, StoreMeter, StoreMeter)> {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let height = fact("plant:a", "height", 10.0, 10.0);
     let struck = negation(&height, 20.0);
@@ -381,7 +391,7 @@ fn a_tolerant_read_costs_the_present_rows_of_its_keys_not_the_peer() {
 fn only_the_exporter_scans() {
     let store = MemoryStore::new();
     let peer = store
-        .create_peer("peer:a", ErasurePosture::Unproven)
+        .create_peer("peer:a", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap();
     let deltas = noise(100);
     append(peer.as_ref(), (None, "a-1"), 0, &deltas);
@@ -595,7 +605,10 @@ fn head_only(peer: &dyn PeerStore, k: usize) {
 fn feed_peer(options: MemoryStoreOptions, commits: usize) -> (MemoryStore, Box<dyn PeerStore>) {
     let store = MemoryStore::with_options(options).unwrap();
     let peer = store
-        .create_peer("peer:feed", ErasurePosture::Unproven)
+        .create_peer(
+            "peer:feed",
+            &CreatePeerOptions::new(ErasurePosture::Unproven),
+        )
         .unwrap();
     for k in 0..commits {
         head_only(peer.as_ref(), k);

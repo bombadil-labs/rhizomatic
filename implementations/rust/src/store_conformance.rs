@@ -33,9 +33,10 @@ use crate::delta::compute_id;
 use crate::json_profile::parse_claims;
 use crate::store::{
     negated_ids, target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage,
-    ChangeRecord, ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, PeerStore, Pushdown,
-    PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError,
-    StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta, MAX_REVISION, PURGE_BOUNDARY,
+    ChangeRecord, ChangeRetention, CreatePeerOptions, ErasureClaim, ErasureClass, ErasurePosture,
+    PeerStore, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store,
+    StoreError, StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta, MAX_REVISION,
+    PURGE_BOUNDARY,
 };
 use crate::store_follow::{Position, Pull};
 use crate::store_fresh::{
@@ -1603,7 +1604,7 @@ impl<'a> Run<'a> {
         let id = self.corpus.peer(name)?;
         let result = posture
             .clone()
-            .and_then(|posture| self.store.create_peer(id, posture));
+            .and_then(|posture| self.store.create_peer(id, &CreatePeerOptions::new(posture)));
         let excepted =
             expect.get("unlessStoreErasure").and_then(Value::as_str) == Some(class.as_str());
         if let (Some(codes), false) = (codes_of(expect), excepted) {

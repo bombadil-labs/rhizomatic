@@ -9,8 +9,8 @@
 use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::set::make_delta;
 use rhizomatic::store::{
-    Admission, AppendResult, ArrivalRecord, ErasurePosture, PeerStore, PurgeOutcome, Revision,
-    Store, StoreErrorCode, VerifiedDelta,
+    Admission, AppendResult, ArrivalRecord, CreatePeerOptions, ErasurePosture, PeerStore,
+    PurgeOutcome, Revision, Store, StoreErrorCode, VerifiedDelta,
 };
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Target};
 
@@ -62,7 +62,7 @@ fn added(peer: &dyn PeerStore, batch: &Admission) -> Vec<String> {
 
 fn new_peer(store: &MemoryStore) -> Box<dyn PeerStore> {
     store
-        .create_peer("peer:p", ErasurePosture::Unproven)
+        .create_peer("peer:p", &CreatePeerOptions::new(ErasurePosture::Unproven))
         .unwrap()
 }
 

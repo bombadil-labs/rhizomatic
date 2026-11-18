@@ -103,6 +103,20 @@ impl ErasurePosture {
     }
 }
 
+/// What `Store::create_peer` fixes for a new peer (SPEC-18 §4.1). The caller always states
+/// the erasure posture: the type has no default.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CreatePeerOptions {
+    /// `Unproven` is the operator's acknowledgement that erasure reports may say `unproven`.
+    pub erasure: ErasurePosture,
+}
+
+impl CreatePeerOptions {
+    pub fn new(erasure: ErasurePosture) -> Self {
+        Self { erasure }
+    }
+}
+
 /// What a store can prove about physical absence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErasureClass {
@@ -507,7 +521,7 @@ pub trait Store {
     fn create_peer(
         &self,
         id: &str,
-        erasure: ErasurePosture,
+        options: &CreatePeerOptions,
     ) -> Result<Box<dyn PeerStore>, StoreError>;
     /// Opens an existing peer. Refuses `peer-absent`; never creates.
     fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError>;
