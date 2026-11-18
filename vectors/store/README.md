@@ -2947,7 +2947,10 @@ The JSON cannot express these; each witness builds them.
   holder 13 to 16) and 89 (Rust in release mode, the right holder 9; 45 and 8 in a debug build).
   The Rust witness keeps both scans as wrong holders (`TouchingPerView`, `ReleasePerView`) whose
   rails are ignored in a debug build, and CI runs them in release mode:
-  `cargo test --release --test witness -- --ignored per_view_scan`.
+  `cargo test --release --test witness -- --ignored per_view_scan`. Since step 4e the Rust rails
+  time each refresh and not the commit before it. A commit walks the holdings digest; timed with
+  the refresh, it hid both wrong holders (13.5 and 24.0). Timed alone, they measure 107 and 67,
+  and the right holders 8.3 to 9.2. The store's cost rail holds the commit.
 
 ### 11.7 What the cases hold
 
