@@ -1262,8 +1262,13 @@ describe("withSnapshot with a writer in another process", () => {
     const answers: number[][] = [];
     const attempts: number[] = [];
     const failures: string[] = [];
-    for (const body of Object.values(bodies))
-      for (let run = 0; run < 100; run++) {
+    const sawCommit: boolean[] = [];
+    // Each body reads until it has 100 answers and has seen the child commit between two of them.
+    for (const body of Object.values(bodies)) {
+      const from = answers.length;
+      const end = Date.now() + 60_000;
+      const moved = (): boolean => new Set(answers.slice(from).map((answer) => answer[0])).size > 1;
+      for (let run = 0; run < 100 || (!moved() && Date.now() < end); run++) {
         await tick();
         await withSnapshot(peer, body).then(
           ({ value, attempts: took }) => (answers.push(value), attempts.push(took)),
@@ -1271,6 +1276,8 @@ describe("withSnapshot with a writer in another process", () => {
             failures.push(error instanceof StoreError ? error.code : String(error)),
         );
       }
+      sawCommit.push(moved());
+    }
     writeFileSync(`${path}.stop`, "");
     const { batches } = await writer.json<{ batches: number }>("done");
     expect(await writer.ended).toBe("0");
@@ -1280,7 +1287,7 @@ describe("withSnapshot with a writer in another process", () => {
     expect(attempts.filter((took) => took !== 1)).toEqual([]);
     // The child wrote while the parent read: the answers stand at more than one revision.
     expect(batches).toBeGreaterThan(1);
-    expect(new Set(answers.map((answer) => answer[0])).size).toBeGreaterThan(1);
+    expect(sawCommit).toEqual([true, true]);
     audit(path);
   }, 180_000);
 
