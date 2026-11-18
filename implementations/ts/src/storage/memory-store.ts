@@ -392,8 +392,8 @@ class MemoryStore implements Store {
 
   /**
    * The peer delete (§4.13 reading 144), all at once: no writer can come between its steps. A
-   * held id without its stored claims refuses the delete before it removes anything, as the purge
-   * of that id does (reading 136). Process memory cannot prove absence, so the claim is
+   * held id without its stored claims, or whose row counts no holder, refuses the delete before
+   * it removes anything, as the purge of that id does (reading 136). Process memory cannot prove absence, so the claim is
    * `unproven`.
    */
   async deletePeer(id: PeerId): Promise<DeleteReport> {
@@ -406,7 +406,7 @@ class MemoryStore implements Store {
     const state = this.#peers.get(id);
     if (state === undefined) throw new StoreError("peer-absent", "deletePeer: no such peer");
     const held = state.holdings.scan().map(([key]) => key);
-    for (const key of held) this.#row(state, key);
+    for (const key of held) this.#releasable(state, key);
     const gone = held.filter((key) => this.#release(state, key).gone);
     const owed = state.owed.scan().map(([key]) => key);
     for (const key of owed) this.#settle(state, key);
@@ -518,6 +518,24 @@ class MemoryStore implements Store {
         peer: state.id,
         id,
         detail: "memory store: a held delta has no stored claims",
+      });
+    return row;
+  }
+
+  /**
+   * The stored row of an id this peer holds, checked before a release: a row that counts no
+   * holder, though this peer holds it, would stay after the release, so it fails (§4.13 reading
+   * 136). It reads only.
+   */
+  #releasable(state: PeerState, id: Id): Row {
+    const row = this.#row(state, id);
+    if (!(row.holders >= 1))
+      throw new StoreIntegrityError({
+        kind: "count-mismatch",
+        peer: state.id,
+        id,
+        key: "holders",
+        detail: `memory store: the row counts ${row.holders} holders and this peer holds it`,
       });
     return row;
   }
@@ -829,18 +847,7 @@ class MemoryStore implements Store {
     const order = sorted(ids);
     // A held id without its stored claims, or whose row counts no holder, refuses the whole
     // purge before it removes anything (§4.13 reading 136).
-    for (const id of order) {
-      if (state.holdings.get(id) === undefined) continue;
-      const { holders } = this.#row(state, id);
-      if (!(holders >= 1))
-        throw new StoreIntegrityError({
-          kind: "count-mismatch",
-          peer: state.id,
-          id,
-          key: "holders",
-          detail: `memory store: the row counts ${holders} holders and this peer holds it`,
-        });
-    }
+    for (const id of order) if (state.holdings.get(id) !== undefined) this.#releasable(state, id);
     for (const id of order) {
       const holding = state.holdings.get(id);
       let outcome: PurgeOutcome;

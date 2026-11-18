@@ -221,6 +221,10 @@ Step 4d adds more, listed under Breaking.
   purge debt names an id the deleted peer owed from an earlier purge. Before, it checked only
   the ids the delete released. Its rule is now the purge's. What a delete removes does not
   change.
+- On the memory store, a delete refuses `count-mismatch` (key `holders`) for a held id whose row
+  counts fewer than 1 holder, before it removes anything, by the purge's check. Before, it
+  removed the peer and its report counted that id as kept by another peer, though none held it.
+  What a delete removes does not grow.
 - What can now be deleted that could not be deleted before: every holding, index entry, change
   record, purge debt, record of a removal, digest row and peer row of one peer, and the bytes of
   each delta that no other peer holds, by one call. Never a peer created later under the same

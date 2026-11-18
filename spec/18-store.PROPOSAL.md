@@ -3020,7 +3020,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        names `purge-debt` while another peer's purge debt names an id the peer held or owed,
        read after the delete, as its purge does. A held id whose
        row is gone throws `StoreIntegrityError` (`claims-unreadable`) before the delete removes
-       anything, as the purge of that id does (reading 136). **Known limit:** until a remedy for
+       anything, as the purge of that id does (reading 136). A held id whose row counts fewer
+       than 1 holder throws `count-mismatch` (key `holders`, with the peer and the id) the same
+       way, by the same check as the purge. **Known limit:** until a remedy for
        that purge lands, no call deletes such a peer.
      - **A handle names one peer.** After a delete, every call of an old handle with a
        well-formed request refuses `peer-absent`, on both stores, also after a `createPeer` of
