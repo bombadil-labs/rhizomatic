@@ -286,6 +286,37 @@ describe.each(STORES)("peer delete on the %s store", (name, open, posture, claim
     expect((await store.openAdmin().fsck()).faults).toEqual([]);
   });
 
+  it("retains names purge-debt when a debt of another peer names an id the deleted peer released in an earlier purge, and the memory store omits it when the delete settles the last debt; the bystander reads back", async () => {
+    const store = await open();
+    const a = await store.createPeer("peer:a", { erasure: posture });
+    const b = await store.createPeer("peer:b", { erasure: posture });
+    const c = await store.createPeer("peer:c", { erasure: posture });
+    const [x, y] = facts("debt", 2) as [Delta, Delta];
+    await add(a, [x]);
+    await add(b, [x]);
+    await add(c, [x, y]);
+    // A and B purge x while C holds it, so each owes x.
+    expect((await a.purge([x.id])).targets).toEqual([{ id: x.id, outcome: "held-by-other-peer" }]);
+    expect((await b.purge([x.id])).targets).toEqual([{ id: x.id, outcome: "held-by-other-peer" }]);
+    const report = await store.deletePeer("peer:a");
+    expect([report.released, report.keptByOtherPeers]).toEqual([0, 0]);
+    expect(report.retains.map((r) => r.surface)).toContain("purge-debt");
+    // B's debt of x is still in the store: its purge reports it.
+    const owed = await b.purge([x.id]);
+    expect(owed.targets).toEqual([{ id: x.id, outcome: "held-by-other-peer" }]);
+    expect(owed.retains.map((r) => r.surface)).toContain("purge-debt");
+
+    // C's purge removes x. Then B's debt is the last one, and its delete settles it.
+    expect((await c.purge([x.id])).targets).toEqual([{ id: x.id, outcome: "removed" }]);
+    const settled = await store.deletePeer("peer:b");
+    expect(settled.retains.map((r) => r.surface)).toEqual(
+      name === "memory" ? ["change-feed"] : ["change-feed", "purge-debt", "surface-debt"],
+    );
+    expect(await listed(store.openAdmin().storedIds())).toEqual([y.id]);
+    await holds(c, [y]);
+    expect((await store.openAdmin().fsck()).faults).toEqual([]);
+  });
+
   it("rail 10: a peer with no holdings, the last peer, and a second delete; the request is checked first", async () => {
     const store = await open();
     const empty = await store.createPeer("peer:empty", { erasure: posture });

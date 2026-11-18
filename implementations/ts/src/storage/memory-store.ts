@@ -409,7 +409,8 @@ class MemoryStore implements Store {
     const held = state.holdings.scan().map(([key]) => key);
     for (const key of held) this.#row(state, key);
     const gone = held.filter((key) => this.#release(state, key).gone);
-    for (const [key] of state.owed.scan()) this.#settle(state, key);
+    const owed = state.owed.scan().map(([key]) => key);
+    for (const key of owed) this.#settle(state, key);
     this.#peers.delete(id);
     state.deleted = true;
     return {
@@ -426,7 +427,8 @@ class MemoryStore implements Store {
       ],
       retains: [
         { surface: "change-feed", holds: "id" },
-        ...(held.some((key) => this.#debtors.get(key) !== undefined)
+        // As the purge's: a debt another peer still has for an id this peer held or owed.
+        ...([...held, ...owed].some((key) => this.#debtors.get(key) !== undefined)
           ? [{ surface: "purge-debt" as const, holds: "id" as const }]
           : []),
       ],

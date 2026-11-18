@@ -170,31 +170,6 @@ Step 4d adds more, listed under Breaking.
 - The memory store's test meter counts the digest's path in `append` and `purge`. A rail bounds
   their lookups by a fixed cost per level of the tree for each changed id, with the levels
   counted from the ids.
-- Step 4e starts. The Rust purge report gains `retains` (`Retained`, `RetainedSurface`), and
-  the Rust refusal codes gain `StoreErrorCode::StoreUnavailable` (§4.13 readings 105 and 108).
-  The Rust memory store names `change-feed`, and `purge-debt` while a purge debt of any peer
-  names a target the peer released or owes. It counts the peers that owe each id, so it finds a
-  debt without a walk of the peers. Every purge step of the shared store vectors now carries
-  `expect.retains`, and both runners check it (README §3.4). The format names do not change.
-  What a purge removes does not change.
-- Step 4e: a Rust snapshot answers after appends (§4.13 readings 130 and 131).
-  `Snapshot::last_sequence` is fixed at read. The Rust memory store records `removed_at`, the
-  revision of the last purge that released a holding. A snapshot's five reads keep the holdings
-  within its last sequence, and refuse `snapshot-moved` once such a purge follows the read. Every
-  `read` step of `scripts.json` now carries `expect.lastSequence`, and both runners check it.
-  Both runners now hold a memory reference store to an answer where a step allows
-  `snapshot-moved` (README §3.7). The format names do not change. What a purge removes does not
-  change.
-- Step 4e: a new holding's transfer must pass the peer's last one, in Rust and in the shared
-  vectors (§4.13 reading 135). `Snapshot::last_transfer` is fixed at read. The Rust memory store
-  refuses `invalid-admission` for a new entry whose transfer is not above the peer's last one.
-  A skipped entry, a head-only append and a purge keep the last transfer. Each peer has its own
-  last transfer. The new script
-  `a-transfer-must-pass-the-peers-last` holds the rule, and every `read` step carries
-  `expect.lastTransfer`. The format names do not change. What a purge removes does not change.
-- Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
-  `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
-  revision refuses when its `removed_at` is above the snapshot's revision.
 - **Peer delete** (step 4d, §4.13 reading 144). `Store.deletePeer(id)` deletes a peer: its
   holdings, index entries, change records, purge debts, records of removals and digest, then the
   peer. Bytes that another peer holds stay. It answers a `DeleteReport`
@@ -261,10 +236,39 @@ Step 4d adds more, listed under Breaking.
   counts cover only what the repeat released. If another delete of the peer ended and the id
   was created again, the repeat is a new call and deletes the new peer. A host that must not
   delete a new peer reads the peer before it repeats.
+- On the memory store, a delete's `retains` names `purge-debt` also when another peer's
+  purge debt names an id the deleted peer owed from an earlier purge. Before, it checked only
+  the ids the delete released. Its rule is now the purge's. What a delete removes does not
+  change.
 - What can now be deleted that could not be deleted before: every holding, index entry, change
   record, purge debt, record of a removal, digest row and peer row of one peer, and the bytes of
   each delta that no other peer holds, by one call. Never a peer created later under the same
   id.
+- Step 4e starts. The Rust purge report gains `retains` (`Retained`, `RetainedSurface`), and
+  the Rust refusal codes gain `StoreErrorCode::StoreUnavailable` (§4.13 readings 105 and 108).
+  The Rust memory store names `change-feed`, and `purge-debt` while a purge debt of any peer
+  names a target the peer released or owes. It counts the peers that owe each id, so it finds a
+  debt without a walk of the peers. Every purge step of the shared store vectors now carries
+  `expect.retains`, and both runners check it (README §3.4). The format names do not change.
+  What a purge removes does not change.
+- Step 4e: a Rust snapshot answers after appends (§4.13 readings 130 and 131).
+  `Snapshot::last_sequence` is fixed at read. The Rust memory store records `removed_at`, the
+  revision of the last purge that released a holding. A snapshot's five reads keep the holdings
+  within its last sequence, and refuse `snapshot-moved` once such a purge follows the read. Every
+  `read` step of `scripts.json` now carries `expect.lastSequence`, and both runners check it.
+  Both runners now hold a memory reference store to an answer where a step allows
+  `snapshot-moved` (README §3.7). The format names do not change. What a purge removes does not
+  change.
+- Step 4e: a new holding's transfer must pass the peer's last one, in Rust and in the shared
+  vectors (§4.13 reading 135). `Snapshot::last_transfer` is fixed at read. The Rust memory store
+  refuses `invalid-admission` for a new entry whose transfer is not above the peer's last one.
+  A skipped entry, a head-only append and a purge keep the last transfer. Each peer has its own
+  last transfer. The new script
+  `a-transfer-must-pass-the-peers-last` holds the rule, and every `read` step carries
+  `expect.lastTransfer`. The format names do not change. What a purge removes does not change.
+- Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
+  `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
+  revision refuses when its `removed_at` is above the snapshot's revision.
 
 ### ⚠️ Breaking
 
