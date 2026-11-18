@@ -23,7 +23,8 @@ use rhizomatic::set::make_delta;
 use rhizomatic::store::{
     Admission, AppendResult, ArrivalRecord, ChangePage, ChangeRecord, ChangeRetention,
     CreatePeerOptions, ErasurePosture, PeerErasure, PeerStore, PurgeReport, Revision, ScopeRequest,
-    ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta, MAX_REVISION,
+    ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreFailure, VerifiedDelta,
+    MAX_REVISION,
 };
 use rhizomatic::store_conformance::{
     run_follow_conformance, FollowCaseStore, FollowReader, Follower, StoreConformanceError,
@@ -989,11 +990,11 @@ impl PeerStore for Probe<'_> {
         self.log("append");
         self.inner.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         self.log("purge");
         self.inner.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.log("changes");
         if let Some(store) = self.closes {
             store.close();
@@ -1044,11 +1045,11 @@ impl Snapshot for ProbeSnapshot {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.log("get");
         self.inner.get(ids)
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.log("arrivals");
         let mut records = self.inner.arrivals(ids)?;
         if self.short_arrivals && !records.is_empty() {
@@ -1056,15 +1057,15 @@ impl Snapshot for ProbeSnapshot {
         }
         Ok(records)
     }
-    fn targets(&self, e: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, e: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.log("targets");
         self.inner.targets(e)
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.log("negators");
         self.inner.negators(ids)
     }
-    fn scope(&self, r: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, r: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         self.log("scope");
         self.inner.scope(r)
     }
@@ -2134,10 +2135,10 @@ impl PeerStore for StuckPeer<'_> {
     fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
         self.0.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         self.0.purge(ids)
     }
-    fn changes(&self, from: Revision, _: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, _: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         Ok(ChangePage::Ok {
             records: Vec::new(),
             through: from,

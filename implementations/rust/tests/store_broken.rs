@@ -12,7 +12,7 @@ use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::store::{
     Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, CreatePeerOptions, ErasureClaim,
     Exporter, Listing, PeerErasure, PeerExporter, PeerStore, PurgeReport, PushdownFields, Revision,
-    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreProfile,
+    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreFailure, StoreProfile,
 };
 use rhizomatic::store_conformance::{run_store_conformance, StoreConformanceError, StoreVectors};
 use rhizomatic::types::Delta;
@@ -150,14 +150,14 @@ impl PeerStore for FaultyPeer {
         };
         Ok(AppendResult::Committed { revision, added })
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         let mut report = self.inner.purge(ids)?;
         if self.fault == Fault::ClaimsProven {
             report.claim = ErasureClaim::Proven;
         }
         Ok(report)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.inner.changes(from, to)
     }
 }
@@ -198,20 +198,20 @@ impl Snapshot for FaultySnapshot {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
-    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
     }
-    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         let records = self.inner.arrivals(ids)?;
         Ok(records.into_iter().map(|r| self.arrival(r)).collect())
     }
-    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.targets(entities)
     }
-    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.inner.negators(ids)
     }
-    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         let mut asked = request.clone();
         match self.fault {
             Fault::ReturnsOutsideTheScope => asked.anchors.push(Anchor::Entity {

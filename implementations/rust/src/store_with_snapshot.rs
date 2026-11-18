@@ -139,7 +139,8 @@ impl Drop for Held {
 ///
 /// The body's error type `E` holds a store refusal, a store fault, and the refusal's code. The
 /// crate has two: [`FeedError`], the smallest, and `store_read::StoreReadError`. A body that
-/// only calls `Snapshot` methods uses `FeedError`, and `?` turns each `StoreError` into it.
+/// only calls `Snapshot` methods uses `FeedError`, and `?` turns each `StoreFailure` into it. An
+/// integrity fault is no refusal, so it passes up after one run, as any other error does.
 pub fn with_snapshot<T, E>(
     peer: &dyn PeerStore,
     mut body: impl FnMut(&dyn Snapshot, usize) -> Result<T, E>,

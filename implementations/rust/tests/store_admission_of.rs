@@ -11,7 +11,7 @@ use rhizomatic::set::make_delta;
 use rhizomatic::store::{
     Admission, AppendResult, ArrivalRecord, CreatePeerOptions, ErasurePosture, PeerStore,
     PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError,
-    StoreErrorCode, MAX_ARRIVAL_COUNTER,
+    StoreErrorCode, StoreFailure, MAX_ARRIVAL_COUNTER,
 };
 use rhizomatic::store_admission::{admission_of, AdmissionOptions};
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Target};
@@ -233,7 +233,7 @@ fn at(head: Option<&str>, last_sequence: u64, last_transfer: u64) -> Fixed {
 }
 
 impl Fixed {
-    fn touch<T>(&self, answer: T) -> Result<T, StoreError> {
+    fn touch<T>(&self, answer: T) -> Result<T, StoreFailure> {
         self.touched.set(self.touched.get() + 1);
         Ok(answer)
     }
@@ -258,19 +258,19 @@ impl Snapshot for Fixed {
     fn last_transfer(&self) -> u64 {
         self.last_transfer
     }
-    fn get(&self, _: &[String]) -> Result<Vec<Delta>, StoreError> {
+    fn get(&self, _: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.touch(Vec::new())
     }
-    fn arrivals(&self, _: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+    fn arrivals(&self, _: &[String]) -> Result<Vec<ArrivalRecord>, StoreFailure> {
         self.touch(Vec::new())
     }
-    fn targets(&self, _: &[String]) -> Result<Vec<String>, StoreError> {
+    fn targets(&self, _: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.touch(Vec::new())
     }
-    fn negators(&self, _: &[String]) -> Result<Vec<String>, StoreError> {
+    fn negators(&self, _: &[String]) -> Result<Vec<String>, StoreFailure> {
         self.touch(Vec::new())
     }
-    fn scope(&self, _: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+    fn scope(&self, _: &ScopeRequest) -> Result<ScopeResult, StoreFailure> {
         self.touch(ScopeResult {
             deltas: Vec::new(),
             applied: PushdownFields::default(),

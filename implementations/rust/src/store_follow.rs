@@ -13,8 +13,8 @@ use serde_json::Value;
 
 use crate::store::{
     Admission, AppendResult, ChangePage, ChangeRecord, PeerErasure, PeerStore, PurgeReport,
-    Revision, Snapshot, StoreError, StoreErrorCode, VerifiedDelta, LOCAL_HISTORY_PREFIX,
-    MAX_REVISION,
+    Revision, Snapshot, StoreError, StoreErrorCode, StoreFailure, VerifiedDelta,
+    LOCAL_HISTORY_PREFIX, MAX_REVISION,
 };
 use crate::store_conformance::{FollowReader, Follower};
 use crate::store_fresh::{
@@ -165,10 +165,10 @@ impl PeerStore for Borrowed<'_> {
     fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
         self.0.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         self.0.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         self.0.changes(from, to)
     }
 }

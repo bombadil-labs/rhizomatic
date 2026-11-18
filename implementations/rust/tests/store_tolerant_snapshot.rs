@@ -6,13 +6,15 @@
 
 use std::cell::Cell;
 
+use crate::refused::as_refusal;
 use rhizomatic::eval::result_canonical_hex;
 use rhizomatic::memory_store::{MemoryStore, MemoryStoreOptions};
 use rhizomatic::set::{make_delta, make_negation_claims};
 use rhizomatic::store::{
     Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ChangeRetention, CreatePeerOptions,
     ErasureClaim, ErasurePosture, PeerErasure, PeerStore, PurgeOutcome, PurgeReport, Pushdown,
-    Revision, ScopeRequest, Snapshot, Store, StoreError, VerifiedDelta, MAX_ARRIVAL_COUNTER,
+    Revision, ScopeRequest, Snapshot, Store, StoreError, StoreFailure, VerifiedDelta,
+    MAX_ARRIVAL_COUNTER,
 };
 use rhizomatic::store_follow::{follow_feed, position_of, Position, Pull};
 use rhizomatic::store_fresh::{check_fresh, FeedError, Freshness};
@@ -165,14 +167,14 @@ fn every_call(s: &dyn Snapshot, id: &str) -> Vec<String> {
         exclude: Vec::new(),
     };
     vec![
-        code(s.get(&id)),
-        code(s.get(&none)),
-        code(s.arrivals(&id)),
-        code(s.targets(&[X.to_string()])),
-        code(s.targets(&none)),
-        code(s.negators(&id)),
-        code(s.scope(&anchored(X))),
-        code(s.scope(&unanchored)),
+        code(s.get(&id).map_err(as_refusal)),
+        code(s.get(&none).map_err(as_refusal)),
+        code(s.arrivals(&id).map_err(as_refusal)),
+        code(s.targets(&[X.to_string()]).map_err(as_refusal)),
+        code(s.targets(&none).map_err(as_refusal)),
+        code(s.negators(&id).map_err(as_refusal)),
+        code(s.scope(&anchored(X)).map_err(as_refusal)),
+        code(s.scope(&unanchored).map_err(as_refusal)),
     ]
 }
 
@@ -517,10 +519,10 @@ impl PeerStore for Moving<'_> {
     fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
         self.writer.peer.append(batch)
     }
-    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreFailure> {
         self.writer.peer.purge(ids)
     }
-    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreFailure> {
         let page = self.writer.peer.changes(from, to);
         if self.appends.get() > 0 {
             self.appends.set(self.appends.get() - 1);
