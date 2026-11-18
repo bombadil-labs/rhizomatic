@@ -230,6 +230,13 @@ Step 4d adds more, listed under Breaking.
   passes up after the snapshot is released. `StoreReactor::read` and `fetch`, `check_fresh`, a
   feed pull and a pass of held views now call it, with the same behavior as before.
   `SNAPSHOT_RETRIES` moves to `store_with_snapshot`. What a purge removes does not change.
+- Step 4e, follow-ups of the `with_snapshot` review (#112). Rust `StoreError` no longer
+  implements `StoreRefusal`: no body of `with_snapshot` could use it, because `StoreError` has no
+  `From<StoreFault>`. The doc of `with_snapshot` names `FeedError` as the smallest body error.
+  Both witnesses gain three tests: each earlier snapshot is released before the next body starts,
+  a clock with no bound in time is never read, and the bound in time also ends the call on a
+  refused `read()`. Two comments of the TypeScript `with-snapshot.ts` now say that only a purge
+  that releases a holding moves a snapshot. No behavior changes.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
@@ -259,6 +266,8 @@ Step 4d adds more, listed under Breaking.
 - **Rust `store_read::SNAPSHOT_RETRIES` is now `store_with_snapshot::SNAPSHOT_RETRIES`.** The
   value is still 3. `rhizomatic::SNAPSHOT_RETRIES` still names it. A Rust caller that used the
   module path changes the path.
+- **Rust `StoreError` no longer implements `StoreRefusal`.** A Rust caller that called
+  `store_code` on a `StoreError` reads its `code` field.
 - **`admissionOf` has no `transfer` option.** It numbers the transfer itself. Drop the field. The
   option shipped in no release.
 - **A body no longer runs again after its own append.** A `withSnapshot` body, a held-views pass

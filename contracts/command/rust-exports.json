@@ -114144,50 +114144,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store::StoreError",
-      "resolvedTarget": "crate::store::StoreError",
-      "source": "implementations/rust/src/store_with_snapshot.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "StoreError",
-      "target": "crate::store::StoreError",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store_with_snapshot::StoreRefusal",
-      "resolvedTarget": "crate::store_with_snapshot::StoreRefusal",
-      "source": "implementations/rust/src/store_with_snapshot.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "StoreError",
-      "target": "crate::store_with_snapshot::StoreRefusal",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::StoreErrorCode",
-      "resolvedTarget": "crate::store::StoreErrorCode",
-      "source": "implementations/rust/src/store_with_snapshot.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "StoreError::store_code",
-      "target": "crate::store::StoreErrorCode",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store_with_snapshot::StoreError",
-      "resolvedTarget": "crate::store_with_snapshot::StoreError",
-      "source": "implementations/rust/src/store_with_snapshot.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "StoreError::store_code",
-      "target": "crate::store_with_snapshot::StoreError",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
       "rawTarget": "crate::store_fresh::FeedError",
       "resolvedTarget": "crate::store_fresh::FeedError",
       "source": "implementations/rust/src/store_with_snapshot.rs",
@@ -118546,7 +118502,7 @@
       "definition": "reexport",
       "id": "rust:lib:SNAPSHOT_RETRIES",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::SNAPSHOT_RETRIES reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::SNAPSHOT_RETRIES reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "SNAPSHOT_RETRIES",
       "target": "crate::store_with_snapshot::SNAPSHOT_RETRIES"
@@ -118810,7 +118766,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreReactor",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::StoreReactor reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::StoreReactor reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreReactor",
       "target": "crate::store_read::StoreReactor"

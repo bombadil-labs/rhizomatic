@@ -479,6 +479,89 @@ fn releases_the_snapshot_of_every_attempt_on_an_answer_on_an_error_and_on_a_move
 }
 
 #[test]
+fn at_each_start_of_the_body_every_earlier_snapshot_is_already_released_0_then_1_0_then_1_1_0_then_1_1_1_0(
+) {
+    let (_store, peer) = seeded();
+    let watch = watched(peer.as_ref());
+    let starts = RefCell::new(Vec::new());
+    let mut moving = always_moved(peer.as_ref());
+    let failure = with_snapshot(
+        &watch,
+        |snapshot, attempt| {
+            starts.borrow_mut().push(watch.releases());
+            moving(snapshot, attempt)
+        },
+        &SnapshotRetry::default(),
+    );
+    assert_eq!(code(&failure), "snapshot-moved");
+    assert_eq!(
+        starts.into_inner(),
+        vec![vec![0], vec![1, 0], vec![1, 1, 0], vec![1, 1, 1, 0]]
+    );
+    assert_eq!(watch.releases(), vec![1, 1, 1, 1]);
+}
+
+#[test]
+fn a_clock_with_no_within_ms_is_never_read_0_readings_on_an_answer_and_on_4_moved_snapshots() {
+    let (_store, peer) = seeded();
+    let readings = Cell::new(0);
+    let clock = || {
+        readings.set(readings.get() + 1);
+        1_000.0
+    };
+    let retry = SnapshotRetry {
+        clock: Some(&clock),
+        ..SnapshotRetry::default()
+    };
+    let answer = with_snapshot(
+        peer.as_ref(),
+        |s, _| Ok::<_, FeedError>(s.revision()),
+        &retry,
+    )
+    .unwrap();
+    let watch = watched(peer.as_ref());
+    let failure = with_snapshot(&watch, always_moved(peer.as_ref()), &retry);
+    assert_eq!(
+        (answer.attempts, code(&failure), watch.reads.get()),
+        (1, "snapshot-moved".to_string(), 4)
+    );
+    assert_eq!(readings.get(), 0);
+}
+
+#[test]
+fn within_ms_also_ends_the_call_on_a_refused_read_10_ms_and_30_ms_per_reading_pass_the_first_refusal_up_after_1_read_and_2_readings(
+) {
+    let (_store, peer) = seeded();
+    let watch = watched(peer.as_ref());
+    *watch.refusals.borrow_mut() = (1..=16)
+        .map(|n| moved(&format!("moved before the snapshot, refusal {n}")))
+        .collect();
+    let readings = Cell::new(0);
+    let clock = || {
+        readings.set(readings.get() + 1);
+        1_000.0 + 30.0 * readings.get() as f64
+    };
+    let runs = Cell::new(0);
+    let failure = with_snapshot(
+        &watch,
+        |_, _| {
+            runs.set(runs.get() + 1);
+            Ok::<_, FeedError>(())
+        },
+        &SnapshotRetry {
+            within_ms: Some(10),
+            clock: Some(&clock),
+            ..SnapshotRetry::default()
+        },
+    );
+    assert_eq!(
+        failure.unwrap_err(),
+        FeedError::Refused(moved("moved before the snapshot, refusal 1"))
+    );
+    assert_eq!((watch.reads.get(), readings.get(), runs.get()), (1, 2, 0));
+}
+
+#[test]
 fn within_ms_bounds_the_snapshots_after_the_first_by_the_hosts_clock_0_still_runs_the_first_a_body_that_passes_the_bound_gets_no_second_a_bound_not_passed_reaches_the_count(
 ) {
     let (_store, peer) = seeded();
