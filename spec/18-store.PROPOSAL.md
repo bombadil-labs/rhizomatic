@@ -1202,9 +1202,10 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     their type (reading 41). A malformed member that a store returns in a `scope` answer is not
     the caller's error: since step 4d a read through `readAnchored`, `StoreReactor`, a pass of
     held views or `fetchScope` reports it as the store fault `malformed-member` (reading 73),
-    and the fetch cache keeps its own `invalid-request` for a host that calls it directly. The
-    TypeScript witness has it; the Rust read does not check a member's id yet, and takes the rule
-    in step 4e.
+    and the fetch cache keeps its own `invalid-request` for a host that calls it directly. Since
+    step 4e the Rust read, `fetch_scope`, `capture_scope` and held views report it as
+    `StoreFault::MalformedMember`. No conforming store answers such a member, so no shared vector
+    holds the rule; a wrong-store row of each witness does (vectors README §8).
 22. **Requirements are an allow-list.** A name outside it is refused and named, never looked up
     on the profile. A capability counts only when it is exactly true.
 23. **Handles.** An older `PeerStore` stays valid when the peer is opened again; both are views
@@ -1877,7 +1878,8 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
     broke its contract as a value, never by aborting the host: slice 4 brings stores that can be
     remote, and a library must not take its host down over one faulty store. The fault names its
     rule with the same words in every witness: `no-progress`, `past-the-bound`,
-    `mismatched-answers`, `unasked-ids` and `revision-out-of-range` (reading 97). It is distinct from a refusal (`StoreError`): a
+    `mismatched-answers`, `unasked-ids`, `revision-out-of-range` (reading 97) and
+    `malformed-member` (reading 21). It is distinct from a refusal (`StoreError`): a
     refusal is the store keeping its contract, and a fault is the store breaking it. TypeScript
     throws `StoreFaultError`, with `rule` and `values`; Rust returns `FeedError::Fault`, a
     `StoreFault` whose variant is the rule and whose fields are the values. Every snapshot is

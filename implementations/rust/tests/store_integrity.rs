@@ -305,14 +305,15 @@ fn the_functions_on_one_snapshot_and_on_a_listing_answer_the_fault_unchanged() {
         pushdown: Some(&push),
         admits: None,
     };
+    let fed = Some(FeedError::Integrity(fault()));
     let (_store, peer, control) = damaged();
     control.fail("scope");
     let snapshot = peer.read().unwrap();
     let got = fetch_scope(snapshot.as_ref(), &xs(), Selection::default());
-    assert_eq!(got.err(), want, "fetch_scope");
+    assert_eq!(got.err(), fed, "fetch_scope");
     assert_eq!(control.counts(), (1, 1, 0), "fetch_scope");
     let got = capture_scope(snapshot.as_ref(), &xs(), 10.0, Selection::default());
-    assert_eq!(got.err(), want, "capture_scope");
+    assert_eq!(got.err(), fed, "capture_scope");
     assert_eq!(control.counts(), (1, 2, 0), "capture_scope");
     for call in ["targets", "negators"] {
         control.fail(call);
@@ -320,7 +321,7 @@ fn the_functions_on_one_snapshot_and_on_a_listing_answer_the_fault_unchanged() {
         let got = raw_scope(snapshot.as_ref(), &xs());
         assert_eq!(got.err(), want, "raw_scope {call}");
         let got = capture_scope(snapshot.as_ref(), &xs(), 10.0, pushed);
-        assert_eq!(got.err(), want, "capture_scope with a pushdown {call}");
+        assert_eq!(got.err(), fed, "capture_scope with a pushdown {call}");
         assert_eq!(control.counts(), (1, 2, 0), "{call}");
     }
 
