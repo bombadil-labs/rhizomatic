@@ -22,7 +22,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
-use crate::refused::as_refusal;
 use rhizomatic::memory_store::{HistoryMint, MemoryStore, MemoryStoreOptions};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSource};
 use rhizomatic::store::{
@@ -409,7 +408,7 @@ impl Mutant {
         entities: &[String],
         now: f64,
         pushdown: Option<&Pushdown>,
-    ) -> Result<Capture, StoreFailure> {
+    ) -> Result<Capture, FeedError> {
         let w = self.0;
 
         let standard = capture_scope(snapshot, entities, now, select(pushdown))?.1;
@@ -525,7 +524,7 @@ impl Mutant {
             members,
             ValidityWindow { since, expires_at },
         )
-        .map_err(StoreFailure::from)
+        .map_err(FeedError::from)
     }
 }
 
@@ -536,7 +535,7 @@ impl FreshnessReader for Mutant {
         entities: &[String],
         now: f64,
         pushdown: Option<&Pushdown>,
-    ) -> Result<Capture, StoreFailure> {
+    ) -> Result<Capture, FeedError> {
         self.captured(snapshot, entities, now, pushdown)
     }
 
@@ -1131,7 +1130,7 @@ impl FreshnessReader for OverStuck {
         entities: &[String],
         now: f64,
         pushdown: Option<&Pushdown>,
-    ) -> Result<Capture, StoreFailure> {
+    ) -> Result<Capture, FeedError> {
         StoreFreshness.capture(snapshot, entities, now, pushdown)
     }
     fn touching(
@@ -1837,10 +1836,9 @@ fn check_fresh_and_capture_scope_refuse_a_now_that_is_not_finite() {
         let mut snapshot = peer.read().unwrap();
         assert_eq!(
             capture_scope(snapshot.as_ref(), &["plant:a".into()], now, select(None))
-                .map_err(as_refusal)
                 .map(|_| ())
-                .map_err(|e| e.code),
-            Err(StoreErrorCode::InvalidRequest),
+                .map_err(|e| e.code()),
+            Err(Some(StoreErrorCode::InvalidRequest)),
             "capture_scope at {now}"
         );
         snapshot.release();

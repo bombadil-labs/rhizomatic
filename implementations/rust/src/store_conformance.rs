@@ -128,7 +128,7 @@ pub trait FreshnessReader {
         entities: &[String],
         now: f64,
         pushdown: Option<&Pushdown>,
-    ) -> Result<Capture, StoreFailure>;
+    ) -> Result<Capture, FeedError>;
     fn touching(
         &self,
         capture: &Capture,
@@ -1284,13 +1284,13 @@ impl<'a> Run<'a> {
         let (history, revision) = (snapshot.history().to_string(), snapshot.revision());
         snapshot.release();
         let capture = made.map_err(|e| match e {
-            StoreFailure::Refused(e) => match e.code {
+            FeedError::Refused(e) => match e.code {
                 StoreErrorCode::InvalidRequest if e.message.starts_with("capture: ") => {
                     format!("the capture is malformed: {}", e.message)
                 }
                 code => format!("capture refused `{}`: {}", code.as_str(), e.message),
             },
-            StoreFailure::Integrity(fault) => damaged("capture", &fault),
+            other => failed_call("capture", other),
         })?;
         // 0. The checking constructor. A `Capture` exists only once a constructor checked it, so
         // a malformed one shows as the maker's refusal inside the reader, reported above

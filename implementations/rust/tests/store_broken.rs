@@ -15,7 +15,12 @@ use rhizomatic::store::{
     PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreFailure,
     StoreProfile,
 };
-use rhizomatic::store_conformance::{run_store_conformance, StoreConformanceError, StoreVectors};
+use rhizomatic::store_conformance::{
+    run_freshness_conformance, run_store_conformance, run_views_conformance, StoreConformanceError,
+    StoreVectors,
+};
+use rhizomatic::store_read::StoreFreshness;
+use rhizomatic::store_views::StoreViewsReader;
 use rhizomatic::types::Delta;
 use serde_json::Value;
 
@@ -40,6 +45,8 @@ enum Fault {
     ReportsHeldAsAdded,
     /// `purge` claims `proven` whatever it did, on a store that cannot prove absence.
     ClaimsProven,
+    /// `scope` answers each member with an arrival record that names another id.
+    ForgesScopeArrival,
 }
 
 type Latest = Rc<RefCell<BTreeMap<(String, String), ArrivalRecord>>>;
@@ -255,6 +262,9 @@ impl Snapshot for FaultySnapshot {
         }
         for member in &mut answer.deltas {
             member.arrival = self.arrival(member.arrival.clone());
+            if self.fault == Fault::ForgesScopeArrival {
+                member.arrival.id = format!("{}-other", member.delta.id);
+            }
         }
         Ok(answer)
     }
@@ -516,4 +526,58 @@ fn a_store_that_claims_proof_it_cannot_give_fails_every_purge() {
             "scripts/feed-a-debt-ends-on-append",
         ]
     );
+}
+
+#[test]
+fn a_store_that_answers_a_scope_member_with_another_ids_arrival_fails_the_scripts() {
+    let names = failed(
+        Fault::ForgesScopeArrival,
+        &["does not carry the arrival record peer"],
+    );
+    assert!(
+        names.contains(&"scripts/negation-chains".to_string()),
+        "{names:?}"
+    );
+    assert!(
+        names.contains(&"scope/no-selection".to_string()),
+        "{names:?}"
+    );
+}
+
+/// README §9.2 and §11.3: the reader finds the malformed member, and the runner fails the
+/// capture, the hold or the refresh with the fixed words of a store fault.
+#[test]
+fn a_store_that_answers_a_malformed_scope_member_fails_a_capture_and_a_hold_with_the_fixed_words() {
+    let load = |file: &str| -> Value {
+        let path = format!("{}/../../vectors/store/{file}", env!("CARGO_MANIFEST_DIR"));
+        serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+    };
+    let words = "the store broke malformed-member: the store answered a scope member at revision ";
+    let freshness = run_freshness_conformance(
+        &|_| Ok(Box::new(Faulty::new(Fault::ForgesScopeArrival)) as Box<dyn Store>),
+        &load("freshness.json"),
+        &StoreFreshness,
+    )
+    .expect_err("a store that forges an arrival record fails freshness");
+    let views = run_views_conformance(
+        &|_| Ok(Box::new(Faulty::new(Fault::ForgesScopeArrival)) as Box<dyn Store>),
+        &load("views.json"),
+        &StoreViewsReader::default(),
+    )
+    .expect_err("a store that forges an arrival record fails views");
+    for (case, error) in [
+        ("freshness/unrelated-appends", &freshness),
+        ("views/an-unrelated-append", &views),
+    ] {
+        let failure = error
+            .failures
+            .iter()
+            .find(|f| f.name == case)
+            .unwrap_or_else(|| panic!("{case} does not fail: {error}"));
+        assert!(
+            failure.message.starts_with(words),
+            "{case}: {}",
+            failure.message
+        );
+    }
 }

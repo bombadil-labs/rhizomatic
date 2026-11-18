@@ -37,7 +37,7 @@ use crate::set::{fork, DeltaSource};
 use crate::store::{
     collect_delta_set, Anchor, ArrivalRecord, ChangeRecord, IntegrityFault, PeerExporter,
     PeerStore, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeSource, Snapshot, StoreError,
-    StoreErrorCode, StoreFailure,
+    StoreErrorCode, StoreFailure, VerifiedDelta,
 };
 use crate::store_conformance::FreshnessReader;
 use crate::store_follow::{follow_feed, position_of, FeedCursor, Position};
@@ -274,7 +274,8 @@ pub enum StoreReadError {
     Store(StoreError),
     /// The evaluator refused the term.
     Eval(String),
-    /// The store broke its contract (`revision-out-of-range`, from `StoreReactor::read`).
+    /// The store broke its contract: `revision-out-of-range` from `StoreReactor::read`, or
+    /// `malformed-member` from any read.
     Fault(StoreFault),
     /// The store met damage in its own data (§4.13 reading 136). It is not a refusal.
     Integrity(IntegrityFault),
@@ -335,6 +336,20 @@ impl From<StoreFault> for StoreReadError {
     }
 }
 
+/// A fetch's error in a body that also reads: a refusal, a store fault and an integrity fault keep
+/// their kind. `FeedError::Read` carries the message of a held view's read that failed for
+/// another reason, the evaluator's.
+impl From<FeedError> for StoreReadError {
+    fn from(error: FeedError) -> Self {
+        match error {
+            FeedError::Refused(e) => Self::Store(e),
+            FeedError::Fault(fault) => Self::Fault(fault),
+            FeedError::Integrity(fault) => Self::Integrity(fault),
+            FeedError::Read(message) => Self::Eval(message),
+        }
+    }
+}
+
 /// The pushdown fields that stay residual for the rest of a read: each requested field that the
 /// answer of some round did not report applied (SPEC-18 §4.12 reading 2).
 #[derive(Debug, Clone, Copy, Default)]
@@ -351,6 +366,22 @@ impl Residual {
         self.arrival_at_most |= asked.arrival_at_most.is_some() && !applied.arrival_at_most;
         self.exclude_ids |= asked.exclude_ids.is_some() && !applied.exclude_ids;
     }
+}
+
+/// Files a `scope` answer in the read's cache. A member the cache refuses came from the store, so
+/// it is the store fault `malformed-member`, not a refusal of the caller's request (SPEC-18
+/// §4.13 reading 21). A refused answer files nothing.
+fn file_answer(
+    cache: &mut ScopeSource,
+    answer: &[VerifiedDelta],
+    revision: Revision,
+) -> Result<(), StoreFault> {
+    cache
+        .extend(answer)
+        .map_err(|refusal| StoreFault::MalformedMember {
+            revision,
+            detail: refusal.message,
+        })
 }
 
 /// Whether a fetched member passes the residual selection: the host predicate, and every
@@ -534,7 +565,7 @@ fn read_rounds(
             }
         };
         let answer = snapshot.scope(&call)?;
-        cache.extend(&answer.deltas)?;
+        file_answer(cache, &answer.deltas, snapshot.revision())?;
         residual.record(pushdown, answer.applied);
         let members = exact_members(cache, &asked, &selection, residual);
         let set = cache.subset(&members);
@@ -631,11 +662,12 @@ impl FetchedScope {
 
 /// One `scope` call for `entities` (each once, ascending), then a source that knows exactly
 /// S(entities) under the selection. A delta the store returned beyond that is not in the source.
+/// A malformed member of the store's answer is the store fault `malformed-member`.
 pub fn fetch_scope(
     snapshot: &dyn Snapshot,
     entities: &[String],
     selection: Selection<'_>,
-) -> Result<FetchedScope, StoreFailure> {
+) -> Result<FetchedScope, FeedError> {
     fetched(snapshot, entities, selection).map(|(fetched, _, _)| fetched)
 }
 
@@ -648,9 +680,9 @@ pub fn capture_scope(
     entities: &[String],
     now: f64,
     selection: Selection<'_>,
-) -> Result<(FetchedScope, Capture), StoreFailure> {
+) -> Result<(FetchedScope, Capture), FeedError> {
     if !now.is_finite() {
-        return Err(StoreFailure::Refused(StoreError::new(
+        return Err(FeedError::Refused(StoreError::new(
             StoreErrorCode::InvalidRequest,
             "captureScope needs a now that is a finite number",
         )));
@@ -666,7 +698,7 @@ fn fetched(
     snapshot: &dyn Snapshot,
     entities: &[String],
     selection: Selection<'_>,
-) -> Result<(FetchedScope, BTreeSet<String>, ScopeSource), StoreFailure> {
+) -> Result<(FetchedScope, BTreeSet<String>, ScopeSource), FeedError> {
     let anchors: BTreeSet<String> = entities.iter().cloned().collect();
     let call = scope_request(
         &anchors.iter().cloned().collect::<Vec<_>>(),
@@ -675,7 +707,7 @@ fn fetched(
     );
     let answer = snapshot.scope(&call)?;
     let mut cache = ScopeSource::default();
-    cache.extend(&answer.deltas)?;
+    file_answer(&mut cache, &answer.deltas, snapshot.revision())?;
     let mut residual = Residual::default();
     residual.record(selection.pushdown, answer.applied);
     let members = exact_members(&cache, &anchors, &selection, residual);
@@ -856,16 +888,15 @@ impl StoreReactor {
     }
 
     /// `fetch_scope` on a new snapshot, started again on `snapshot-moved`. A snapshot whose
-    /// revision is out of range is the store fault `revision-out-of-range` (`FeedError::Fault`).
+    /// revision is out of range is the store fault `revision-out-of-range` (`FeedError::Fault`),
+    /// and a malformed member of the answer is `malformed-member`. Neither starts again.
     pub fn fetch(
         &self,
         entities: &[String],
         selection: Selection<'_>,
     ) -> Result<FetchedScope, FeedError> {
-        self.on_snapshots(|snapshot, _| {
-            fetch_scope(snapshot, entities, selection).map_err(FeedError::from)
-        })
-        .map(|(fetched, _)| fetched)
+        self.on_snapshots(|snapshot, _| fetch_scope(snapshot, entities, selection))
+            .map(|(fetched, _)| fetched)
     }
 }
 
@@ -881,7 +912,7 @@ impl FreshnessReader for StoreFreshness {
         entities: &[String],
         now: f64,
         pushdown: Option<&Pushdown>,
-    ) -> Result<Capture, StoreFailure> {
+    ) -> Result<Capture, FeedError> {
         let selection = Selection {
             pushdown,
             admits: None,
