@@ -128,12 +128,12 @@ pub use sign::{sign_claims, verify_delta, Verification};
 pub use store::{
     collect_delta_set, missing_requirements, scope_source, signature_form, Admission, Anchor,
     AppendResult, AtRest, ChangePage, ChangeRecord, ChangeRetention, CreatePeerOptions,
-    ErasureClaim, ErasureClass, ErasurePosture, Exporter, IntegrityFault, IntegrityFaultKind,
-    Listing, PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PurgeSurface,
-    PurgeTarget, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource,
-    Snapshot, Store, StoreCapabilities, StoreError, StoreErrorCode, StoreFailure, StoreProfile,
-    StoreRequirement, StoreWriters, SurfaceState, VerifiedDelta, APP_FORMAT_MAX_BYTES,
-    MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
+    ErasureClaim, ErasureClass, ErasurePosture, Exporter, FsckChecked, FsckReport, IntegrityFault,
+    IntegrityFaultKind, Listing, PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport,
+    PurgeSurface, PurgeTarget, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult,
+    ScopeSource, Snapshot, Store, StoreCapabilities, StoreError, StoreErrorCode, StoreFailure,
+    StoreProfile, StoreRequirement, StoreWriters, SurfaceState, VerifiedDelta,
+    APP_FORMAT_MAX_BYTES, MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
 };
 pub use store_admission::{admission_of, AdmissionOptions};
 pub use store_conformance::{

@@ -77,6 +77,7 @@ mod store_feed;
 mod store_feed_rules;
 mod store_follow;
 mod store_freshness;
+mod store_integrity;
 mod store_open;
 mod store_read_families;
 mod store_retains;

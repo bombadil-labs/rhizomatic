@@ -2663,8 +2663,10 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `Error` and could leave the ids sorted before that id removed with no change record. A
      memory-store remedy that completes that purge is proposed in its own pull request, because
      it widens what a purge removes. No call replaces a row; a replace stays with Loam's repair layer in
-     slice 5. Rust takes the error in step 4e. **A fault is erasable material.** Its `id` is a
-     delta id, and its `key` can be an entity id or a referenced id; an `index-stray` or
+     slice 5. In step 4e the Rust memory store takes the same faults, the same purge rule and
+     `fsck` (reading 137), except `digest-mismatch`, which comes with its digest. **A fault is
+     erasable material.** Its `id` is a delta id, and its `key` can be an entity id or a
+     referenced id; an `index-stray` or
      `index-missing` detail can name a pointer role. All of these come from claims. A host that
      logs or keeps a fault keeps them outside the store, where a purge does not reach. It treats
      a stored fault report as erasable material of that delta.

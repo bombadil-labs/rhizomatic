@@ -11,8 +11,9 @@ use std::rc::Rc;
 use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::store::{
     Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, CreatePeerOptions, ErasureClaim,
-    Exporter, Listing, PeerErasure, PeerExporter, PeerStore, PurgeReport, PushdownFields, Revision,
-    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreFailure, StoreProfile,
+    Exporter, FsckReport, Listing, PeerErasure, PeerExporter, PeerStore, PurgeReport,
+    PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreFailure,
+    StoreProfile,
 };
 use rhizomatic::store_conformance::{run_store_conformance, StoreConformanceError, StoreVectors};
 use rhizomatic::types::Delta;
@@ -287,6 +288,9 @@ impl Exporter for FaultyExporter {
     fn stored_ids(&self) -> Listing<'_, String> {
         let ids: Vec<_> = self.inner.open_admin().stored_ids().collect();
         Box::new(ids.into_iter())
+    }
+    fn fsck(&self) -> Result<FsckReport, StoreError> {
+        self.inner.open_admin().fsck()
     }
 }
 
