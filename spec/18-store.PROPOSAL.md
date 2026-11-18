@@ -2852,13 +2852,23 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      that is not a non-empty, well-formed string. A peer that does not exist is refused
      `peer-absent`. A busy engine refuses `store-unavailable` (reading 105) until the transaction
      that removes the `peer` row commits. After that commit the call does not refuse:
-     - a refusal before it leaves the mark and the rows the call has not reached. A repeat goes
-       on from there, as after a delete that dies. Its counts cover only what the repeat
-       released;
+     - a refusal before it leaves the mark and the rows the call has not reached. Its message
+       does not say "ask again": it says that the delete did not finish, and that a repeat
+       deletes the peer that has the id at that time. A repeat goes on from there while the mark
+       is there, as after a delete that dies. Its counts cover only what the repeat released. If
+       another delete of the peer ended and the id was created again, the repeat is a new call
+       and deletes the new peer. A host that must not delete a new peer reads the peer before it
+       repeats. A delete that names one peer of the id, not the id, would close this; it changes
+       the call's shape and is not offered;
+     - if the commit of the transaction that removes the `peer` row fails and the store cannot
+       tell whether it committed, the call refuses. When that commit was durable, a repeat
+       answers `peer-absent`;
      - after it, a repeat would answer `peer-absent`, and the host would have no report. So when
-       the last transaction cannot take the write lock or commit (`store-unavailable`), the call
-       answers its counts with every file surface `owed` and the claim `unproven`. That report is
-       true without the lock: `owed` claims no absence.
+       the last transaction fails for any engine error (a lock, a full disk, an I/O error), the
+       call answers its counts with every file surface `owed` and the claim `unproven`. On a
+       store of class `unprovable`, `temp-files` is `unprovable` there, as in every report. That
+       report is true without the lock: `owed` claims no absence. The host sees the cause at its
+       next call.
      - **The input is the peer's own rows.** The delete reads the peer's holdings by the peer's
        own key, never the store's list of stored ids. Each holding leaves through the purge's own
        release: the `holding` row, its index rows by the cascade, and the `delta` row when no
@@ -2929,8 +2939,8 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        cover the `history` table: a host mint that puts the peer's id in a history keeps it
        there.
      - **A delete that dies.** A crash after the mark leaves the mark and the rows it has not
-       reached. The next `deletePeer` of the id goes on from there; its counts cover only what
-       that call released. `fsck` reports a marked peer as one `peer-deleting` fault, names the
+       reached. The next `deletePeer` of the id goes on from there while the mark is there; its
+       counts cover only what that call released. `fsck` reports a marked peer as one `peer-deleting` fault, names the
        peer, and checks no other row of it. Two deletes of one peer at once share the work; each
        counts what it released. A delete that finds the row gone, or a row of another `origin`,
        removes nothing more and answers its own counts, decided by the same last transaction:

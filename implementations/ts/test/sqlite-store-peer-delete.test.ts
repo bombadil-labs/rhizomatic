@@ -362,7 +362,7 @@ describe("a delete that dies, and other processes", () => {
       const watcher = child({ op: "watch", path, peer: name });
       await watcher.printed("ready");
 
-      const deleter = child({ op: "delete", path, peer: name, slowMs: 40 });
+      const deleter = child({ op: "delete", path, peer: name, slowMs: 40, busyTimeoutMs: 5000 });
       const poll = new Database(path, { readonly: true });
       const state = poll.prepare("SELECT state FROM peer WHERE id = ?").pluck();
       const held = poll.prepare("SELECT count(*) FROM holding WHERE peer = ?").pluck();
@@ -564,15 +564,12 @@ const owed = (released: number, keptByOtherPeers: number): DeleteReport => ({
   keptByOtherPeers,
 });
 /**
- * A child deleter that stops after its first commit; `go` lets it on. `options` can set the
- * child's `busyTimeoutMs`, and `once` to print a refusal and not ask again.
+ * A child deleter that stops after its first commit; `go` lets it on. It waits up to 5 s for a
+ * lock and makes one call: a refusal fails the rail with its text, because a repeat is a new call
+ * that deletes the peer that has the id then.
  */
-async function heldDeleter(
-  path: string,
-  peer: string,
-  options: { busyTimeoutMs?: number; once?: boolean } = {},
-) {
-  const deleter = child({ op: "delete", path, peer, hold: true, ...options });
+async function heldDeleter(path: string, peer: string) {
+  const deleter = child({ op: "delete", path, peer, hold: true, busyTimeoutMs: 5000 });
   const pid = await deleter.printed<number>("held");
   return { ...deleter, go: () => writeFileSync(`${path}.go-${pid}`, "") };
 }
@@ -643,10 +640,9 @@ describe("a late deleter and a peer created again under the id", () => {
       const { dir, path } = place();
       const name = "peer:Qdel7Twice";
       const { store, b, bystander, markers } = await filled(path, name, 900);
-      // Each child makes one call with the default wait, and a refusal fails the rail with its
-      // text: a repeat would answer peer-absent, or count only its own releases.
-      const first = await heldDeleter(path, name, { busyTimeoutMs: 5000, once: true });
-      const second = await heldDeleter(path, name, { busyTimeoutMs: 5000, once: true });
+      // A repeat would answer peer-absent, or count only its own releases.
+      const first = await heldDeleter(path, name);
+      const second = await heldDeleter(path, name);
       first.go();
       second.go();
       const reports = [
@@ -721,6 +717,72 @@ describe("a late deleter and a peer created again under the id", () => {
     });
     await bystanderHolds(store, b, [y]);
   }, 120_000);
+
+  it("a delete refused store-unavailable in a page transaction says it did not finish and that a repeat deletes the peer that has the id then; after another delete ends it and the id is created again, a repeat of deletePeer deletes the new peer [stated limit: reading 144]; the bystander's named delta survives", async () => {
+    const { path } = place();
+    const store = await openSqliteStore(path, { busyTimeoutMs: 100 });
+    opened.push(store);
+    const d = await store.createPeer("peer:d", { erasure: POSTURE });
+    const b = await store.createPeer("peer:b", { erasure: "unproven" });
+    const y = marked("RepeatY", 1);
+    await put(d, group("RepeatOld", 5), "HdRepeatOldZ");
+    await put(b, [y], "HdRepeatBZ");
+    // Another connection takes the write lock just before the delete's first page transaction
+    // begins, after the transaction that marked the peer. The watch is on this process's statements.
+    const other = new Database(path);
+    const probe = new Database(":memory:");
+    const statement = Object.getPrototypeOf(probe.prepare("SELECT 1")) as {
+      run: (this: Database.Statement, ...args: unknown[]) => unknown;
+    };
+    probe.close();
+    const run = statement.run;
+    let marking = false;
+    let taken = false;
+    statement.run = function (...args) {
+      if (this.source === SQLITE_STATEMENTS.peerMark) marking = true;
+      else if (this.source === "BEGIN IMMEDIATE" && marking && !taken) {
+        taken = true;
+        other.exec("BEGIN IMMEDIATE");
+      }
+      return run.apply(this, args);
+    };
+    let refused: unknown;
+    try {
+      refused = await store.deletePeer("peer:d").catch((error: unknown) => error);
+    } finally {
+      statement.run = run;
+      if (other.inTransaction) other.exec("COMMIT");
+      other.close();
+    }
+    expect([taken, (refused as StoreError).code, (refused as StoreError).message]).toEqual([
+      true,
+      "store-unavailable",
+      "the SQLite store was busy (SQLITE_BUSY), and the delete of peer:d did not finish. A peer that it marked stays marked for delete unless another delete ends it. A repeat of deletePeer deletes the peer that has this id at that time.",
+    ]);
+    expect(
+      read(path, (db) => db.prepare("SELECT state FROM peer WHERE id = 'peer:d'").get()),
+    ).toEqual({ state: "deleting" });
+    expect(rowsOf(path, "peer:d")).toMatchObject({ peer: 1, holding: 5 });
+
+    expect(await store.deletePeer("peer:d")).toEqual(PROVEN_HERE ? proven(5, 0) : owed(5, 0));
+    const fresh = await store.createPeer("peer:d", { erasure: POSTURE });
+    const news = group("RepeatNew", 3);
+    await put(fresh, news, "HdRepeatNewZ");
+    expect(rowsOf(path, "peer:d")).toMatchObject({ peer: 1, holding: 3 });
+
+    expect(await store.deletePeer("peer:d")).toEqual(PROVEN_HERE ? proven(3, 0) : owed(3, 0));
+    expect(rowsOf(path, "peer:d")).toEqual({
+      peer: 0,
+      holding: 0,
+      change: 0,
+      digest: 0,
+      debt: 0,
+      surface_debt: 0,
+    });
+    expect(await code(() => fresh.read())).toBe("peer-absent");
+    expect(await listed(store.openAdmin().storedIds())).toEqual([y.delta.id]);
+    await bystanderHolds(store, b, [y]);
+  }, 60_000);
 });
 
 describe.skipIf(!PROVEN_HERE)("a purge across a delete and a re-create (Linux)", () => {

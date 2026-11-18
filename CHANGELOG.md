@@ -180,7 +180,7 @@ Step 4d adds more, listed under Breaking.
   rebuilds and decides the report as a purge does. A delete that dies leaves the mark, and the
   next `deletePeer` of the id finishes it. From the mark on, every call on the peer refuses
   `peer-absent`, every snapshot refuses `snapshot-moved`, and `createPeer` of the id refuses
-  `peer-exists`. A history is never issued again, so a peer created later under the id gets a
+  `peer-exists` until the delete ends. A history is never issued again, so a peer created later under the id gets a
   new one. The memory store deletes all at once, and its claim is always `unproven`. The package
   root exports `DeleteReport`. Rust takes peer delete in step 4e.
 - Every call is bound to one peer, not to its id. A delete works only on the peer row its first
@@ -197,9 +197,17 @@ Step 4d adds more, listed under Breaking.
   share the work. The other delete's report carries the proof only when it answered `proven`.
   When no wait passes `busyTimeoutMs`, at least one of the two answers `proven`.
 - After the transaction that removes the peer row, a delete does not refuse
-  `store-unavailable`. When its last transaction cannot take the write lock, it answers its
-  counts with every file surface `owed`. A refusal before that transaction leaves the mark, and
-  a repeat goes on; its counts cover only what the repeat released.
+  `store-unavailable`. When its last transaction fails for any engine error (a lock, a full
+  disk, an I/O error), it answers its counts with every file surface `owed` (`temp-files` is
+  `unprovable` on a store of class `unprovable`). The host sees the cause at its next call. If
+  the commit that removes the peer row fails in doubt, the call refuses, and a repeat answers
+  `peer-absent` when that commit was durable.
+- A refusal before the transaction that removes the peer row leaves the mark. Its message says
+  that the delete did not finish, and that a repeat deletes the peer that has the id at that
+  time; it does not say "ask again". A repeat goes on from there while the mark is there; its
+  counts cover only what the repeat released. If another delete of the peer ended and the id
+  was created again, the repeat is a new call and deletes the new peer. A host that must not
+  delete a new peer reads the peer before it repeats.
 - What can now be deleted that could not be deleted before: every holding, index entry, change
   record, purge debt, record of a removal, digest row and peer row of one peer, and the bytes of
   each delta that no other peer holds, by one call. Never a peer created later under the same

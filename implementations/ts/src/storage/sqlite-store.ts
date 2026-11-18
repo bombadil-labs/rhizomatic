@@ -237,20 +237,30 @@ const sorted = (ids: Iterable<Id>): Id[] => [...new Set(ids)].sort(compareUtf8);
  * retry: a busy or locked engine, a lost race for the log's lock (`SQLITE_PROTOCOL`,
  * `SQLITE_IOERR_LOCK`), an interrupted call and a failed allocation. Any other error (a
  * constraint, a damaged file, the disk) answers the same until its cause is fixed, so the message
- * says what failed and does not invite one.
+ * says what failed and does not invite one. A call whose repeat is not the same call gives
+ * `unfinished`, which says what a transient error left, in place of the invitation.
  */
-function unavailable(error: unknown): unknown {
+function unavailable(error: unknown, unfinished?: string): unknown {
   if (!(error instanceof Database.SqliteError)) return error;
   const transient = /^SQLITE_(BUSY|LOCKED|PROTOCOL$|IOERR_LOCK$|INTERRUPT$|NOMEM$)/.test(
     error.code,
   );
   return new StoreError(
     "store-unavailable",
-    transient
-      ? `the SQLite store cannot serve this call now (${error.code}); ask again`
-      : `the SQLite store failed: ${error.message} (${error.code}); this is not a lock, and the same call fails again until the cause is fixed`,
+    !transient
+      ? `the SQLite store failed: ${error.message} (${error.code}); this is not a lock, and the same call fails again until the cause is fixed`
+      : unfinished === undefined
+        ? `the SQLite store cannot serve this call now (${error.code}); ask again`
+        : `the SQLite store was busy (${error.code}), and ${unfinished}`,
   );
 }
+
+/**
+ * What a transient refusal of a peer delete leaves, before the peer row is gone (§4.13 reading
+ * 144). A repeat binds to the peer that has the id when it begins, so it does not say "ask again".
+ */
+const deleteUnfinished = (id: PeerId): string =>
+  `the delete of ${id} did not finish. A peer that it marked stays marked for delete unless another delete ends it. A repeat of deletePeer deletes the peer that has this id at that time.`;
 
 /** The refusal of an open for an engine error that is not busy, with the error's code. */
 function notOpened(error: unknown): StoreError {
@@ -787,27 +797,33 @@ class SqliteFileStore implements SqliteStore {
    * Runs `body` in one transaction: a read, or a write that holds the write lock from its start.
    * An engine error refuses `store-unavailable` and rolls this transaction back; an earlier
    * transaction of the same call stays committed. `uncertain` answers for a failed commit, after
-   * which the store cannot tell whether the transaction committed.
+   * which the store cannot tell whether the transaction committed. `unfinished` goes to
+   * `unavailable`.
    */
-  #run<T>(mode: "read" | "write", body: () => T, uncertain?: (error: unknown) => T): T {
+  #run<T>(
+    mode: "read" | "write",
+    body: () => T,
+    uncertain?: (error: unknown) => T,
+    unfinished?: string,
+  ): T {
     try {
       (mode === "read" ? this.#begin : this.#beginWrite).run();
     } catch (error) {
-      throw unavailable(error);
+      throw unavailable(error, unfinished);
     }
     let result: T;
     try {
       result = body();
     } catch (error) {
       this.#abort();
-      throw unavailable(error);
+      throw unavailable(error, unfinished);
     }
     try {
       this.#commit.run();
     } catch (error) {
       this.#abort();
       if (uncertain !== undefined) return uncertain(error);
-      throw unavailable(error);
+      throw unavailable(error, unfinished);
     }
     return result;
   }
@@ -1387,12 +1403,18 @@ class SqliteFileStore implements SqliteStore {
       );
     const s = this.#s;
     type Found = { state: "live" | "deleting"; posture: ErasurePosture; origin: History };
-    const { posture, origin } = this.#run("write", () => {
-      const found = s.peerState.get(id) as Found | undefined;
-      if (found === undefined) throw new StoreError("peer-absent", "deletePeer: no such peer");
-      if (found.state === "live") s.peerMark.run(id);
-      return found;
-    });
+    const unfinished = deleteUnfinished(id);
+    const { posture, origin } = this.#run(
+      "write",
+      () => {
+        const found = s.peerState.get(id) as Found | undefined;
+        if (found === undefined) throw new StoreError("peer-absent", "deletePeer: no such peer");
+        if (found.state === "live") s.peerMark.run(id);
+        return found;
+      },
+      undefined,
+      unfinished,
+    );
     const marked = (): boolean => {
       const now = s.peerState.get(id) as Found | undefined;
       return now?.state === "deleting" && now.origin === origin;
@@ -1419,19 +1441,29 @@ class SqliteFileStore implements SqliteStore {
       for (let found = EXPORT_PAGE; mine && found === EXPORT_PAGE; ) {
         await new Promise<void>((resolve) => setImmediate(resolve));
         this.#open();
-        found = this.#run("write", () => {
-          mine = marked();
-          return mine ? page() : 0;
-        });
+        found = this.#run(
+          "write",
+          () => {
+            mine = marked();
+            return mine ? page() : 0;
+          },
+          undefined,
+          unfinished,
+        );
       }
     this.#open();
     // `peerDrop` removes the row only on the terms of `marked`. It removes nothing when another
     // delete removed the row, or when the row is a peer created later under the id; the report
     // then reads the row that is there.
-    const dirty = this.#run("write", () => {
-      s.peerDrop.run(id, origin);
-      return !this.#clean();
-    });
+    const dirty = this.#run(
+      "write",
+      () => {
+        s.peerDrop.run(id, origin);
+        return !this.#clean();
+      },
+      undefined,
+      unfinished,
+    );
     const proving = ERASURE_CLASS === "proven" && posture === "proven";
     let proof = proving ? this.#rebuild(dirty) : undefined;
     for (let tries = 1; ; tries++) {
