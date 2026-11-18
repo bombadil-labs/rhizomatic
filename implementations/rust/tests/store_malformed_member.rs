@@ -12,8 +12,9 @@ use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::set::make_delta;
 use rhizomatic::store::{
     Admission, AppendResult, ArrivalRecord, ChangePage, CreatePeerOptions, ErasurePosture,
-    PeerErasure, PeerStore, PurgeReport, Pushdown, Revision, ScopeRequest, ScopeResult, Snapshot,
-    Store, StoreError, StoreFailure, MAX_REVISION,
+    IntegrityFault, IntegrityFaultKind, PeerErasure, PeerStore, PurgeReport, Pushdown, Revision,
+    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreFailure,
+    MAX_REVISION,
 };
 use rhizomatic::store_admission::{admission_of, AdmissionOptions};
 use rhizomatic::store_fresh::{FeedError, StoreFault};
@@ -521,5 +522,41 @@ fn held_views_answer_the_fault_after_one_read_release_it_and_keep_what_they_hold
         (refresh.position.revision, refresh.reread.len()),
         (Revision(2), 1),
         "a failed refresh moved the processed position past the append"
+    );
+}
+
+#[test]
+fn a_feed_error_becomes_the_read_error_of_its_kind_a_refusal_a_store_fault_an_integrity_fault_or_an_evaluator_message(
+) {
+    let refusal = StoreError::new(StoreErrorCode::SnapshotMoved, "moved");
+    let fault = StoreFault::MalformedMember {
+        revision: Revision(3),
+        detail: "a detail".into(),
+    };
+    let damage = IntegrityFault {
+        kind: IntegrityFaultKind::ClaimsUnreadable,
+        peer: Some("peer:p".into()),
+        id: Some("1e20aa".into()),
+        key: None,
+        detail: "damage".into(),
+    };
+    let converted: Vec<StoreReadError> = vec![
+        FeedError::Refused(refusal.clone()).into(),
+        FeedError::Fault(fault.clone()).into(),
+        FeedError::Integrity(damage.clone()).into(),
+        FeedError::Read("the evaluator refused".into()).into(),
+    ];
+    assert_eq!(
+        converted,
+        vec![
+            StoreReadError::Store(refusal),
+            StoreReadError::Fault(fault),
+            StoreReadError::Integrity(damage),
+            StoreReadError::Eval("the evaluator refused".into()),
+        ]
+    );
+    assert_eq!(
+        converted[0].store_code(),
+        Some(StoreErrorCode::SnapshotMoved)
     );
 }

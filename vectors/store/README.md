@@ -1615,8 +1615,9 @@ The table covers at least:
   arrival record of another id. The scripts runner fails it with the arrival rule of §3.7. In
   `freshness.json` it fails the case `unrelated-appends` at its first `capture`, and in
   `views.json` the case `an-unrelated-append` at its first `hold`, each with
-  `the store broke malformed-member: ` (§9.2, §11.3). No vector can hold this rule, because no
-  conforming store answers a malformed member (§6). The rows are its only shared check.
+  `the store broke malformed-member: ` (§9.2, §11.3). No vector of the present formats holds this
+  rule: no present step carries a store's answer to a reader, and no conforming store answers a
+  malformed member (§6). The rows are its only shared check.
 - **Scope bounds:** `applied` ⊆ requested; the lower and the upper bound in a script and in a
   scope case; the trim comparison. In a scope case, the lower bound twice: a store that leaves
   out the first id of the bound, and one that leaves out a later id.
