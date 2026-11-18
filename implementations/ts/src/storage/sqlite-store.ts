@@ -924,7 +924,7 @@ class SqliteFileStore implements SqliteStore {
       if (found?.state === "deleting")
         throw new StoreError(
           "peer-exists",
-          "createPeer: a delete of the peer did not end; deletePeer of the id finishes it",
+          "createPeer: a delete of the peer has not ended; it may still run, and deletePeer of the id ends it",
         );
       if (found !== undefined)
         throw new StoreError("peer-exists", "createPeer: the peer already exists");
@@ -1812,7 +1812,7 @@ class SqliteFileStore implements SqliteStore {
         );
         const peers = rows.map((r) => r.id);
         // A peer a delete marked has rows the delete has not reached yet, and none of them is
-        // checked: the one fault names the delete that did not end (reading 144). A peer that a
+        // checked: the one fault names the delete that has not ended (reading 144). A peer that a
         // delete marks after this read gets no fault: each later step stops at its row.
         for (const { id: peer, state } of rows) {
           if (state === "deleting") {
@@ -1820,7 +1820,7 @@ class SqliteFileStore implements SqliteStore {
               kind: "peer-deleting",
               peer,
               detail:
-                "sqlite store: a delete of the peer did not end; deletePeer of the id finishes it",
+                "sqlite store: a delete of the peer has not ended; it may still run, and deletePeer of the id ends it",
             });
             continue;
           }

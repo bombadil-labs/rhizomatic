@@ -110,9 +110,9 @@ export class StoreFaultError extends Error {
  * - `engine`: the engine's own check of the file failed;
  * - `digest-mismatch`: a stored node of the holdings digest, or the stored root, is not the one
  *   the peer's holdings give (`key` names the node, `digest:<prefix>`, or the root);
- * - `peer-deleting`: a `deletePeer` of the peer began and did not end (§4.13 reading 144). Its
- *   other rows are not checked: a delete removes them in pages. `deletePeer` of the peer
- *   finishes it.
+ * - `peer-deleting`: a `deletePeer` of the peer began and has not ended (§4.13 reading 144): it
+ *   may still run, or it died. Its other rows are not checked: a delete removes them in pages.
+ *   `deletePeer` of the peer ends it.
  */
 export type IntegrityFaultKind =
   | "claims-mismatch"
@@ -255,7 +255,7 @@ export interface Store {
    * for a peer that does not exist. From the start of the delete, every call on the peer with a
    * well-formed request refuses `peer-absent`, and every snapshot of it refuses
    * `snapshot-moved`. A call checks `store-closed`, then the form of its request, then the peer.
-   * A delete that did not end is finished by the next `deletePeer` of the id; until then
+   * A delete that died is finished by the next `deletePeer` of the id; until a delete ends,
    * `createPeer` of the id refuses `peer-exists`. A history is never issued again, so a peer
    * created later under the id has a new one. It is another peer: a handle of the deleted peer
    * refuses `peer-absent`, and a host gets a new handle from `createPeer` or `peer`.

@@ -180,8 +180,8 @@ Step 4d adds more, listed under Breaking.
   words, with two counts and no ids. The SQLite store marks the peer first, releases its
   holdings in pages of 256, one write transaction each, removes the peer row last, and then
   rebuilds and decides the report as a purge does. A delete that dies leaves the mark, and the
-  next `deletePeer` of the id finishes it. From the mark on, every call on the peer refuses
-  `peer-absent`, every snapshot refuses `snapshot-moved`, and `createPeer` of the id refuses
+  next `deletePeer` of the id finishes it. From the mark on, every call on the peer with a
+  well-formed request refuses `peer-absent`, every snapshot refuses `snapshot-moved`, and `createPeer` of the id refuses
   `peer-exists` until the delete ends. A history is never issued again, so a peer created later under the id gets a
   new one. The memory store deletes all at once, and its claim is always `unproven`. The package
   root exports `DeleteReport`. Rust takes peer delete in step 4e.
@@ -215,6 +215,14 @@ Step 4d adds more, listed under Breaking.
   as its purge does. Both refuse `store-closed` after close. The package root exports
   `ProofReport`. Rust takes `prove()` in step 4e. What can now be deleted that could not be
   deleted before: nothing.
+- After the round-6 review of PR #101: the memory store's `append` copies and checks its
+  entries before it reads the peer, as the SQLite store does. An accessor of an entry that
+  deletes the peer now makes the append refuse `peer-absent`; before, the append wrote bytes
+  that no peer held. Among several faults of one batch, a malformed entry now answers before a
+  sequence that does not pass, as on the SQLite store; the code is `invalid-admission` in both
+  cases. The `peer-deleting` fault and the `peer-exists` refusal of `createPeer` say that a
+  delete "has not ended" and may still run. Reading 144 states what `close()` during a delete
+  does, and a rail holds the `origin` compare of `fsck`.
 - After the transaction that removes the peer row, a delete does not refuse
   `store-unavailable`. When its last transaction fails for any engine error (a lock, a full
   disk, an I/O error), it answers its counts with every file surface `owed` (`temp-files` is

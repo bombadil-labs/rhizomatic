@@ -15,7 +15,8 @@
 //   after the delete's first commit, prints `held <pid>`, and waits for the file
 //   `<path>.go-<pid>`. So a test can let other calls run between that transaction and the next.
 // - `recreate`: deletes the peer, prints `report <DeleteReport>`, creates the peer again with the
-//   posture `posture`, and prints `created <history>`.
+//   posture `posture`, and prints `created <history>`. With `fill`, it then appends that many new
+//   deltas to the new peer in one append.
 // - `watch`: opens the peer and takes a snapshot of it, prints `ready 1`, and waits for the file
 //   `<path>.go-watch`. Then it calls every call of the handle and of the snapshot, and prints
 //   `codes {handle: [...], snapshot: [...]}`, each a refusal code or `answered`.
@@ -40,6 +41,7 @@ type Job = {
   hold?: boolean;
   busyTimeoutMs?: number;
   posture?: "proven" | "unproven";
+  fill?: number;
   count?: number;
 };
 
@@ -209,6 +211,26 @@ try {
     print("report", await store.deletePeer(job.peer));
     const peer = await patient(() => store.createPeer(job.peer, { erasure: job.posture! }));
     print("created", peer.history);
+    if (job.fill !== undefined) {
+      const after = job.after ?? 0;
+      const added = Array.from({ length: job.fill }, (_, i) => {
+        const delta = fresh(after + i + 1);
+        const n = after + i + 1;
+        return {
+          delta,
+          arrival: { id: delta.id, at: 1, sequence: n, transfer: n, sender: "child" },
+        };
+      });
+      const result = await patient(() =>
+        peer.append({
+          expectedHead: null,
+          nextHead: `head-${process.pid}-fill`,
+          frame: null,
+          added,
+        }),
+      );
+      print("filled", result.status);
+    }
   } else if (job.op === "watch") await watch(store);
   else await append(await patient(() => store.peer(job.peer)));
 } catch (error) {

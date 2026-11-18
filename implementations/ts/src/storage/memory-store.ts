@@ -732,18 +732,29 @@ class MemoryStore implements Store {
   #append(live: () => PeerState, batch: Admission): AppendResult {
     // Each field of the call is read once. A second read could give another value.
     const { expectedHead, nextHead, added } = takeAppend(batch);
+    // The entries are copied and checked before the peer is read, as in the SQLite store. An
+    // accessor of an entry can call this store, a delete of this peer included; the peer read
+    // after it sees what that call did. A refusal among them still waits for the head
+    // compare-and-set, which answers first.
+    let entries: ReturnType<typeof admit>[] | undefined;
+    let refusal: unknown;
+    try {
+      if (!Array.isArray(added))
+        throw new StoreError("invalid-admission", "append: the added entries must be a list");
+      entries = added.map((entry: unknown) => admit(entry));
+    } catch (error) {
+      refusal = error;
+    }
     const state = live();
     if (state.head !== expectedHead) return { status: "conflict" };
+    if (entries === undefined) throw refusal;
 
     // Validate the whole batch before the first write, so a refusal leaves nothing behind.
     // Every entry is checked, also one whose id is already held: a forged repeat is refused.
-    if (!Array.isArray(added))
-      throw new StoreError("invalid-admission", "append: the added entries must be a list");
     const fresh = new Map<Id, { claims: Claims; holding: Holding }>();
     const sequences = new Set<number>();
     let lastTransfer = state.lastTransfer;
-    for (let i = 0; i < added.length; i++) {
-      const { id, claims, sig, arrival } = admit(added[i]);
+    for (const { id, claims, sig, arrival } of entries) {
       const holding: Holding = { sig, arrival };
       if (fresh.has(id) || state.holdings.get(id) !== undefined) continue;
       const sequence = holding.arrival.sequence;

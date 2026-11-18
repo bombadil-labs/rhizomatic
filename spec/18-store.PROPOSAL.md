@@ -2673,7 +2673,7 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      sequence or transfer above the peer's last, key `seq` or `transfer`), `feed-gap`,
      `orphan-bytes` (no `peer`) and `engine` (SQLite's `integrity_check` and
      `foreign_key_check`). `digest-mismatch` and `journal-broken` come with the digest and the
-     journal. `peer-deleting` names a peer whose delete did not end (reading 144). Every check that a read makes (reading 136) is also a check of `fsck`, with the
+     journal. `peer-deleting` names a peer whose delete has not ended: it may still run, or it died (reading 144). Every check that a read makes (reading 136) is also a check of `fsck`, with the
      same fault. `fsck` reports every fault of a holding, not the first: a fault of the claims
      ends only the checks that read the claims (the authors, the timestamp and the index rows),
      and the signature, the arrival record and the sequence are checked still. The SQLite store
@@ -2953,7 +2953,7 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        the transaction of the rows it compares, and checks nothing more of the peer when the row
        is marked, absent, or of another `origin`. So a peer that a delete marks during a scan
        gets no fault from that scan, not `peer-deleting` either; a later `fsck` reports
-       `peer-deleting` while the mark is there. Two deletes of one peer at once share the work; each
+       `peer-deleting` while the mark is there, also while that delete still runs. Two deletes of one peer at once share the work; each
        counts what it released. A delete that finds the row gone, or a row of another `origin`,
        removes nothing more and answers its own counts, decided by the same last transaction:
        a `peer` row of the id found there, of any state, makes every file surface `owed`. So
@@ -2992,7 +2992,10 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        is always `unproven`; its surfaces are its purge's, from a second look. A held id whose
        row is gone throws `StoreIntegrityError` (`claims-unreadable`) before the delete removes
        anything, as the purge of that id does (reading 136). **Known limit:** until a remedy for
-       that purge lands, no call deletes such a peer.
+       that purge lands, no call deletes such a peer. An `append` copies and checks its entries
+       before it reads the peer, as the SQLite store does. So an accessor of an entry that
+       deletes the peer makes the append refuse `peer-absent`, and the append writes nothing
+       (after the round-6 review of PR #101; before, it wrote bytes that no peer held).
      - **A handle names one peer.** After a delete, every call of an old handle with a
        well-formed request refuses `peer-absent`, on both stores, also after a `createPeer` of
        the same id. Both stores check a call in one order: `store-closed`, then the form of the
@@ -3004,7 +3007,11 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        peer either: the history differs. `fsck` beside a delete, and beside a delete and a
        `createPeer` of the id, gives no false fault: each step compares rows that it reads in one
        transaction, and each step of a peer after the first stops at a row that is marked,
-       absent or of another `origin`. It can miss rows of the new peer. The memory store's
+       absent or of another `origin`. It can miss rows of the new peer. Without the compare of
+       `origin`, a step would check rows of the new peer. Those checks agree and give no fault,
+       but `checked.holdings` would count holdings of a peer that the scan did not read. A rail
+       holds the compare: another process deletes the peer and creates it again with 300 deltas
+       just after the peer step, and the scan's count leaves them out. The memory store's
        export listing of a peer reads the peer's holdings once, at its first item. A listing
        that began before a delete ends with the old peer's deltas, and never gives the new
        peer's.
@@ -3018,6 +3025,11 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      - **What can now be deleted that could not be deleted before:** every row of one peer, and
        the bytes of each delta that no other peer holds, by one call. Only the peer that the
        call's first transaction read: never a peer created later under the same id.
+     - **`close()` during a delete.** The delete yields to the event loop between pages. A
+       `close()` there makes the delete refuse `store-closed` at its next page. The mark stays,
+       with the rows the delete has not reached. After a new open, `fsck` reports
+       `peer-deleting`, and a `deletePeer` of the id ends the delete; its counts cover only what
+       it released. Rail: `close()` after the first page of a delete of 600 holdings.
      Rust takes peer delete in step 4e. The shared scripts have no step for it yet; they gain one
      with the Rust store (reading 39 still holds until then).
 145. **A proof for the whole store** (slice 4, step 4d, after the round-3 review of PR #101).

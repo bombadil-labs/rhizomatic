@@ -398,7 +398,7 @@ describe("a delete that dies, and other processes", () => {
       const refused = await store.createPeer(name, { erasure: "proven" }).catch((e: unknown) => e);
       expect([(refused as StoreError).code, (refused as StoreError).message]).toEqual([
         "peer-exists",
-        "createPeer: a delete of the peer did not end; deletePeer of the id finishes it",
+        "createPeer: a delete of the peer has not ended; it may still run, and deletePeer of the id ends it",
       ]);
       const admin = store.openAdmin();
       expect(await listed(admin.peers())).toEqual(["peer:b"]);
@@ -1025,7 +1025,8 @@ describe("what a refused delete says, at each transaction before the peer row is
       {
         kind: "peer-deleting",
         peer: "peer:d",
-        detail: "sqlite store: a delete of the peer did not end; deletePeer of the id finishes it",
+        detail:
+          "sqlite store: a delete of the peer has not ended; it may still run, and deletePeer of the id ends it",
       },
     ]);
     expect(await store.deletePeer("peer:d")).toEqual(PROVEN_HERE ? proven(0, 0) : owed(0, 0));
@@ -1140,6 +1141,90 @@ describe("fsck beside a running delete", () => {
       }
       await store.close();
     }
+  });
+
+  it("another process deletes the peer and creates it again with 300 deltas just after fsck's peer step: the scan checks no row of the new peer, which has another origin, and gives no fault; a second fsck checks the new peer; the bystander's named delta reads back", async () => {
+    const { path } = place();
+    const store = await open(path);
+    const z = await store.createPeer("peer:z", { erasure: "unproven" });
+    const b = await store.createPeer("peer:b", { erasure: "unproven" });
+    const y = marked("FsckOriginY", 1);
+    await put(z, group("FsckOrigin", 3), "HdFsckOriginZ");
+    await put(b, [y], "HdFsckOriginBZ");
+    let other: { status: number | null; stdout: string; stderr: string } | undefined;
+    const restore = watch("get", (statement, call, args) => {
+      if (
+        statement.source === SQLITE_STATEMENTS.fsckCount &&
+        args[0] === "peer:z" &&
+        other === undefined
+      ) {
+        const job = { op: "recreate", path, peer: "peer:z", posture: "unproven", fill: 300 };
+        other = spawnSync(process.execPath, ["--import", "tsx", childScript, JSON.stringify(job)], {
+          cwd: pkg,
+          encoding: "utf8",
+        });
+      }
+      return call();
+    });
+    let report: Awaited<ReturnType<ReturnType<SqliteStore["openAdmin"]>["fsck"]>>;
+    try {
+      report = await store.openAdmin().fsck();
+    } finally {
+      restore();
+    }
+    expect([other!.status, other!.stderr]).toEqual([0, ""]);
+    expect(other!.stdout).toContain('filled "committed"');
+    expect(report).toEqual({ checked: { peers: 2, holdings: 1, deltas: 301 }, faults: [] });
+    const now = await (await store.peer("peer:z")).read();
+    expect(now.count).toBe(300);
+    now.release();
+    expect((await store.openAdmin().fsck()).checked).toEqual({
+      peers: 2,
+      holdings: 301,
+      deltas: 301,
+    });
+    await bystanderHolds(store, b, [y]);
+  });
+});
+
+describe("close() during a delete", () => {
+  it("close() between two pages of a delete refuses it store-closed and leaves the mark; after a new open, fsck gives one peer-deleting fault, a repeat ends the delete and counts only what it released, and fsck is clean; the bystander's named delta reads back", async () => {
+    const { dir, path } = place();
+    const store = await open(path);
+    const d = await store.createPeer("peer:d", { erasure: POSTURE });
+    const b = await store.createPeer("peer:b", { erasure: POSTURE });
+    const own = group("CloseMid", 600);
+    const y = marked("CloseMidY", 1);
+    await put(d, own, "HdCloseMidZ");
+    await put(b, [y], "HdCloseMidBZ");
+    let closing: Promise<void> | undefined;
+    const restore = watch("all", (statement, call) => {
+      if (statement.source === SQLITE_STATEMENTS.deleteHoldings && closing === undefined)
+        setImmediate(() => (closing = store.close()));
+      return call();
+    });
+    let refused: unknown;
+    try {
+      refused = await store.deletePeer("peer:d").catch((error: unknown) => error);
+    } finally {
+      restore();
+    }
+    await closing;
+    expect((refused as StoreError).code).toBe("store-closed");
+    expect(rowsOf(path, "peer:d")).toMatchObject({ peer: 1, holding: 600 - 256 });
+    expect(
+      read(path, (db) => db.prepare("SELECT state FROM peer WHERE id = 'peer:d'").get()),
+    ).toEqual({ state: "deleting" });
+    const again = await open(path);
+    expect((await again.openAdmin().fsck()).faults.map((f) => [f.kind, f.peer])).toEqual([
+      ["peer-deleting", "peer:d"],
+    ]);
+    expect(await again.deletePeer("peer:d")).toEqual(
+      PROVEN_HERE ? proven(600 - 256, 0) : owed(600 - 256, 0),
+    );
+    expect(rowsOf(path, "peer:d")).toMatchObject({ peer: 0, holding: 0 });
+    if (PROVEN_HERE) expect(scan(dir, markersOf(own.filter((_, i) => i % 50 === 0)))).toEqual([]);
+    await bystanderHolds(again, await again.peer("peer:b"), [y]);
   });
 });
 
