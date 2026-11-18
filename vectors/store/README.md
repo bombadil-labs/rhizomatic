@@ -1134,7 +1134,9 @@ a root, `now`, optional bindings and a selection, and works as follows.
       not send it again. The cache owns what it holds, as a store does (§1, §7): it checks and
       copies each member, computes the id over its copy, and refuses `invalid-request` for a
       member that is malformed, whose id does not recompute, or whose arrival record is
-      missing or names another id. A refused call adds nothing.
+      missing or names another id. A refused call adds nothing. Such a member came from the
+      store, so the read does not pass that refusal up: it fails with the store fault
+      `malformed-member` (SPEC-18 §4.13 reading 21), on its first snapshot, with no new one.
    3. Compute the **exact members**: S(E over C′), where E is every anchor asked for so far, C
       is the cache, and C′ is the members of C that pass the **residual selection**. The
       residual is each selection field that some round's answer did not report applied, plus any
@@ -1379,6 +1381,12 @@ The JSON cannot express these; each witness builds them over this fixture.
 - **A revision out of range.** A wrapper whose snapshot reports revision 2^53 fails
   `StoreReactor.read` and `StoreReactor.fetch` with the store fault `revision-out-of-range`
   (SPEC-18 §4.13 reading 103). The same wrapper at 2^53 − 1 answers, at that revision.
+- **A malformed member.** A wrapper whose `scope` answers each member under another id, or with
+  the arrival record of another id, fails `readAnchored`, `fetchScope`, `captureScope`,
+  `StoreReactor.read`, `StoreReactor.fetch` and a hold or a refresh of held views with the store
+  fault `malformed-member` (SPEC-18 §4.13 reading 21). Each answers it after one snapshot and one
+  `scope` call, and releases the snapshot. A pass of held views keeps what it held and does not
+  move. A repeat of an id is not examined: a malformed second appearance changes no answer.
 - **A sticky residual.** No vector pins it, because a memory profile is the same in every round.
   Each witness reads every case against a store double that leaves one field
   (`timestampAtMost`) to the host in the odd rounds only, and again in the even rounds only. The
@@ -1466,6 +1474,10 @@ The JSON cannot express these; each witness builds them over this fixture.
   that keeps the caller's objects, returns its own, or shares a payload's memory passes every
   vector. Ownership is an obligation of each
   witness and of each store, with its own tests (§7).
+- A malformed `scope` member (SPEC-18 §4.13 reading 21). No conforming store answers one, so no
+  step of any document can ask a store for it, and the memory reference store never makes one.
+  The scripts runner checks each member a store returns (§3.7). A reader's own check, the store
+  fault `malformed-member`, is held by the rails of §5.8 and by the runner rows of §8.
 - A purge on a store of class `none`. The scripts that purge are skipped for such a store, so no
   shared step shows that it refuses. Each witness tests that refusal for its own stores (§7,
   test 8).
@@ -1599,6 +1611,12 @@ The table covers at least:
   signature and claims; each of the four fields of an arrival record.
 - **Scope members:** order, a repeat, claims, the arrival record's id and fields, the signature,
   a member the peer does not hold.
+- **A malformed member through a reader:** a store whose `scope` answers each member with the
+  arrival record of another id. The scripts runner fails it with the arrival rule of §3.7. In
+  `freshness.json` it fails the case `unrelated-appends` at its first `capture`, and in
+  `views.json` the case `an-unrelated-append` at its first `hold`, each with
+  `the store broke malformed-member: ` (§9.2, §11.3). No vector can hold this rule, because no
+  conforming store answers a malformed member (§6). The rows are its only shared check.
 - **Scope bounds:** `applied` ⊆ requested; the lower and the upper bound in a script and in a
   scope case; the trim comparison. In a scope case, the lower bound twice: a store that leaves
   out the first id of the bound, and one that leaves out a later id.
@@ -1758,7 +1776,10 @@ not a way to reload a stored capture, which comes back only through the parser.
 
 Take a new snapshot of the peer. Build a capture on it with the witness's own capture function,
 for these anchors, this selection and this `now` (TypeScript: `captureScope(snapshot, entities,
-now, {pushdown})`). Release the snapshot. Then check, in this order:
+now, {pushdown})`). Release the snapshot. A store fault that passes up out of the capture
+function (SPEC-18 §4.13 reading 21: a `scope` member that is malformed) fails with
+`the store broke <rule>: `, followed by the fault's message, as in §9.3. Then check, in this
+order:
 
 0. The capture is well formed by the witness's checking constructor (TypeScript:
    `parseCapture`, SPEC-18 §4.6, except that a history local to the process is allowed here):
@@ -2646,7 +2667,7 @@ stand.
 refusal that passes up fails with `hold refused with <code>` or `refresh refused with <code>`,
 followed by its message. A store fault (SPEC-18 §4.13 readings 73, 74 and 89) fails with
 `the store broke <rule>: `, followed by the fault's message, as in §9.3 (`<rule>` is
-`no-progress`, `past-the-bound`, `unasked-ids` or `revision-out-of-range`). Any other error fails
+`no-progress`, `past-the-bound`, `unasked-ids`, `revision-out-of-range` or `malformed-member`). Any other error fails
 the case with its own message: an error of a read that is not a store refusal passes up out of
 the holder unchanged (SPEC-18 §4.13 reading 99). Then check, in this
 order.
