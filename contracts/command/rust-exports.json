@@ -80009,6 +80009,39 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreFailure",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreFailure",
+      "resolvedTarget": "crate::store::StoreFailure",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreFailure",
+      "target": "crate::store::StoreFailure",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreFailure",
+      "resolvedTarget": "crate::store::StoreFailure",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreFailure",
+      "target": "crate::store::StoreFailure",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::StoreFailure",
       "resolvedTarget": "crate::store::StoreFailure",
       "source": "implementations/rust/src/store.rs",
@@ -88245,6 +88278,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "StoreReadError::from",
       "target": "crate::store_read::StoreReadError::Integrity",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError::Store",
+      "resolvedTarget": "crate::store_read::StoreReadError::Store",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_read::StoreReadError::Store",
       "targetOwner": "reactor"
     },
     {
@@ -106664,6 +106708,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store_fresh::FeedError",
+      "resolvedTarget": "crate::store_fresh::FeedError",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FeedError",
+      "target": "crate::store_fresh::FeedError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::StoreError",
       "resolvedTarget": "crate::store::StoreError",
       "source": "implementations/rust/src/store_fresh.rs",
@@ -106703,6 +106758,28 @@
       "sourceRegion": "semantic-owner",
       "symbol": "FeedError::from",
       "target": "crate::store_fresh::FeedError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::FeedError",
+      "resolvedTarget": "crate::store_fresh::FeedError",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FeedError::from",
+      "target": "crate::store_fresh::FeedError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::FeedError::Refused",
+      "resolvedTarget": "crate::store_fresh::FeedError::Refused",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FeedError::from",
+      "target": "crate::store_fresh::FeedError::Refused",
       "targetOwner": "storage"
     },
     {
@@ -115948,6 +116025,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError",
+      "resolvedTarget": "crate::store_read::StoreReadError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError",
+      "target": "crate::store_read::StoreReadError",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::store_read::StoreReadError::Fault",
       "resolvedTarget": "crate::store_read::StoreReadError::Fault",
       "source": "implementations/rust/src/store_read.rs",
@@ -115965,6 +116053,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "StoreReadError::fmt",
       "target": "crate::store_read::StoreReadError::Integrity",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError",
+      "resolvedTarget": "crate::store_read::StoreReadError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_read::StoreReadError",
       "targetOwner": "reactor"
     },
     {
