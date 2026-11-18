@@ -671,7 +671,7 @@ export class Run {
     const outcome = await attempt(() => ask(snapshot));
     if (expect.error !== undefined) refused(outcome, expect.error);
     else if ("value" in outcome) judge(outcome.value, peer);
-    else
+    else {
       check(
         outcome.error === expect.orError,
         `the query refused with ${outcome.error}, and ${
@@ -680,6 +680,12 @@ export class Run {
             : `only ${expect.orError} or an answer conforms`
         }`,
       );
+      // A memory reference store answers a snapshot that appends alone moved (§4.13 reading 130).
+      check(
+        !this.reference,
+        `the reference store refused ${outcome.error} on a snapshot that appends alone moved; it must answer`,
+      );
+    }
   }
 
   async step(step: StoreVectorStep): Promise<void> {
@@ -914,8 +920,19 @@ export class Run {
         return;
       }
       case "read": {
+        const wanted: unknown = (step.expect as { lastSequence?: unknown } | undefined)
+          ?.lastSequence;
+        check(
+          typeof wanted === "number" && Number.isSafeInteger(wanted) && wanted >= 0,
+          "the vector's lastSequence is not a whole number; the document is defective",
+        );
         const snapshot = await this.peer(step.peer).read();
         this.sameHistory(step.peer, snapshot.history, "a snapshot");
+        // §1.4: the highest sequence the peer had admitted, fixed at the read.
+        check(
+          snapshot.lastSequence === wanted,
+          `the snapshot's lastSequence is ${snapshot.lastSequence}, expected ${wanted}`,
+        );
         this.snapshots.set(step.snapshot, {
           peer: this.owners.get(step.peer) ?? step.peer,
           snapshot,

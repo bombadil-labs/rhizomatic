@@ -736,10 +736,13 @@ fn whole_as_written(v: &Value, key: &str, code: StoreErrorCode) -> Check<Result<
 }
 
 /// The three `expect` shapes of a query (§3.7): a result, a result or one refusal, a refusal.
+/// A memory reference store answers a snapshot that appends alone moved (§4.13 reading 130), so
+/// for it the second shape is the first.
 fn answered<T>(
     op: &str,
     expect: &Value,
     result: Result<T, StoreError>,
+    reference: bool,
     check: impl FnOnce(T) -> Check,
 ) -> Check {
     if let Some(codes) = codes_of(expect) {
@@ -747,7 +750,15 @@ fn answered<T>(
     }
     match result {
         Ok(answer) => check(answer),
-        Err(e) if expect.get("orError").and_then(Value::as_str) == Some(e.code.as_str()) => Ok(()),
+        Err(e) if expect.get("orError").and_then(Value::as_str) == Some(e.code.as_str()) => {
+            match reference {
+                true => Err(format!(
+                    "{op}: the reference store refused `{}` on a snapshot that appends alone moved; it must answer",
+                    e.code.as_str()
+                )),
+                false => Ok(()),
+            }
+        }
         Err(e) => Err(format!(
             "{op}: the store refused `{}`: {}",
             e.code.as_str(),
@@ -1488,7 +1499,17 @@ impl<'a> Run<'a> {
             "purge" => self.purge(step),
             "read" => {
                 let handle = text(step, "peer")?;
+                let want = field(step, "expect")
+                    .and_then(|expect| whole(expect, "lastSequence"))
+                    .map_err(|_| "read: the document's `lastSequence` is not a whole number; the document is defective")?;
                 let snapshot = self.read_snapshot(handle)?;
+                // §1.4: the highest sequence the peer had admitted, fixed at the read.
+                if snapshot.last_sequence() != want {
+                    return Err(format!(
+                        "read: the snapshot's lastSequence is {}, expected {want}",
+                        snapshot.last_sequence()
+                    ));
+                }
                 self.snapshots.insert(
                     text(step, "snapshot")?.to_string(),
                     (self.peer_name(handle)?, snapshot),
@@ -1929,7 +1950,7 @@ impl<'a> Run<'a> {
         let expect = field(step, "expect")?;
         let (_, snapshot) = self.snapshot(step)?;
         let result = snapshot.get(&self.corpus.ids(step, "ids")?);
-        answered("get", expect, result, |deltas| {
+        answered("get", expect, result, self.reference, |deltas| {
             let got: Vec<String> = deltas.iter().map(|d| d.id.clone()).collect();
             same_ids("get", &got, &self.corpus.ids(expect, "deltas")?)?;
             let names = texts(expect, "deltas")?;
@@ -1944,7 +1965,7 @@ impl<'a> Run<'a> {
         let expect = field(step, "expect")?;
         let (peer, snapshot) = self.snapshot(step)?;
         let result = snapshot.arrivals(&self.corpus.ids(step, "ids")?);
-        answered("arrivals", expect, result, |records| {
+        answered("arrivals", expect, result, self.reference, |records| {
             let got: Vec<String> = records.iter().map(|r| r.id.clone()).collect();
             same_ids("arrivals", &got, &self.corpus.ids(expect, "ids")?)?;
             for record in &records {
@@ -1968,7 +1989,7 @@ impl<'a> Run<'a> {
             "targets" => snapshot.targets(&texts(step, "entities")?),
             _ => snapshot.negators(&self.corpus.ids(step, "ids")?),
         };
-        answered(op, expect, result, |ids| {
+        answered(op, expect, result, self.reference, |ids| {
             same_ids(op, &ids, &self.corpus.ids(expect, "ids")?)
         })
     }
@@ -2044,7 +2065,13 @@ impl<'a> Run<'a> {
         let (peer, snapshot) = self.snapshot(step)?;
         let pushdown = match step.get("pushdown").map(|p| self.pushdown(p)).transpose()? {
             Some(Err(refusal)) => {
-                return answered("scope", expect, Err(refusal), |_: ScopeResult| Ok(()))
+                return answered(
+                    "scope",
+                    expect,
+                    Err(refusal),
+                    self.reference,
+                    |_: ScopeResult| Ok(()),
+                )
             }
             Some(Ok(pushdown)) => Some(pushdown),
             None => None,
@@ -2058,32 +2085,38 @@ impl<'a> Run<'a> {
             pushdown: pushdown.clone(),
         };
         let requested = pushdown.unwrap_or_default();
-        answered("scope", expect, snapshot.scope(&request), |answer| {
-            self.members(peer, &answer, &requested)?;
-            let got: Vec<String> = answer.deltas.iter().map(|m| m.delta.id.clone()).collect();
-            let lower = self.corpus.ids(expect, "lower")?;
-            let upper = self.corpus.ids(expect, "upper")?;
-            if let Some(missing) = lower.iter().find(|id| !got.contains(id)) {
-                return Err(format!(
-                    "script lower bound: the scope answer lacks {missing}"
-                ));
-            }
-            if let Some(extra) = got.iter().find(|id| !upper.contains(id)) {
-                return Err(format!(
-                    "script upper bound: the scope answer holds {extra}, outside the scope"
-                ));
-            }
-            if self.reference {
-                let applied = flags_of(&answer.applied);
-                if applied != self.reference_applied(&requested) {
-                    return Err("reference (script): the applied fields are not the requested fields the profile offers".into());
+        answered(
+            "scope",
+            expect,
+            snapshot.scope(&request),
+            self.reference,
+            |answer| {
+                self.members(peer, &answer, &requested)?;
+                let got: Vec<String> = answer.deltas.iter().map(|m| m.delta.id.clone()).collect();
+                let lower = self.corpus.ids(expect, "lower")?;
+                let upper = self.corpus.ids(expect, "upper")?;
+                if let Some(missing) = lower.iter().find(|id| !got.contains(id)) {
+                    return Err(format!(
+                        "script lower bound: the scope answer lacks {missing}"
+                    ));
                 }
-                if applied == fields_of(&requested) {
-                    same_ids("reference (script) scope", &got, &lower)?;
+                if let Some(extra) = got.iter().find(|id| !upper.contains(id)) {
+                    return Err(format!(
+                        "script upper bound: the scope answer holds {extra}, outside the scope"
+                    ));
                 }
-            }
-            Ok(())
-        })
+                if self.reference {
+                    let applied = flags_of(&answer.applied);
+                    if applied != self.reference_applied(&requested) {
+                        return Err("reference (script): the applied fields are not the requested fields the profile offers".into());
+                    }
+                    if applied == fields_of(&requested) {
+                        same_ids("reference (script) scope", &got, &lower)?;
+                    }
+                }
+                Ok(())
+            },
+        )
     }
 
     fn export(&self, step: &Value) -> Check {
@@ -2092,7 +2125,7 @@ impl<'a> Run<'a> {
         let listed = admin
             .peer(self.corpus.peer(text(step, "peer")?)?)
             .and_then(|peer| Ok((collect(peer.ids())?, collect(peer.deltas())?)));
-        answered("export", expect, listed, |(ids, deltas)| {
+        answered("export", expect, listed, false, |(ids, deltas)| {
             let names = texts(expect, "deltas")?;
             same_ids("export ids", &ids, &self.corpus.ids(expect, "deltas")?)?;
             if deltas.len() != names.len() {
@@ -2389,6 +2422,9 @@ impl Snapshot for LoggedSnapshot {
     }
     fn count(&self) -> u64 {
         self.inner.count()
+    }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.log.borrow_mut().push(Call::Get(ids.to_vec()));

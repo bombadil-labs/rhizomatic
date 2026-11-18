@@ -95,6 +95,39 @@ const queries =
       ]),
     ) as Partial<Snapshot>;
 
+/**
+ * A snapshot that refuses `snapshot-moved` after any revision advance, as the Rust memory store
+ * did before step 4e. A malformed request is still refused first.
+ */
+const movedByAnyAdvance = (s: Snapshot, peer: PeerStore): Partial<Snapshot> =>
+  queries(async (run) => {
+    const answer = await run();
+    const now = await peer.read();
+    now.release();
+    if (now.revision !== s.revision) throw new StoreError("snapshot-moved", "moved");
+    return answer;
+  })(s);
+
+/** A snapshot that answers a `snapshot-moved` call from a new snapshot of the peer. */
+const answersWhenMoved = (s: Snapshot, peer: PeerStore): Partial<Snapshot> =>
+  Object.fromEntries(
+    QUERIES.map((name) => {
+      const call = (from: Snapshot, argument: never): Promise<unknown> =>
+        (from[name] as (a: never) => Promise<unknown>)(argument);
+      return [
+        name,
+        async (argument: never) => {
+          try {
+            return await call(s, argument);
+          } catch (error) {
+            if (codeOf(error) !== "snapshot-moved") throw error;
+            return call(await peer.read(), argument);
+          }
+        },
+      ];
+    }),
+  ) as Partial<Snapshot>;
+
 const scope =
   (
     change: (
@@ -931,6 +964,55 @@ const RULES: Readonly<Record<string, Rule>> = {
     doc: "scripts",
     says: "expected a refusal: snapshot-released",
     store: { snapshot: () => ({ release: () => {} }) },
+  },
+  "a snapshot that reports another lastSequence": {
+    doc: "scripts",
+    says: /\(read\): the snapshot's lastSequence is \d+, expected \d+/,
+    store: join(other, { snapshot: (s) => ({ lastSequence: s.lastSequence + 1 }) }),
+  },
+  "the reference store refuses a snapshot that appends alone moved": {
+    doc: "scripts",
+    says: /the reference store refused snapshot-moved on a snapshot that appends alone moved/,
+    store: { snapshot: movedByAnyAdvance },
+  },
+  "a snapshot older than a releasing purge answers from the peer's later state": {
+    doc: "scripts",
+    says: "expected a refusal: snapshot-moved",
+    store: join(other, { snapshot: answersWhenMoved }),
+  },
+  "a read step without lastSequence": {
+    doc: "scripts",
+    says: "(read): the vector's lastSequence is not a whole number; the document is defective",
+    store: {},
+    vectors: {
+      ...vectors,
+      scripts: {
+        ...vectors.scripts,
+        scripts: vectors.scripts.scripts.map((script) => ({
+          ...script,
+          steps: script.steps.map((step) =>
+            step.op === "read" ? ({ ...step, expect: undefined } as never) : step,
+          ),
+        })),
+      },
+    },
+  },
+  "a read step with a lastSequence that is not a whole number": {
+    doc: "scripts",
+    says: "(read): the vector's lastSequence is not a whole number; the document is defective",
+    store: {},
+    vectors: {
+      ...vectors,
+      scripts: {
+        ...vectors.scripts,
+        scripts: vectors.scripts.scripts.map((script) => ({
+          ...script,
+          steps: script.steps.map((step) =>
+            step.op === "read" ? ({ ...step, expect: { lastSequence: 0.5 } } as never) : step,
+          ),
+        })),
+      },
+    },
   },
 
   // -- createPeer and openPeer (§3.1, §3.2) --
@@ -1985,6 +2067,7 @@ describe("runner rules: what binds the reference store only", () => {
       ...report,
       retains: [...report.retains, { surface: "surface-debt", holds: "id" }],
     })),
+    "refusing a snapshot that appends alone moved": { snapshot: movedByAnyAdvance },
   };
   for (const [name, fault] of Object.entries(allowed)) {
     it(`${name} conforms for a store that is not the reference`, async () => {
@@ -2199,7 +2282,7 @@ describe("runner rules: a wrong document", () => {
       says: "the vector names an unknown peer Z",
     },
     "a step that uses a peer before creating it": {
-      vectors: only([{ op: "read", peer: "A", snapshot: "s" }]),
+      vectors: only([{ op: "read", peer: "A", snapshot: "s", expect: { lastSequence: 0 } }]),
       says: "the vector uses peer A before creating it",
     },
     "a step that uses a snapshot before reading it": {

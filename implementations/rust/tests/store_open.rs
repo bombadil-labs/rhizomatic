@@ -1047,7 +1047,7 @@ fn an_invalid_scope_bound_is_refused_before_snapshot_state() {
         },
     ];
 
-    peer.append(&batch((Some("h-1"), "h-2"), vec![])).unwrap();
+    crate::move_snapshot::move_by_purge(peer.as_ref());
     assert_eq!(
         code(scope(snapshot.as_ref(), None)),
         StoreErrorCode::SnapshotMoved

@@ -931,6 +931,9 @@ impl Snapshot for SpySnapshot {
     fn count(&self) -> u64 {
         self.inner.count()
     }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.log("get");
         let mut got = self.inner.get(ids)?;

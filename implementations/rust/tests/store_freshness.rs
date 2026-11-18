@@ -1640,8 +1640,8 @@ fn the_constructors_refuse_every_malformed_field() {
 // Moved snapshots (SPEC-18 §4.13 reading 35)
 // ---------------------------------------------------------------------------------------------
 
-/// A peer handle that commits through `writer` during each `changes` call, `moves` times: the
-/// check's snapshot has moved when it asks `get`.
+/// A peer handle that commits through `writer` during each `changes` call, `moves` times, then
+/// moves the peer by a purge: the check's snapshot has moved when it asks `get`.
 struct Moving<'a> {
     inner: &'a dyn PeerStore,
     writer: &'a dyn PeerStore,
@@ -1680,6 +1680,7 @@ impl PeerStore for Moving<'_> {
         if let Some(deltas) = next {
             let head = self.head.get();
             commit(self.writer, head, 100 + head as u64 * 10, &deltas);
+            crate::move_snapshot::move_by_purge(self.writer);
             self.head.set(head + 1);
         }
         page
@@ -1703,6 +1704,9 @@ impl Snapshot for Counted {
     }
     fn count(&self) -> u64 {
         self.inner.count()
+    }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.inner.get(ids)

@@ -207,6 +207,9 @@ impl Snapshot for Snap {
     fn count(&self) -> u64 {
         self.inner.count()
     }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.inner.get(ids)
     }
@@ -300,6 +303,9 @@ impl Snapshot for Fabricated {
     fn count(&self) -> u64 {
         0
     }
+    fn last_sequence(&self) -> u64 {
+        0
+    }
     fn get(&self, _: &[String]) -> Result<Vec<Delta>, StoreError> {
         Err(fabricated())
     }
@@ -387,6 +393,9 @@ impl Snapshot for OddSnap {
     }
     fn count(&self) -> u64 {
         self.inner.count()
+    }
+    fn last_sequence(&self) -> u64 {
+        self.inner.last_sequence()
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         let mut got = self.inner.get(ids)?;
