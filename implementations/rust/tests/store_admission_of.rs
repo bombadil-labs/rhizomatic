@@ -305,26 +305,27 @@ fn refuses_each_bad_option_a_bad_snapshot_and_a_bad_delta_invalid_request_and_ca
         asked
     };
     let max = MAX_ARRIVAL_COUNTER;
+    let one = std::slice::from_ref(&x);
     let cases: Vec<(&str, Result<Admission, StoreError>)> = vec![
         (
             "next_head empty",
-            admission_of(&snapshot, &[x.clone()], with(|o| o.next_head.clear())),
+            admission_of(&snapshot, one, with(|o| o.next_head.clear())),
         ),
         (
             "at not finite",
-            admission_of(&snapshot, &[x.clone()], with(|o| o.at = f64::NAN)),
+            admission_of(&snapshot, one, with(|o| o.at = f64::NAN)),
         ),
         (
             "at infinite",
-            admission_of(&snapshot, &[x.clone()], with(|o| o.at = f64::INFINITY)),
+            admission_of(&snapshot, one, with(|o| o.at = f64::INFINITY)),
         ),
         (
             "sender empty",
-            admission_of(&snapshot, &[x.clone()], with(|o| o.sender.clear())),
+            admission_of(&snapshot, one, with(|o| o.sender.clear())),
         ),
         (
             "a forged delta",
-            admission_of(&snapshot, &[forged.clone()], options()),
+            admission_of(&snapshot, std::slice::from_ref(&forged), options()),
         ),
         (
             "a forged repeat of a delta",
@@ -348,25 +349,22 @@ fn refuses_each_bad_option_a_bad_snapshot_and_a_bad_delta_invalid_request_and_ca
         ),
         (
             "a head that is empty",
-            admission_of(&at(Some(""), 0, 0), &[x.clone()], options()),
+            admission_of(&at(Some(""), 0, 0), one, options()),
         ),
         (
             "sequences past 2^53 - 1",
-            admission_of(&at(None, max, 0), &[x.clone()], options()),
+            admission_of(&at(None, max, 0), one, options()),
         ),
         (
             "a transfer past 2^53 - 1",
-            admission_of(&at(None, 0, max), &[x.clone()], options()),
+            admission_of(&at(None, 0, max), one, options()),
         ),
     ];
     for (name, result) in cases {
         assert_eq!((name, code(result)), (name, "invalid-request".to_string()));
     }
     assert_eq!(snapshot.touched.get(), 0);
-    assert_eq!(
-        code(admission_of(&snapshot, &[x.clone()], options())),
-        "built"
-    );
+    assert_eq!(code(admission_of(&snapshot, one, options())), "built");
     assert_eq!(
         code(admission_of(&at(None, 0, max), &[], options())),
         "built"
