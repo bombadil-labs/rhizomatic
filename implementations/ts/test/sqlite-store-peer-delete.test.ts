@@ -835,7 +835,7 @@ describe.skipIf(!PROVEN_HERE)("a purge across a delete and a re-create (Linux)",
         statement.run = run;
       }
       expect([other?.status, other?.stderr]).toEqual([0, ""]);
-      expect(other!.stdout).toMatch(/^report .*\ncreated \S+\n$/);
+      expect(other!.stdout).toMatch(/^open \d+\nreport .*\ncreated \S+\n$/);
       expect(refused).toBe("peer-absent");
       expect(rowsOf(path, "peer:d")).toEqual({
         peer: 1,
@@ -1153,6 +1153,8 @@ describe("the statements that read a peer", () => {
     peerDrop: "the delete's last transaction removes the row",
     peerHistory: "a minting open writes the row of a peer that exportPeers listed as live",
     peerAdvance: "an append or a purge writes the row that #live read in its transaction",
+    peerDeleting:
+      "prove reads whether a delete of any peer has not ended: a marked row makes every file surface owed",
     fsckPeers:
       "fsck names a peer marked at this read as one fault; each later step of a peer reads its live row and stops without it",
   };
@@ -1190,8 +1192,9 @@ describe("the statements that read a peer", () => {
     expect(assumed).toEqual(["createPeer", "#decide"]);
     expect(source).toMatch(/this\.#live\(peer, origin\);\s+return this\.#decide\(/);
     // A marked row is read only where the delete is decided, and where createPeer refuses.
+    // `prove` reads only whether a marked row exists (peerDeleting).
     const uses = [...source.matchAll(/\.peerState\.get\(/g)].map((m) => methodAt(m.index));
-    expect(uses).toEqual(["createPeer", "deletePeer", "deletePeer", "#deleted"]);
+    expect(uses).toEqual(["createPeer", "deletePeer", "deletePeer", "deletePeer"]);
   });
 
   it("every call of a handle reads its peer through #live with the origin the handle was made with; no other path reads a peer row by its id alone", () => {

@@ -261,6 +261,15 @@ export interface Store {
    * refuses `peer-absent`, and a host gets a new handle from `createPeer` or `peer`.
    */
   deletePeer(id: PeerId): Promise<DeleteReport>;
+  /**
+   * Asks for the proof of every removal that committed before the call's last transaction, for
+   * the whole store and no one peer (§4.13 reading 145). A host calls it after a purge or a
+   * delete answered `unproven`. It removes no delta, holding, record or debt, and names no id.
+   * Every file surface is `owed` while a delete of any peer has not ended. Refuses
+   * `store-closed`, and `store-unavailable` for an engine error before its report is decided:
+   * it removed nothing then.
+   */
+  prove(): Promise<ProofReport>;
   /** Whole-store operations. Never hand this to the serving path. */
   openAdmin(): Exporter;
   close(): Promise<void>;
@@ -521,6 +530,23 @@ export type DeleteReport = {
   readonly released: number;
   /** How many of those ids another peer held when this call released them: their bytes stay. */
   readonly keptByOtherPeers: number;
+};
+
+/**
+ * What `Store.prove` answers (§4.13 reading 145), in the purge report's words. The claim covers
+ * the residue of every delta, holding, index entry and peer that the store removed before the
+ * call's last transaction. It does not cover ids and heads, which change records, debts and
+ * records of removals keep (decision O4), nor the rows of a peer whose delete has not ended.
+ */
+export type ProofReport = {
+  /**
+   * `proven`: the store's class is `proven` and every surface is `absent`. A store may always
+   * say `unproven` instead.
+   */
+  readonly claim: "proven" | "unproven";
+  readonly boundary: typeof PURGE_BOUNDARY;
+  /** Every storage surface the store declares, in the purge report's order. */
+  readonly surfaces: readonly { readonly surface: string; readonly state: SurfaceState }[];
 };
 
 /**

@@ -69,12 +69,14 @@ import {
   type IntegrityFault,
   type PeerId,
   type PeerStore,
+  type ProofReport,
   type PurgeOutcome,
   type PurgeReport,
   type Revision,
   type Snapshot,
   type Store,
   type StoreProfile,
+  type SurfaceState,
 } from "./store.js";
 
 /** The package that this module needs, named in the error when a host has not installed it. */
@@ -641,6 +643,24 @@ function profileOf(retention: Retention): StoreProfile {
 // ---- the store --------------------------------------------------------------------------------
 
 /**
+ * The store's file surfaces in its fixed order, each in `files`. `index-entries` can be owed on
+ * its own. `temp-files` is `unprovable` on a store of class `unprovable`.
+ */
+function fileSurfaces(
+  files: SurfaceState,
+  indexEntries: SurfaceState = files,
+): { surface: string; state: SurfaceState }[] {
+  return [
+    { surface: "rows", state: files },
+    { surface: "index-entries", state: indexEntries },
+    { surface: "page-free-space", state: files },
+    { surface: "freed-pages", state: files },
+    { surface: "write-ahead-log", state: files },
+    { surface: "temp-files", state: ERASURE_CLASS === "proven" ? files : "unprovable" },
+  ];
+}
+
+/**
  * A peer delete's report, with every file surface in `files`. The claim is `proven` only for a
  * proving call whose surfaces are all `absent`.
  */
@@ -650,14 +670,7 @@ function deleteReport(
   released: number,
   keptByOtherPeers: number,
 ): DeleteReport {
-  const surfaces: DeleteReport["surfaces"] = [
-    { surface: "rows", state: files },
-    { surface: "index-entries", state: files },
-    { surface: "page-free-space", state: files },
-    { surface: "freed-pages", state: files },
-    { surface: "write-ahead-log", state: files },
-    { surface: "temp-files", state: ERASURE_CLASS === "proven" ? files : "unprovable" },
-  ];
+  const surfaces = fileSurfaces(files);
   return {
     claim:
       proving && surfaces.every((surface) => surface.state === "absent") ? "proven" : "unproven",
@@ -674,6 +687,9 @@ function deleteReport(
     keptByOtherPeers,
   };
 }
+
+/** What a call's rebuild proved: the count of deletes it read before `VACUUM`, if it ran one. */
+type Proof = { d: number | undefined } | undefined;
 
 class SqliteFileStore implements SqliteStore {
   readonly profile: StoreProfile;
@@ -1355,21 +1371,13 @@ class SqliteFileStore implements SqliteStore {
         );
       return { proving, released: new Set(released), dirty: !this.#clean() };
     });
-    let proof = first.proving ? this.#rebuild(first.dirty) : undefined;
-    for (let tries = 1; ; tries++) {
-      try {
-        // A delete that marked the peer since the first transaction, or a delete and a
-        // createPeer of the id, refuse the report before it writes anything: the first
-        // transaction's removals have committed, as for any refused purge (reading 105).
-        return this.#run("write", () => {
-          this.#live(peer, origin);
-          return this.#decide(peer, asked, first, proof, tries);
-        });
-      } catch (error) {
-        if (error !== LOG_NOT_EMPTY) throw error;
-        if (!this.#truncate()) proof = undefined;
-      }
-    }
+    // A delete that marked the peer since the first transaction, or a delete and a createPeer
+    // of the id, refuse the report before it writes anything: the first transaction's removals
+    // have committed, as for any refused purge (reading 105).
+    return this.#last(first.proving ? this.#rebuild(first.dirty) : undefined, (holds) => {
+      this.#live(peer, origin);
+      return this.#decide(peer, asked, first, holds());
+    });
   }
 
   /**
@@ -1470,15 +1478,63 @@ class SqliteFileStore implements SqliteStore {
       unfinished,
     );
     const proving = ERASURE_CLASS === "proven" && posture === "proven";
-    let proof = proving ? this.#rebuild(dirty) : undefined;
+    try {
+      // The last transaction takes the file surfaces by the store-wide rule (readings 117 and
+      // 119). With the foreign keys on, no row of the peer outlives its peer row, so a peer row
+      // of the id found here, of any state, makes every file surface `owed`.
+      return this.#last(proving ? this.#rebuild(dirty) : undefined, (holds) =>
+        deleteReport(
+          holds() && s.peerState.get(id) === undefined ? "absent" : "owed",
+          proving,
+          released,
+          kept,
+        ),
+      );
+    } catch (error) {
+      // The rows are gone, so a repeat would answer `peer-absent`. A report with every file
+      // surface `owed` is true without the lock (§4.13 reading 144).
+      if (error instanceof StoreError && error.code === "store-unavailable")
+        return deleteReport("owed", false, released, kept);
+      throw error;
+    }
+  }
+
+  /**
+   * The proof for the whole store (§4.13 reading 145). It rebuilds the file when it is not clean,
+   * always empties the log, and decides the report in one last transaction by the rule of a
+   * purge's (readings 117 and 119). A peer that a delete marked has rows the delete has not
+   * reached, and their removal is not counted yet, so it makes every file surface `owed`. It
+   * removes no row, and its only write raises `clean`. It ends no record of a removal: a record
+   * ends only in its own peer's ask (reading 107).
+   */
+  async prove(): Promise<ProofReport> {
+    this.#open();
+    const s = this.#s;
+    const dirty = this.#run("read", () => !this.#clean());
+    const proof = ERASURE_CLASS === "proven" ? this.#rebuild(dirty) : undefined;
+    return this.#last(proof, (holds) => {
+      const surfaces = fileSurfaces(
+        holds() && s.peerDeleting.get() === undefined ? "absent" : "owed",
+      );
+      return {
+        claim: surfaces.every((surface) => surface.state === "absent") ? "proven" : "unproven",
+        boundary: PURGE_BOUNDARY,
+        surfaces,
+      };
+    });
+  }
+
+  /**
+   * Runs a call's last transaction (§4.13 reading 119). `body` asks `holds` for the store-wide
+   * rule under the write lock. When the call's own rebuild succeeded and the log holds frames,
+   * the transaction lets go of the lock, empties the log and runs again; its last try answers
+   * without the proof. A failed truncate ends the proof, and the next try answers at once.
+   */
+  #last<T>(proof: Proof, body: (holds: () => boolean) => T): T {
     for (let tries = 1; ; tries++) {
       try {
-        return this.#run("write", () => this.#deleted(id, proving, proof, tries, released, kept));
+        return this.#run("write", () => body(() => this.#holds(proof, tries)));
       } catch (error) {
-        // The rows are gone, so a repeat would answer `peer-absent`. A report with every file
-        // surface `owed` is true without the lock (§4.13 reading 144).
-        if (error instanceof StoreError && error.code === "store-unavailable")
-          return deleteReport("owed", false, released, kept);
         if (error !== LOG_NOT_EMPTY) throw error;
         if (!this.#truncate()) proof = undefined;
       }
@@ -1486,45 +1542,31 @@ class SqliteFileStore implements SqliteStore {
   }
 
   /**
-   * The last transaction of a peer delete. It takes the file surfaces by the rule of a purge's
-   * last transaction (readings 117 and 119): `absent` only when the log was empty at the lock and
-   * the file is clean. With the foreign keys on, no row of the peer outlives its peer row, so a
-   * peer row found here, of any state, makes every file surface `owed`.
+   * The store-wide rule of the proof, the one ground for a file surface `absent` (readings 117
+   * and 119): the log is empty at the write lock and the file is clean. With an empty log, a
+   * rebuild of this call that succeeded raises `clean` to the count it read before `VACUUM`.
+   * Only the holder of the write lock writes frames, and a writer that failed or died never
+   * shrinks the log, so an empty log now holds no frame of any writer, committed or not.
    */
-  #deleted(
-    peer: PeerId,
-    proving: boolean,
-    proof: { d: number | undefined } | undefined,
-    tries: number,
-    released: number,
-    keptByOtherPeers: number,
-  ): DeleteReport {
-    const s = this.#s;
+  #holds(proof: Proof, tries: number): boolean {
     const empty = this.#logEmpty();
     if (proof !== undefined && !empty && tries < LAST_TRIES) throw LOG_NOT_EMPTY;
-    if (empty && proof?.d !== undefined) s.residueClean.run(proof.d);
-    const files = empty && this.#clean() && s.peerState.get(peer) === undefined ? "absent" : "owed";
-    return deleteReport(files, proving, released, keptByOtherPeers);
+    if (empty && proof?.d !== undefined) this.#s.residueClean.run(proof.d);
+    return empty && this.#clean();
   }
 
   /**
    * The body of a purge's last transaction (§4.13 readings 115, 117 and 119). It runs under the
-   * write lock and decides the whole report from what it reads.
+   * write lock and decides the whole report from what it reads. `clean` is the store-wide rule
+   * of the proof, read in this transaction (`#holds`).
    */
   #decide(
     peer: PeerId,
     asked: readonly Id[],
     first: { proving: boolean; released: ReadonlySet<Id> },
-    proof: { d: number | undefined } | undefined,
-    tries: number,
+    clean: boolean,
   ): PurgeReport {
     const s = this.#s;
-    // Only the holder of the write lock writes frames, and a writer that failed or died never
-    // shrinks the log. An empty log now holds no frame of any writer, committed or not.
-    const empty = this.#logEmpty();
-    if (proof !== undefined && !empty && tries < LAST_TRIES) throw LOG_NOT_EMPTY;
-    if (empty && proof?.d !== undefined) s.residueClean.run(proof.d);
-    const clean = empty && this.#clean();
     let left = false;
     // Each answer reads the state now, under the write lock: another process may have appended
     // or purged the id since the first transaction.
@@ -1564,14 +1606,7 @@ class SqliteFileStore implements SqliteStore {
     if (named.some((id) => s.surfaceDebtNames.get(id) !== undefined))
       retains.push({ surface: "surface-debt", holds: "id" });
     const files = clean ? "absent" : "owed";
-    const surfaces: PurgeReport["surfaces"] = [
-      { surface: "rows", state: files },
-      { surface: "index-entries", state: left ? "owed" : files },
-      { surface: "page-free-space", state: files },
-      { surface: "freed-pages", state: files },
-      { surface: "write-ahead-log", state: files },
-      { surface: "temp-files", state: ERASURE_CLASS === "proven" ? files : "unprovable" },
-    ];
+    const surfaces = fileSurfaces(files, left ? "owed" : files);
     return {
       claim: !targets.some((t) => t.outcome === "removed")
         ? "nothing-removed"
@@ -1612,7 +1647,7 @@ class SqliteFileStore implements SqliteStore {
    * succeeded, and `undefined` otherwise. A delete that commits after that read raises `dirty`
    * past `d`, so the file stays not clean, whichever step it fell between.
    */
-  #rebuild(dirty: boolean): { d: number | undefined } | undefined {
+  #rebuild(dirty: boolean): Proof {
     const s = this.#s;
     let d: number | undefined;
     if (dirty)

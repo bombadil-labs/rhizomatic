@@ -51,6 +51,7 @@ import {
   type IntegrityFault,
   type PeerId,
   type PeerStore,
+  type ProofReport,
   type PurgeOutcome,
   type PurgeReport,
   type Revision,
@@ -431,6 +432,25 @@ class MemoryStore implements Store {
       ],
       released: held.length,
       keptByOtherPeers: held.length - gone.length,
+    };
+  }
+
+  /**
+   * The proof for the whole store (§4.13 reading 145). A purge and a delete remove a row and its
+   * index entries in the same synchronous call, and no delete runs in pages, so no row the store
+   * deleted is in its maps. Process memory cannot prove absence, so the claim is `unproven`, as
+   * in its purge.
+   */
+  async prove(): Promise<ProofReport> {
+    this.#open();
+    return {
+      claim: "unproven",
+      boundary: PURGE_BOUNDARY,
+      surfaces: [
+        { surface: "rows", state: "absent" },
+        { surface: "index-entries", state: "absent" },
+        { surface: "process-memory", state: "unprovable" },
+      ],
     };
   }
 

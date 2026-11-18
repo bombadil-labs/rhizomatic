@@ -40,6 +40,7 @@ export function broken(fault: Break): () => Promise<Store> {
       createPeer: async (id, options) => wrapPeer(await inner.createPeer(id, options)),
       peer: async (id) => wrapPeer(await inner.peer(id)),
       deletePeer: (id) => inner.deletePeer(id),
+      prove: () => inner.prove(),
       openAdmin: () => inner.openAdmin(),
       close: () => inner.close(),
     };

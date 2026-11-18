@@ -199,11 +199,22 @@ Step 4d adds more, listed under Breaking.
   do not change.
 - A delete of a `proven` peer can answer `unproven`, also with one deleter: when another
   connection's checkpoint stays busy past the truncate's bound (reading 143), when a reader
-  holds the log, or when a lock wait passes `busyTimeoutMs`. No call then promises a later
-  proof: a second `deletePeer` of the id refuses `peer-absent` or deletes a new peer, so a host
-  does not repeat the call. A store-level proof call is owed. Two deletes of one peer at once
+  holds the log, or when a lock wait passes `busyTimeoutMs`. A host does not repeat the call
+  to get the proof: a second `deletePeer` of the id refuses `peer-absent` or deletes a new peer.
+  It calls `Store.prove()` (below). Two deletes of one peer at once
   share the work. The other delete's report carries the proof only when it answered `proven`.
   When no wait passes `busyTimeoutMs`, at least one of the two answers `proven`.
+- **A proof for the whole store** (step 4d, §4.13 reading 145). `Store.prove()` asks for the
+  proof of every removal that committed before its last transaction, and names no peer and no
+  id. It answers a `ProofReport` `{claim, boundary, surfaces}` in the purge report's words. The
+  SQLite store runs the rebuild of a purge and decides the report by the same rule, in one
+  shared copy: every file surface is `absent` only when the log is empty at the lock, the file
+  is clean, and no peer is marked by a delete that has not ended. It removes no row and ends no
+  record of a removal: a record ends in its own peer's next ask. On a store of class
+  `unprovable` it runs no rebuild and never says `proven`. The memory store answers `unproven`,
+  as its purge does. Both refuse `store-closed` after close. The package root exports
+  `ProofReport`. Rust takes `prove()` in step 4e. What can now be deleted that could not be
+  deleted before: nothing.
 - After the transaction that removes the peer row, a delete does not refuse
   `store-unavailable`. When its last transaction fails for any engine error (a lock, a full
   disk, an I/O error), it answers its counts with every file surface `owed` (`temp-files` is
@@ -232,8 +243,8 @@ Step 4d adds more, listed under Breaking.
   a trigger counts the delete of a `peer` row in `residue.dirty`. Open refuses a file of format
   `/1` to `/6` with `open-failed`, names both formats and changes no byte. No migration ships:
   create a new file and append again.
-- **`Store` has a new member, `deletePeer`.** A host that builds its own `Store` object must
-  give one.
+- **`Store` has two new members, `deletePeer` and `prove`.** A host that builds its own `Store`
+  object must give both.
 - **`IntegrityFaultKind` has a new kind, `peer-deleting`.** `fsck` reports it for a peer that is
   marked when the scan lists it, and checks no other row of that peer. A peer that a delete marks
   later in the scan gets no fault from that scan: each later step of a peer reads the peer row in

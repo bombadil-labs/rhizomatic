@@ -165,6 +165,7 @@ function auditedStore(store: Store, path: string): Store {
     createPeer: async (id, options) => peer(await after(store.createPeer(id, options))),
     peer: async (id) => peer(await after(store.peer(id))),
     deletePeer: (id) => after(store.deletePeer(id)),
+    prove: () => after(store.prove()),
     openAdmin: () => store.openAdmin(),
     close: () => store.close(),
   };

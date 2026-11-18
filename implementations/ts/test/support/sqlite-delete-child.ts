@@ -20,10 +20,10 @@
 //   `<path>.go-watch`. Then it calls every call of the handle and of the snapshot, and prints
 //   `codes {handle: [...], snapshot: [...]}`, each a refusal code or `answered`.
 // - `append`: appends one new delta at a time to the peer, each from the head it reads, under a
-//   head named with this process's id, until a call is refused. Prints `appended 1` after its
-//   first commit, then `done {committed, ids, refused}`.
+//   head named with this process's id, until a call is refused, or until `count` commits. Prints
+//   `appended 1` after its first commit, then `done {committed, ids, refused}`.
 //
-// Every job opens the store with `busyTimeoutMs` (default 200).
+// Every job opens the store with `busyTimeoutMs` (default 200), then prints `open <pid>`.
 
 import { existsSync, writeSync } from "node:fs";
 import Database from "better-sqlite3";
@@ -40,6 +40,7 @@ type Job = {
   hold?: boolean;
   busyTimeoutMs?: number;
   posture?: "proven" | "unproven";
+  count?: number;
 };
 
 const job = JSON.parse(process.argv[2]!) as Job;
@@ -148,22 +149,26 @@ async function watch(store: SqliteStore): Promise<void> {
   });
 }
 
+/** A new delta about an entity of its own, by an author named with this process's id. */
+const fresh = (n: number) =>
+  makeDelta({
+    timestamp: n,
+    validFrom: 0,
+    author: `appender-${process.pid}`,
+    pointers: [{ role: "about", target: { kind: "entity", entity: { id: `e${n}` } } }],
+  });
+
 async function append(peer: PeerStore): Promise<void> {
   const ids: string[] = [];
   let sequence = job.after ?? 0;
-  for (;;) {
+  while (ids.length < (job.count ?? Infinity)) {
     let refused: string;
     try {
       const now = await patient(() => peer.read());
       const head = now.head;
       now.release();
       const n = ++sequence;
-      const delta = makeDelta({
-        timestamp: n,
-        validFrom: 0,
-        author: `appender-${process.pid}`,
-        pointers: [{ role: "about", target: { kind: "entity", entity: { id: `e${n}` } } }],
-      });
+      const delta = fresh(n);
       const result = await patient(() =>
         peer.append({
           expectedHead: head,
@@ -189,11 +194,13 @@ async function append(peer: PeerStore): Promise<void> {
     print("done", { committed: ids.length, ids, refused });
     return;
   }
+  print("done", { committed: ids.length, ids, refused: null });
 }
 
 const store = await patient(() =>
   openSqliteStore(job.path, { busyTimeoutMs: job.busyTimeoutMs ?? 200 }),
 );
+print("open", process.pid);
 try {
   if (job.op === "delete") {
     armed = job.hold === true;
