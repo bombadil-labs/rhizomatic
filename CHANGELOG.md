@@ -193,8 +193,9 @@ Step 4d adds more, listed under Breaking.
   `a-transfer-must-pass-the-peers-last` holds the rule, and every `read` step carries
   `expect.lastTransfer`. The format names do not change. What a purge removes does not change.
 - Step 4e: Rust `Store::create_peer` takes `&CreatePeerOptions`, as TypeScript's `createPeer`
-  takes its options (decision D10 of the 4e plan). `CreatePeerOptions { erasure }` has `new`
-  and a `Default` that declares `Unproven`. Behavior does not change.
+  takes its options (decision D10 of the 4e plan). `CreatePeerOptions { erasure }` has one
+  constructor, `new(erasure)`, and no `Default`: the caller always states the posture. Behavior
+  does not change.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.

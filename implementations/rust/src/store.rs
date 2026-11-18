@@ -103,8 +103,8 @@ impl ErasurePosture {
     }
 }
 
-/// What `Store::create_peer` fixes for a new peer (SPEC-18 §4.1). The default declares
-/// `Unproven`, the posture that every store accepts.
+/// What `Store::create_peer` fixes for a new peer (SPEC-18 §4.1). The caller always states
+/// the erasure posture: the type has no default.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreatePeerOptions {
     /// `Unproven` is the operator's acknowledgement that erasure reports may say `unproven`.
@@ -114,12 +114,6 @@ pub struct CreatePeerOptions {
 impl CreatePeerOptions {
     pub fn new(erasure: ErasurePosture) -> Self {
         Self { erasure }
-    }
-}
-
-impl Default for CreatePeerOptions {
-    fn default() -> Self {
-        Self::new(ErasurePosture::Unproven)
     }
 }
 
