@@ -49446,6 +49446,28 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::memory_store::SnapshotView",
+      "resolvedTarget": "crate::memory_store::SnapshotView",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "SnapshotView",
+      "target": "crate::memory_store::SnapshotView",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::SnapshotView",
+      "resolvedTarget": "crate::memory_store::SnapshotView",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "SnapshotView::within",
+      "target": "crate::memory_store::SnapshotView",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::memory_store::State",
       "resolvedTarget": "crate::memory_store::State",
       "source": "implementations/rust/src/memory_store.rs",
@@ -98689,6 +98711,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::memory_store::MemorySnapshot",
+      "resolvedTarget": "crate::memory_store::MemorySnapshot",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::last_sequence",
+      "target": "crate::memory_store::MemorySnapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::memory_store::Index",
       "resolvedTarget": "crate::memory_store::Index",
       "source": "implementations/rust/src/memory_store.rs",
@@ -100468,6 +100501,17 @@
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "LoggedSnapshot::history",
+      "target": "crate::store_conformance::LoggedSnapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::LoggedSnapshot",
+      "resolvedTarget": "crate::store_conformance::LoggedSnapshot",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "LoggedSnapshot::last_sequence",
       "target": "crate::store_conformance::LoggedSnapshot",
       "targetOwner": "storage"
     },
@@ -124480,6 +124524,17 @@
       "semantics": "Native store::Snapshot::history implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store.rs",
       "symbol": "Snapshot::history"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "trait-method",
+      "id": "rust:store:Snapshot::last_sequence",
+      "owner": "storage",
+      "semantics": "storage owns the existing store::Snapshot::last_sequence trait-method; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "Snapshot::last_sequence"
     },
     {
       "cfg": [],
