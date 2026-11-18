@@ -178,7 +178,7 @@ describe("a purge of a damaged id on the memory store", () => {
     ["sorted after", "good first"],
     ["sorted after", "damaged first"],
   ])(
-    "a held id whose row counts 0 holders, with a good id %s it, %s: the purge throws count-mismatch (holders), removes nothing, and both peers read as before",
+    "a held id whose row counts no holder, with a good id %s it, %s: the purge throws count-mismatch (holders), removes nothing, and both peers read as before",
     async (side, first) => {
       const store = createMemoryStore();
       const a = await store.createPeer("peer:a", { erasure: "unproven" });
@@ -193,11 +193,11 @@ describe("a purge of a damaged id on the memory store", () => {
       await add(b, [other]);
       const snapshot = await a.read();
       const real = Map.prototype.get;
-      const rows: { holders: number }[] = [];
+      const rows: { holders: Map<string, number> }[] = [];
       Map.prototype.get = function (this: Map<unknown, unknown>, key: unknown) {
         const value: unknown = real.call(this, key);
         if (key === target.id && typeof value === "object" && value !== null && "holders" in value)
-          rows.push(value as { holders: number });
+          rows.push(value as { holders: Map<string, number> });
         return value;
       };
       let pending: Promise<unknown>;
@@ -208,7 +208,7 @@ describe("a purge of a damaged id on the memory store", () => {
       }
       await pending;
       expect(rows.length).toBe(1);
-      rows[0]!.holders = 0;
+      rows[0]!.holders.clear();
       const feed = await a.changes(0);
       const otherFeed = await b.changes(0);
       const faults = (await store.openAdmin().fsck()).faults;
@@ -226,7 +226,7 @@ describe("a purge of a damaged id on the memory store", () => {
         peer: "peer:a",
         id: target.id,
         key: "holders",
-        detail: "memory store: the row counts 0 holders and this peer holds it",
+        detail: "memory store: the row counts this peer 0 times as a holder and this peer holds it",
       });
       const now = await a.read();
       expect([now.revision, now.count]).toEqual([snapshot.revision, 3]);
@@ -237,7 +237,7 @@ describe("a purge of a damaged id on the memory store", () => {
       for (const kept of [good, bystander]) expect(await now.get([kept.id])).toEqual([kept]);
       expect(await (await b.read()).get([other.id])).toEqual([other]);
       expect((await store.openAdmin().fsck()).faults).toEqual(faults);
-      rows[0]!.holders = 1;
+      rows[0]!.holders.set("peer:a", 1);
       const repaired = await a.purge([target.id]);
       expect([repaired.targets, repaired.retains]).toEqual([
         [{ id: target.id, outcome: "removed" }],

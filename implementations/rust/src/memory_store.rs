@@ -1,5 +1,6 @@
-//! The memory reference store (SPEC-18 proposal §5.1, slice 1). Claims are kept once per id and
-//! counted by holdings; membership, signatures, arrival records and both indexes are per peer.
+//! The memory reference store (SPEC-18 proposal §5.1, slice 1). Claims are kept once per id, with
+//! the peers that hold them; membership, signatures, arrival records and both indexes are per
+//! peer.
 //! Every map is read through one counting door (`Index`), so a test can show that no core
 //! operation walks a whole map (SPEC-18 §4.11 reading 17). Only the exporter scans.
 //!
@@ -124,11 +125,14 @@ impl Index<BTreeSet<String>> {
     }
 }
 
-/// The claims of one id, stored once, and how many peers hold it.
+/// The claims of one id, stored once, and the peers the row counts as its holders, each with how
+/// many times it counts them. On an undamaged store these are the peers that hold the id, each
+/// counted once. A purge reads from them whether another peer still holds the id, as the SQLite
+/// store reads its `holding` table (§4.13 reading 136).
 #[derive(Debug)]
 struct Stored {
     claims: Claims,
-    holders: usize,
+    holders: BTreeMap<String, usize>,
 }
 
 /// One peer's holding of an id: the signature it admitted and its arrival record.
@@ -264,15 +268,18 @@ fn lost(peer: &str, id: &str) -> IntegrityFault {
     }
 }
 
-/// A held row that counts no holder (§4.13 reading 136). A purge of it would take the count below
-/// zero, so the purge refuses before it removes anything. `fsck` reports the same row with no peer.
-fn uncounted(peer: &str, id: &str, holders: usize) -> IntegrityFault {
+/// A held row that does not count this peer exactly once as a holder (§4.13 reading 136). The
+/// row is not the peers that hold the id, so the purge refuses before it removes anything. `fsck`
+/// reports the same row with no peer.
+fn uncounted(peer: &str, id: &str, counted: usize) -> IntegrityFault {
     IntegrityFault {
         kind: IntegrityFaultKind::CountMismatch,
         peer: Some(peer.to_string()),
         id: Some(id.to_string()),
         key: Some("holders".to_string()),
-        detail: format!("memory store: the row counts {holders} holders and this peer holds it"),
+        detail: format!(
+            "memory store: the row counts this peer {counted} times as a holder and this peer holds it"
+        ),
     }
 }
 
@@ -397,13 +404,13 @@ impl State {
         for (id, entry) in &fresh {
             let delta = &entry.delta;
             match stored.get_mut(meter, id) {
-                Some(kept) => kept.holders += 1,
+                Some(kept) => *kept.holders.entry(peer_id.to_string()).or_default() += 1,
                 None => stored.insert(
                     meter,
                     delta.id.clone(),
                     Stored {
                         claims: delta.claims.clone(),
-                        holders: 1,
+                        holders: BTreeMap::from([(peer_id.to_string(), 1)]),
                     },
                 ),
             }
@@ -468,22 +475,18 @@ impl State {
             return refuse(StoreErrorCode::PeerAbsent, "no such peer")
                 .map_err(StoreFailure::Refused);
         };
-        // A held id without its stored claims, or whose row counts no holder, fails the whole
-        // purge before it removes anything (§4.13 reading 136).
+        // A held id without its stored claims, or whose row does not count this peer exactly
+        // once as a holder, fails the whole purge before it removes anything (§4.13 reading 136).
         for id in distinct(ids) {
             if !peer.holdings.contains(meter, id) {
                 continue;
             }
-            match stored.get(meter, id) {
-                None => return Err(StoreFailure::Integrity(lost(peer_id, id))),
-                Some(kept) if kept.holders < 1 => {
-                    return Err(StoreFailure::Integrity(uncounted(
-                        peer_id,
-                        id,
-                        kept.holders,
-                    )))
-                }
-                Some(_) => {}
+            let Some(kept) = stored.get(meter, id) else {
+                return Err(StoreFailure::Integrity(lost(peer_id, id)));
+            };
+            let counted = kept.holders.get(peer_id).copied().unwrap_or(0);
+            if counted != 1 {
+                return Err(StoreFailure::Integrity(uncounted(peer_id, id, counted)));
             }
         }
         let mut targets = Vec::new();
@@ -493,7 +496,7 @@ impl State {
             let outcome = if peer.holdings.remove(meter, id).is_some() {
                 released.push(id.to_string());
                 // The stored claims name the index entries this delta made for the peer. The
-                // check above found them with a count of 1 or more, and this loop changes no
+                // check above found the row counting this peer once, and this loop changes no
                 // other id's row.
                 let last_holder = match stored.get_mut(meter, id) {
                     Some(kept) => {
@@ -503,8 +506,8 @@ impl State {
                         for negated in negated_ids(&kept.claims) {
                             peer.negators.remove_member(meter, negated, id);
                         }
-                        kept.holders -= 1;
-                        kept.holders == 0
+                        kept.holders.remove(peer_id);
+                        kept.holders.is_empty()
                     }
                     None => true,
                 };
@@ -762,7 +765,8 @@ impl State {
 impl State {
     /// `fsck` over this store's own structures (§4.13 reading 137), in TypeScript's order: per
     /// peer, each holding against the peer's counters and its stored claims, each index entry
-    /// against the claims, and the change records; then each stored row's count of holders. A
+    /// against the claims, and the change records; then each stored row's holders against the
+    /// peers that hold it. A
     /// check that meets damage reports it and goes on. It reads only. O(store).
     fn fsck(&mut self) -> FsckReport {
         let State {
@@ -773,7 +777,7 @@ impl State {
         } = self;
         let mut faults = Vec::new();
         let mut checked = FsckChecked::default();
-        let mut holders: BTreeMap<&str, usize> = BTreeMap::new();
+        let mut holders: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
         for (peer_id, peer) in peers.scan(meter) {
             checked.peers += 1;
             let mut fault = |kind, id: Option<&str>, key: Option<&str>, detail: String| {
@@ -788,7 +792,7 @@ impl State {
             let mut expected: [BTreeMap<&str, BTreeSet<&str>>; 2] = Default::default();
             for (id, holding) in peer.holdings.scan(meter) {
                 checked.holdings += 1;
-                *holders.entry(id).or_default() += 1;
+                holders.entry(id).or_default().push(peer_id);
                 let here = Some(id.as_str());
                 if holding.arrival.sequence > peer.last_sequence {
                     let detail = "memory store: a sequence passes the peer's last";
@@ -879,20 +883,34 @@ impl State {
         }
         for (id, row) in stored.scan(meter) {
             checked.deltas += 1;
-            let held = holders.get(id.as_str()).copied().unwrap_or(0);
-            let (kind, key, detail) = if held == 0 {
+            let held = holders
+                .get(id.as_str())
+                .map(Vec::as_slice)
+                .unwrap_or_default();
+            let (kind, key, detail) = if held.is_empty() {
                 (
                     IntegrityFaultKind::OrphanBytes,
                     None,
                     "memory store: no peer holds these bytes".to_string(),
                 )
-            } else if row.holders != held {
+            } else if row.holders.len() != held.len()
+                || held.iter().any(|p| row.holders.get(*p) != Some(&1))
+            {
+                let named: Vec<String> = row
+                    .holders
+                    .iter()
+                    .map(|(p, n)| match n {
+                        1 => p.clone(),
+                        n => format!("{p} ({n})"),
+                    })
+                    .collect();
                 (
                     IntegrityFaultKind::CountMismatch,
                     Some("holders".to_string()),
                     format!(
-                        "memory store: the row counts {} holders and {held} peers hold it",
-                        row.holders
+                        "memory store: the row names the holders [{}] and the peers [{}] hold it",
+                        named.join(", "),
+                        held.join(", ")
                     ),
                 )
             } else {
@@ -940,14 +958,15 @@ impl SnapshotView<'_> {
 type Shared = Arc<Mutex<State>>;
 
 fn with<R>(state: &Shared, f: impl FnOnce(&mut State) -> R) -> R {
-    // `append` plans its whole batch and then commits without a fallible step. `purge` has no
-    // plan: it removes one id at a time, and each id's removal is complete before the next
-    // starts. Before its first write, `purge` checks every named held id: its row exists and
-    // counts 1 or more holders (§4.13 reading 136). So no step of its loop takes a count below
-    // zero. Its loop still adds 1 to a debt count and to the revision; a damaged count at
-    // `u64::MAX` panics there in a debug build. With an undamaged state no step can panic
-    // between two writes of one id, so a poisoned lock still guards a state whose indexes agree
-    // with its holdings.
+    // `append` plans its whole batch and then commits. Its commit adds 1 to a row's count of the
+    // peer and to the revision; a damaged value at the largest integer panics there in a debug
+    // build. `purge` has no plan: it removes one id at a time, and each id's removal is complete
+    // before the next starts. Before its first write, `purge` checks every named held id: its
+    // row exists and counts this peer exactly once as a holder (§4.13 reading 136). Its loop
+    // removes the peer from the row and subtracts nothing. Its loop adds 1 to a debt count, and
+    // after the loop it adds 1 to the revision; a damaged value at `u64::MAX` panics there in a
+    // debug build. With an undamaged state no step can panic between two writes of one id, so a
+    // poisoned lock still guards a state whose indexes agree with its holdings.
     let mut guard = match state.lock() {
         Ok(guard) => guard,
         Err(poisoned) => poisoned.into_inner(),
@@ -1951,10 +1970,11 @@ fn bytes_no_peer_holds_are_orphan_bytes_and_a_wrong_count_of_holders_is_count_mi
             orphan.id.clone(),
             Stored {
                 claims: orphan.claims.clone(),
-                holders: 1,
+                holders: BTreeMap::from([("peer:a".to_string(), 1)]),
             },
         );
-        state.stored.map.get_mut(&b.id).unwrap().holders = 2;
+        let row = state.stored.map.get_mut(&b.id).unwrap();
+        row.holders.insert("peer:a".to_string(), 2);
     });
     let mut want = vec![
         at("orphan-bytes", None, &orphan.id, None),
@@ -2047,7 +2067,13 @@ fn a_purge_that_names_a_held_id_whose_row_counts_no_holder_fails_with_count_mism
             add(a.as_ref(), &[&target, good, &bystander]);
             add(b.as_ref(), &[&other]);
             damage(&store, |state| {
-                state.stored.map.get_mut(&target.id).unwrap().holders = 0;
+                state
+                    .stored
+                    .map
+                    .get_mut(&target.id)
+                    .unwrap()
+                    .holders
+                    .clear();
             });
             let feed = a.changes(Revision(0), None).unwrap();
             let revisions = (a.read().unwrap().revision(), b.read().unwrap().revision());
@@ -2065,7 +2091,8 @@ fn a_purge_that_names_a_held_id_whose_row_counts_no_holder_fails_with_count_mism
                 Some("holders"),
             );
             assert_eq!(place(&fault), want, "{case}");
-            let detail = "memory store: the row counts 0 holders and this peer holds it";
+            let detail =
+                "memory store: the row counts this peer 0 times as a holder and this peer holds it";
             assert_eq!(fault.detail, detail, "{case}");
             assert_eq!(dump(&store), before, "{case}");
             let now = a.read().unwrap();
@@ -2166,7 +2193,7 @@ fn fsck_reports_every_lost_row_of_one_peer_and_goes_on_to_the_next_holding() {
 fn a_row_that_counts_fewer_holders_than_hold_it_is_count_mismatch_holders_by_fsck() {
     let (store, _, t, _, _) = filled();
     damage(&store, |state| {
-        state.stored.map.get_mut(&t.id).unwrap().holders = 0;
+        state.stored.map.get_mut(&t.id).unwrap().holders.clear();
     });
     let report = store.open_admin().fsck().unwrap();
     assert_eq!(
@@ -2175,7 +2202,7 @@ fn a_row_that_counts_fewer_holders_than_hold_it_is_count_mismatch_holders_by_fsc
     );
     assert_eq!(
         report.faults[0].detail,
-        "memory store: the row counts 0 holders and 1 peers hold it"
+        "memory store: the row names the holders [] and the peers [peer:a] hold it"
     );
 }
 
@@ -2197,4 +2224,315 @@ fn a_feed_floor_at_the_largest_u64_is_feed_gap_by_fsck_with_records_and_with_non
             "{clear}"
         );
     }
+}
+
+#[cfg(test)]
+type SharedX = (
+    MemoryStore,
+    Box<dyn PeerStore>,
+    Box<dyn PeerStore>,
+    [Delta; 3],
+);
+
+/// Peers A and B both hold `x`. A also holds `a`, and B also holds `b`. `fsck` finds nothing.
+#[cfg(test)]
+fn shared_x() -> SharedX {
+    let store = MemoryStore::new();
+    let posture = CreatePeerOptions::new(ErasurePosture::Unproven);
+    let a = store.create_peer("peer:a", &posture).unwrap();
+    let b = store.create_peer("peer:b", &posture).unwrap();
+    let (x, only_a, only_b) = (fact("e:x"), fact("e:a"), fact("e:b"));
+    add(a.as_ref(), &[&x, &only_a]);
+    add(b.as_ref(), &[&x, &only_b]);
+    assert_eq!(places(&store), []);
+    (store, a, b, [x, only_a, only_b])
+}
+
+#[cfg(test)]
+fn sorted_deltas(deltas: &[&Delta]) -> Vec<Delta> {
+    let mut all: Vec<Delta> = deltas.iter().map(|d| (*d).clone()).collect();
+    all.sort_by(|p, q| p.id.cmp(&q.id));
+    all
+}
+
+#[cfg(test)]
+fn fsck_details(store: &MemoryStore) -> Vec<(Place, String)> {
+    let report = store.open_admin().fsck().unwrap();
+    report
+        .faults
+        .iter()
+        .map(|f| (place(f), f.detail.clone()))
+        .collect()
+}
+
+#[cfg(test)]
+#[test]
+fn peers_a_and_b_hold_x_and_the_row_does_not_name_a_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing(
+) {
+    let (store, a, b, [x, only_a, only_b]) = shared_x();
+    damage(&store, |state| {
+        state
+            .stored
+            .map
+            .get_mut(&x.id)
+            .unwrap()
+            .holders
+            .remove("peer:a");
+    });
+    let faults = fsck_details(&store);
+    let row = at("count-mismatch", None, &x.id, Some("holders"));
+    let detail =
+        "memory store: the row names the holders [peer:b] and the peers [peer:a, peer:b] hold it";
+    assert_eq!(faults, [(row, detail.to_string())]);
+    let feeds = (
+        a.changes(Revision(0), None).unwrap(),
+        b.changes(Revision(0), None).unwrap(),
+    );
+    let revisions = (a.read().unwrap().revision(), b.read().unwrap().revision());
+    let before = dump(&store);
+
+    let fault = match a.purge(&ids(&[&x])) {
+        Err(StoreFailure::Integrity(fault)) => fault,
+        other => panic!("{other:?}"),
+    };
+
+    let want = at("count-mismatch", Some("peer:a"), &x.id, Some("holders"));
+    assert_eq!(place(&fault), want);
+    assert_eq!(
+        fault.detail,
+        "memory store: the row counts this peer 0 times as a holder and this peer holds it"
+    );
+    assert_eq!(dump(&store), before);
+    let (now_a, now_b) = (a.read().unwrap(), b.read().unwrap());
+    assert_eq!((now_a.revision(), now_a.count()), (revisions.0, 2));
+    assert_eq!((now_b.revision(), now_b.count()), (revisions.1, 2));
+    assert_eq!(a.changes(Revision(0), None).unwrap(), feeds.0);
+    assert_eq!(b.changes(Revision(0), None).unwrap(), feeds.1);
+    let wanted_b = sorted_deltas(&[&x, &only_b]);
+    assert_eq!(now_b.get(&ids(&[&x, &only_b])).unwrap(), wanted_b);
+    let wanted_a = sorted_deltas(&[&x, &only_a]);
+    assert_eq!(now_a.get(&ids(&[&x, &only_a])).unwrap(), wanted_a);
+    assert_eq!(now_b.targets(&["e:x".into()]).unwrap(), ids(&[&x]));
+    assert_eq!(fsck_details(&store), faults);
+}
+
+#[cfg(test)]
+#[test]
+fn peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing(
+) {
+    let store = MemoryStore::new();
+    let posture = CreatePeerOptions::new(ErasurePosture::Unproven);
+    let a = store.create_peer("peer:a", &posture).unwrap();
+    let b = store.create_peer("peer:b", &posture).unwrap();
+    let (x, only_b) = (fact("e:x"), fact("e:b"));
+    add(a.as_ref(), &[&x]);
+    add(b.as_ref(), &[&only_b]);
+    damage(&store, |state| {
+        let row = state.stored.map.get_mut(&x.id).unwrap();
+        row.holders.insert("peer:a".to_string(), 2);
+    });
+    let faults = fsck_details(&store);
+    let row = at("count-mismatch", None, &x.id, Some("holders"));
+    let detail =
+        "memory store: the row names the holders [peer:a (2)] and the peers [peer:a] hold it";
+    assert_eq!(faults, [(row, detail.to_string())]);
+    let revision = a.read().unwrap().revision();
+    let before = dump(&store);
+
+    let fault = match a.purge(&ids(&[&x])) {
+        Err(StoreFailure::Integrity(fault)) => fault,
+        other => panic!("{other:?}"),
+    };
+
+    let want = at("count-mismatch", Some("peer:a"), &x.id, Some("holders"));
+    assert_eq!(place(&fault), want);
+    assert_eq!(
+        fault.detail,
+        "memory store: the row counts this peer 2 times as a holder and this peer holds it"
+    );
+    assert_eq!(dump(&store), before);
+    let now = a.read().unwrap();
+    assert_eq!((now.revision(), now.count()), (revision, 1));
+    assert_eq!(now.get(&ids(&[&x])).unwrap(), vec![x.clone()]);
+    let there = b.read().unwrap();
+    assert_eq!(there.get(&ids(&[&only_b])).unwrap(), vec![only_b.clone()]);
+    assert_eq!(fsck_details(&store), faults);
+}
+
+/// [gap: a row that does not name another holder is removed by the last named holder's purge; no
+/// O(1) check sees it, and `fsck` names it before.]
+#[cfg(test)]
+#[test]
+fn gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable(
+) {
+    let (store, a, b, [x, only_a, only_b]) = shared_x();
+    damage(&store, |state| {
+        state
+            .stored
+            .map
+            .get_mut(&x.id)
+            .unwrap()
+            .holders
+            .remove("peer:b");
+    });
+    let row = at("count-mismatch", None, &x.id, Some("holders"));
+    let detail =
+        "memory store: the row names the holders [peer:a] and the peers [peer:a, peer:b] hold it";
+    assert_eq!(fsck_details(&store), [(row, detail.to_string())]);
+    let revision_b = b.read().unwrap().revision();
+
+    let report = a.purge(&ids(&[&x])).unwrap();
+
+    let removed = PurgeTarget {
+        id: x.id.clone(),
+        outcome: PurgeOutcome::Removed,
+    };
+    assert_eq!(report.claim, ErasureClaim::Unproven);
+    assert_eq!(report.targets, [removed]);
+    let feed_only = [Retained {
+        surface: RetainedSurface::ChangeFeed,
+    }];
+    assert_eq!(report.retains, feed_only);
+    let now_b = b.read().unwrap();
+    assert_eq!(now_b.revision(), revision_b);
+    assert_eq!(
+        fault_of(now_b.get(&ids(&[&x]))),
+        Ok(at("claims-unreadable", Some("peer:b"), &x.id, None))
+    );
+    assert_eq!(now_b.get(&ids(&[&only_b])).unwrap(), vec![only_b.clone()]);
+    let now_a = a.read().unwrap();
+    assert_eq!(
+        now_a.get(&ids(&[&x, &only_a])).unwrap(),
+        vec![only_a.clone()]
+    );
+    assert_eq!(
+        places(&store),
+        [
+            at("claims-unreadable", Some("peer:b"), &x.id, None),
+            at("index-stray", Some("peer:b"), &x.id, Some("e:x")),
+        ]
+    );
+}
+
+/// [gap: a row that names a peer that does not hold the id makes the purge report
+/// `held-by-other-peer`; the row stays.]
+#[cfg(test)]
+#[test]
+fn gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row(
+) {
+    let store = MemoryStore::new();
+    let posture = CreatePeerOptions::new(ErasurePosture::Unproven);
+    let a = store.create_peer("peer:a", &posture).unwrap();
+    let b = store.create_peer("peer:b", &posture).unwrap();
+    let (x, only_b) = (fact("e:x"), fact("e:b"));
+    add(a.as_ref(), &[&x]);
+    add(b.as_ref(), &[&only_b]);
+    damage(&store, |state| {
+        let row = state.stored.map.get_mut(&x.id).unwrap();
+        row.holders.insert("peer:b".to_string(), 1);
+    });
+    let row = at("count-mismatch", None, &x.id, Some("holders"));
+    let detail =
+        "memory store: the row names the holders [peer:a, peer:b] and the peers [peer:a] hold it";
+    assert_eq!(fsck_details(&store), [(row, detail.to_string())]);
+
+    let report = a.purge(&ids(&[&x])).unwrap();
+
+    let kept = PurgeTarget {
+        id: x.id.clone(),
+        outcome: PurgeOutcome::HeldByOtherPeer,
+    };
+    assert_eq!(report.claim, ErasureClaim::NothingRemoved);
+    assert_eq!(report.targets, [kept]);
+    let surfaces: Vec<RetainedSurface> = report.retains.iter().map(|r| r.surface).collect();
+    let owed = [RetainedSurface::ChangeFeed, RetainedSurface::PurgeDebt];
+    assert_eq!(surfaces, owed);
+    let stored: Vec<String> = store
+        .open_admin()
+        .stored_ids()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert!(stored.contains(&x.id));
+    let now = a.read().unwrap();
+    assert_eq!((now.count(), now.get(&ids(&[&x])).unwrap()), (0, vec![]));
+    let there = b.read().unwrap();
+    assert_eq!(
+        there.get(&ids(&[&x, &only_b])).unwrap(),
+        vec![only_b.clone()]
+    );
+    let orphan = at("orphan-bytes", None, &x.id, None);
+    let detail = "memory store: no peer holds these bytes";
+    assert_eq!(fsck_details(&store), [(orphan, detail.to_string())]);
+}
+
+/// A small deterministic generator (splitmix64).
+#[cfg(test)]
+fn splitmix(state: &mut u64) -> u64 {
+    *state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+    let mut z = *state;
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    z ^ (z >> 31)
+}
+
+#[cfg(test)]
+#[test]
+fn over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails(
+) {
+    let mut seen = BTreeSet::new();
+    let mut steps = 0;
+    for seed in 1..=300u64 {
+        let mut rng = seed;
+        let mut roll = |n: u64| splitmix(&mut rng) % n;
+        let pool: Vec<Delta> = (0..6).map(|i| fact(&format!("e:{}", i % 3))).collect();
+        let store = MemoryStore::new();
+        let posture = CreatePeerOptions::new(ErasurePosture::Unproven);
+        let peers: Vec<Box<dyn PeerStore>> = ["peer:a", "peer:b", "peer:c"]
+            .iter()
+            .map(|id| store.create_peer(id, &posture).unwrap())
+            .collect();
+        for step in 0..24 {
+            let peer = peers[roll(3) as usize].as_ref();
+            let kind = roll(100);
+            let chosen: Vec<&Delta> = pool.iter().filter(|_| roll(100) < 40).collect();
+            if kind < 55 {
+                let deltas: Vec<Delta> = if kind < 45 {
+                    chosen.iter().map(|d| (*d).clone()).collect()
+                } else {
+                    Vec::new()
+                };
+                let now = peer.read().unwrap();
+                let next_head = match (deltas.is_empty(), now.head()) {
+                    (true, Some(head)) => head.to_string(),
+                    _ => format!("head-{step}"),
+                };
+                let options = AdmissionOptions {
+                    at: 1.0,
+                    sender: "local".into(),
+                    next_head,
+                };
+                let batch = admission_of(now.as_ref(), &deltas, options).unwrap();
+                let answer = peer.append(&batch).unwrap();
+                assert!(matches!(answer, AppendResult::Committed { .. }));
+            } else {
+                let report = match peer.purge(&ids(&chosen)) {
+                    Ok(report) => report,
+                    Err(failure) => panic!("seed {seed} step {step}: {failure:?}"),
+                };
+                seen.extend(report.targets.iter().map(|t| format!("{:?}", t.outcome)));
+                seen.extend(report.retains.iter().map(|r| format!("{:?}", r.surface)));
+            }
+            assert_eq!(places(&store), [], "seed {seed} step {step}");
+            steps += 1;
+        }
+    }
+    assert_eq!(steps, 300 * 24);
+    let want = [
+        "ChangeFeed",
+        "HeldByOtherPeer",
+        "NotHeld",
+        "PurgeDebt",
+        "Removed",
+    ];
+    assert_eq!(seen.iter().map(String::as_str).collect::<Vec<_>>(), want);
 }

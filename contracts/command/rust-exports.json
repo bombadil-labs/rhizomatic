@@ -48734,6 +48734,14 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Stored",
+      "target": "std::collections::BTreeMap"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "storage",
       "rawTarget": "crate::store::ArrivalRecord",
@@ -49263,6 +49271,14 @@
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "State::fsck",
+      "target": "std::vec::Vec::as_slice"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::fsck",
       "target": "std::vec::Vec::new"
     },
     {
@@ -49502,6 +49518,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "State::append",
       "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::append",
+      "target": "std::collections::BTreeMap::from"
     },
     {
       "form": "syn-external-path",
@@ -53837,6 +53861,14 @@
       "targetOwner": "storage"
     },
     {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "bytes_no_peer_holds_are_orphan_bytes_and_a_wrong_count_of_holders_is_count_mismatch_by_fsck",
+      "target": "std::collections::BTreeMap::from"
+    },
+    {
       "form": "macro-region",
       "macros": [
         "assert_eq"
@@ -54614,6 +54646,1015 @@
       "source": "implementations/rust/src/memory_store.rs",
       "status": "parsed-known-macro-arguments",
       "symbol": "a_feed_floor_at_the_largest_u64_is_feed_gap_by_fsck_with_records_and_with_none"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::MemoryStore",
+      "resolvedTarget": "crate::memory_store::MemoryStore",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "SharedX",
+      "target": "crate::memory_store::MemoryStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::PeerStore",
+      "resolvedTarget": "crate::store::PeerStore",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "SharedX",
+      "target": "crate::store::PeerStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "SharedX",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::MemoryStore::new",
+      "resolvedTarget": "crate::memory_store::MemoryStore::new",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "shared_x",
+      "target": "crate::memory_store::MemoryStore::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::SharedX",
+      "resolvedTarget": "crate::memory_store::SharedX",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "shared_x",
+      "target": "crate::memory_store::SharedX",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::add",
+      "resolvedTarget": "crate::memory_store::add",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "shared_x",
+      "target": "crate::memory_store::add",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::fact",
+      "resolvedTarget": "crate::memory_store::fact",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "shared_x",
+      "target": "crate::memory_store::fact",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::places",
+      "resolvedTarget": "crate::memory_store::places",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "shared_x",
+      "target": "crate::memory_store::places",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::CreatePeerOptions::new",
+      "resolvedTarget": "crate::store::CreatePeerOptions::new",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "shared_x",
+      "target": "crate::store::CreatePeerOptions::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ErasurePosture::Unproven",
+      "resolvedTarget": "crate::store::ErasurePosture::Unproven",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "shared_x",
+      "target": "crate::store::ErasurePosture::Unproven",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "shared_x"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "sorted_deltas",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::MemoryStore",
+      "resolvedTarget": "crate::memory_store::MemoryStore",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "fsck_details",
+      "target": "crate::memory_store::MemoryStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::Place",
+      "resolvedTarget": "crate::memory_store::Place",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "fsck_details",
+      "target": "crate::memory_store::Place",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::place",
+      "resolvedTarget": "crate::memory_store::place",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "fsck_details",
+      "target": "crate::memory_store::place",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::at",
+      "resolvedTarget": "crate::memory_store::at",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peers_a_and_b_hold_x_and_the_row_does_not_name_a_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::at",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::damage",
+      "resolvedTarget": "crate::memory_store::damage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peers_a_and_b_hold_x_and_the_row_does_not_name_a_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::damage",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::dump",
+      "resolvedTarget": "crate::memory_store::dump",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peers_a_and_b_hold_x_and_the_row_does_not_name_a_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::dump",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::fsck_details",
+      "resolvedTarget": "crate::memory_store::fsck_details",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peers_a_and_b_hold_x_and_the_row_does_not_name_a_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::fsck_details",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::ids",
+      "resolvedTarget": "crate::memory_store::ids",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peers_a_and_b_hold_x_and_the_row_does_not_name_a_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::ids",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::place",
+      "resolvedTarget": "crate::memory_store::place",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peers_a_and_b_hold_x_and_the_row_does_not_name_a_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::place",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::shared_x",
+      "resolvedTarget": "crate::memory_store::shared_x",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peers_a_and_b_hold_x_and_the_row_does_not_name_a_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::shared_x",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::sorted_deltas",
+      "resolvedTarget": "crate::memory_store::sorted_deltas",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peers_a_and_b_hold_x_and_the_row_does_not_name_a_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::sorted_deltas",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Revision",
+      "resolvedTarget": "crate::store::Revision",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peers_a_and_b_hold_x_and_the_row_does_not_name_a_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::store::Revision",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreFailure::Integrity",
+      "resolvedTarget": "crate::store::StoreFailure::Integrity",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peers_a_and_b_hold_x_and_the_row_does_not_name_a_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::store::StoreFailure::Integrity",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "peers_a_and_b_hold_x_and_the_row_does_not_name_a_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "panic"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "peers_a_and_b_hold_x_and_the_row_does_not_name_a_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::MemoryStore::new",
+      "resolvedTarget": "crate::memory_store::MemoryStore::new",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::MemoryStore::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::add",
+      "resolvedTarget": "crate::memory_store::add",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::add",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::at",
+      "resolvedTarget": "crate::memory_store::at",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::at",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::damage",
+      "resolvedTarget": "crate::memory_store::damage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::damage",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::dump",
+      "resolvedTarget": "crate::memory_store::dump",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::dump",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::fact",
+      "resolvedTarget": "crate::memory_store::fact",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::fact",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::fsck_details",
+      "resolvedTarget": "crate::memory_store::fsck_details",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::fsck_details",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::ids",
+      "resolvedTarget": "crate::memory_store::ids",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::ids",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::place",
+      "resolvedTarget": "crate::memory_store::place",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::memory_store::place",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::CreatePeerOptions::new",
+      "resolvedTarget": "crate::store::CreatePeerOptions::new",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::store::CreatePeerOptions::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ErasurePosture::Unproven",
+      "resolvedTarget": "crate::store::ErasurePosture::Unproven",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::store::ErasurePosture::Unproven",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreFailure::Integrity",
+      "resolvedTarget": "crate::store::StoreFailure::Integrity",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing",
+      "target": "crate::store::StoreFailure::Integrity",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "panic"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "vec"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "peer_a_alone_holds_x_and_the_row_counts_a_twice_so_a_purge_of_x_by_a_fails_with_count_mismatch_holders_and_removes_nothing"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::at",
+      "resolvedTarget": "crate::memory_store::at",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable",
+      "target": "crate::memory_store::at",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::damage",
+      "resolvedTarget": "crate::memory_store::damage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable",
+      "target": "crate::memory_store::damage",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::fault_of",
+      "resolvedTarget": "crate::memory_store::fault_of",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable",
+      "target": "crate::memory_store::fault_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::fsck_details",
+      "resolvedTarget": "crate::memory_store::fsck_details",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable",
+      "target": "crate::memory_store::fsck_details",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::ids",
+      "resolvedTarget": "crate::memory_store::ids",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable",
+      "target": "crate::memory_store::ids",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::places",
+      "resolvedTarget": "crate::memory_store::places",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable",
+      "target": "crate::memory_store::places",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::shared_x",
+      "resolvedTarget": "crate::memory_store::shared_x",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable",
+      "target": "crate::memory_store::shared_x",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ErasureClaim::Unproven",
+      "resolvedTarget": "crate::store::ErasureClaim::Unproven",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable",
+      "target": "crate::store::ErasureClaim::Unproven",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::PurgeOutcome::Removed",
+      "resolvedTarget": "crate::store::PurgeOutcome::Removed",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable",
+      "target": "crate::store::PurgeOutcome::Removed",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::PurgeTarget",
+      "resolvedTarget": "crate::store::PurgeTarget",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable",
+      "target": "crate::store::PurgeTarget",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Retained",
+      "resolvedTarget": "crate::store::Retained",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable",
+      "target": "crate::store::Retained",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::RetainedSurface::ChangeFeed",
+      "resolvedTarget": "crate::store::RetainedSurface::ChangeFeed",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable",
+      "target": "crate::store::RetainedSurface::ChangeFeed",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "vec"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "gap_peers_a_and_b_hold_x_and_the_row_does_not_name_b_so_a_purge_of_x_by_a_removes_it_and_b_then_fails_claims_unreadable"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::MemoryStore::new",
+      "resolvedTarget": "crate::memory_store::MemoryStore::new",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::memory_store::MemoryStore::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::add",
+      "resolvedTarget": "crate::memory_store::add",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::memory_store::add",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::at",
+      "resolvedTarget": "crate::memory_store::at",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::memory_store::at",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::damage",
+      "resolvedTarget": "crate::memory_store::damage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::memory_store::damage",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::fact",
+      "resolvedTarget": "crate::memory_store::fact",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::memory_store::fact",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::fsck_details",
+      "resolvedTarget": "crate::memory_store::fsck_details",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::memory_store::fsck_details",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::ids",
+      "resolvedTarget": "crate::memory_store::ids",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::memory_store::ids",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::CreatePeerOptions::new",
+      "resolvedTarget": "crate::store::CreatePeerOptions::new",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::store::CreatePeerOptions::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ErasureClaim::NothingRemoved",
+      "resolvedTarget": "crate::store::ErasureClaim::NothingRemoved",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::store::ErasureClaim::NothingRemoved",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ErasurePosture::Unproven",
+      "resolvedTarget": "crate::store::ErasurePosture::Unproven",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::store::ErasurePosture::Unproven",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::PurgeOutcome::HeldByOtherPeer",
+      "resolvedTarget": "crate::store::PurgeOutcome::HeldByOtherPeer",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::store::PurgeOutcome::HeldByOtherPeer",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::PurgeTarget",
+      "resolvedTarget": "crate::store::PurgeTarget",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::store::PurgeTarget",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::RetainedSurface",
+      "resolvedTarget": "crate::store::RetainedSurface",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::store::RetainedSurface",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::RetainedSurface::ChangeFeed",
+      "resolvedTarget": "crate::store::RetainedSurface::ChangeFeed",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::store::RetainedSurface::ChangeFeed",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::RetainedSurface::PurgeDebt",
+      "resolvedTarget": "crate::store::RetainedSurface::PurgeDebt",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row",
+      "target": "crate::store::RetainedSurface::PurgeDebt",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "vec"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::MemoryStore::new",
+      "resolvedTarget": "crate::memory_store::MemoryStore::new",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "crate::memory_store::MemoryStore::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::fact",
+      "resolvedTarget": "crate::memory_store::fact",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "crate::memory_store::fact",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::ids",
+      "resolvedTarget": "crate::memory_store::ids",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "crate::memory_store::ids",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::places",
+      "resolvedTarget": "crate::memory_store::places",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "crate::memory_store::places",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::splitmix",
+      "resolvedTarget": "crate::memory_store::splitmix",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "crate::memory_store::splitmix",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::AppendResult::Committed",
+      "resolvedTarget": "crate::store::AppendResult::Committed",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "crate::store::AppendResult::Committed",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::CreatePeerOptions::new",
+      "resolvedTarget": "crate::store::CreatePeerOptions::new",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "crate::store::CreatePeerOptions::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ErasurePosture::Unproven",
+      "resolvedTarget": "crate::store::ErasurePosture::Unproven",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "crate::store::ErasurePosture::Unproven",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::PeerStore",
+      "resolvedTarget": "crate::store::PeerStore",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "crate::store::PeerStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_admission::AdmissionOptions",
+      "resolvedTarget": "crate::store_admission::AdmissionOptions",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "crate::store_admission::AdmissionOptions",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_admission::admission_of",
+      "resolvedTarget": "crate::store_admission::admission_of",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "crate::store_admission::admission_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "std::string::String::as_str"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails",
+      "target": "std::vec::Vec::new"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "matches"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "panic"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "over_300_seeded_random_sequences_of_append_head_only_append_and_purge_by_3_peers_with_shared_ids_fsck_is_clean_after_every_step_and_no_purge_fails"
     },
     {
       "form": "syn-external-import",

@@ -2661,12 +2661,21 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      with no stored claims throws `StoreIntegrityError` (`claims-unreadable`, with the peer and
      the id) before it removes anything, so the store is unchanged; before, it threw a plain
      `Error` and could leave the ids sorted before that id removed with no change record. The
-     same check refuses a held id whose row counts fewer than 1 holder: `count-mismatch`, key
-     `holders`, with the peer and the id, and nothing is removed. Its detail says "this peer
-     holds it", because a purge does not count the other holders. Before, the count went below
-     zero, and the report named `held-by-other-peer` and `purge-debt` while no other peer held
-     the row. The SQLite store keeps no count of holders: its purge asks whether another holding
-     exists, so this rule has no SQLite case. **The feed.** `changes` fails with `feed-gap`, with
+     same check refuses a held id whose row does not count this peer exactly once as a holder:
+     `count-mismatch`, key `holders`, with the peer and the id, and nothing is removed. A memory
+     row keeps the peers it counts as holders, each with a count, not one bare count. On an
+     undamaged store these are the peers that hold the id, each counted once. An append adds the
+     peer to the row; a purge removes the peer and deletes the row when no peer is left. Before,
+     the row kept a bare count. A purge then deleted a row whose count was 1 while another peer
+     held it, and named `held-by-other-peer` and `purge-debt` for a row whose count was too high.
+     Now the purge refuses a row that leaves out the purging peer or counts it twice. Two
+     damages stay that a purge cannot see without a walk of the peers. First, a row that leaves
+     out another peer that holds the id: the purge by the last peer that the row names deletes
+     the row, and the reads of the left-out peer then fail `claims-unreadable`. Second, a row that
+     names a peer that does not hold the id: the purge keeps the row and names
+     `held-by-other-peer` and `purge-debt`. `fsck` reports each of them before the purge, as
+     `count-mismatch` (key `holders`). The SQLite store keeps no count of holders: its purge asks
+     the `holding` table whether another holding exists, so this rule has no SQLite case. **The feed.** `changes` fails with `feed-gap`, with
      the peer and `fsck`'s detail, when the kept records are not the revisions of the page it
      answers, on both stores. Before, it answered `ok` without a lost record and with a
      `through` past it, so a follower passed that revision; a follower's pull now throws the
@@ -2690,7 +2699,7 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      `claims-unreadable`, `index-missing` and `index-stray` (an entity, or a referenced id with
      its role, that the claims name and the store does not keep, or the reverse; `key` names it),
      `column-mismatch` (`key` names the column), `count-mismatch` (a peer's count; on the memory
-     store also a row's count of holders, key `holders`), `sequence-mismatch` (a holding's
+     store also a row whose holders are not the peers that hold the id, key `holders`), `sequence-mismatch` (a holding's
      sequence or transfer above the peer's last, key `seq` or `transfer`), `feed-gap`,
      `orphan-bytes` (no `peer`) and `engine` (SQLite's `integrity_check` and
      `foreign_key_check`). `digest-mismatch` and `journal-broken` come with the digest and the

@@ -474,7 +474,7 @@ describe("fsck on a file the engine cannot read whole (SQLite)", () => {
   });
 });
 
-type Row = { claims: Claims; holders: number };
+type Row = { claims: Claims; holders: Map<string, number> };
 type Holding = { arrival: { sequence: number; transfer: number; id: string } };
 
 /**
@@ -581,13 +581,13 @@ describe("a damaged memory store", () => {
 
   it("a row that counts fewer holders than hold it: fsck reports count-mismatch (holders) with no peer", async () => {
     const { a, t, fsck } = await memoryFilled();
-    (await internals(a, t.id)).row.holders = 0;
+    (await internals(a, t.id)).row.holders.clear();
     const report = await fsck();
     expect(places(report)).toEqual([
       { kind: "count-mismatch", peer: undefined, id: t.id, key: "holders" },
     ]);
     expect(report.faults[0]!.detail).toBe(
-      "memory store: the row counts 0 holders and 1 peers hold it",
+      "memory store: the row names the holders [] and the peers [peer:a] hold it",
     );
   });
 

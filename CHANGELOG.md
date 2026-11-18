@@ -265,13 +265,14 @@ Step 4d adds more, listed under Breaking.
     removes anything. The fault is `count-mismatch`, key `holders`, with the peer and the id.
     Before, TypeScript took the count to -1 and reported `held-by-other-peer` and `purge-debt`
     while no other peer held the row. A Rust debug build panicked after it removed the holding
-    and its index entries; a release build wrapped the count.
+    and its index entries; a release build wrapped the count. The next entry widens this check
+    and names the damage that a purge still cannot see.
   - `changes` fails with `feed-gap`, with the peer, when the kept records are not the revisions
     of the page it answers. This covers the memory store in both witnesses and the TypeScript
     SQLite store. Before, TypeScript answered `ok` without the lost record and with a `through`
     past it, so a follower passed that revision. Rust panicked.
-  - The fault has `fsck`'s kind, key and detail. The `count-mismatch` detail of a purge says
-    "this peer holds it", because a purge does not count the other holders.
+  - The fault has `fsck`'s kind, key and detail. The next entry gives the `count-mismatch`
+    details of a purge and of `fsck`.
   - The checks cost nothing on an undamaged store. The purge check reads the row that the purge
     reads already. The feed check compares the revision of each record that the page answers.
     The SQLite store counts the feed only to name a gap it found.
@@ -280,6 +281,27 @@ Step 4d adds more, listed under Breaking.
   - Rust `fsck` reports `feed-gap` for a floor at `u64::MAX`. Before, a debug build panicked.
   - What can now be deleted that could not be deleted before: nothing. Each change refuses where
     the store answered or removed before.
+- Step 4e: the memory store decides a purge from who holds the id (§4.13 reading 136), in both
+  witnesses.
+  - A memory row keeps the peers it counts as holders, each with a count, in place of one bare
+    count. An append adds the peer. A purge removes the peer and deletes the row when no peer is
+    left. On an undamaged store each holder is counted once, and every answer is as before.
+  - A purge refuses a held id whose row does not count the purging peer exactly once. The fault
+    is `count-mismatch`, key `holders`, with the peer and the id. Nothing is removed. Before, two
+    peers held an id whose count was 1, and the purge of either peer deleted the row. And one
+    peer held an id whose count was 2, and its purge kept the row with `held-by-other-peer`.
+  - The purge detail is `memory store: the row counts this peer <n> times as a holder and this
+    peer holds it`. The `fsck` detail is `memory store: the row names the holders [...] and the
+    peers [...] hold it`. A holder counted n times other than once shows as `peer (n)`.
+  - Two damages stay, because a purge cannot see them without a walk of the peers. A row that
+    leaves out another peer that holds the id is deleted by the purge of the last peer it names.
+    That other peer's reads then fail `claims-unreadable`. A row that names a peer that does not
+    hold the id is kept, with `held-by-other-peer` and `purge-debt`. `fsck` reports each of them
+    before the purge as `count-mismatch`, key `holders`.
+  - The check costs no lookup: the purge reads the row that it read before.
+  - What can now be deleted that could not be deleted before: nothing. The new code deletes a
+    row only where the old bare count of that row reached 0 on the same call. It refuses in more
+    states.
 - Follow-ups of PR #95: a Rust test pins the moved-snapshot text of `targets` to the script
   `a-snapshot-across-a-purge`, and reading 130 states that a restored peer row at a higher
   revision refuses when its `removed_at` is above the snapshot's revision.
@@ -327,9 +349,11 @@ Step 4d adds more, listed under Breaking.
 - **A Rust memory-store read of a held id with no stored claims fails.** It answers
   `StoreFailure::Integrity`, where before it left the id out. A memory `purge` of such an id
   fails and removes nothing.
-- **A memory `purge` of a held id whose row counts fewer than 1 holder fails.** It throws
-  `StoreIntegrityError` (Rust: `StoreFailure::Integrity`) with `count-mismatch`, key `holders`,
-  and removes nothing. A host restores the store and runs `fsck`.
+- **A memory `purge` of a held id whose row does not count the purging peer exactly once
+  fails.** It throws `StoreIntegrityError` (Rust: `StoreFailure::Integrity`) with
+  `count-mismatch`, key `holders`, and removes nothing. This covers a row that counts no holder.
+  A host restores the store and runs `fsck`. The `count-mismatch` details of the memory purge and
+  the memory `fsck` have new text; a host that matched the text must change its match.
 - **`changes` over a lost change record fails with `feed-gap`.** This covers both memory stores
   and the TypeScript SQLite store. Before, it answered `ok` with fewer records. A follower's pull
   throws the fault and does not move. A host restores the store and runs `fsck`.

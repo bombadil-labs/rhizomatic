@@ -1,6 +1,6 @@
 // The memory reference store (SPEC-18 proposal §5.1). Other stores must answer every operation
-// with the same ids. Claims are kept once per id and counted by holdings; membership, indexes,
-// arrivals, signatures, head and revision are per peer.
+// with the same ids. Claims are kept once per id, with the peers that hold them; membership,
+// indexes, arrivals, signatures, head and revision are per peer.
 
 import { compareUtf8 } from "../delta/cbor.js";
 import { computeId } from "../delta/delta.js";
@@ -123,7 +123,13 @@ class Index<V> {
   }
 }
 
-type Row = { readonly claims: Claims; holders: number };
+/**
+ * The claims of one id, and the peers the row counts as its holders, each with how many times it
+ * counts them. On an undamaged store these are the peers that hold the id, each counted once. A
+ * purge reads from them whether another peer still holds the id, as the SQLite store reads its
+ * `holding` table (§4.13 reading 136).
+ */
+type Row = { readonly claims: Claims; readonly holders: Map<PeerId, number> };
 type Holding = { readonly sig: string | undefined; readonly arrival: ArrivalRecord };
 
 /**
@@ -697,8 +703,8 @@ class MemoryStore implements Store {
 
     for (const [id, { claims, holding }] of fresh) {
       const row = this.#rows.get(id);
-      if (row === undefined) this.#rows.set(id, { claims, holders: 1 });
-      else row.holders++;
+      if (row === undefined) this.#rows.set(id, { claims, holders: new Map([[state.id, 1]]) });
+      else row.holders.set(state.id, (row.holders.get(state.id) ?? 0) + 1);
       state.holdings.set(id, holding);
       state.count++;
       this.#settle(state, id);
@@ -754,18 +760,18 @@ class MemoryStore implements Store {
     let rowsOwed = false;
     let indexesOwed = false;
     const order = sorted(ids);
-    // A held id without its stored claims, or whose row counts no holder, refuses the whole
-    // purge before it removes anything (§4.13 reading 136).
+    // A held id without its stored claims, or whose row does not count this peer exactly once
+    // as a holder, refuses the whole purge before it removes anything (§4.13 reading 136).
     for (const id of order) {
       if (state.holdings.get(id) === undefined) continue;
-      const { holders } = this.#row(state, id);
-      if (!(holders >= 1))
+      const counted = this.#row(state, id).holders.get(state.id) ?? 0;
+      if (counted !== 1)
         throw new StoreIntegrityError({
           kind: "count-mismatch",
           peer: state.id,
           id,
           key: "holders",
-          detail: `memory store: the row counts ${holders} holders and this peer holds it`,
+          detail: `memory store: the row counts this peer ${counted} times as a holder and this peer holds it`,
         });
     }
     for (const id of order) {
@@ -778,8 +784,8 @@ class MemoryStore implements Store {
         for (const negated of keys.negated) this.#unfile(state.negators, negated, id);
         state.holdings.delete(id);
         state.count--;
-        row.holders--;
-        if (row.holders === 0) this.#rows.delete(id);
+        row.holders.delete(state.id);
+        if (row.holders.size === 0) this.#rows.delete(id);
         else this.#owe(state, id);
         released.push(id);
         // The report states what a second look finds, not what the removal intended.
@@ -868,12 +874,12 @@ class MemoryStore implements Store {
   /**
    * `fsck` over this store's own structures (§4.13 reading 137): each holding against its claims
    * and the peer's indexes and counters, each index entry against a holding, each peer's change
-   * records, and each row's count of holders. It reads only. O(store).
+   * records, and each row's holders against the peers that hold it. It reads only. O(store).
    */
   #fsck(): FsckReport {
     const faults: IntegrityFault[] = [];
     const checked = { peers: 0, holdings: 0, deltas: 0 };
-    const holders = new Map<Id, number>();
+    const holders = new Map<Id, PeerId[]>();
     for (const [, state] of this.#peers.scan()) {
       const peer = state.id;
       checked.peers++;
@@ -892,7 +898,9 @@ class MemoryStore implements Store {
         });
       for (const [id, holding] of holdings) {
         checked.holdings++;
-        holders.set(id, (holders.get(id) ?? 0) + 1);
+        const peers = holders.get(id);
+        if (peers === undefined) holders.set(id, [peer]);
+        else peers.push(peer);
         if (holding.arrival.sequence > state.lastSequence)
           fault({
             kind: "sequence-mismatch",
@@ -1000,20 +1008,24 @@ class MemoryStore implements Store {
     }
     for (const [id, row] of this.#rows.scan()) {
       checked.deltas++;
-      const held = holders.get(id) ?? 0;
-      if (held === 0)
+      const held = holders.get(id) ?? [];
+      if (held.length === 0)
         faults.push({
           kind: "orphan-bytes",
           id,
           detail: "memory store: no peer holds these bytes",
         });
-      else if (row.holders !== held)
+      else if (row.holders.size !== held.length || held.some((p) => row.holders.get(p) !== 1)) {
+        const named = [...row.holders]
+          .sort(([a], [b]) => compareUtf8(a, b))
+          .map(([peer, n]) => (n === 1 ? peer : `${peer} (${n})`));
         faults.push({
           kind: "count-mismatch",
           id,
           key: "holders",
-          detail: `memory store: the row counts ${row.holders} holders and ${held} peers hold it`,
+          detail: `memory store: the row names the holders [${named.join(", ")}] and the peers [${held.join(", ")}] hold it`,
         });
+      }
     }
     return { checked, faults };
   }
