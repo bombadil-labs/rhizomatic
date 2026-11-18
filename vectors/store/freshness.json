@@ -552,7 +552,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -673,7 +674,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -808,7 +810,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -981,7 +984,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -1137,7 +1141,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -1293,7 +1298,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -1449,7 +1455,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -1596,7 +1603,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -1743,7 +1751,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -1911,7 +1920,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -2070,7 +2080,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -2264,7 +2275,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -2449,7 +2461,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -2546,7 +2559,8 @@
           "peer": "B",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -2684,7 +2698,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -2914,7 +2929,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -3080,7 +3096,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -3249,7 +3266,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -3447,7 +3465,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -3620,7 +3639,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -3923,7 +3943,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -4041,7 +4062,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -4233,7 +4255,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -4471,7 +4494,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -4568,7 +4592,8 @@
           "peer": "B",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -4672,7 +4697,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -4869,7 +4895,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -5067,7 +5094,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -5253,7 +5281,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -5439,7 +5468,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
@@ -5680,7 +5710,8 @@
           "peer": "A",
           "erasure": "unproven",
           "expect": {
-            "status": "created"
+            "status": "created",
+            "appFormat": null
           }
         },
         {
