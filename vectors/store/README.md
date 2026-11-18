@@ -1577,9 +1577,9 @@ The table covers at least:
   a moved snapshot, a refusal that is not `snapshot-moved`; on a snapshot older than a purge that
   released a holding, an answer from the peer's later state.
 - **Peers:** a created or opened handle with another posture; a created handle with another
-  erasure class than the profile; `unlessStoreErasure` in both directions; a created handle whose
-  `appFormat` refuses on an open store; a created and an opened handle whose `history` refuses on
-  an open store.
+  erasure class than the profile; `unlessStoreErasure` in both directions; a created and an
+  opened handle whose `appFormat` refuses on an open store; a created and an opened handle whose
+  `history` refuses on an open store.
 - **Append:** each answer that is not the expected one, `uncertain` included; the added ids, and
   their order; the result's revision; a refused append or a `conflict` that moves the revision,
   up and down; `revisionAdvanced` in both directions.
