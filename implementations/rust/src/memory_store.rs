@@ -171,6 +171,9 @@ struct PeerState {
     revision: u64,
     /// The largest arrival sequence this peer ever committed. A purge does not lower it.
     last_sequence: u64,
+    /// The highest transfer ordinal of a committed new holding, 0 before the first. A head-only
+    /// append and a purge keep it (§4.13 reading 135).
+    last_transfer: u64,
     /// The revision of the last purge that released a holding of this peer, 0 before one. A
     /// snapshot read before it refuses every call (§4.13 reading 130).
     removed_at: u64,
@@ -337,6 +340,15 @@ impl State {
                     ),
                 );
             }
+            if arrival.transfer <= peer.last_transfer {
+                return refuse(
+                    StoreErrorCode::InvalidAdmission,
+                    format!(
+                        "transfer ordinal {} of {} does not pass the peer's last transfer",
+                        arrival.transfer, delta.id
+                    ),
+                );
+            }
             fresh.insert(delta.id.as_str(), entry);
         }
 
@@ -373,6 +385,9 @@ impl State {
         }
         if let Some(last) = sequences.last() {
             peer.last_sequence = *last;
+        }
+        if let Some(last) = fresh.values().map(|entry| entry.arrival.transfer).max() {
+            peer.last_transfer = last;
         }
         let head_moved = peer.head.as_deref() != Some(batch.next_head.as_str());
         if head_moved {
@@ -898,6 +913,7 @@ impl Store for MemoryStore {
                     head: None,
                     revision: 0,
                     last_sequence: 0,
+                    last_transfer: 0,
                     removed_at: 0,
                     holdings: Index::new(),
                     targets: Index::new(),
@@ -967,6 +983,7 @@ impl PeerStore for MemoryPeer {
                 head: peer.head.clone(),
                 count: peer.holdings.len() as u64,
                 last_sequence: peer.last_sequence,
+                last_transfer: peer.last_transfer,
                 released: false,
             }) as Box<dyn Snapshot>)
         })
@@ -993,6 +1010,7 @@ struct MemorySnapshot {
     head: Option<String>,
     count: u64,
     last_sequence: u64,
+    last_transfer: u64,
     released: bool,
 }
 
@@ -1057,6 +1075,10 @@ impl Snapshot for MemorySnapshot {
 
     fn last_sequence(&self) -> u64 {
         self.last_sequence
+    }
+
+    fn last_transfer(&self) -> u64 {
+        self.last_transfer
     }
 
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {

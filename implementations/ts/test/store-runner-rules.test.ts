@@ -970,6 +970,11 @@ const RULES: Readonly<Record<string, Rule>> = {
     says: /\(read\): the snapshot's lastSequence is \d+, expected \d+/,
     store: join(other, { snapshot: (s) => ({ lastSequence: s.lastSequence + 1 }) }),
   },
+  "a snapshot that reports another lastTransfer": {
+    doc: "scripts",
+    says: /\(read\): the snapshot's lastTransfer is \d+, expected \d+/,
+    store: join(other, { snapshot: (s) => ({ lastTransfer: s.lastTransfer + 1 }) }),
+  },
   "the reference store refuses a snapshot that appends alone moved": {
     doc: "scripts",
     says: /the reference store refused snapshot-moved on a snapshot that appends alone moved/,
@@ -979,6 +984,25 @@ const RULES: Readonly<Record<string, Rule>> = {
     doc: "scripts",
     says: "expected a refusal: snapshot-moved",
     store: join(other, { snapshot: answersWhenMoved }),
+  },
+  "a read step without lastTransfer": {
+    doc: "scripts",
+    says: "(read): the vector's read has no lastTransfer; the document is defective",
+    store: {},
+    vectors: {
+      ...vectors,
+      scripts: {
+        ...vectors.scripts,
+        scripts: vectors.scripts.scripts.map((script) => ({
+          ...script,
+          steps: script.steps.map((step) =>
+            step.op === "read"
+              ? ({ ...step, expect: { lastSequence: step.expect.lastSequence } } as never)
+              : step,
+          ),
+        })),
+      },
+    },
   },
   "a read step without lastSequence": {
     doc: "scripts",
@@ -2265,7 +2289,9 @@ describe("runner rules: a wrong document", () => {
       says: "the vector names an unknown peer Z",
     },
     "a step that uses a peer before creating it": {
-      vectors: only([{ op: "read", peer: "A", snapshot: "s", expect: { lastSequence: 0 } }]),
+      vectors: only([
+        { op: "read", peer: "A", snapshot: "s", expect: { lastSequence: 0, lastTransfer: 0 } },
+      ]),
       says: "the vector uses peer A before creating it",
     },
     "a step that uses a snapshot before reading it": {

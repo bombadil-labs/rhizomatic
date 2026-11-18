@@ -116,6 +116,7 @@ enum Wrong {
     HeadEmpty,
     Count,
     LastSequence,
+    LastTransfer,
     GetDrops,
     GetReverses,
     GetSig,
@@ -802,6 +803,10 @@ impl Snapshot for RigSnapshot {
         self.inner.last_sequence() + u64::from(self.wrong == Wrong::LastSequence)
     }
 
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer() + u64::from(self.wrong == Wrong::LastTransfer)
+    }
+
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         let mut deltas = self.answer(self.ask(|s| s.get(ids)), Vec::new)?;
         reorder(self.wrong, Wrong::GetDrops, Wrong::GetReverses, &mut deltas);
@@ -1149,6 +1154,20 @@ fn a_retains_with_another_name(vectors: &mut StoreVectors) {
     }
 }
 
+/// Every `read` step without `expect.lastTransfer`.
+fn a_read_without_last_transfer(vectors: &mut StoreVectors) {
+    for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
+        for step in script["steps"].as_array_mut().unwrap() {
+            if step["op"] == "read" {
+                step["expect"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("lastTransfer");
+            }
+        }
+    }
+}
+
 /// Every `read` step without its `expect`.
 fn a_read_without_last_sequence(vectors: &mut StoreVectors) {
     for script in vectors.scripts["scripts"].as_array_mut().unwrap() {
@@ -1334,6 +1353,13 @@ const TABLE: &[Row] = &[
         W::LastSequence,
         PLAIN,
         &["read: the snapshot's lastSequence is"],
+        S,
+    ),
+    row(
+        "read: the snapshot's lastTransfer",
+        W::LastTransfer,
+        PLAIN,
+        &["read: the snapshot's lastTransfer is"],
         S,
     ),
     row(
@@ -1999,6 +2025,13 @@ const TABLE: &[Row] = &[
         &["scripts"],
     ),
     doc_row(
+        "documents: a read step without lastTransfer",
+        W::Nothing,
+        a_read_without_last_transfer,
+        &["read: the document's `lastTransfer` is not a whole number"],
+        &["scripts"],
+    ),
+    doc_row(
         "documents: a read step without lastSequence",
         W::Nothing,
         a_read_without_last_sequence,
@@ -2148,18 +2181,19 @@ fn the_same_answers_conform_where_no_rule_forbids_them() {
             .unwrap_or_else(|failures| panic!("{wrong:?} {setup:?}: {failures}"));
         assert_eq!(
             (report.passed.len(), report.skipped.len()),
-            (25 + 15, 0),
+            (26 + 15, 0),
             "{wrong:?}"
         );
     }
 }
 
-const PURGE_SCRIPTS: [&str; 7] = [
+const PURGE_SCRIPTS: [&str; 8] = [
     "scripts/purge",
     "scripts/purge-clears-a-debt-on-append",
     "scripts/a-snapshot-across-a-purge",
     "scripts/the-last-sequence-survives-a-purge",
     "scripts/the-last-sequence-survives-an-empty-peer",
+    "scripts/a-transfer-must-pass-the-peers-last",
     "scripts/feed-purge-and-debts",
     "scripts/feed-a-debt-ends-on-append",
 ];
@@ -2200,7 +2234,7 @@ fn a_class_none_store_skips_the_purge_scripts() {
     // The two feed scripts that purge list `changes` first; this store serves a feed, so it
     // reports `purge` as what they lack.
     assert_eq!(report.skipped, skipped(&PURGE_SCRIPTS, "purge"));
-    assert_eq!(report.passed.len(), 25 + 15 - PURGE_SCRIPTS.len());
+    assert_eq!(report.passed.len(), 26 + 15 - PURGE_SCRIPTS.len());
     assert!(report
         .passed
         .iter()
@@ -2246,7 +2280,7 @@ fn a_store_without_a_feed_is_not_asked_for_the_feed_in_retains() {
         let skipped: Vec<&str> = report.skipped.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(skipped, feed_scripts);
         assert!(report.skipped.iter().all(|s| s.missing == "changes"));
-        assert_eq!(report.passed.len(), 25 + 15 - feed_scripts.len());
+        assert_eq!(report.passed.len(), 26 + 15 - feed_scripts.len());
     }
 }
 
@@ -2262,7 +2296,7 @@ fn a_store_with_a_journal_skips_the_journal_absent_script() {
         report.skipped,
         skipped(&["scripts/a-frame-needs-the-journal"], "journal-absent")
     );
-    assert_eq!(report.passed.len(), 25 + 15 - 1);
+    assert_eq!(report.passed.len(), 26 + 15 - 1);
 }
 
 /// README §3: each script runs on a new, empty store. A factory that hands out one store again

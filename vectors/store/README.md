@@ -204,7 +204,10 @@ The checks:
      entry may carry the same number, and it does not raise the peer's largest committed sequence.
      This holds for both kinds of skipped entry, and a vector pins each: an entry whose id the
      peer held before the batch, and a repeat of an id inside the batch.
-  6. Otherwise the entry is **new**.
+  6. `transfer` is not greater than the peer's last transfer ordinal: refuse
+     `invalid-admission` (reading 135). It is compared with the last one before the batch, not
+     with other entries of the batch. A skipped entry is not compared.
+  7. Otherwise the entry is **new**.
 - **(d) Commit**, all together: the peer holds every new delta with its arrival record and
   signature; the head becomes `nextHead`. Answer `committed` with the new ids (ascending) and the
   revision.
@@ -231,11 +234,12 @@ The store checks sequences for two things only: greater than the peer's largest,
 among the batch's new entries. That sequences follow ascending id inside a transfer, and that one batch shares
 one transfer ordinal, are admission's rules (SPEC-6 vNext §3). The store does not check them.
 
-Owed in step 4e: the transfer rule (SPEC-18 proposal §4.13 reading 135). The TypeScript stores
-keep each peer's last transfer ordinal and refuse `invalid-admission` for a new entry whose
-`transfer` does not pass it. A skipped entry is not compared and does not raise it. No vector
-holds a case of this rule yet, and the Rust stores do not check it. Step 4e adds the vector and
-the Rust check together.
+The store also keeps each peer's last transfer ordinal (SPEC-18 proposal §4.13 reading 135). A
+new entry whose `transfer` is not above it is refused `invalid-admission`, and nothing changes.
+A skipped entry (held, or repeated in the batch) is not compared and does not raise it. The
+commit sets it to the largest `transfer` among the new entries. A head-only append, an append
+whose every entry is skipped, and a purge keep it. The store does not check that one batch
+shares one transfer. The script `a-transfer-must-pass-the-peers-last` holds each case.
 
 A store that cannot tell whether an append committed answers `uncertain`. The memory reference
 store never does. In a conformance run `uncertain` fails the step.
@@ -266,8 +270,10 @@ learn that they remain. It learns nothing about an id it never held.
 ### 1.4 Snapshot
 
 A snapshot has a `revision`, the peer's `history`, a `head`, a `count` (how many deltas the
-peer holds) and a `lastSequence` (the highest arrival sequence the peer had admitted, 0 before
-the first; SPEC-18 §4.13 reading 131). All five are fixed when it is read.
+peer holds), a `lastSequence` (the highest arrival sequence the peer had admitted, 0 before
+the first; SPEC-18 §4.13 reading 131) and a `lastTransfer` (the highest transfer ordinal of a new
+holding the peer had committed, 0 before the first; reading 135). All six are fixed when it is
+read.
 
 | Operation | Answer |
 |---|---|
@@ -597,7 +603,7 @@ Checks:
 ### 3.5 `read` and `release`
 
 ```json
-{ "op": "read", "peer": "A", "snapshot": "s1", "expect": { "lastSequence": 3 } }
+{ "op": "read", "peer": "A", "snapshot": "s1", "expect": { "lastSequence": 3, "lastTransfer": 2 } }
 { "op": "release", "snapshot": "s1" }
 ```
 
@@ -606,10 +612,12 @@ belongs to. `release` releases it and has no `expect`.
 
 Checks of `read`:
 
-- `expect.lastSequence` is a whole number. Any other value, or none, is a defect of the
-  document: the step fails, whatever the store answers.
+- `expect.lastSequence` and `expect.lastTransfer` are whole numbers. Any other value, or none, is
+  a defect of the document: the step fails, whatever the store answers.
 - The snapshot's `lastSequence` equals `expect.lastSequence`, for every store. Else the step
   fails with `the snapshot's lastSequence is <got>, expected <want>`.
+- The snapshot's `lastTransfer` equals `expect.lastTransfer`, for every store. Else the step
+  fails with `the snapshot's lastTransfer is <got>, expected <want>`.
 
 ### 3.6 Snapshot fields: `head`, `count`
 
@@ -1555,7 +1563,7 @@ The table covers at least:
   `held-by-other-peer`. And a store that keeps the record while a debt is owed and forgets it
   when an append clears the debt, but not when a later purge settles it.
 - **Point reads:** `head`, and a new peer's head that is the empty string instead of null;
-  `count`; a snapshot's `lastSequence`; ids and their order for `get`, `arrivals`, `targets`, `negators`; a returned delta's
+  `count`; a snapshot's `lastSequence` and `lastTransfer`; ids and their order for `get`, `arrivals`, `targets`, `negators`; a returned delta's
   signature and claims; each of the four fields of an arrival record.
 - **Scope members:** order, a repeat, claims, the arrival record's id and fields, the signature,
   a member the peer does not hold.
@@ -1633,7 +1641,7 @@ The table covers at least:
   needs two rows: one with a script that has no `changes` step, and one with a store that is
   wrong only when a `to` is given, which the check after every step never gives.
 - **Documents:** an unknown `format`; a corpus id that does not recompute and is not `forged`; a
-  purge `claim` with a key other than `unprovable` and `proven`; a purge step without `retains`; a `read` step without `lastSequence`; an unknown script requirement;
+  purge `claim` with a key other than `unprovable` and `proven`; a purge step without `retains`; a `read` step without `lastSequence`, and one without `lastTransfer`; an unknown script requirement;
   a script `requires` that is `null`; a revision name that is unknown, of another peer, or given
   twice; a `mark` before its peer; `changes` expectations that are wrong; a `changes` step on a
   store without a feed; a profile whose `changeRetention` is malformed, among them

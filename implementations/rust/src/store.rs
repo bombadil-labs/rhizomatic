@@ -540,8 +540,8 @@ pub trait PeerStore {
     fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError>;
 }
 
-/// A view of one peer at one revision (SPEC-18 §4.2). `revision`, `history`, `head`, `count`
-/// and `last_sequence` are fixed at read and never refuse. Once the peer has moved, every other
+/// A view of one peer at one revision (SPEC-18 §4.2). `revision`, `history`, `head`, `count`,
+/// `last_sequence` and `last_transfer` are fixed at read and never refuse. Once the peer has moved, every other
 /// operation refuses `snapshot-moved` or answers as of the snapshot's revision, never from the
 /// later state. Once the peer has released a holding after the read, every other operation
 /// refuses `snapshot-moved` (§4.13 reading 130).
@@ -555,6 +555,9 @@ pub trait Snapshot {
     /// (§4.13 reading 131). Until the peer releases a holding, the holdings with a sequence of at
     /// most this one are exactly the snapshot's.
     fn last_sequence(&self) -> u64;
+    /// The highest transfer ordinal of a new holding the peer had committed at `revision`, 0
+    /// before the first (§4.13 reading 135). A head-only append and a purge keep it.
+    fn last_transfer(&self) -> u64;
     /// The held deltas among `ids`, each with the signature this peer admitted.
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError>;
     /// This peer's arrival record for each held id among `ids`.

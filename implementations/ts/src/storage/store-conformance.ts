@@ -920,11 +920,16 @@ export class Run {
         return;
       }
       case "read": {
-        const wanted: unknown = (step.expect as { lastSequence?: unknown } | undefined)
-          ?.lastSequence;
+        const read = step.expect as { lastSequence?: unknown; lastTransfer?: unknown } | undefined;
+        const wanted: unknown = read?.lastSequence;
+        const transfer: unknown = read?.lastTransfer;
         check(
           typeof wanted === "number",
           "the vector's read has no lastSequence; the document is defective",
+        );
+        check(
+          typeof transfer === "number",
+          "the vector's read has no lastTransfer; the document is defective",
         );
         const snapshot = await this.peer(step.peer).read();
         this.sameHistory(step.peer, snapshot.history, "a snapshot");
@@ -932,6 +937,11 @@ export class Run {
         check(
           snapshot.lastSequence === wanted,
           `the snapshot's lastSequence is ${snapshot.lastSequence}, expected ${wanted}`,
+        );
+        // §1.4: the highest transfer ordinal of a new holding, fixed at the read.
+        check(
+          snapshot.lastTransfer === transfer,
+          `the snapshot's lastTransfer is ${snapshot.lastTransfer}, expected ${transfer}`,
         );
         this.snapshots.set(step.snapshot, {
           peer: this.owners.get(step.peer) ?? step.peer,

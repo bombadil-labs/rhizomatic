@@ -112,8 +112,11 @@ export type ReadStep = {
   readonly op: "read";
   readonly peer: string;
   readonly snapshot: string;
-  /** The snapshot's `lastSequence`: the highest sequence the peer had admitted. */
-  readonly expect: { readonly lastSequence: number };
+  /**
+   * The snapshot's `lastSequence` (the highest sequence the peer had admitted) and
+   * `lastTransfer` (the highest transfer ordinal of a new holding the peer had committed).
+   */
+  readonly expect: { readonly lastSequence: number; readonly lastTransfer: number };
 };
 export type ReleaseStep = { readonly op: "release"; readonly snapshot: string };
 export type HeadStep = {

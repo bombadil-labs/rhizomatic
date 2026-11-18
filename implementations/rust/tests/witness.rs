@@ -80,6 +80,7 @@ mod store_rounds;
 mod store_runner;
 mod store_runner_rules;
 mod store_tolerant_snapshot;
+mod store_transfer;
 mod store_vectors;
 mod store_views;
 mod strict_keys;

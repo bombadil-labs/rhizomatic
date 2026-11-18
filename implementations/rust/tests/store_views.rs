@@ -743,7 +743,7 @@ impl Writer {
                         id: delta.id.clone(),
                         at: self.last as f64,
                         sequence: self.last,
-                        transfer: 1,
+                        transfer: self.last,
                         sender: "local".into(),
                     },
                 }
@@ -933,6 +933,9 @@ impl Snapshot for SpySnapshot {
     }
     fn last_sequence(&self) -> u64 {
         self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.log("get");
@@ -2119,7 +2122,7 @@ impl<'f> World<'f> {
                             id: delta.id.clone(),
                             at: 2000.0 + self.sequence as f64,
                             sequence: self.sequence,
-                            transfer: 9,
+                            transfer: self.sequence,
                             sender: "local".into(),
                         },
                     }
@@ -2156,7 +2159,7 @@ impl<'f> World<'f> {
                 id: delta.id.clone(),
                 at: 3000.0,
                 sequence: self.sequence,
-                transfer: 1,
+                transfer: self.sequence,
                 sender: "local".into(),
             },
         }];

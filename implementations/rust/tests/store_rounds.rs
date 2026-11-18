@@ -670,6 +670,9 @@ impl Snapshot for Tracing {
     fn last_sequence(&self) -> u64 {
         self.inner.last_sequence()
     }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.note("get", ids.len(), 0);
         self.inner.get(ids)
@@ -778,6 +781,9 @@ impl Snapshot for Double {
     }
     fn last_sequence(&self) -> u64 {
         self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.inner.get(ids)
@@ -1711,6 +1717,9 @@ impl Snapshot for Released {
     fn last_sequence(&self) -> u64 {
         self.inner.last_sequence()
     }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.inner.get(ids)
     }
@@ -1839,6 +1848,9 @@ impl Snapshot for Restamped {
     }
     fn last_sequence(&self) -> u64 {
         self.inner.last_sequence()
+    }
+    fn last_transfer(&self) -> u64 {
+        self.inner.last_transfer()
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
         self.inner.get(ids)
@@ -2300,7 +2312,7 @@ fn loaded_beside(fx: &Fixture, noise: usize) -> (MemoryStore, Box<dyn PeerStore>
                             id: delta.id.clone(),
                             at: 9000.0,
                             sequence,
-                            transfer: 9,
+                            transfer: sequence,
                             sender: "noise".into(),
                         },
                         delta,

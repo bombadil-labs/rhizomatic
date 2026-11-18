@@ -18,6 +18,7 @@ pub fn move_by_purge(peer: &dyn PeerStore) {
     let mut now = peer.read().unwrap();
     let head = now.head().expect("a peer with a head").to_string();
     let next = now.last_sequence() + 1;
+    let transfer = now.last_transfer() + 1;
     now.release();
     let claims = Claims {
         timestamp: next as f64,
@@ -44,7 +45,7 @@ pub fn move_by_purge(peer: &dyn PeerStore) {
                     id: id.clone(),
                     at: 0.0,
                     sequence: next,
-                    transfer: next,
+                    transfer,
                     sender: "sacrificial".into(),
                 },
                 delta,
