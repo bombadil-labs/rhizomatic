@@ -193,8 +193,9 @@ Step 4d adds more, listed under Breaking.
   `a-transfer-must-pass-the-peers-last` holds the rule, and every `read` step carries
   `expect.lastTransfer`. The format names do not change. What a purge removes does not change.
 - Step 4e: Rust `Store::create_peer` takes `&CreatePeerOptions`, as TypeScript's `createPeer`
-  takes its options (decision D10 of the 4e plan). `CreatePeerOptions { erasure }` has `new`
-  and a `Default` that declares `Unproven`. Behavior does not change.
+  takes its options (decision D10 of the 4e plan). `CreatePeerOptions { erasure }` has one
+  constructor, `new(erasure)`, and no `Default`: the caller always states the posture. Behavior
+  does not change.
 - Step 4e: a Rust peer carries an application format string (§4.13 reading 134).
   `CreatePeerOptions.app_format` takes 1 to 256 UTF-8 bytes (`APP_FORMAT_MAX_BYTES`); the
   Rust memory store refuses any other value `invalid-request` before `posture-refused` and

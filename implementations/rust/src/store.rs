@@ -106,8 +106,8 @@ impl ErasurePosture {
 /// The most UTF-8 bytes an application format string holds (§4.13 reading 134).
 pub const APP_FORMAT_MAX_BYTES: usize = 256;
 
-/// What `Store::create_peer` fixes for a new peer (SPEC-18 §4.1). The default declares
-/// `Unproven`, the posture that every store accepts, and no application format string.
+/// What `Store::create_peer` fixes for a new peer (SPEC-18 §4.1). The caller always states
+/// the erasure posture: the type has no default.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreatePeerOptions {
     /// `Unproven` is the operator's acknowledgement that erasure reports may say `unproven`.
@@ -126,12 +126,6 @@ impl CreatePeerOptions {
             erasure,
             app_format: None,
         }
-    }
-}
-
-impl Default for CreatePeerOptions {
-    fn default() -> Self {
-        Self::new(ErasurePosture::Unproven)
     }
 }
 

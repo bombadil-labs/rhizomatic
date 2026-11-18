@@ -79716,50 +79716,6 @@
       "resolvedTarget": "crate::store::CreatePeerOptions",
       "source": "implementations/rust/src/store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "CreatePeerOptions",
-      "target": "crate::store::CreatePeerOptions",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::CreatePeerOptions",
-      "resolvedTarget": "crate::store::CreatePeerOptions",
-      "source": "implementations/rust/src/store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "CreatePeerOptions::default",
-      "target": "crate::store::CreatePeerOptions",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::CreatePeerOptions::new",
-      "resolvedTarget": "crate::store::CreatePeerOptions::new",
-      "source": "implementations/rust/src/store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "CreatePeerOptions::default",
-      "target": "crate::store::CreatePeerOptions::new",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::ErasurePosture::Unproven",
-      "resolvedTarget": "crate::store::ErasurePosture::Unproven",
-      "source": "implementations/rust/src/store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "CreatePeerOptions::default",
-      "target": "crate::store::ErasurePosture::Unproven",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::CreatePeerOptions",
-      "resolvedTarget": "crate::store::CreatePeerOptions",
-      "source": "implementations/rust/src/store.rs",
-      "sourceRegion": "semantic-owner",
       "symbol": "CreatePeerOptions::new",
       "target": "crate::store::CreatePeerOptions",
       "targetOwner": "storage"
