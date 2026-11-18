@@ -98722,6 +98722,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::memory_store::MemorySnapshot",
+      "resolvedTarget": "crate::memory_store::MemorySnapshot",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::last_transfer",
+      "target": "crate::memory_store::MemorySnapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::memory_store::Index",
       "resolvedTarget": "crate::memory_store::Index",
       "source": "implementations/rust/src/memory_store.rs",
@@ -100512,6 +100523,17 @@
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "LoggedSnapshot::last_sequence",
+      "target": "crate::store_conformance::LoggedSnapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::LoggedSnapshot",
+      "resolvedTarget": "crate::store_conformance::LoggedSnapshot",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "LoggedSnapshot::last_transfer",
       "target": "crate::store_conformance::LoggedSnapshot",
       "targetOwner": "storage"
     },
@@ -124535,6 +124557,17 @@
       "semantics": "storage owns the existing store::Snapshot::last_sequence trait-method; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/store.rs",
       "symbol": "Snapshot::last_sequence"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "trait-method",
+      "id": "rust:store:Snapshot::last_transfer",
+      "owner": "storage",
+      "semantics": "storage owns the existing store::Snapshot::last_transfer trait-method; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "Snapshot::last_transfer"
     },
     {
       "cfg": [],
