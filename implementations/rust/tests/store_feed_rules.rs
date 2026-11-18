@@ -362,8 +362,11 @@ impl FeedyPeer {
 }
 
 impl PeerStore for FeedyPeer {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn id(&self) -> &str {
         &self.id
@@ -1196,7 +1199,7 @@ fn the_same_feeds_conform_where_no_rule_forbids_them() {
             .unwrap_or_else(|failures| panic!("{wrong:?} {setup:?}: {failures}"));
         assert_eq!(
             (report.passed.len(), report.skipped.len()),
-            (26 + 15, 0),
+            (27 + 15, 0),
             "{wrong:?} {setup:?}"
         );
     }
@@ -1215,12 +1218,12 @@ fn a_store_without_a_feed_skips_the_feed_scripts() {
         })
         .collect();
     assert_eq!(report.skipped, skipped);
-    assert_eq!(report.passed.len(), 22 + 15);
+    assert_eq!(report.passed.len(), 23 + 15);
 
     // A store without a feed whose `changes` would refuse every call still passes: the runner
     // makes no feed check on it.
     let refusing = run_with(W::Refuses, NO_FEED, &vectors()).unwrap_or_else(|e| panic!("{e}"));
-    assert_eq!(refusing.passed.len(), 22 + 15);
+    assert_eq!(refusing.passed.len(), 23 + 15);
 }
 
 /// Every script and the scope setup that commit twice to one peer: a wrong page that needs two

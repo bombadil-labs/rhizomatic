@@ -106,8 +106,11 @@ struct FaultyPeer {
 }
 
 impl PeerStore for FaultyPeer {
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn id(&self) -> &str {
         &self.id
@@ -343,7 +346,7 @@ fn failed(fault: Fault, reasons: &[&str]) -> Vec<String> {
 
 #[test]
 fn a_faithful_store_that_is_not_the_reference_passes() {
-    assert_eq!(run(Fault::None).unwrap(), 26 + 15);
+    assert_eq!(run(Fault::None).unwrap(), 27 + 15);
 }
 
 #[test]

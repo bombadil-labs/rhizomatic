@@ -153,8 +153,11 @@ impl PeerStore for Borrowed<'_> {
     fn erasure(&self) -> PeerErasure {
         self.0.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.0.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.0.app_format()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.0.read()

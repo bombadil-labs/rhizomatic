@@ -504,8 +504,11 @@ impl PeerStore for Moving<'_> {
     fn erasure(&self) -> PeerErasure {
         self.writer.peer.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.writer.peer.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.writer.peer.app_format()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.reads.set(self.reads.get() + 1);

@@ -66,6 +66,7 @@ mod resolve;
 mod schema_deltas;
 mod set;
 mod sign;
+mod store_app_format;
 mod store_broken;
 mod store_cost;
 mod store_digest;

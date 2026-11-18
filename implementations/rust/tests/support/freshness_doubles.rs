@@ -132,8 +132,11 @@ impl PeerStore for Peer {
     fn erasure(&self) -> PeerErasure {
         self.inner.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         let inner = self.inner.read()?;
@@ -373,8 +376,11 @@ impl PeerStore for Odd<'_> {
     fn erasure(&self) -> PeerErasure {
         self.inner.erasure()
     }
-    fn history(&self) -> &str {
+    fn history(&self) -> Result<&str, StoreError> {
         self.inner.history()
+    }
+    fn app_format(&self) -> Result<Option<&str>, StoreError> {
+        self.inner.app_format()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         self.reads.set(self.reads.get() + 1);
