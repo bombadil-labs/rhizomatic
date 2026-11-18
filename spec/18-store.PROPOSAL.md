@@ -2679,9 +2679,8 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      that the row counts once keeps the row and names `held-by-other-peer` and `purge-debt`; the
      old bare count deleted it. The purge does not check the other entries of the row, because
      that check reads every holder of the row on each purge. `fsck` reports each of them before
-     the purge, as `count-mismatch` (key `holders`). A Rust append adds 1 to a count up to the
-     largest `usize` and keeps it there, so it does not panic; that count is not 1, so a later
-     purge by that peer refuses. The SQLite store keeps no count of holders: its purge asks
+     the purge, as `count-mismatch` (key `holders`). The SQLite store keeps no count of
+     holders: its purge asks
      the `holding` table whether another holding exists, so this rule has no SQLite case. **The feed.** `changes` fails with `feed-gap`, with
      the peer and `fsck`'s detail, when the kept records are not the revisions of the page it
      answers, on both stores. Before, it answered `ok` without a lost record and with a

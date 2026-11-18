@@ -311,10 +311,6 @@ Step 4d adds more, listed under Breaking.
       once, with `held-by-other-peer` and `purge-debt`. The old code deleted that row.
     - `fsck` reports each of them before the purge as `count-mismatch`, key `holders`.
   - The check costs no lookup: the purge reads the row that it read before.
-  - A Rust append to a row whose count of the peer is `usize::MAX` keeps the count there. It
-    does not panic, and the batch commits whole. A later purge of that id by that peer refuses,
-    and `fsck` reports the row. Before, a debug build panicked after part of the batch was
-    written, and a release build wrapped the count to 0. TypeScript adds 1 and does not throw.
   - What can now be deleted that could not be deleted before: nothing. The new code deletes a
     row only where the old bare count of that row reached 0 on the same call. It refuses in more
     states, and it keeps a row that names a holder with a count of 0.
