@@ -2992,7 +2992,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        The rail asserts only the one that is promised. A late deleter of a `proven` peer also answers `unproven` while a
        new peer of the id exists.
      - **The memory store.** The same contract, all at once in one synchronous call. Its claim
-       is always `unproven`; its surfaces are its purge's, from a second look. A held id whose
+       is always `unproven`; its surfaces are its purge's, from a second look. Its `retains`
+       names `purge-debt` while another peer's purge debt names an id the peer held or owed,
+       read after the delete, as its purge does. A held id whose
        row is gone throws `StoreIntegrityError` (`claims-unreadable`) before the delete removes
        anything, as the purge of that id does (reading 136). **Known limit:** until a remedy for
        that purge lands, no call deletes such a peer.
