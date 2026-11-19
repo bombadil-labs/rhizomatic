@@ -108,7 +108,10 @@ export class StoreFaultError extends Error {
  * - `orphan-bytes`: bytes that no peer holds;
  * - `engine`: the engine's own check of the file failed;
  * - `digest-mismatch`: a stored node of the holdings digest, or the stored root, is not the one
- *   the peer's holdings give (`key` names the node, `digest:<prefix>`, or the root).
+ *   the peer's holdings give (`key` names the node, `digest:<prefix>`, or the root);
+ * - `peer-deleting`: a `deletePeer` of the peer began and did not end (§4.13 reading 144). Its
+ *   other rows are not checked: a delete removes them in pages. `deletePeer` of the peer
+ *   finishes it.
  */
 export type IntegrityFaultKind =
   | "claims-mismatch"
@@ -121,7 +124,8 @@ export type IntegrityFaultKind =
   | "feed-gap"
   | "orphan-bytes"
   | "engine"
-  | "digest-mismatch";
+  | "digest-mismatch"
+  | "peer-deleting";
 
 export type IntegrityFault = {
   readonly kind: IntegrityFaultKind;
@@ -243,6 +247,19 @@ export interface Store {
   createPeer(id: PeerId, options: CreatePeerOptions): Promise<PeerStore>;
   /** Opens an existing peer. Refuses `peer-absent`; it never creates one. */
   peer(id: PeerId): Promise<PeerStore>;
+  /**
+   * Deletes the peer: its holdings, its index entries, its change records, its debts and its
+   * digest, then the peer itself (§4.13 reading 144). Bytes another peer holds stay. Refuses
+   * `invalid-request` for an id that is not a non-empty, well-formed string, and `peer-absent`
+   * for a peer that does not exist. From the start of the delete, every call on the peer with a
+   * well-formed request refuses `peer-absent`, and every snapshot of it refuses
+   * `snapshot-moved`. A call checks `store-closed`, then the form of its request, then the peer.
+   * A delete that did not end is finished by the next `deletePeer` of the id; until then
+   * `createPeer` of the id refuses `peer-exists`. A history is never issued again, so a peer
+   * created later under the id has a new one. It is another peer: a handle of the deleted peer
+   * refuses `peer-absent`, and a host gets a new handle from `createPeer` or `peer`.
+   */
+  deletePeer(id: PeerId): Promise<DeleteReport>;
   /** Whole-store operations. Never hand this to the serving path. */
   openAdmin(): Exporter;
   close(): Promise<void>;
@@ -476,6 +493,35 @@ export type PurgeReport = {
     readonly surface: "change-feed" | "purge-debt" | "surface-debt";
     readonly holds: "id";
   }[];
+};
+
+/**
+ * What `Store.deletePeer` answers (§4.13 reading 144), in the purge report's words. The claim
+ * covers every row of the deleted peer and the bytes of each delta it released that no peer holds
+ * at the report's last commit. A delta another peer holds then is kept by that peer, and the
+ * report counts it without naming it.
+ */
+export type DeleteReport = {
+  /**
+   * `proven`: the store's class and the peer's posture are `proven`, and every surface is
+   * `absent`. A store may always say `unproven` instead.
+   */
+  readonly claim: "proven" | "unproven";
+  readonly boundary: typeof PURGE_BOUNDARY;
+  /** Every storage surface the store declares, in the purge report's order. */
+  readonly surfaces: readonly { readonly surface: string; readonly state: SurfaceState }[];
+  /**
+   * The store-controlled surfaces that may still hold the id, never the bytes, of a delta the
+   * peer held or owed at this call: another peer's change records, purge debts and records. It
+   * never omits one that does. An id that an earlier purge of the peer released with no debt
+   * left to the peer is not this report's: that purge's report named its surfaces. The claim
+   * does not cover ids (decision O4).
+   */
+  readonly retains: PurgeReport["retains"];
+  /** How many holdings of the peer this call released. */
+  readonly released: number;
+  /** How many of those ids another peer held when this call released them: their bytes stay. */
+  readonly keptByOtherPeers: number;
 };
 
 /**

@@ -121,6 +121,7 @@ export {
   type ChangeRecord,
   type ChangeRetention,
   type CreatePeerOptions,
+  type DeleteReport,
   type ErasureClass,
   type Entity,
   type ErasurePosture,
