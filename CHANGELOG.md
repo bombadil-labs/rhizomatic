@@ -227,14 +227,18 @@ Step 4d adds more, listed under Breaking.
   What a delete removes does not grow.
 - Known gap: on a damaged memory store, a row can count 1 or more holders but fewer than hold
   it. A delete of one holder then removes the row, and another holder's `get` fails
-  `claims-unreadable`. The purge has the same gap. `fsck` reports the row before the call
-  (`count-mismatch`, key `holders`). The SQLite store keeps no count and cannot reach it.
+  `claims-unreadable`. The purge has the same gap. The delete report gives no sign of the loss:
+  its values are the values of a correct delete. Only `fsck` shows it. Before the call, `fsck`
+  reports the row (`count-mismatch`, key `holders`). After the call, it reports
+  `claims-unreadable` and `index-stray` for the other peer. The SQLite store keeps no count and
+  cannot reach it.
 - `IntegrityFaultKind` gains `peer-deleting` in both witnesses; the Rust witness has it as data,
   with no producer until step 4e.
 - What can now be deleted that could not be deleted before: every holding, index entry, change
   record, purge debt, record of a removal, digest row and peer row of one peer, and the bytes of
   each delta that no other peer holds, by one call. Never a peer created later under the same
-  id.
+  id. The exception: on a damaged memory store, where a row counts fewer holders than hold it,
+  one call deletes bytes that another peer holds (the known gap above).
 - Step 4e starts. The Rust purge report gains `retains` (`Retained`, `RetainedSurface`), and
   the Rust refusal codes gain `StoreErrorCode::StoreUnavailable` (§4.13 readings 105 and 108).
   The Rust memory store names `change-feed`, and `purge-debt` while a purge debt of any peer

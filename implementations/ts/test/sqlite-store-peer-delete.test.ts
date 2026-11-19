@@ -349,6 +349,48 @@ describe.skipIf(!PROVEN_HERE)("peer delete removes the bytes (Linux)", () => {
   }, 120_000);
 });
 
+describe("the digest of a deleted peer", () => {
+  it('a peer with more than 256 digest rows is deleted in pages: no digest row of the id stays; the peer created again has no digest row, the empty root and digest(""), then the digest of only what it appends; fsck is clean and the bystander reads back', async () => {
+    const { path } = place();
+    const store = await open(path);
+    const a = await store.createPeer("peer:a", { erasure: "proven" });
+    const b = await store.createPeer("peer:b", { erasure: "proven" });
+    const deltas = group("Dg", 1500);
+    const bystander = group("DgB", 3);
+    await put(a, deltas, "HdDgA0Z");
+    await put(b, bystander, "HdDgB0Z");
+    const rows = (): number =>
+      read(path, (db) =>
+        db.prepare("SELECT count(*) FROM digest WHERE peer = ?").pluck().get("peer:a"),
+      ) as number;
+    expect(rows()).toBeGreaterThan(256);
+    const before = await a.read();
+    expect([before.root, await before.digest("")]).toEqual([
+      digestOf(idsOf(deltas)).hash,
+      digestOf(idsOf(deltas)),
+    ]);
+    before.release();
+
+    expect((await store.deletePeer("peer:a")).released).toBe(1500);
+    expect(rows()).toBe(0);
+    const again = await store.createPeer("peer:a", { erasure: "proven" });
+    expect(rows()).toBe(0);
+    const now = await again.read();
+    expect([now.root, await now.digest("")]).toEqual([digestOf([]).hash, digestOf([])]);
+    now.release();
+    const two = deltas.slice(0, 2);
+    await put(again, two, "HdDgA1Z");
+    const refilled = await again.read();
+    expect([refilled.root, await refilled.digest("")]).toEqual([
+      digestOf(idsOf(two)).hash,
+      digestOf(idsOf(two)),
+    ]);
+    refilled.release();
+    expect(rows()).toBe(1);
+    await bystanderHolds(store, b, bystander);
+  }, 120_000);
+});
+
 describe("a delete that dies, and other processes", () => {
   it.skipIf(!PROVEN_HERE)(
     "rail 4 and rail 5: a child killed between the delete's pages leaves the mark; from then on another process's handle refuses peer-absent and its snapshot snapshot-moved, createPeer refuses peer-exists, and fsck names the delete; the next delete finishes, answers proven, and no file holds A's bytes",
