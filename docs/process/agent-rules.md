@@ -56,8 +56,9 @@ Commit first. The generators must then leave the tree clean.
 4. The WASM clippy and build, as the Rust witness job of `.github/workflows/ci.yml` runs them.
 5. At the root: `node tools/precheck.mjs` and `node tools/check-rust-command-boundaries.mjs`.
 6. At the root: the `node --test` line of the `contracts` job of `ci.yml`.
-7. For a change to `vectors/`, `spec/` or the delta core: `node tools/check-all.mjs haskell elixir`.
-   When those tools are not installed, say so in the body. CI runs them.
+7. `node tools/check-all.mjs haskell elixir`, for a change to `vectors/`, to the Haskell or Elixir
+   witness, or to a witness's delta, hash or canonical encoding code. When those tools are not
+   installed, say so in the body. CI runs them for a code change.
 
 What a change can skip:
 
@@ -66,9 +67,8 @@ What a change can skip:
 - A TypeScript change does not skip the Rust steps. Rust tests read TypeScript source files.
 - Say which steps you skipped, and why.
 
-CI has two tiers, as `AGENTS.md` says. The fast tier runs on every pull request. Start the heavy
-tier only for a release candidate, or for a change to the command or materialization code:
-`gh workflow run ci.yml --ref <branch> -f heavy=true`.
+CI has two tiers, as `AGENTS.md` says. The fast tier runs on every pull request. The heavy tier
+is for a release candidate only: `gh workflow run ci.yml --ref <branch> -f heavy=true`.
 
 ## A builder
 
@@ -95,8 +95,9 @@ A purge, a peer delete and every success report of them are erasure code.
   count.
 - The change widens when the new build removes a delta that the old build kept on that state.
 - An old error or refusal keeps the delta. A removal there is a widening.
-- A crash is not kept behavior. A delta that stayed only because the old code stopped part-way
-  through a call does not count as kept. Name that state in the body.
+- A crash is a panic or an abort of the old build. Only a crash is not kept behavior.
+- An error that the old code returns or throws keeps the delta, also part-way through a call.
+- Name each crash state in the body. When you are not sure that it is a crash, treat it as kept.
 - When the change widens, write at the top of the body that the owner merges it.
 - Every erasure test is two-sided: the target is gone, and a named bystander survives.
 - Assert the report, and assert the state of the store after it.
@@ -150,7 +151,8 @@ A purge, a peer delete and every success report of them are erasure code.
 
 ## The steward
 
-- A merge needs green CI on the reviewed head, and a posted review of that head.
+- A merge needs a green fast tier on the reviewed head, and a posted review of that head.
+- A release needs a green heavy tier on `main` first.
 - A reviewer in a fresh context writes that review.
 - A change to Markdown alone gets no CI run. It needs the review only.
 - Read the conclusion of each CI run before the merge.

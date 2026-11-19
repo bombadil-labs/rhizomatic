@@ -189,8 +189,8 @@ GitHub issues when useful; coordinate design changes with Myk and Loam's owner.
 - CI has two tiers (Myk, 2026-10-14). `.github/workflows/ci.yml` runs the FAST tier on every pull
   request and every push to main: the four witness gates, docs and vector freshness, and the
   contract checks. The HEAVY tier (command towers, materialization M1-M4 acceptance) runs only for
-  a release candidate, or for a change to the command or materialization code: dispatch
-  `ci.yml` with `heavy: true`, or label a pull request `release-candidate`. A Markdown-only change skips both tiers, and a newer push to a pull request
+  a release candidate: dispatch `ci.yml` with `heavy: true`, or label a pull request
+  `release-candidate`. A Markdown-only change skips both tiers, and a newer push to a pull request
   cancels its older run. Any TS source change also requires `npm run docs:build` (the tour and
   playground bundles under `docs/` are committed bytes and CI diffs them).
 
