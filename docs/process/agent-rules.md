@@ -80,6 +80,7 @@ is for a release candidate only: `gh workflow run ci.yml --ref <branch> -f heavy
 
 ## A builder
 
+- Name the consumer call that needs the change. When you cannot, stop and report.
 - Read the spec text and the other witness before you write code.
 - List each rule that you implement, with the line of the other witness that it matches.
 - A new normative behavior gets its vector before or with its code.
@@ -141,39 +142,113 @@ A purge, a peer delete and every success report of them are erasure code.
 
 ## A reviewer
 
+A review here is a prosecution, not a search for faults. A prosecutor builds a case: a charge,
+the evidence for it, and the harm it does. An adversary lists everything that looks wrong. Build
+the case.
+
+### The goal comes first
+
+- The brief states the goal of the change: who needs it, and which public call serves them.
+- The pull request makes a claim about that goal. Your work is to test that claim.
+- When the brief states no goal, ask for it before you start. Do not invent one.
+
+### A charge
+
+A charge has four parts. Without all four it is a note, not a charge.
+
+1. **The claim it breaks.** Quote the sentence of the pull request, the spec or the contract.
+2. **The evidence.** A counterexample that you ran, or the lines that you read. Mark it
+   CONFIRMED when you ran or read the proof, and PLAUSIBLE when you did not.
+3. **The harm.** Who gets a wrong result, on which public call, from which state. Say how a
+   store or a host reaches that state.
+4. **The remedy.** The smallest change that removes the harm. A smaller design is a remedy.
+
+- A charge blocks. A note does not.
+- A state that no public call can reach gives a note. Its default remedy is a test whose title
+  starts with `[gap: ...]`, or nothing.
+- Give at most five notes. Rank them. Leave out the rest.
+- A sentence that states more than the code does is a charge when a reader would act on it.
+
+### The premise is in scope
+
+- Ask first whether the change should exist in this form. Does the goal need it? Is a smaller
+  form enough? Does it add a rule that no consumer asked for?
+- A case against the premise is a charge like any other. It needs the same four parts.
+
+### How to build the case
+
 - You did not write the change. You start with no knowledge of the builder's reasoning.
 - Review the exact head that the brief names. Say its full SHA in the review.
 - Read the head in a checkout of your own, or read its git objects.
 - Run mutants only in a checkout that holds no uncommitted work of another agent.
-- Use a neutral question: which inputs or states give a wrong outcome?
-- Mark each finding CONFIRMED, when you ran or read the proof, or PLAUSIBLE.
-- For each finding, give the file and line, a severity, the expected behavior, how to reproduce
-  it, and your uncertainty. A counterexample is the best proof.
-- Review the tests too. Could this test pass with the fix reverted, or with the feature deleted?
-- Run mutants of your own, not only the builder's.
-- Check the claims of the body against the code. A sentence that states more than the code does
-  is a finding.
-- For erasure code, judge each report by one question: can this report be false?
+- Test the claim where it is most likely to fail. Do not test everything.
+- Review the tests as evidence. Could this test pass with the fix reverted, or with the feature
+  deleted? Run mutants of your own where a rule has one test.
+- For erasure code, the charge to look for is a report that can be false.
 - Do not commit, push, edit the pull request or merge. Restore every file that a probe changed.
 - Delete a `target` directory that you made.
-- Say what you checked and what you did not check. A clean result is a valid result.
-- Post the review as a comment on the pull request. Name the reviewer's model and the builder's.
-- End with one verdict: MERGE, or FIX FIRST with what blocks.
+
+### The verdict
+
+- Say what you tested and what you did not test.
+- End with one verdict: MERGE when you have no charge, FIX FIRST with the charges.
+- "No case" is a valid result. Say it plainly.
 - For a pull request that the owner merges, the verdicts are READY FOR THE OWNER and FIX FIRST.
+- Post the review as a comment on the pull request. Name the reviewer's model and the builder's.
+
+### A second round
+
+- A second round tests the answer to each charge, and the code that the answer changed.
+- It does not open the rest of the pull request again.
+- A new charge in a second round must come from the fix.
+- A new charge from older code needs a reason why round one could not see it.
 
 ## The steward
+
+### Before a review
+
+- Write the goal of the change into the brief: who needs it, and which public call serves them.
+- A change with no consumer that the steward can name does not go to review. It becomes an issue.
+
+### After a review
+
+- Try to refute each charge before a fix starts. A charge that does not hold is answered on the
+  pull request, not fixed.
+- A charge that holds gets a fix, and the fix gets a second round.
+- A note becomes an issue with the label `follow-up`, or nothing. It does not start a round.
+- After round three, write in the pull request why a fourth round is better than a smaller
+  design. Use three sentences or fewer. When that is not possible, split or cut the change.
+
+### A reviewer from another model family
+
+A reviewer of the builder's own family tests whether the code keeps a rule. It rarely asks
+whether the rule should exist. A reviewer from another family asks that.
+
+- Ask for one at each milestone and before each decision on direction. It reads at altitude:
+  the goal, the plan and the contract. It reads no code.
+- Ask for one on each pull request that changes a contract: the spec, a shared vector or an
+  exported type. It prosecutes the premise. The same-family reviewer prosecutes the evidence.
+- Do not ask for one on a change to tests, tools or text alone.
+- Send it through an account that the owner approved for this work. On such an account, send
+  what the review needs: the code, the plan and the context.
+- Never print or commit the key of that account.
+- Post its answer on the pull request or the issue, with the name of the model.
+
+### A merge
 
 - A merge needs a green fast tier on the reviewed head, and a posted review of that head.
 - A release needs a green heavy tier on `main` first.
 - A reviewer in a fresh context writes that review.
 - A change to Markdown alone gets no CI run. It needs the review only.
 - Read the conclusion of each CI run before the merge.
-- Review again after every fix. The fix is where the next defect usually is.
 - The owner merges a change that widens what erasure removes, and a stable release.
 - The owner also merges a change to what the system promises outside the active arc.
 - The steward merges the rest.
-- A review finding that does not block becomes an issue with the label `follow-up`. Do not fix it
-  in the next pull request.
+- A pull request that the owner merges does not wait on a branch. Bring it to the owner in the
+  session in which it is ready, or build it last.
+
+### The record
+
 - A question for the owner becomes an issue with the label `needs-owner`. It holds the context,
   the options and a recommendation. Ask in chat too when it blocks work.
 - Update the tracking issue at each merge.
