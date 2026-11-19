@@ -41,12 +41,15 @@ Damage means state that no sequence of public calls can produce. Its causes are 
 medium, a bug, or a write by the operator.
 
 - A store refuses where it can see the damage at the cost of the call it already makes.
-- `fsck` on the `Exporter` finds the rest. It costs O(store).
+- `fsck` on the `Exporter` finds more. It costs O(store). It is not complete: it cannot run on a
+  file that does not open, and it can miss a fault that a write makes during the scan.
 - A store does not repair. Repair is the host's decision, because the host knows where a second
   copy is.
 - A store does not defend against damage that an adversary shapes. A party that can write the
   files is the operator, and the operator is trusted.
-- A crash at any point leaves a state that the next open either completes or refuses.
+- After a crash, the next open completes the cut write, refuses, or leaves a state that `fsck`
+  names. One case needs a second call: a cut `deletePeer` leaves the peer marked, `fsck` reports
+  `peer-deleting`, and a second `deletePeer` ends the delete.
 
 ## The boundary of the erasure report
 
