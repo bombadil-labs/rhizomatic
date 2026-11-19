@@ -125,7 +125,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.100.0
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
@@ -210,7 +210,7 @@ jobs:
           node-version: 22.23.5
           cache: npm
           cache-dependency-path: implementations/ts/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.100.0
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: implementations/rust
@@ -223,7 +223,7 @@ jobs:
           node tools/check-rust-command-boundaries.mjs
       - name: Harness, planning and accounting regressions
         run: |
-          node --test tools/command-tower*.test.mjs tools/check-rust-command-boundaries.test.mjs tools/check-command-bootstrap.test.mjs tools/check-command-acceptance.test.mjs tools/command-inventory.test.mjs tools/check-materialization-accounting.test.mjs tools/check-rust-test-programs.test.mjs tools/check-rust-wrong-holders.test.mjs
+          node --test tools/command-tower*.test.mjs tools/check-rust-command-boundaries.test.mjs tools/check-command-bootstrap.test.mjs tools/check-command-acceptance.test.mjs tools/command-inventory.test.mjs tools/check-materialization-accounting.test.mjs tools/check-rust-test-programs.test.mjs tools/check-rust-wrong-holders.test.mjs tools/rust-inventory-adopt.test.mjs
 
   command:
     name: Command profile and mixed towers
@@ -239,7 +239,7 @@ jobs:
           node-version: 22.23.5
           cache: npm
           cache-dependency-path: implementations/ts/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.100.0
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: implementations/rust
@@ -295,7 +295,7 @@ jobs:
           node-version: 22.23.5
           cache: npm
           cache-dependency-path: implementations/ts/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.100.0
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: implementations/rust
@@ -335,7 +335,7 @@ jobs:
           node-version: 22.23.5
           cache: npm
           cache-dependency-path: implementations/ts/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.100.0
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: implementations/rust
@@ -377,7 +377,7 @@ jobs:
           node-version: 22.23.5
           cache: npm
           cache-dependency-path: implementations/ts/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.100.0
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: implementations/rust
@@ -413,7 +413,7 @@ jobs:
           node-version: 22.23.5
           cache: npm
           cache-dependency-path: implementations/ts/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.100.0
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: implementations/rust

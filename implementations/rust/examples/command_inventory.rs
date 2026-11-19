@@ -612,6 +612,9 @@ impl<'ast> Visit<'ast> for Paths {
         visit::visit_item_mod(self, m);
     }
 }
+fn semantics(owner: &str, module: &str, symbol: &str, kind: &str) -> String {
+    format!("{owner} owns the existing {module}::{symbol} {kind}; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.")
+}
 fn record(
     exports: &mut Vec<Value>,
     module: &str,
@@ -622,7 +625,7 @@ fn record(
 ) {
     let o = owner(module, symbol);
     let portable = matches!(module, "command_data" | "command") || symbol == "decode_view";
-    exports.push(json!({"id":format!("rust:{module}:{symbol}"),"owner":o,"symbol":symbol,"source":source,"definition":kind,"contract":format!("rhizomatic.{o}/native-api/1"),"classification":if portable{"portable_contract"}else{"native_extension"},"semantics":format!("{o} owns the existing {module}::{symbol} {kind}; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export."),"cfg":cfg(attrs)}));
+    exports.push(json!({"id":format!("rust:{module}:{symbol}"),"owner":o,"symbol":symbol,"source":source,"definition":kind,"contract":format!("rhizomatic.{o}/native-api/1"),"classification":if portable{"portable_contract"}else{"native_extension"},"semantics":semantics(o, module, symbol, kind),"cfg":cfg(attrs)}));
 }
 fn dependency_record(
     dependencies: &mut Vec<Value>,
@@ -943,6 +946,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             e["contract"] =
                                 json!(format!("rhizomatic.{target_owner}/native-api/1"));
                             e["target"] = json!(p);
+                            e["semantics"] = json!(semantics(target_owner, module, &a, "reexport"));
                             e["classification"] = json!("compatibility_reexport");
                         }
                     }

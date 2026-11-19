@@ -33,6 +33,7 @@ const steps = [
   ["command contracts and TS export inventory", root, "node tools/check-command-contracts.mjs --self-test"],
   ["package graph", root, "node tools/check-package-graph.mjs"],
   ["Rust boundaries and dependency inventory", root, "node tools/check-rust-command-boundaries.mjs"],
+  ["Rust inventory adopt rules", root, "node --test tools/rust-inventory-adopt.test.mjs"],
   ["Rust test programs stay few", root, "node --test tools/check-rust-test-programs.test.mjs"],
   ["Rust wrong holders need their feature", root, "node --test tools/check-rust-wrong-holders.test.mjs"],
   ["TS format, lint and types", ts, "npm run -s format:check && npm run -s lint && npm run -s typecheck"],
