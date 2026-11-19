@@ -48426,6 +48426,105 @@
     {
       "form": "syn-import",
       "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestRow",
+      "resolvedTarget": "crate::store_digest::DigestRow",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_digest::DigestRow",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestStore",
+      "resolvedTarget": "crate::store_digest::DigestStore",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_digest::DigestStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::children_of",
+      "resolvedTarget": "crate::store_digest::children_of",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_digest::children_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::digest_rows",
+      "resolvedTarget": "crate::store_digest::digest_rows",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_digest::digest_rows",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::empty_digest",
+      "resolvedTarget": "crate::store_digest::empty_digest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_digest::empty_digest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::is_digest_prefix",
+      "resolvedTarget": "crate::store_digest::is_digest_prefix",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_digest::is_digest_prefix",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::leaf_hash",
+      "resolvedTarget": "crate::store_digest::leaf_hash",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_digest::leaf_hash",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::update_digest",
+      "resolvedTarget": "crate::store_digest::update_digest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_digest::update_digest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
       "rawTarget": "crate::types::Claims",
       "resolvedTarget": "crate::types::Claims",
       "source": "implementations/rust/src/memory_store.rs",
@@ -48786,12 +48885,394 @@
       "targetOwner": "storage"
     },
     {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerState",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestRow",
+      "resolvedTarget": "crate::store_digest::DigestRow",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerState",
+      "target": "crate::store_digest::DigestRow",
+      "targetOwner": "storage"
+    },
+    {
       "form": "syn-external-path",
       "owner": "storage",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "PeerState",
       "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::Holding",
+      "resolvedTarget": "crate::memory_store::Holding",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest",
+      "target": "crate::memory_store::Holding",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::Index",
+      "resolvedTarget": "crate::memory_store::Index",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest",
+      "target": "crate::memory_store::Index",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::StoreMeter",
+      "resolvedTarget": "crate::memory_store::StoreMeter",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest",
+      "target": "crate::memory_store::StoreMeter",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestRow",
+      "resolvedTarget": "crate::store_digest::DigestRow",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest",
+      "target": "crate::store_digest::DigestRow",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::PeerDigest",
+      "resolvedTarget": "crate::memory_store::PeerDigest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest",
+      "target": "crate::memory_store::PeerDigest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::PeerDigest",
+      "resolvedTarget": "crate::memory_store::PeerDigest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::before",
+      "target": "crate::memory_store::PeerDigest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::ids",
+      "resolvedTarget": "crate::memory_store::ids",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::before",
+      "target": "crate::memory_store::ids",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::children_of",
+      "resolvedTarget": "crate::store_digest::children_of",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::before",
+      "target": "crate::store_digest::children_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::PeerDigest",
+      "resolvedTarget": "crate::memory_store::PeerDigest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest",
+      "target": "crate::memory_store::PeerDigest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestStore",
+      "resolvedTarget": "crate::store_digest::DigestStore",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest",
+      "target": "crate::store_digest::DigestStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::PeerDigest",
+      "resolvedTarget": "crate::memory_store::PeerDigest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::drop_row",
+      "target": "crate::memory_store::PeerDigest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::PeerDigest",
+      "resolvedTarget": "crate::memory_store::PeerDigest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::drop_under",
+      "target": "crate::memory_store::PeerDigest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::children_of",
+      "resolvedTarget": "crate::store_digest::children_of",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::drop_under",
+      "target": "crate::store_digest::children_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::PeerDigest",
+      "resolvedTarget": "crate::memory_store::PeerDigest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::held",
+      "target": "crate::memory_store::PeerDigest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::ids",
+      "resolvedTarget": "crate::memory_store::ids",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::held",
+      "target": "crate::memory_store::ids",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::held",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::PeerDigest",
+      "resolvedTarget": "crate::memory_store::PeerDigest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::put",
+      "target": "crate::memory_store::PeerDigest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::put",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestRow",
+      "resolvedTarget": "crate::store_digest::DigestRow",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::put",
+      "target": "crate::store_digest::DigestRow",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::PeerDigest",
+      "resolvedTarget": "crate::memory_store::PeerDigest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::rows",
+      "target": "crate::memory_store::PeerDigest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::rows",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestRow::node",
+      "resolvedTarget": "crate::store_digest::DigestRow::node",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "PeerDigest::rows",
+      "target": "crate::store_digest::DigestRow::node",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::PeerDigest",
+      "resolvedTarget": "crate::memory_store::PeerDigest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "move_digest",
+      "target": "crate::memory_store::PeerDigest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::PeerState",
+      "resolvedTarget": "crate::memory_store::PeerState",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "move_digest",
+      "target": "crate::memory_store::PeerState",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::StoreMeter",
+      "resolvedTarget": "crate::memory_store::StoreMeter",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "move_digest",
+      "target": "crate::memory_store::StoreMeter",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::update_digest",
+      "resolvedTarget": "crate::store_digest::update_digest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "move_digest",
+      "target": "crate::store_digest::update_digest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::Index",
+      "resolvedTarget": "crate::memory_store::Index",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_at",
+      "target": "crate::memory_store::Index",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::StoreMeter",
+      "resolvedTarget": "crate::memory_store::StoreMeter",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_at",
+      "target": "crate::memory_store::StoreMeter",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::ids",
+      "resolvedTarget": "crate::memory_store::ids",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_at",
+      "target": "crate::memory_store::ids",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_at",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestRow",
+      "resolvedTarget": "crate::store_digest::DigestRow",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_at",
+      "target": "crate::store_digest::DigestRow",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::empty_digest",
+      "resolvedTarget": "crate::store_digest::empty_digest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_at",
+      "target": "crate::store_digest::empty_digest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::leaf_hash",
+      "resolvedTarget": "crate::store_digest::leaf_hash",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_at",
+      "target": "crate::store_digest::leaf_hash",
+      "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
@@ -49049,6 +49530,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::memory_store::digest_fault",
+      "resolvedTarget": "crate::memory_store::digest_fault",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::fsck",
+      "target": "crate::memory_store::digest_fault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::memory_store::entity",
       "resolvedTarget": "crate::memory_store::entity",
       "source": "implementations/rust/src/memory_store.rs",
@@ -49170,6 +49662,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::IntegrityFaultKind::DigestMismatch",
+      "resolvedTarget": "crate::store::IntegrityFaultKind::DigestMismatch",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::fsck",
+      "target": "crate::store::IntegrityFaultKind::DigestMismatch",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::IntegrityFaultKind::IndexMissing",
       "resolvedTarget": "crate::store::IntegrityFaultKind::IndexMissing",
       "source": "implementations/rust/src/memory_store.rs",
@@ -49231,6 +49734,39 @@
       "sourceRegion": "semantic-owner",
       "symbol": "State::fsck",
       "target": "crate::store::target_entities",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestRow",
+      "resolvedTarget": "crate::store_digest::DigestRow",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::fsck",
+      "target": "crate::store_digest::DigestRow",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::digest_rows",
+      "resolvedTarget": "crate::store_digest::digest_rows",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::fsck",
+      "target": "crate::store_digest::digest_rows",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::empty_digest",
+      "resolvedTarget": "crate::store_digest::empty_digest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::fsck",
+      "target": "crate::store_digest::empty_digest",
       "targetOwner": "storage"
     },
     {
@@ -49344,6 +49880,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "State::append",
       "target": "crate::memory_store::entity",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::move_digest",
+      "resolvedTarget": "crate::memory_store::move_digest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::append",
+      "target": "crate::memory_store::move_digest",
       "targetOwner": "storage"
     },
     {
@@ -49662,6 +50209,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "State::purge",
       "target": "crate::memory_store::lost",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::move_digest",
+      "resolvedTarget": "crate::memory_store::move_digest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::purge",
+      "target": "crate::memory_store::move_digest",
       "targetOwner": "storage"
     },
     {
@@ -50746,6 +51304,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store_digest::empty_digest",
+      "resolvedTarget": "crate::store_digest::empty_digest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemoryStore::create_peer",
+      "target": "crate::store_digest::empty_digest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::memory_store::MemoryExporter",
       "resolvedTarget": "crate::memory_store::MemoryExporter",
       "source": "implementations/rust/src/memory_store.rs",
@@ -51224,78 +51793,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::memory_store::State",
-      "resolvedTarget": "crate::memory_store::State",
-      "source": "implementations/rust/src/memory_store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "MemorySnapshot::query",
-      "target": "crate::memory_store::State",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::memory_store::refuse",
-      "resolvedTarget": "crate::memory_store::refuse",
-      "source": "implementations/rust/src/memory_store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "MemorySnapshot::query",
-      "target": "crate::memory_store::refuse",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::memory_store::with",
-      "resolvedTarget": "crate::memory_store::with",
-      "source": "implementations/rust/src/memory_store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "MemorySnapshot::query",
-      "target": "crate::memory_store::with",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
       "rawTarget": "crate::store::IntegrityFault",
       "resolvedTarget": "crate::store::IntegrityFault",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "MemorySnapshot::query",
       "target": "crate::store::IntegrityFault",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::StoreErrorCode::PeerAbsent",
-      "resolvedTarget": "crate::store::StoreErrorCode::PeerAbsent",
-      "source": "implementations/rust/src/memory_store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "MemorySnapshot::query",
-      "target": "crate::store::StoreErrorCode::PeerAbsent",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::StoreErrorCode::SnapshotMoved",
-      "resolvedTarget": "crate::store::StoreErrorCode::SnapshotMoved",
-      "source": "implementations/rust/src/memory_store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "MemorySnapshot::query",
-      "target": "crate::store::StoreErrorCode::SnapshotMoved",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::StoreErrorCode::SnapshotReleased",
-      "resolvedTarget": "crate::store::StoreErrorCode::SnapshotReleased",
-      "source": "implementations/rust/src/memory_store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "MemorySnapshot::query",
-      "target": "crate::store::StoreErrorCode::SnapshotReleased",
       "targetOwner": "storage"
     },
     {
@@ -51312,11 +51815,132 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::memory_store::MemorySnapshot",
+      "resolvedTarget": "crate::memory_store::MemorySnapshot",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot",
+      "target": "crate::memory_store::MemorySnapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::MemorySnapshot",
+      "resolvedTarget": "crate::memory_store::MemorySnapshot",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::guarded",
+      "target": "crate::memory_store::MemorySnapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::SnapshotView",
+      "resolvedTarget": "crate::memory_store::SnapshotView",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::guarded",
+      "target": "crate::memory_store::SnapshotView",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::State",
+      "resolvedTarget": "crate::memory_store::State",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::guarded",
+      "target": "crate::memory_store::State",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::refuse",
+      "resolvedTarget": "crate::memory_store::refuse",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::guarded",
+      "target": "crate::memory_store::refuse",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::with",
+      "resolvedTarget": "crate::memory_store::with",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::guarded",
+      "target": "crate::memory_store::with",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::IntegrityFault",
+      "resolvedTarget": "crate::store::IntegrityFault",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::guarded",
+      "target": "crate::store::IntegrityFault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode::PeerAbsent",
+      "resolvedTarget": "crate::store::StoreErrorCode::PeerAbsent",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::guarded",
+      "target": "crate::store::StoreErrorCode::PeerAbsent",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode::SnapshotMoved",
+      "resolvedTarget": "crate::store::StoreErrorCode::SnapshotMoved",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::guarded",
+      "target": "crate::store::StoreErrorCode::SnapshotMoved",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode::SnapshotReleased",
+      "resolvedTarget": "crate::store::StoreErrorCode::SnapshotReleased",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::guarded",
+      "target": "crate::store::StoreErrorCode::SnapshotReleased",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreFailure",
+      "resolvedTarget": "crate::store::StoreFailure",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::guarded",
+      "target": "crate::store::StoreFailure",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::StoreFailure::Integrity",
       "resolvedTarget": "crate::store::StoreFailure::Integrity",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "MemorySnapshot::query",
+      "symbol": "MemorySnapshot::guarded",
       "target": "crate::store::StoreFailure::Integrity",
       "targetOwner": "storage"
     },
@@ -51327,19 +51951,8 @@
       "resolvedTarget": "crate::store::StoreFailure::Refused",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "MemorySnapshot::query",
+      "symbol": "MemorySnapshot::guarded",
       "target": "crate::store::StoreFailure::Refused",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::memory_store::MemorySnapshot",
-      "resolvedTarget": "crate::memory_store::MemorySnapshot",
-      "source": "implementations/rust/src/memory_store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "MemorySnapshot",
-      "target": "crate::memory_store::MemorySnapshot",
       "targetOwner": "storage"
     },
     {
@@ -51447,6 +52060,94 @@
       "sourceRegion": "semantic-owner",
       "symbol": "MemorySnapshot::count",
       "target": "crate::memory_store::MemorySnapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::MemorySnapshot",
+      "resolvedTarget": "crate::memory_store::MemorySnapshot",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::digest",
+      "target": "crate::memory_store::MemorySnapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::digest_at",
+      "resolvedTarget": "crate::memory_store::digest_at",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::digest",
+      "target": "crate::memory_store::digest_at",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::refuse",
+      "resolvedTarget": "crate::memory_store::refuse",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::digest",
+      "target": "crate::memory_store::refuse",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "resolvedTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::digest",
+      "target": "crate::store::StoreErrorCode::InvalidRequest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreFailure",
+      "resolvedTarget": "crate::store::StoreFailure",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::digest",
+      "target": "crate::store::StoreFailure",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreFailure::Refused",
+      "resolvedTarget": "crate::store::StoreFailure::Refused",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::digest",
+      "target": "crate::store::StoreFailure::Refused",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::digest",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::is_digest_prefix",
+      "resolvedTarget": "crate::store_digest::is_digest_prefix",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::digest",
+      "target": "crate::store_digest::is_digest_prefix",
       "targetOwner": "storage"
     },
     {
@@ -51617,6 +52318,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "MemorySnapshot::revision",
       "target": "crate::store::Revision",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::MemorySnapshot",
+      "resolvedTarget": "crate::memory_store::MemorySnapshot",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::root",
+      "target": "crate::memory_store::MemorySnapshot",
       "targetOwner": "storage"
     },
     {
@@ -56064,12 +56776,26 @@
       "symbol": "gap_peer_a_alone_holds_x_and_the_row_also_names_b_with_a_zero_count_so_a_purge_of_x_by_a_keeps_the_row_and_owes_it_and_fsck_names_the_row"
     },
     {
-      "form": "syn-external-path",
+      "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::memory_store::MemoryStore",
+      "resolvedTarget": "crate::memory_store::MemoryStore",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
-      "target": "core::primitive::usize::MAX"
+      "symbol": "forty",
+      "target": "crate::memory_store::MemoryStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::MemoryStore::new",
+      "resolvedTarget": "crate::memory_store::MemoryStore::new",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "forty",
+      "target": "crate::memory_store::MemoryStore::new",
+      "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
@@ -56078,9 +56804,643 @@
       "resolvedTarget": "crate::memory_store::add",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "symbol": "forty",
       "target": "crate::memory_store::add",
       "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::fact",
+      "resolvedTarget": "crate::memory_store::fact",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "forty",
+      "target": "crate::memory_store::fact",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::places",
+      "resolvedTarget": "crate::memory_store::places",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "forty",
+      "target": "crate::memory_store::places",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::with",
+      "resolvedTarget": "crate::memory_store::with",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "forty",
+      "target": "crate::memory_store::with",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::CreatePeerOptions::new",
+      "resolvedTarget": "crate::store::CreatePeerOptions::new",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "forty",
+      "target": "crate::store::CreatePeerOptions::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ErasurePosture::Unproven",
+      "resolvedTarget": "crate::store::ErasurePosture::Unproven",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "forty",
+      "target": "crate::store::ErasurePosture::Unproven",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::PeerStore",
+      "resolvedTarget": "crate::store::PeerStore",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "forty",
+      "target": "crate::store::PeerStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestRow",
+      "resolvedTarget": "crate::store_digest::DigestRow",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "forty",
+      "target": "crate::store_digest::DigestRow",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "forty",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "forty"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "forty"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "forty"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::Place",
+      "resolvedTarget": "crate::memory_store::Place",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_fault",
+      "target": "crate::memory_store::Place",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::State",
+      "resolvedTarget": "crate::memory_store::State",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_rows_of",
+      "target": "crate::memory_store::State",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestRow",
+      "resolvedTarget": "crate::store_digest::DigestRow",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_rows_of",
+      "target": "crate::store_digest::DigestRow",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_rows_of",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::damage",
+      "resolvedTarget": "crate::memory_store::damage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_stored_digest_node_whose_hash_changed_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::damage",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::digest_fault",
+      "resolvedTarget": "crate::memory_store::digest_fault",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_stored_digest_node_whose_hash_changed_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::digest_fault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::digest_rows_of",
+      "resolvedTarget": "crate::memory_store::digest_rows_of",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_stored_digest_node_whose_hash_changed_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::digest_rows_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::forty",
+      "resolvedTarget": "crate::memory_store::forty",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_stored_digest_node_whose_hash_changed_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::forty",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::places",
+      "resolvedTarget": "crate::memory_store::places",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_stored_digest_node_whose_hash_changed_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::places",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::empty_digest",
+      "resolvedTarget": "crate::store_digest::empty_digest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_stored_digest_node_whose_hash_changed_is_one_digest_mismatch_with_its_key",
+      "target": "crate::store_digest::empty_digest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_stored_digest_node_whose_hash_changed_is_one_digest_mismatch_with_its_key"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_stored_digest_node_whose_hash_changed_is_one_digest_mismatch_with_its_key"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::damage",
+      "resolvedTarget": "crate::memory_store::damage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_copy_of_a_leaf_at_a_prefix_no_held_id_starts_with_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::damage",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::digest_fault",
+      "resolvedTarget": "crate::memory_store::digest_fault",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_copy_of_a_leaf_at_a_prefix_no_held_id_starts_with_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::digest_fault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::digest_rows_of",
+      "resolvedTarget": "crate::memory_store::digest_rows_of",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_copy_of_a_leaf_at_a_prefix_no_held_id_starts_with_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::digest_rows_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::forty",
+      "resolvedTarget": "crate::memory_store::forty",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_copy_of_a_leaf_at_a_prefix_no_held_id_starts_with_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::forty",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::places",
+      "resolvedTarget": "crate::memory_store::places",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_copy_of_a_leaf_at_a_prefix_no_held_id_starts_with_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::places",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_copy_of_a_leaf_at_a_prefix_no_held_id_starts_with_is_one_digest_mismatch_with_its_key"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::damage",
+      "resolvedTarget": "crate::memory_store::damage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_lost_digest_node_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::damage",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::digest_fault",
+      "resolvedTarget": "crate::memory_store::digest_fault",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_lost_digest_node_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::digest_fault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::digest_rows_of",
+      "resolvedTarget": "crate::memory_store::digest_rows_of",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_lost_digest_node_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::digest_rows_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::forty",
+      "resolvedTarget": "crate::memory_store::forty",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_lost_digest_node_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::forty",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::places",
+      "resolvedTarget": "crate::memory_store::places",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_lost_digest_node_is_one_digest_mismatch_with_its_key",
+      "target": "crate::memory_store::places",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_lost_digest_node_is_one_digest_mismatch_with_its_key"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_lost_digest_node_is_one_digest_mismatch_with_its_key"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::damage",
+      "resolvedTarget": "crate::memory_store::damage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_root_whose_hash_or_count_changed_is_one_digest_mismatch_with_the_key_root",
+      "target": "crate::memory_store::damage",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::digest_fault",
+      "resolvedTarget": "crate::memory_store::digest_fault",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_root_whose_hash_or_count_changed_is_one_digest_mismatch_with_the_key_root",
+      "target": "crate::memory_store::digest_fault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::forty",
+      "resolvedTarget": "crate::memory_store::forty",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_root_whose_hash_or_count_changed_is_one_digest_mismatch_with_the_key_root",
+      "target": "crate::memory_store::forty",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::places",
+      "resolvedTarget": "crate::memory_store::places",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_root_whose_hash_or_count_changed_is_one_digest_mismatch_with_the_key_root",
+      "target": "crate::memory_store::places",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::empty_digest",
+      "resolvedTarget": "crate::store_digest::empty_digest",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_root_whose_hash_or_count_changed_is_one_digest_mismatch_with_the_key_root",
+      "target": "crate::store_digest::empty_digest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_root_whose_hash_or_count_changed_is_one_digest_mismatch_with_the_key_root"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::Stored",
+      "resolvedTarget": "crate::memory_store::Stored",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "fsck_reports_the_digest_after_the_feed_of_its_peer_and_before_the_stored_rows",
+      "target": "crate::memory_store::Stored",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::damage",
+      "resolvedTarget": "crate::memory_store::damage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "fsck_reports_the_digest_after_the_feed_of_its_peer_and_before_the_stored_rows",
+      "target": "crate::memory_store::damage",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::fact",
+      "resolvedTarget": "crate::memory_store::fact",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "fsck_reports_the_digest_after_the_feed_of_its_peer_and_before_the_stored_rows",
+      "target": "crate::memory_store::fact",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::forty",
+      "resolvedTarget": "crate::memory_store::forty",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "fsck_reports_the_digest_after_the_feed_of_its_peer_and_before_the_stored_rows",
+      "target": "crate::memory_store::forty",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::places",
+      "resolvedTarget": "crate::memory_store::places",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "fsck_reports_the_digest_after_the_feed_of_its_peer_and_before_the_stored_rows",
+      "target": "crate::memory_store::places",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "fsck_reports_the_digest_after_the_feed_of_its_peer_and_before_the_stored_rows",
+      "target": "std::collections::BTreeMap::from"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "fsck_reports_the_digest_after_the_feed_of_its_peer_and_before_the_stored_rows"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::damage",
+      "resolvedTarget": "crate::memory_store::damage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_damaged_count_in_the_digest_does_not_stop_a_purge_the_purge_removes_the_ids_and_fsck_then_reports_digest_mismatch",
+      "target": "crate::memory_store::damage",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::digest_rows_of",
+      "resolvedTarget": "crate::memory_store::digest_rows_of",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_damaged_count_in_the_digest_does_not_stop_a_purge_the_purge_removes_the_ids_and_fsck_then_reports_digest_mismatch",
+      "target": "crate::memory_store::digest_rows_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::forty",
+      "resolvedTarget": "crate::memory_store::forty",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_damaged_count_in_the_digest_does_not_stop_a_purge_the_purge_removes_the_ids_and_fsck_then_reports_digest_mismatch",
+      "target": "crate::memory_store::forty",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::ids",
+      "resolvedTarget": "crate::memory_store::ids",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_damaged_count_in_the_digest_does_not_stop_a_purge_the_purge_removes_the_ids_and_fsck_then_reports_digest_mismatch",
+      "target": "crate::memory_store::ids",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::places",
+      "resolvedTarget": "crate::memory_store::places",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_damaged_count_in_the_digest_does_not_stop_a_purge_the_purge_removes_the_ids_and_fsck_then_reports_digest_mismatch",
+      "target": "crate::memory_store::places",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::PurgeOutcome",
+      "resolvedTarget": "crate::store::PurgeOutcome",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_damaged_count_in_the_digest_does_not_stop_a_purge_the_purge_removes_the_ids_and_fsck_then_reports_digest_mismatch",
+      "target": "crate::store::PurgeOutcome",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::PurgeOutcome::Removed",
+      "resolvedTarget": "crate::store::PurgeOutcome::Removed",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_damaged_count_in_the_digest_does_not_stop_a_purge_the_purge_removes_the_ids_and_fsck_then_reports_digest_mismatch",
+      "target": "crate::store::PurgeOutcome::Removed",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_damaged_count_in_the_digest_does_not_stop_a_purge_the_purge_removes_the_ids_and_fsck_then_reports_digest_mismatch",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_damaged_count_in_the_digest_does_not_stop_a_purge_the_purge_removes_the_ids_and_fsck_then_reports_digest_mismatch",
+      "target": "std::collections::BTreeSet::from"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_damaged_count_in_the_digest_does_not_stop_a_purge_the_purge_removes_the_ids_and_fsck_then_reports_digest_mismatch"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "core::primitive::str::to_string"
     },
     {
       "form": "syn-resolved-path",
@@ -56089,7 +57449,7 @@
       "resolvedTarget": "crate::memory_store::at",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
       "target": "crate::memory_store::at",
       "targetOwner": "storage"
     },
@@ -56100,8 +57460,19 @@
       "resolvedTarget": "crate::memory_store::damage",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
       "target": "crate::memory_store::damage",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::digest_rows_of",
+      "resolvedTarget": "crate::memory_store::digest_rows_of",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "crate::memory_store::digest_rows_of",
       "targetOwner": "storage"
     },
     {
@@ -56111,19 +57482,19 @@
       "resolvedTarget": "crate::memory_store::dump",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
       "target": "crate::memory_store::dump",
       "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::memory_store::fact",
-      "resolvedTarget": "crate::memory_store::fact",
+      "rawTarget": "crate::memory_store::forty",
+      "resolvedTarget": "crate::memory_store::forty",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
-      "target": "crate::memory_store::fact",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "crate::memory_store::forty",
       "targetOwner": "storage"
     },
     {
@@ -56133,7 +57504,7 @@
       "resolvedTarget": "crate::memory_store::fsck_details",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
       "target": "crate::memory_store::fsck_details",
       "targetOwner": "storage"
     },
@@ -56144,7 +57515,7 @@
       "resolvedTarget": "crate::memory_store::ids",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
       "target": "crate::memory_store::ids",
       "targetOwner": "storage"
     },
@@ -56155,52 +57526,19 @@
       "resolvedTarget": "crate::memory_store::place",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
       "target": "crate::memory_store::place",
       "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::memory_store::sorted_deltas",
-      "resolvedTarget": "crate::memory_store::sorted_deltas",
+      "rawTarget": "crate::memory_store::with",
+      "resolvedTarget": "crate::memory_store::with",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
-      "target": "crate::memory_store::sorted_deltas",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::memory_store::two_peers",
-      "resolvedTarget": "crate::memory_store::two_peers",
-      "source": "implementations/rust/src/memory_store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
-      "target": "crate::memory_store::two_peers",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::ChangePage::Ok",
-      "resolvedTarget": "crate::store::ChangePage::Ok",
-      "source": "implementations/rust/src/memory_store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
-      "target": "crate::store::ChangePage::Ok",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::Revision",
-      "resolvedTarget": "crate::store::Revision",
-      "source": "implementations/rust/src/memory_store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
-      "target": "crate::store::Revision",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "crate::memory_store::with",
       "targetOwner": "storage"
     },
     {
@@ -56210,7 +57548,7 @@
       "resolvedTarget": "crate::store::StoreFailure::Integrity",
       "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
       "target": "crate::store::StoreFailure::Integrity",
       "targetOwner": "storage"
     },
@@ -56222,17 +57560,7 @@
       "owner": "storage",
       "source": "implementations/rust/src/memory_store.rs",
       "status": "parsed-known-macro-arguments",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders"
-    },
-    {
-      "form": "macro-region",
-      "macros": [
-        "format"
-      ],
-      "owner": "storage",
-      "source": "implementations/rust/src/memory_store.rs",
-      "status": "parsed-known-macro-arguments",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders"
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged"
     },
     {
       "form": "macro-region",
@@ -56242,7 +57570,7 @@
       "owner": "storage",
       "source": "implementations/rust/src/memory_store.rs",
       "status": "parsed-known-macro-arguments",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders"
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged"
     },
     {
       "form": "macro-region",
@@ -56252,7 +57580,7 @@
       "owner": "storage",
       "source": "implementations/rust/src/memory_store.rs",
       "status": "parsed-known-macro-arguments",
-      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders"
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged"
     },
     {
       "form": "syn-external-import",
@@ -84149,6 +85477,17 @@
     {
       "form": "syn-import",
       "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
       "rawTarget": "crate::types::Claims",
       "resolvedTarget": "crate::types::Claims",
       "source": "implementations/rust/src/store.rs",
@@ -86103,6 +87442,28 @@
       "resolvedTarget": "crate::store::StoreFailure",
       "source": "implementations/rust/src/store.rs",
       "sourceRegion": "semantic-owner",
+      "symbol": "Snapshot::digest",
+      "target": "crate::store::StoreFailure",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Snapshot::digest",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreFailure",
+      "resolvedTarget": "crate::store::StoreFailure",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
       "symbol": "Snapshot::get",
       "target": "crate::store::StoreFailure",
       "targetOwner": "storage"
@@ -87237,17 +88598,6 @@
       "targetOwner": "storage"
     },
     {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::ChangeRetention::None",
-      "resolvedTarget": "crate::store::ChangeRetention::None",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Run::unmet",
-      "target": "crate::store::ChangeRetention::None",
-      "targetOwner": "storage"
-    },
-    {
       "form": "syn-external-import",
       "owner": "storage",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -87574,6 +88924,50 @@
       "sourceRegion": "semantic-owner",
       "symbol": "<import>",
       "target": "crate::store::target_entities",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_admission::AdmissionOptions",
+      "resolvedTarget": "crate::store_admission::AdmissionOptions",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_admission::AdmissionOptions",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_admission::admission_of",
+      "resolvedTarget": "crate::store_admission::admission_of",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_admission::admission_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::digest_of",
+      "resolvedTarget": "crate::store_digest::digest_of",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store_digest::digest_of",
       "targetOwner": "storage"
     },
     {
@@ -90954,17 +92348,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store::ErasureClass::None",
-      "resolvedTarget": "crate::store::ErasureClass::None",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Run::unmet",
-      "target": "crate::store::ErasureClass::None",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
       "rawTarget": "crate::store_conformance::Check",
       "resolvedTarget": "crate::store_conformance::Check",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -90987,12 +92370,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store_conformance::texts",
-      "resolvedTarget": "crate::store_conformance::texts",
+      "rawTarget": "crate::store_conformance::unmet",
+      "resolvedTarget": "crate::store_conformance::unmet",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "Run::unmet",
-      "target": "crate::store_conformance::texts",
+      "target": "crate::store_conformance::unmet",
       "targetOwner": "storage"
     },
     {
@@ -91186,16 +92569,6 @@
       "symbol": "Run::step"
     },
     {
-      "form": "macro-region",
-      "macros": [
-        "format"
-      ],
-      "owner": "storage",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "status": "parsed-known-macro-arguments",
-      "symbol": "Run::unmet"
-    },
-    {
       "form": "syn-resolved-path",
       "owner": "storage",
       "rawTarget": "crate::store::Store",
@@ -91387,6 +92760,79 @@
       "symbol": "arrival_differs",
       "target": "crate::store::ArrivalRecord",
       "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ChangeRetention::None",
+      "resolvedTarget": "crate::store::ChangeRetention::None",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "unmet",
+      "target": "crate::store::ChangeRetention::None",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ErasureClass::None",
+      "resolvedTarget": "crate::store::ErasureClass::None",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "unmet",
+      "target": "crate::store::ErasureClass::None",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreProfile",
+      "resolvedTarget": "crate::store::StoreProfile",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "unmet",
+      "target": "crate::store::StoreProfile",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Check",
+      "resolvedTarget": "crate::store_conformance::Check",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "unmet",
+      "target": "crate::store_conformance::Check",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::texts",
+      "resolvedTarget": "crate::store_conformance::texts",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "unmet",
+      "target": "crate::store_conformance::texts",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "unmet",
+      "target": "serde_json::Value"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "unmet"
     },
     {
       "form": "syn-resolved-path",
@@ -92257,6 +93703,17 @@
     {
       "form": "syn-import",
       "owner": "reactor",
+      "rawTarget": "crate::store::VerifiedDelta",
+      "resolvedTarget": "crate::store::VerifiedDelta",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::VerifiedDelta",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
       "rawTarget": "crate::store::collect_delta_set",
       "resolvedTarget": "crate::store::collect_delta_set",
       "source": "implementations/rust/src/store_read.rs",
@@ -92960,6 +94417,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError",
+      "resolvedTarget": "crate::store_read::StoreReadError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_read::StoreReadError",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::store_read::StoreReadError::Integrity",
       "resolvedTarget": "crate::store_read::StoreReadError::Integrity",
       "source": "implementations/rust/src/store_read.rs",
@@ -93044,6 +94512,61 @@
       "symbol": "Residual::record",
       "target": "crate::store_read::Residual",
       "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store::Revision",
+      "resolvedTarget": "crate::store::Revision",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "file_answer",
+      "target": "crate::store::Revision",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store::ScopeSource",
+      "resolvedTarget": "crate::store::ScopeSource",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "file_answer",
+      "target": "crate::store::ScopeSource",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store::VerifiedDelta",
+      "resolvedTarget": "crate::store::VerifiedDelta",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "file_answer",
+      "target": "crate::store::VerifiedDelta",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::StoreFault",
+      "resolvedTarget": "crate::store_fresh::StoreFault",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "file_answer",
+      "target": "crate::store_fresh::StoreFault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::StoreFault::MalformedMember",
+      "resolvedTarget": "crate::store_fresh::StoreFault::MalformedMember",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "file_answer",
+      "target": "crate::store_fresh::StoreFault::MalformedMember",
+      "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
@@ -93589,6 +95112,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::store_read::file_answer",
+      "resolvedTarget": "crate::store_read::file_answer",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::store_read::file_answer",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::store_read::scope_request",
       "resolvedTarget": "crate::store_read::scope_request",
       "source": "implementations/rust/src/store_read.rs",
@@ -93734,12 +95268,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::store::StoreFailure",
-      "resolvedTarget": "crate::store::StoreFailure",
+      "rawTarget": "crate::store_fresh::FeedError",
+      "resolvedTarget": "crate::store_fresh::FeedError",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "fetch_scope",
-      "target": "crate::store::StoreFailure",
+      "target": "crate::store_fresh::FeedError",
       "targetOwner": "storage"
     },
     {
@@ -95242,6 +96776,28 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::store_fresh::FeedError",
+      "resolvedTarget": "crate::store_fresh::FeedError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "capture_scope",
+      "target": "crate::store_fresh::FeedError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::FeedError::Refused",
+      "resolvedTarget": "crate::store_fresh::FeedError::Refused",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "capture_scope",
+      "target": "crate::store_fresh::FeedError::Refused",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::store_read::FetchedScope",
       "resolvedTarget": "crate::store_read::FetchedScope",
       "source": "implementations/rust/src/store_read.rs",
@@ -95308,28 +96864,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::store::StoreFailure",
-      "resolvedTarget": "crate::store::StoreFailure",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "capture_scope",
-      "target": "crate::store::StoreFailure",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::store::StoreFailure::Refused",
-      "resolvedTarget": "crate::store::StoreFailure::Refused",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "capture_scope",
-      "target": "crate::store::StoreFailure::Refused",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
       "rawTarget": "crate::store::ScopeSource",
       "resolvedTarget": "crate::store::ScopeSource",
       "source": "implementations/rust/src/store_read.rs",
@@ -95358,17 +96892,6 @@
       "sourceRegion": "semantic-owner",
       "symbol": "fetched",
       "target": "crate::store::Snapshot",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::store::StoreFailure",
-      "resolvedTarget": "crate::store::StoreFailure",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "fetched",
-      "target": "crate::store::StoreFailure",
       "targetOwner": "storage"
     },
     {
@@ -95435,6 +96958,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "fetched",
       "target": "crate::store_read::fetched",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::file_answer",
+      "resolvedTarget": "crate::store_read::file_answer",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "fetched",
+      "target": "crate::store_read::file_answer",
       "targetOwner": "reactor"
     },
     {
@@ -95511,23 +97045,23 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::store::StoreFailure",
-      "resolvedTarget": "crate::store::StoreFailure",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "StoreFreshness::capture",
-      "target": "crate::store::StoreFailure",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
       "rawTarget": "crate::store_fresh::Capture",
       "resolvedTarget": "crate::store_fresh::Capture",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "StoreFreshness::capture",
       "target": "crate::store_fresh::Capture",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::FeedError",
+      "resolvedTarget": "crate::store_fresh::FeedError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreFreshness::capture",
+      "target": "crate::store_fresh::FeedError",
       "targetOwner": "storage"
     },
     {
@@ -95778,6 +97312,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "fetched",
       "target": "crate::store_follow::position_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::FeedError",
+      "resolvedTarget": "crate::store_fresh::FeedError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "fetched",
+      "target": "crate::store_fresh::FeedError",
       "targetOwner": "storage"
     },
     {
@@ -105005,6 +106550,197 @@
       "targetOwner": "storage"
     },
     {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "target": "core::primitive::usize::MAX"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::add",
+      "resolvedTarget": "crate::memory_store::add",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "target": "crate::memory_store::add",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::at",
+      "resolvedTarget": "crate::memory_store::at",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "target": "crate::memory_store::at",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::damage",
+      "resolvedTarget": "crate::memory_store::damage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "target": "crate::memory_store::damage",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::dump",
+      "resolvedTarget": "crate::memory_store::dump",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "target": "crate::memory_store::dump",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::fact",
+      "resolvedTarget": "crate::memory_store::fact",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "target": "crate::memory_store::fact",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::fsck_details",
+      "resolvedTarget": "crate::memory_store::fsck_details",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "target": "crate::memory_store::fsck_details",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::ids",
+      "resolvedTarget": "crate::memory_store::ids",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "target": "crate::memory_store::ids",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::place",
+      "resolvedTarget": "crate::memory_store::place",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "target": "crate::memory_store::place",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::sorted_deltas",
+      "resolvedTarget": "crate::memory_store::sorted_deltas",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "target": "crate::memory_store::sorted_deltas",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::two_peers",
+      "resolvedTarget": "crate::memory_store::two_peers",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "target": "crate::memory_store::two_peers",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ChangePage::Ok",
+      "resolvedTarget": "crate::store::ChangePage::Ok",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "target": "crate::store::ChangePage::Ok",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Revision",
+      "resolvedTarget": "crate::store::Revision",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "target": "crate::store::Revision",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreFailure::Integrity",
+      "resolvedTarget": "crate::store::StoreFailure::Integrity",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders",
+      "target": "crate::store::StoreFailure::Integrity",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "panic"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "vec"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_row_count_of_a_peer_at_the_largest_usize_does_not_panic_the_append_of_that_id_by_that_peer_which_commits_whole_and_its_later_purge_fails_with_count_mismatch_holders"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "storage",
       "rawTarget": "crate::memory_store::Index",
@@ -105411,23 +107147,23 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store::StoreFailure",
-      "resolvedTarget": "crate::store::StoreFailure",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "FreshnessReader::capture",
-      "target": "crate::store::StoreFailure",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
       "rawTarget": "crate::store_fresh::Capture",
       "resolvedTarget": "crate::store_fresh::Capture",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "FreshnessReader::capture",
       "target": "crate::store_fresh::Capture",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::FeedError",
+      "resolvedTarget": "crate::store_fresh::FeedError",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FreshnessReader::capture",
+      "target": "crate::store_fresh::FeedError",
       "targetOwner": "storage"
     },
     {
@@ -105562,28 +107298,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store::StoreFailure::Integrity",
-      "resolvedTarget": "crate::store::StoreFailure::Integrity",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Run::capture",
-      "target": "crate::store::StoreFailure::Integrity",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::StoreFailure::Refused",
-      "resolvedTarget": "crate::store::StoreFailure::Refused",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Run::capture",
-      "target": "crate::store::StoreFailure::Refused",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
       "rawTarget": "crate::store_conformance::Check",
       "resolvedTarget": "crate::store_conformance::Check",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -105639,12 +107353,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store_conformance::damaged",
-      "resolvedTarget": "crate::store_conformance::damaged",
+      "rawTarget": "crate::store_conformance::failed_call",
+      "resolvedTarget": "crate::store_conformance::failed_call",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "Run::capture",
-      "target": "crate::store_conformance::damaged",
+      "target": "crate::store_conformance::failed_call",
       "targetOwner": "storage"
     },
     {
@@ -105689,6 +107403,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Run::capture",
       "target": "crate::store_conformance::text",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::FeedError::Refused",
+      "resolvedTarget": "crate::store_fresh::FeedError::Refused",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::capture",
+      "target": "crate::store_fresh::FeedError::Refused",
       "targetOwner": "storage"
     },
     {
@@ -106807,6 +108532,50 @@
       "resolvedTarget": "crate::store::StoreFailure",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
+      "symbol": "LoggedSnapshot::digest",
+      "target": "crate::store::StoreFailure",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Call::Other",
+      "resolvedTarget": "crate::store_conformance::Call::Other",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "LoggedSnapshot::digest",
+      "target": "crate::store_conformance::Call::Other",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::LoggedSnapshot",
+      "resolvedTarget": "crate::store_conformance::LoggedSnapshot",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "LoggedSnapshot::digest",
+      "target": "crate::store_conformance::LoggedSnapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "LoggedSnapshot::digest",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreFailure",
+      "resolvedTarget": "crate::store::StoreFailure",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
       "symbol": "LoggedSnapshot::get",
       "target": "crate::store::StoreFailure",
       "targetOwner": "storage"
@@ -106962,6 +108731,17 @@
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "LoggedSnapshot::revision",
+      "target": "crate::store_conformance::LoggedSnapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::LoggedSnapshot",
+      "resolvedTarget": "crate::store_conformance::LoggedSnapshot",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "LoggedSnapshot::root",
       "target": "crate::store_conformance::LoggedSnapshot",
       "targetOwner": "storage"
     },
@@ -109609,6 +111389,1533 @@
       "symbol": "the_log_records_a_call_that_refuses"
     },
     {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "show_node",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "show_node"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Check",
+      "resolvedTarget": "crate::store_conformance::Check",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_node",
+      "target": "crate::store_conformance::Check",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::text",
+      "resolvedTarget": "crate::store_conformance::text",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_node",
+      "target": "crate::store_conformance::text",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::whole",
+      "resolvedTarget": "crate::store_conformance::whole",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_node",
+      "target": "crate::store_conformance::whole",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_node",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_node",
+      "target": "serde_json::Value"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Check",
+      "resolvedTarget": "crate::store_conformance::Check",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_tree",
+      "target": "crate::store_conformance::Check",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::digest_node",
+      "resolvedTarget": "crate::store_conformance::digest_node",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_tree",
+      "target": "crate::store_conformance::digest_node",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::list",
+      "resolvedTarget": "crate::store_conformance::list",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_tree",
+      "target": "crate::store_conformance::list",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::show_node",
+      "resolvedTarget": "crate::store_conformance::show_node",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_tree",
+      "target": "crate::store_conformance::show_node",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::text",
+      "resolvedTarget": "crate::store_conformance::text",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_tree",
+      "target": "crate::store_conformance::text",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::texts",
+      "resolvedTarget": "crate::store_conformance::texts",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_tree",
+      "target": "crate::store_conformance::texts",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::digest_of",
+      "resolvedTarget": "crate::store_digest::digest_of",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_tree",
+      "target": "crate::store_digest::digest_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_tree",
+      "target": "serde_json::Value"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "digest_tree"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::PeerStore",
+      "resolvedTarget": "crate::store::PeerStore",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun",
+      "target": "crate::store::PeerStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Snapshot",
+      "resolvedTarget": "crate::store::Snapshot",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun",
+      "target": "crate::store::Snapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Store",
+      "resolvedTarget": "crate::store::Store",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun",
+      "target": "crate::store::Store",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Corpus",
+      "resolvedTarget": "crate::store_conformance::Corpus",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun",
+      "target": "crate::store_conformance::Corpus",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::DigestRun",
+      "resolvedTarget": "crate::store_conformance::DigestRun",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun",
+      "target": "crate::store_conformance::DigestRun",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Snapshot",
+      "resolvedTarget": "crate::store::Snapshot",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::on_snapshot",
+      "target": "crate::store::Snapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Check",
+      "resolvedTarget": "crate::store_conformance::Check",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::on_snapshot",
+      "target": "crate::store_conformance::Check",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::DigestRun",
+      "resolvedTarget": "crate::store_conformance::DigestRun",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::on_snapshot",
+      "target": "crate::store_conformance::DigestRun",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::text",
+      "resolvedTarget": "crate::store_conformance::text",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::on_snapshot",
+      "target": "crate::store_conformance::text",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::on_snapshot",
+      "target": "serde_json::Value"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::CreatePeerOptions::new",
+      "resolvedTarget": "crate::store::CreatePeerOptions::new",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::peer",
+      "target": "crate::store::CreatePeerOptions::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ErasurePosture::Unproven",
+      "resolvedTarget": "crate::store::ErasurePosture::Unproven",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::peer",
+      "target": "crate::store::ErasurePosture::Unproven",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::PeerStore",
+      "resolvedTarget": "crate::store::PeerStore",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::peer",
+      "target": "crate::store::PeerStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Check",
+      "resolvedTarget": "crate::store_conformance::Check",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::peer",
+      "target": "crate::store_conformance::Check",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::DigestRun",
+      "resolvedTarget": "crate::store_conformance::DigestRun",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::peer",
+      "target": "crate::store_conformance::DigestRun",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Snapshot",
+      "resolvedTarget": "crate::store::Snapshot",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::read",
+      "target": "crate::store::Snapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Check",
+      "resolvedTarget": "crate::store_conformance::Check",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::read",
+      "target": "crate::store_conformance::Check",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::DigestRun",
+      "resolvedTarget": "crate::store_conformance::DigestRun",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::read",
+      "target": "crate::store_conformance::DigestRun",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::AppendResult::Committed",
+      "resolvedTarget": "crate::store::AppendResult::Committed",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::step",
+      "target": "crate::store::AppendResult::Committed",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreFailure::Integrity",
+      "resolvedTarget": "crate::store::StoreFailure::Integrity",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::step",
+      "target": "crate::store::StoreFailure::Integrity",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreFailure::Refused",
+      "resolvedTarget": "crate::store::StoreFailure::Refused",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::step",
+      "target": "crate::store::StoreFailure::Refused",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_admission::AdmissionOptions",
+      "resolvedTarget": "crate::store_admission::AdmissionOptions",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::step",
+      "target": "crate::store_admission::AdmissionOptions",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_admission::admission_of",
+      "resolvedTarget": "crate::store_admission::admission_of",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::step",
+      "target": "crate::store_admission::admission_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Check",
+      "resolvedTarget": "crate::store_conformance::Check",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::step",
+      "target": "crate::store_conformance::Check",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::DigestRun",
+      "resolvedTarget": "crate::store_conformance::DigestRun",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::step",
+      "target": "crate::store_conformance::DigestRun",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::digest_node",
+      "resolvedTarget": "crate::store_conformance::digest_node",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::step",
+      "target": "crate::store_conformance::digest_node",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::field",
+      "resolvedTarget": "crate::store_conformance::field",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::step",
+      "target": "crate::store_conformance::field",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::show_node",
+      "resolvedTarget": "crate::store_conformance::show_node",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::step",
+      "target": "crate::store_conformance::show_node",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::text",
+      "resolvedTarget": "crate::store_conformance::text",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::step",
+      "target": "crate::store_conformance::text",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::texts",
+      "resolvedTarget": "crate::store_conformance::texts",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::step",
+      "target": "crate::store_conformance::texts",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::step",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRun::step",
+      "target": "serde_json::Value"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "DigestRun::on_snapshot"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "DigestRun::peer"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "DigestRun::read"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "DigestRun::step"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Corpus::load",
+      "resolvedTarget": "crate::store_conformance::Corpus::load",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "crate::store_conformance::Corpus::load",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::DigestRun",
+      "resolvedTarget": "crate::store_conformance::DigestRun",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "crate::store_conformance::DigestRun",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::STORE_DIGEST_FORMAT",
+      "resolvedTarget": "crate::store_conformance::STORE_DIGEST_FORMAT",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "crate::store_conformance::STORE_DIGEST_FORMAT",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::SkippedScript",
+      "resolvedTarget": "crate::store_conformance::SkippedScript",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "crate::store_conformance::SkippedScript",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::StoreConformanceError",
+      "resolvedTarget": "crate::store_conformance::StoreConformanceError",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "crate::store_conformance::StoreConformanceError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::StoreConformanceFailure",
+      "resolvedTarget": "crate::store_conformance::StoreConformanceFailure",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "crate::store_conformance::StoreConformanceFailure",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::StoreConformanceReport",
+      "resolvedTarget": "crate::store_conformance::StoreConformanceReport",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "crate::store_conformance::StoreConformanceReport",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::StoreConformanceReport::default",
+      "resolvedTarget": "crate::store_conformance::StoreConformanceReport::default",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "crate::store_conformance::StoreConformanceReport::default",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::StoreFactoryFn",
+      "resolvedTarget": "crate::store_conformance::StoreFactoryFn",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "crate::store_conformance::StoreFactoryFn",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::digest_tree",
+      "resolvedTarget": "crate::store_conformance::digest_tree",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "crate::store_conformance::digest_tree",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::list",
+      "resolvedTarget": "crate::store_conformance::list",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "crate::store_conformance::list",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::unmet",
+      "resolvedTarget": "crate::store_conformance::unmet",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "crate::store_conformance::unmet",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "serde_json::Value"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "serde_json::Value::as_str"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "std::collections::BTreeMap::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "run_digest_conformance",
+      "target": "std::vec::Vec::new"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "run_digest_conformance"
+    },
+    {
+      "form": "syn-external-import",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::cbor::CborValue",
+      "resolvedTarget": "crate::cbor::CborValue",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::cbor::CborValue",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::cbor::encode",
+      "resolvedTarget": "crate::cbor::encode",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::cbor::encode",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::hash::content_address",
+      "resolvedTarget": "crate::hash::content_address",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::hash::content_address",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode",
+      "resolvedTarget": "crate::store::StoreErrorCode",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::StoreErrorCode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::types::VOCAB_PREFIX",
+      "resolvedTarget": "crate::types::VOCAB_PREFIX",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::types::VOCAB_PREFIX",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digit",
+      "target": "core::primitive::usize::from"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::lower_hex",
+      "resolvedTarget": "crate::store_digest::lower_hex",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "is_id",
+      "target": "crate::store_digest::lower_hex",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::lower_hex",
+      "resolvedTarget": "crate::store_digest::lower_hex",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "is_digest_prefix",
+      "target": "crate::store_digest::lower_hex",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::cbor::CborValue::Array",
+      "resolvedTarget": "crate::cbor::CborValue::Array",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "leaf_hash",
+      "target": "crate::cbor::CborValue::Array",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::cbor::CborValue::Tstr",
+      "resolvedTarget": "crate::cbor::CborValue::Tstr",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "leaf_hash",
+      "target": "crate::cbor::CborValue::Tstr",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::cbor::encode",
+      "resolvedTarget": "crate::cbor::encode",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "leaf_hash",
+      "target": "crate::cbor::encode",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::hash::content_address",
+      "resolvedTarget": "crate::hash::content_address",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "leaf_hash",
+      "target": "crate::hash::content_address",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "leaf_hash"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "vec"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "leaf_hash"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::cbor::CborValue::Array",
+      "resolvedTarget": "crate::cbor::CborValue::Array",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "node_hash",
+      "target": "crate::cbor::CborValue::Array",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::cbor::CborValue::Float",
+      "resolvedTarget": "crate::cbor::CborValue::Float",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "node_hash",
+      "target": "crate::cbor::CborValue::Float",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::cbor::CborValue::Tstr",
+      "resolvedTarget": "crate::cbor::CborValue::Tstr",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "node_hash",
+      "target": "crate::cbor::CborValue::Tstr",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::cbor::encode",
+      "resolvedTarget": "crate::cbor::encode",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "node_hash",
+      "target": "crate::cbor::encode",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::hash::content_address",
+      "resolvedTarget": "crate::hash::content_address",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "node_hash",
+      "target": "crate::hash::content_address",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "node_hash",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "node_hash"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "vec"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "node_hash"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "empty_digest",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::EMPTY_HASH",
+      "resolvedTarget": "crate::store_digest::EMPTY_HASH",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "empty_digest",
+      "target": "crate::store_digest::EMPTY_HASH",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "children_of",
+      "target": "core::primitive::char::from"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DIGITS",
+      "resolvedTarget": "crate::store_digest::DIGITS",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "children_of",
+      "target": "crate::store_digest::DIGITS",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "children_of"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::digit",
+      "resolvedTarget": "crate::store_digest::digit",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "by_digit",
+      "target": "crate::store_digest::digit",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "by_digit",
+      "target": "std::vec::Vec::new"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "vec"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "by_digit"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestRow",
+      "resolvedTarget": "crate::store_digest::DigestRow",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRow",
+      "target": "crate::store_digest::DigestRow",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRow::node",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestRow",
+      "resolvedTarget": "crate::store_digest::DigestRow",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestRow::node",
+      "target": "crate::store_digest::DigestRow",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DIGEST_LEAF",
+      "resolvedTarget": "crate::store_digest::DIGEST_LEAF",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "node_of",
+      "target": "crate::store_digest::DIGEST_LEAF",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "node_of",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestRow",
+      "resolvedTarget": "crate::store_digest::DigestRow",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "node_of",
+      "target": "crate::store_digest::DigestRow",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::by_digit",
+      "resolvedTarget": "crate::store_digest::by_digit",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "node_of",
+      "target": "crate::store_digest::by_digit",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::children_of",
+      "resolvedTarget": "crate::store_digest::children_of",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "node_of",
+      "target": "crate::store_digest::children_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::leaf_hash",
+      "resolvedTarget": "crate::store_digest::leaf_hash",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "node_of",
+      "target": "crate::store_digest::leaf_hash",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::node_hash",
+      "resolvedTarget": "crate::store_digest::node_hash",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "node_of",
+      "target": "crate::store_digest::node_hash",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::node_of",
+      "resolvedTarget": "crate::store_digest::node_of",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "node_of",
+      "target": "crate::store_digest::node_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "canonical",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_of",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError::new",
+      "resolvedTarget": "crate::store::StoreError::new",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_of",
+      "target": "crate::store::StoreError::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "resolvedTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_of",
+      "target": "crate::store::StoreErrorCode::InvalidRequest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_of",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::canonical",
+      "resolvedTarget": "crate::store_digest::canonical",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_of",
+      "target": "crate::store_digest::canonical",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::is_digest_prefix",
+      "resolvedTarget": "crate::store_digest::is_digest_prefix",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_of",
+      "target": "crate::store_digest::is_digest_prefix",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::is_id",
+      "resolvedTarget": "crate::store_digest::is_id",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_of",
+      "target": "crate::store_digest::is_id",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::node_of",
+      "resolvedTarget": "crate::store_digest::node_of",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_of",
+      "target": "crate::store_digest::node_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestRow",
+      "resolvedTarget": "crate::store_digest::DigestRow",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_rows",
+      "target": "crate::store_digest::DigestRow",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::canonical",
+      "resolvedTarget": "crate::store_digest::canonical",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_rows",
+      "target": "crate::store_digest::canonical",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::node_of",
+      "resolvedTarget": "crate::store_digest::node_of",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_rows",
+      "target": "crate::store_digest::node_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "digest_rows",
+      "target": "std::vec::Vec::new"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestStore::put",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DigestStore::rows",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "update_digest",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestStore",
+      "resolvedTarget": "crate::store_digest::DigestStore",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "update_digest",
+      "target": "crate::store_digest::DigestStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::canonical",
+      "resolvedTarget": "crate::store_digest::canonical",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "update_digest",
+      "target": "crate::store_digest::canonical",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::visit",
+      "resolvedTarget": "crate::store_digest::visit",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "update_digest",
+      "target": "crate::store_digest::visit",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "update_digest",
+      "target": "std::string::String::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "visit",
+      "target": "core::primitive::i128::from"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DIGEST_LEAF",
+      "resolvedTarget": "crate::store_digest::DIGEST_LEAF",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "visit",
+      "target": "crate::store_digest::DIGEST_LEAF",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestNode",
+      "resolvedTarget": "crate::store_digest::DigestNode",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "visit",
+      "target": "crate::store_digest::DigestNode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::DigestStore",
+      "resolvedTarget": "crate::store_digest::DigestStore",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "visit",
+      "target": "crate::store_digest::DigestStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::by_digit",
+      "resolvedTarget": "crate::store_digest::by_digit",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "visit",
+      "target": "crate::store_digest::by_digit",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::children_of",
+      "resolvedTarget": "crate::store_digest::children_of",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "visit",
+      "target": "crate::store_digest::children_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::empty_digest",
+      "resolvedTarget": "crate::store_digest::empty_digest",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "visit",
+      "target": "crate::store_digest::empty_digest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::leaf_hash",
+      "resolvedTarget": "crate::store_digest::leaf_hash",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "visit",
+      "target": "crate::store_digest::leaf_hash",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::node_hash",
+      "resolvedTarget": "crate::store_digest::node_hash",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "visit",
+      "target": "crate::store_digest::node_hash",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_digest::visit",
+      "resolvedTarget": "crate::store_digest::visit",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "visit",
+      "target": "crate::store_digest::visit",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "visit",
+      "target": "std::vec::Vec::with_capacity"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "vec"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_digest.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "visit"
+    },
+    {
       "form": "syn-external-import",
       "owner": "storage",
       "source": "implementations/rust/src/store_fresh.rs",
@@ -111186,6 +114493,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store_fresh::StoreFault::MalformedMember",
+      "resolvedTarget": "crate::store_fresh::StoreFault::MalformedMember",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreFault::rule",
+      "target": "crate::store_fresh::StoreFault::MalformedMember",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store_fresh::StoreFault::MismatchedAnswers",
       "resolvedTarget": "crate::store_fresh::StoreFault::MismatchedAnswers",
       "source": "implementations/rust/src/store_fresh.rs",
@@ -111255,6 +114573,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "StoreFault::fmt",
       "target": "crate::store_fresh::StoreFault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_fresh::StoreFault::MalformedMember",
+      "resolvedTarget": "crate::store_fresh::StoreFault::MalformedMember",
+      "source": "implementations/rust/src/store_fresh.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreFault::fmt",
+      "target": "crate::store_fresh::StoreFault::MalformedMember",
       "targetOwner": "storage"
     },
     {
@@ -118425,6 +121754,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::store_fresh::FeedError::Fault",
+      "resolvedTarget": "crate::store_fresh::FeedError::Fault",
+      "source": "implementations/rust/src/store_views.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreViews::read_all",
+      "target": "crate::store_fresh::FeedError::Fault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::store_fresh::FeedError::Integrity",
       "resolvedTarget": "crate::store_fresh::FeedError::Integrity",
       "source": "implementations/rust/src/store_views.rs",
@@ -118475,6 +121815,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "StoreViews::read_all",
       "target": "crate::store_read::Selection",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError::Fault",
+      "resolvedTarget": "crate::store_read::StoreReadError::Fault",
+      "source": "implementations/rust/src/store_views.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreViews::read_all",
+      "target": "crate::store_read::StoreReadError::Fault",
       "targetOwner": "reactor"
     },
     {
@@ -120856,12 +124207,122 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError::Eval",
+      "resolvedTarget": "crate::store_read::StoreReadError::Eval",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_read::StoreReadError::Eval",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError::Fault",
+      "resolvedTarget": "crate::store_read::StoreReadError::Fault",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_read::StoreReadError::Fault",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError::Integrity",
+      "resolvedTarget": "crate::store_read::StoreReadError::Integrity",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_read::StoreReadError::Integrity",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError::Store",
+      "resolvedTarget": "crate::store_read::StoreReadError::Store",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_read::StoreReadError::Store",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::store_fresh::StoreFault",
       "resolvedTarget": "crate::store_fresh::StoreFault",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "StoreReadError",
       "target": "crate::store_fresh::StoreFault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError",
+      "resolvedTarget": "crate::store_read::StoreReadError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError",
+      "target": "crate::store_read::StoreReadError",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::FeedError",
+      "resolvedTarget": "crate::store_fresh::FeedError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_fresh::FeedError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::FeedError::Fault",
+      "resolvedTarget": "crate::store_fresh::FeedError::Fault",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_fresh::FeedError::Fault",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::FeedError::Integrity",
+      "resolvedTarget": "crate::store_fresh::FeedError::Integrity",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_fresh::FeedError::Integrity",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::FeedError::Read",
+      "resolvedTarget": "crate::store_fresh::FeedError::Read",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_fresh::FeedError::Read",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_fresh::FeedError::Refused",
+      "resolvedTarget": "crate::store_fresh::FeedError::Refused",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReadError::from",
+      "target": "crate::store_fresh::FeedError::Refused",
       "targetOwner": "storage"
     },
     {
@@ -120893,19 +124354,19 @@
       "resolvedTarget": "crate::store_fresh::FeedError",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "StoreReactor::fetch",
+      "symbol": "StoreReadError",
       "target": "crate::store_fresh::FeedError",
       "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::store_fresh::FeedError::from",
-      "resolvedTarget": "crate::store_fresh::FeedError::from",
+      "rawTarget": "crate::store_fresh::FeedError",
+      "resolvedTarget": "crate::store_fresh::FeedError",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "StoreReactor::fetch",
-      "target": "crate::store_fresh::FeedError::from",
+      "target": "crate::store_fresh::FeedError",
       "targetOwner": "storage"
     },
     {
@@ -131902,6 +135363,17 @@
       "classification": "native_extension",
       "contract": "rhizomatic.storage/native-api/1",
       "definition": "trait-method",
+      "id": "rust:store:Snapshot::digest",
+      "owner": "storage",
+      "semantics": "storage owns the existing store::Snapshot::digest trait-method; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "Snapshot::digest"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "trait-method",
       "id": "rust:store:Snapshot::get",
       "owner": "storage",
       "semantics": "storage owns the existing store::Snapshot::get trait-method; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
@@ -131984,6 +135456,17 @@
       "semantics": "storage owns the existing store::Snapshot::revision trait-method; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/store.rs",
       "symbol": "Snapshot::revision"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "trait-method",
+      "id": "rust:store:Snapshot::root",
+      "owner": "storage",
+      "semantics": "storage owns the existing store::Snapshot::root trait-method; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "Snapshot::root"
     },
     {
       "cfg": [],
@@ -132611,6 +136094,61 @@
       "semantics": "storage owns the existing store_conformance::store_conformance module; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "store_conformance"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "constant",
+      "id": "rust:store_digest:DIGEST_LEAF",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_digest::DIGEST_LEAF constant; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store_digest.rs",
+      "symbol": "DIGEST_LEAF"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "struct",
+      "id": "rust:store_digest:DigestNode",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_digest::DigestNode struct; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store_digest.rs",
+      "symbol": "DigestNode"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "function",
+      "id": "rust:store_digest:digest_of",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_digest::digest_of function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store_digest.rs",
+      "symbol": "digest_of"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "function",
+      "id": "rust:store_digest:empty_digest",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_digest::empty_digest function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store_digest.rs",
+      "symbol": "empty_digest"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "module",
+      "id": "rust:store_digest:store_digest",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_digest::store_digest module; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "store_digest"
     },
     {
       "cfg": [],
@@ -133971,6 +137509,17 @@
       "cfg": [],
       "classification": "native_extension",
       "contract": "rhizomatic.storage/native-api/1",
+      "definition": "constant",
+      "id": "rust:store_conformance:STORE_DIGEST_FORMAT",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_conformance::STORE_DIGEST_FORMAT constant; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "symbol": "STORE_DIGEST_FORMAT"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "trait",
       "id": "rust:store_conformance:ViewHolder",
       "owner": "storage",
@@ -134076,6 +137625,17 @@
       "semantics": "Native store_conformance::ViewsReader::holder implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store_conformance.rs",
       "symbol": "ViewsReader::holder"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "function",
+      "id": "rust:store_conformance:run_digest_conformance",
+      "owner": "storage",
+      "semantics": "storage owns the existing store_conformance::run_digest_conformance function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "symbol": "run_digest_conformance"
     },
     {
       "cfg": [],

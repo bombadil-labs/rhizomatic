@@ -43,7 +43,7 @@ import type { Term } from "../src/syntax/model.js";
 import { parseTerm } from "../src/syntax/term-json.js";
 import { viewsVectors } from "../tools/store-views-vectors.js";
 import type { ArrivalRecord } from "../src/storage/arrival-record.js";
-import { broken, sparse, type Break } from "./support/broken-store.js";
+import { broken, forgesScopeArrival, sparse, type Break } from "./support/broken-store.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const committed = readFileSync(resolve(here, "../../../vectors/store/views.json"), "utf8");
@@ -571,6 +571,13 @@ describe("views vectors: every runner check has a row", () => {
     const found = await failures(WITNESS, noProgress);
     expect(found.find((f) => f.name === "views/an-unrelated-append")?.message).toContain(
       "the store broke no-progress: ",
+    );
+  });
+
+  it("a store that answers a malformed scope member fails a hold with the fixed words", async () => {
+    const found = await failures(WITNESS, forgesScopeArrival);
+    expect(found.find((f) => f.name === "views/an-unrelated-append")?.message).toContain(
+      "step 3 (hold): the store broke malformed-member: the store answered a scope member that is malformed",
     );
   });
 
