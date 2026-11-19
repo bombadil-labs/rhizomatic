@@ -62,11 +62,29 @@ function unknownKeyMessage(key: string, known: readonly string[], what: string):
   );
 }
 
+// The own enumerable fields of the node, each read once, in an object with no prototype. A field
+// that only a prototype holds reads as absent; a Symbol key is refused (issue #133).
 function asRecord(x: unknown, what: string): Record<string, unknown> {
   if (typeof x !== "object" || x === null || Array.isArray(x)) {
     throw new ParseError("invalid-shape", `expected object for ${what}`, x);
   }
-  return x as Record<string, unknown>;
+  const o = Object.assign(Object.create(null) as Record<string, unknown>, x);
+  if (Object.getOwnPropertySymbols(o).length > 0)
+    throw new ParseError("unknown-key", `a Symbol key on ${what}`, x);
+  return o;
+}
+
+function closed(
+  o: Record<string, unknown>,
+  x: unknown,
+  what: string,
+  known: readonly string[],
+): Record<string, unknown> {
+  for (const key of Object.keys(o)) {
+    if (!known.includes(key))
+      throw new ParseError("unknown-key", unknownKeyMessage(key, known, what), x, key);
+  }
+  return o;
 }
 
 // A CLOSED node: every key must be one this version of the grammar recognizes.
@@ -75,12 +93,7 @@ export function asObject(
   what: string,
   known: readonly string[],
 ): Record<string, unknown> {
-  const o = asRecord(x, what);
-  for (const key of Object.keys(o)) {
-    if (!known.includes(key))
-      throw new ParseError("unknown-key", unknownKeyMessage(key, known, what), x, key);
-  }
-  return o;
+  return closed(asRecord(x, what), x, what, known);
 }
 
 // An OPEN node: the keys are author-chosen data (hole names, property names), not grammar. Every
@@ -109,7 +122,7 @@ export function asDispatched(
       tagKey,
     );
   }
-  return { o: asObject(raw, `${what} ${tag}`, table[tag]!), tag };
+  return { o: closed(raw, x, `${what} ${tag}`, table[tag]!), tag };
 }
 
 // A TAGGED-UNION node: exactly one arm of a closed enumeration. Zero arms is malformed; several

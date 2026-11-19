@@ -1,5 +1,5 @@
 // SPEC-16 MR-04/08: closed delta-only grammar. Parsing never installs a capability.
-import { assertValidClaims } from "../delta/delta.js";
+import { validClaims } from "../delta/delta.js";
 import { float, map, encode } from "../delta/cbor.js";
 import { VOCAB_PREFIX } from "../delta/vocab.js";
 import type { Claims, Delta, Target } from "../delta/types.js";
@@ -445,7 +445,5 @@ export function materializationDescriptionClaims(
     if (SETS.includes(k)) targets = [...targets].sort(bySetKey);
     return targets.map((target) => ({ role: MATERIALIZATION_PREFIX + k, target }));
   });
-  const claims = { author, timestamp: at, validFrom: at, pointers };
-  assertValidClaims(claims);
-  return claims;
+  return validClaims({ author, timestamp: at, validFrom: at, pointers });
 }

@@ -2,7 +2,7 @@
 // §4.11 readings 21 and 34; §4.13 reading 104). Each store calls these, so two stores refuse one
 // request with one code.
 
-import { computeId } from "../delta/delta.js";
+import { idOfOwn } from "../delta/delta.js";
 import type { Claims } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
 import { copyMember, isPlainObject, ownFields } from "./copy.js";
@@ -33,28 +33,6 @@ export function strings(given: unknown, what: string): string[] {
   return own;
 }
 
-/**
- * The claims with every -0 as +0, the value the canonical encoding writes (SPEC-1; §4.13 reading
- * 106). A store answers what the id hashes, so every store answers +0. The object has no
- * prototype, so the canonical encoding of it reads no field that only `Object.prototype` holds:
- * the id is computed over this object, and the store keeps exactly what the id hashes.
- */
-function positiveZero(claims: Claims): Claims {
-  return Object.assign(Object.create(null) as Claims, {
-    ...claims,
-    timestamp: claims.timestamp + 0,
-    validFrom: claims.validFrom + 0,
-    ...(Object.hasOwn(claims, "validUntil") && claims.validUntil !== undefined
-      ? { validUntil: claims.validUntil + 0 }
-      : {}),
-    pointers: claims.pointers.map((pointer) =>
-      pointer.target.kind === "primitive" && typeof pointer.target.value === "number"
-        ? { role: pointer.role, target: { kind: "primitive", value: pointer.target.value + 0 } }
-        : pointer,
-    ),
-  });
-}
-
 /** One admitted entry, copied and checked: its id, claims, signature and arrival record. */
 export type Admitted = {
   readonly id: Id;
@@ -83,8 +61,8 @@ export function admit(entry: unknown): Admitted {
   let id: string;
   try {
     own = copyMember(entry as VerifiedDelta);
-    claims = positiveZero(own.delta.claims);
-    id = computeId(claims);
+    claims = own.delta.claims;
+    id = idOfOwn(claims);
   } catch {
     return refuse("an entry is malformed");
   }
@@ -93,7 +71,7 @@ export function admit(entry: unknown): Admitted {
   // Claims are shared across peers by id. An id that does not recompute would let one peer's
   // append change what another peer reads.
   if (id !== own.delta.id) refuse("a delta id does not match its claims");
-  const sig = Object.hasOwn(own.delta, "sig") ? own.delta.sig : undefined;
+  const sig = own.delta.sig;
   if (sig !== undefined && !SIG.test(sig))
     refuse("a signature is not 128 lowercase hex characters");
   const { at, sequence, transfer, sender } = own.arrival;

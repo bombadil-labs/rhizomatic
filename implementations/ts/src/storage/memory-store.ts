@@ -17,7 +17,8 @@ import {
   type DigestRow,
   type DigestStore,
 } from "./digest.js";
-import { copyArrival, copyClaims, isPlainObject, ownFields } from "./copy.js";
+import { ownClaims } from "../delta/own.js";
+import { copyArrival, isPlainObject, ownFields } from "./copy.js";
 import { LOCAL_HISTORY_PREFIX } from "./freshness.js";
 import {
   admit,
@@ -473,7 +474,7 @@ class MemoryStore implements Store {
     if (holding === undefined) return undefined;
     const row = this.#row(state, id);
     // What a reader receives is a copy. The stored claims and arrival stay the store's own.
-    const claims = copyClaims(row.claims);
+    const claims = ownClaims(row.claims);
     const delta: Delta =
       holding.sig === undefined ? { id, claims } : { id, claims, sig: holding.sig };
     return { delta, arrival: copyArrival(holding.arrival) };

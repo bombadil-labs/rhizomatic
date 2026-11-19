@@ -2,9 +2,10 @@
 // into the logical delta model. The CBOR form is normative; this is for authoring/inspection.
 
 import { b64uDecode, b64uEncode, b64uDecodedLength } from "./b64u.js";
-import { asObject } from "./strict.js";
+import { asObject, asOpenMap } from "./strict.js";
 import { cborHeadByteLength, cborFloatByteLength, cborTextByteLength } from "./cbor.js";
 import { assertValidClaims } from "./delta.js";
+import { ownClaims, ownList } from "./own.js";
 import type { Claims, Primitive, Target } from "./types.js";
 
 const TARGET_SHAPES =
@@ -84,7 +85,7 @@ function readTarget<T>(raw: unknown, reader: TargetReader<T>): T {
 
 const parsingReader: TargetReader<Target> = {
   object: (raw, what, keys) =>
-    what === "target" ? (raw as Record<string, unknown>) : asObject(raw, what, keys),
+    what === "target" ? asOpenMap(raw, what) : asObject(raw, what, keys),
   primitive: (value) => ({ kind: "primitive", value }),
   entity: (id, context) => ({
     kind: "entity",
@@ -102,8 +103,10 @@ function readPointer<T>(raw: unknown, reader: TargetReader<T>): { role: string; 
   return { role: o["role"], target: readTarget(o["target"], reader) };
 }
 
-// Serialize claims back to the JSON debug profile (the inverse of parseClaims).
-export function claimsToJson(claims: Claims): unknown {
+// Serialize claims back to the JSON debug profile (the inverse of parseClaims). It writes the own
+// copy of the claims (`ownClaims`).
+export function claimsToJson(given: Claims): unknown {
+  const claims = ownClaims(given);
   return {
     timestamp: claims.timestamp,
     validFrom: claims.validFrom,
@@ -155,9 +158,11 @@ function claimsFields(raw: unknown, object = asObject) {
   };
 }
 
+// Own fields only, each read once (`asObject`, `ownList`); the answer is an own copy (`ownClaims`).
 export function parseClaims(raw: unknown): Claims {
   const fields = claimsFields(raw);
-  return { ...fields, pointers: fields.pointers.map((p) => readPointer(p, parsingReader)) };
+  const pointers = ownList(fields.pointers, "claims.pointers");
+  return ownClaims({ ...fields, pointers: pointers.map((p) => readPointer(p, parsingReader)) });
 }
 
 /** Count/capture errors are independent of any command profile. */

@@ -24,6 +24,7 @@ import type { DeltaSource } from "../delta/source.js";
 import { VOCAB_PREFIX } from "../delta/vocab.js";
 import { manifestMemberIds } from "../delta/manifest.js";
 export { manifestMemberIds } from "../delta/manifest.js";
+import { ownDelta } from "../delta/own.js";
 import { verifyDelta } from "../delta/sign.js";
 import type { Delta, Primitive } from "../delta/types.js";
 
@@ -142,6 +143,8 @@ function boundaryAfter(node: BoundaryNode | undefined, now: number): number | un
   return next;
 }
 
+const reasonOf = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
 export class Reactor implements DeltaSource {
   // The append-only log in arrival order (v0: in-memory; the log is still the truth — V2).
   private readonly log: Delta[] = [];
@@ -160,7 +163,14 @@ export class Reactor implements DeltaSource {
   >();
 
   // Validate -> persist -> index. Idempotent by id; rejected deltas leave no trace (V3).
-  ingest(delta: Delta): IngestResult {
+  // The reactor reads only the own copy of the delta (`ownDelta`), which the set holds.
+  ingest(given: Delta): IngestResult {
+    let delta: Delta;
+    try {
+      delta = ownDelta(given);
+    } catch (e) {
+      return { status: "rejected", reason: reasonOf(e) };
+    }
     if (this.set.has(delta.id)) return { status: "duplicate" };
     // A present signature must verify; unsigned deltas remain legal at L1 (D9).
     if (delta.sig !== undefined && verifyDelta(delta) !== "verified") {
@@ -169,8 +179,9 @@ export class Reactor implements DeltaSource {
     try {
       this.set.add(delta); // recomputes the content address and runs L1 validation
     } catch (e) {
-      return { status: "rejected", reason: e instanceof Error ? e.message : String(e) };
+      return { status: "rejected", reason: reasonOf(e) };
     }
+    delta = this.set.get(delta.id)!;
     this.log.push(delta);
     this.index(delta);
     this.membershipRevision += 1;
@@ -643,7 +654,13 @@ export class Reactor implements DeltaSource {
   ingestBatch(deltas: readonly Delta[]): IngestResult {
     const fresh: Delta[] = [];
     const seen = new Set<string>();
-    for (const d of deltas) {
+    let owned: Delta[];
+    try {
+      owned = Array.from(deltas, (d) => ownDelta(d));
+    } catch (e) {
+      return { status: "rejected", reason: `batch member: ${reasonOf(e)}` };
+    }
+    for (const d of owned) {
       if (d.sig !== undefined && verifyDelta(d) !== "verified") {
         return { status: "rejected", reason: `batch member ${d.id}: signature does not verify` };
       }
@@ -651,18 +668,16 @@ export class Reactor implements DeltaSource {
         const probe = new DeltaSet();
         probe.add(d);
       } catch (e) {
-        return {
-          status: "rejected",
-          reason: `batch member ${d.id}: ${e instanceof Error ? e.message : String(e)}`,
-        };
+        return { status: "rejected", reason: `batch member ${d.id}: ${reasonOf(e)}` };
       }
       if (this.set.has(d.id) || seen.has(d.id)) continue;
       seen.add(d.id);
       fresh.push(d);
     }
     if (fresh.length === 0) return { status: "duplicate" };
-    for (const d of fresh) {
-      this.set.add(d);
+    for (let i = 0; i < fresh.length; i++) {
+      this.set.add(fresh[i]!);
+      const d = (fresh[i] = this.set.get(fresh[i]!.id)!);
       this.log.push(d);
       this.index(d);
     }
@@ -675,7 +690,15 @@ export class Reactor implements DeltaSource {
   // Manifest-keyed atomic ingestion: validate everything first; all members become visible to
   // dispatch in one step, or none do. The transaction vocabulary supplies the batch boundary;
   // the reactor supplies the courtesy.
-  ingestBundle(manifest: Delta, members: readonly Delta[]): IngestResult {
+  ingestBundle(givenManifest: Delta, givenMembers: readonly Delta[]): IngestResult {
+    let manifest: Delta;
+    let members: Delta[];
+    try {
+      members = Array.from(givenMembers, (d) => ownDelta(d));
+      manifest = ownDelta(givenManifest);
+    } catch (e) {
+      return { status: "rejected", reason: `bundle member: ${reasonOf(e)}` };
+    }
     const fresh = [...members, manifest].filter((d) => !this.set.has(d.id));
     // Validate all before admitting any (atomic acceptance).
     for (const d of fresh) {
@@ -686,10 +709,7 @@ export class Reactor implements DeltaSource {
         const probe = new DeltaSet();
         probe.add(d);
       } catch (e) {
-        return {
-          status: "rejected",
-          reason: `bundle member ${d.id}: ${e instanceof Error ? e.message : String(e)}`,
-        };
+        return { status: "rejected", reason: `bundle member ${d.id}: ${reasonOf(e)}` };
       }
     }
     // The manifest must commit to every supplied member by content address (SPEC-1 §9).
@@ -700,8 +720,9 @@ export class Reactor implements DeltaSource {
       }
     }
     if (fresh.length === 0) return { status: "duplicate" };
-    for (const d of fresh) {
-      this.set.add(d);
+    for (let i = 0; i < fresh.length; i++) {
+      this.set.add(fresh[i]!);
+      const d = (fresh[i] = this.set.get(fresh[i]!.id)!);
       this.log.push(d);
       this.index(d);
     }

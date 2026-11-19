@@ -13,6 +13,7 @@ import {
 import { canonicalBytes } from "../delta/delta.js";
 import { bytesToHex, contentAddress } from "../delta/hash.js";
 import { parseClaims } from "../delta/json-profile.js";
+import { ownDelta } from "../delta/own.js";
 import { verifyCanonicalDelta } from "../delta/sign.js";
 import type { Delta } from "../delta/types.js";
 import { cborToJson } from "../syntax/term-io.js";
@@ -72,7 +73,9 @@ function index(value: CborValue | undefined): number {
   if (value?.t !== "float" || !Number.isSafeInteger(value.v) || value.v < 0) return invalid();
   return value.v;
 }
-function original(delta: Delta, limits: HViewEnvelopeLimits, verified: Set<string>): Uint8Array {
+function original(given: Delta, limits: HViewEnvelopeLimits, verified: Set<string>): Uint8Array {
+  // Every check below reads the own copy of the delta (`ownDelta`), never the caller's object.
+  const delta = ownDelta(given);
   codecLimit(delta.claims.pointers.length, limits.pointers);
   let minimum = codecTextSize(delta.claims.author, limits.artifactBytes);
   const text = (s: string): void => {

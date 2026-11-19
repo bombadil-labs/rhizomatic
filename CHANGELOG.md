@@ -24,6 +24,24 @@ Step 4d adds more, listed under Breaking.
   `invalid-request`, as a reading that is not a finite number is. An error that the clock throws
   passes up unchanged, after the snapshot is released (§4.13 readings 127 to 129).
 - The package root exports the store's id types: `Id`, `Entity`, `Head` and `ArrivalSeq`.
+- **The hash covers exactly what the delta holds (issue #133).** One step in `delta/own.ts`
+  reads a delta for the core and for the stores. It reads the own enumerable fields of each
+  object once. A field that only a prototype holds, or that is not enumerable, is absent. It
+  refuses an own key that the schema does not name, text or Symbol. It refuses a value of the
+  wrong type and converts nothing: an entity id and a referenced delta id must be strings, and a
+  target's `kind` must be one of the four kinds. `pointers` must pass `Array.isArray` and is read
+  by index; a hole or an extra key on it refuses. It writes `+0` for `-0` and copies the bytes of
+  a bytes target. Every object it writes has a frozen, empty prototype with no prototype of its
+  own, so a field set on `Object.prototype` reaches neither the hash nor a later read. Every
+  core entry point takes the step: `computeId`, `canonicalBytes`, `canonicalHex`,
+  `claimsToCbor`, `assertValidClaims`, `makeDelta`, `signClaims`, `verifyDelta`,
+  `verifyCanonicalDelta`, `DeltaSet.add`, `Reactor.ingest`, `ingestBatch`, `ingestBundle`,
+  `claimsToJson`, `parseClaims` and the command and HView writers. `packSet` reads a
+  `DeltaSet`, which holds only copies. The step refuses with an `Error` that names the field,
+  where many shapes threw a raw `TypeError` before. No delta of plain data changes its id: the
+  4272 claims objects of the shared vectors that parse keep their canonical bytes. This
+  supersedes the entry above on an inherited `validUntil`: the core no longer hashes it, so the
+  store commits such a delta under the id of its own fields.
 - A store reads a delta's `sig` and `validUntil` as own fields. Before, an append of an unsigned
   delta stored a `sig` that only `Object.prototype` held. The core's delta id does not change.
   The store computes the id over its own copy of the claims, which has no prototype, so a delta
@@ -315,6 +333,29 @@ Step 4d adds more, listed under Breaking.
 
 ### ⚠️ Breaking
 
+- **A delta field that only a prototype holds is absent (issue #133).** This covers a class
+  getter, an object made with `Object.create`, and an own field that is not enumerable. Before,
+  the core hashed and read such a field. A host that builds claims as a class instance must put
+  each field on the object itself.
+- **An own accessor of a delta is read once.** A getter or a Proxy that answers differently on
+  each read gives the answer of its first read.
+- **An unknown own key of a delta is refused, at any level, in the core and in the store.** This
+  covers a Symbol key and an extra key on the `pointers` array. `computeId`, `makeDelta` and the
+  other core entry points throw; a store's `append` and `admissionOf` refuse
+  `invalid-admission` and `invalid-request`. Before, the core ignored such a key, and a store
+  committed the delta with the key dropped. A host that keeps its own fields on a delta object
+  must keep them elsewhere.
+- **A delta value of the wrong type is refused, with no conversion.** An entity id or a
+  referenced delta id that is a number, a boolean or a `String` object is refused, as is a
+  `pointers` value that is not an array.
+- **`makeDelta` and `signClaims` return a copy of the claims.** A caller that compares
+  `delta.claims === claims`, or changes its claims object after the call to change the delta,
+  must use the returned delta. `DeltaSet` and `Reactor` also hold their own copy: `get` and the
+  reactor's reads answer that copy, not the caller's object.
+- **The objects of a delta that the core makes have no `Object.prototype`.** `toString` and
+  `hasOwnProperty` are not on them; use `Object.hasOwn`. A deep comparison that checks
+  prototypes, such as `isDeepStrictEqual` or `toStrictEqual`, does not equal a plain object; a
+  `structuredClone` of the delta is plain.
 - **SQLite format `rhizomatic-store-sqlite/6`.** The `peer` table gains `removed_at`,
   `max_transfer` and `root`, `app_format` gains a check, and the `digest` table is new. Open
   refuses a file of format `/1` to `/5` with `open-failed`, names both formats and changes no

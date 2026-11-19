@@ -4,7 +4,8 @@
 import { ed25519 } from "@noble/curves/ed25519";
 import { sha512 } from "@noble/hashes/sha2";
 import { bytesToHex, concatBytes, hexToBytes } from "@noble/hashes/utils";
-import { computeId } from "./delta.js";
+import { claimsWithId, ownCheckedDelta } from "./delta.js";
+import { bareDelta } from "./own.js";
 import type { Claims, Delta } from "./types.js";
 
 export const AUTHOR_PREFIX = "ed25519:";
@@ -18,16 +19,17 @@ export function authorForSeed(seedHex: string): string {
   return AUTHOR_PREFIX + publicKeyFromSeed(seedHex);
 }
 
-// Sign claims, producing a complete delta. Refuses to sign claims whose author does not match
-// the signing key — a signature contradicting its own author field is born broken (ERRATA D8).
+// Sign claims, producing a complete delta that holds the own copy of the claims (`ownClaims`).
+// Refuses to sign claims whose author does not match the signing key — a signature contradicting
+// its own author field is born broken (ERRATA D8).
 export function signClaims(claims: Claims, seedHex: string): Delta {
+  const { own, id } = claimsWithId(claims);
   const expected = authorForSeed(seedHex);
-  if (claims.author !== expected) {
-    throw new Error(`author must be ${expected} for this signing key, got ${claims.author}`);
+  if (own.author !== expected) {
+    throw new Error(`author must be ${expected} for this signing key, got ${own.author}`);
   }
-  const id = computeId(claims);
   const sig = bytesToHex(ed25519.sign(hexToBytes(id), hexToBytes(seedHex)));
-  return { id, claims, sig };
+  return bareDelta(id, own, sig);
 }
 
 export type Verification = "verified" | "unsigned" | "invalid";
@@ -75,9 +77,14 @@ const verifiedSigs = new Set<string>();
 const VERIFIED_SIGS_MAX = 65536;
 
 // Full verification per ERRATA D9: content addressing must hold, then the signature must verify
-// over the raw id bytes against the key named in `author`, under the §5.1 strict criterion.
+// over the raw id bytes against the key named in `author`, under the §5.1 strict criterion. It
+// reads the own copy of the delta (`ownDelta`) and throws for a delta of the wrong shape.
 export function verifyDelta(delta: Delta): Verification {
-  if (computeId(delta.claims) !== delta.id) return "invalid";
+  return verifyOwn(ownCheckedDelta(delta));
+}
+
+function verifyOwn({ own: delta, id }: { own: Delta; id: string }): Verification {
+  if (id !== delta.id) return "invalid";
   if (delta.sig === undefined) return "unsigned";
   if (!delta.claims.author.startsWith(AUTHOR_PREFIX)) return "invalid";
   const key = delta.id + delta.sig;
@@ -96,10 +103,12 @@ export function verifyDelta(delta: Delta): Verification {
 
 /** Strict debug-profile appearance verification; preserves the legacy byte verifier API. */
 export function verifyCanonicalDelta(delta: Delta): Verification {
+  const checked = ownCheckedDelta(delta);
+  const { claims, sig } = checked.own;
   if (
-    !/^ed25519:[0-9a-f]{64}$/.test(delta.claims.author) ||
-    (delta.sig !== undefined && !/^[0-9a-f]{128}$/.test(delta.sig))
+    !/^ed25519:[0-9a-f]{64}$/.test(claims.author) ||
+    (sig !== undefined && !/^[0-9a-f]{128}$/.test(sig))
   )
     return "invalid";
-  return verifyDelta(delta);
+  return verifyOwn(checked);
 }

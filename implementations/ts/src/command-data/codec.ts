@@ -1,6 +1,8 @@
 // SPEC-15: pure description codecs. Verification is attribution, never installation.
 import { decode, encode, map, tstr, float, bool, type CborValue } from "../delta/cbor.js";
-import { canonicalBytes, assertValidClaims } from "../delta/delta.js";
+import { canonicalBytes, validClaims } from "../delta/delta.js";
+import { ownDelta } from "../delta/own.js";
+import { asObject } from "../delta/strict.js";
 import { claimsToJson, parseClaims } from "../delta/json-profile.js";
 import { signClaims, verifyDelta, authorForSeed } from "../delta/sign.js";
 import { VOCAB_PREFIX } from "../delta/vocab.js";
@@ -55,27 +57,31 @@ export function decodeBindings(bytes: Uint8Array): Readonly<Record<string, Primi
   });
   return Object.fromEntries(entries);
 }
-export function serializeCommandDelta(delta: Delta): unknown {
+export function serializeCommandDelta(given: Delta): unknown {
+  const delta = ownDelta(given);
   return { id: delta.id, claims: claimsToJson(delta.claims), sig: delta.sig };
 }
 export function parseCommandDelta(raw: unknown): Delta {
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) fail();
-  const o = raw as Record<string, unknown>;
-  if (
-    Object.keys(o).some((k) => !["id", "claims", "sig"].includes(k)) ||
-    typeof o.id !== "string" ||
-    (o.sig !== undefined && typeof o.sig !== "string")
-  )
-    fail();
-  const d = {
+  let o: Record<string, unknown>;
+  try {
+    o = asObject(raw, "a command delta", ["id", "claims", "sig"]);
+  } catch {
+    return fail();
+  }
+  if (typeof o.id !== "string" || (o.sig !== undefined && typeof o.sig !== "string")) fail();
+  return {
     id: o.id,
-    claims: parseClaims(o.claims),
-    ...(o.sig === undefined ? {} : { sig: o.sig }),
+    claims: validClaims(parseClaims(o.claims)),
+    ...(o.sig === undefined ? {} : { sig: o.sig as string }),
   };
-  assertValidClaims(d.claims);
-  return d;
 }
-export function verifyCommandAppearance(delta: Delta): void {
+export function verifyCommandAppearance(given: Delta): void {
+  let delta: Delta;
+  try {
+    delta = ownDelta(given);
+  } catch {
+    return fail();
+  }
   if (
     !isCommandId(delta.id) ||
     !isCommandKey(delta.claims.author) ||
@@ -287,9 +293,7 @@ export function commandDescriptionClaims(
     for (const target of targets) pointers.push({ role: COMMAND_PREFIX + key, target });
   }
   if (Object.keys(f).some((k) => !ORDERS[kind].includes(k))) fail();
-  const claims = { timestamp: at, validFrom: at, author, pointers };
-  assertValidClaims(claims);
-  return claims;
+  return validClaims({ timestamp: at, validFrom: at, author, pointers });
 }
 /** Seed convenience; explicit signer users sign commandDescriptionClaims themselves. */
 export function writeCommandDescription(
