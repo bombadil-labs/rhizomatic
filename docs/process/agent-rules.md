@@ -29,7 +29,7 @@ it. The steps are:
 4. Copy the backup over the file. Check with `cmp` that the two are equal.
 
 Never undo a probe with `git checkout <file>`, `git restore` or `git stash`. A mutant that fails no
-test is a finding.
+test goes into the review.
 
 ### The machine
 
@@ -142,96 +142,71 @@ A purge, a peer delete and every success report of them are erasure code.
 
 ## A reviewer
 
-A review here is a prosecution, not a search for faults. A prosecutor builds a case: a charge,
-the evidence for it, and the harm it does. An adversary lists everything that looks wrong. Build
-the case.
+A review here is a prosecution. It builds a case in service of the goal of the change. It does
+not list everything that looks wrong.
 
-### The goal comes first
+- The brief states the goal: who needs the change, and which public call serves them. When it
+  states none, ask for it.
+- You did not write the change. Review the exact head that the brief names, and say its SHA.
 
-- The brief states the goal of the change: who needs it, and which public call serves them.
-- The pull request makes a claim about that goal. Your work is to test that claim.
-- When the brief states no goal, ask for it before you start. Do not invent one.
+### What blocks
 
-### A charge
+Two kinds of charge block. Everything else is a note.
 
-A charge has four parts. Without all four it is a note, not a charge.
+- **A defect.** Quote the claim that it breaks. Give evidence that you ran or read. Say the harm:
+  who gets a wrong result, and from which state.
+- **A premise.** Quote the goal. Say why the change is more than the goal needs, or names no
+  consumer. Give the smaller form.
 
-1. **The claim it breaks.** Quote the sentence of the pull request, the spec or the contract.
-2. **The evidence.** A counterexample that you ran, or the lines that you read. Mark it
-   CONFIRMED when you ran or read the proof, and PLAUSIBLE when you did not.
-3. **The harm.** Who gets a wrong result, on which public call, from which state. Say how a
-   store or a host reaches that state.
-4. **The remedy.** The smallest change that removes the harm. A smaller design is a remedy.
+Three rules decide between a charge and a note:
 
-- A charge blocks. A note does not.
-- A state that no public call can reach gives a note. Its default remedy is a test whose title
-  starts with `[gap: ...]`, or nothing.
-- Give at most five notes. Rank them. Leave out the rest.
-- A sentence that states more than the code does is a charge when a reader would act on it.
+- A suspicion is a note until you prove it. Run it, or read the lines.
+- The state must be one that a store can get into: by public calls, or by a fault of its medium,
+  such as a crash, a torn write or a lost row. A state that only a defect in other code can make
+  gives a note.
+- In erasure code, a report that can be false and a loss of a bystander's data are charges in
+  every state of the rule above.
 
-### The premise is in scope
+Give five notes at most, in order of weight. A mutant that fails no test is a note, or a charge
+when you can show the harm.
 
-- Ask first whether the change should exist in this form. Does the goal need it? Is a smaller
-  form enough? Does it add a rule that no consumer asked for?
-- A case against the premise is a charge like any other. It needs the same four parts.
+### How to work
 
-### How to build the case
-
-- You did not write the change. You start with no knowledge of the builder's reasoning.
-- Review the exact head that the brief names. Say its full SHA in the review.
-- Read the head in a checkout of your own, or read its git objects.
-- Run mutants only in a checkout that holds no uncommitted work of another agent.
 - Test the claim where it is most likely to fail. Do not test everything.
-- Review the tests as evidence. Could this test pass with the fix reverted, or with the feature
-  deleted? Run mutants of your own where a rule has one test.
-- For erasure code, the charge to look for is a report that can be false.
-- Do not commit, push, edit the pull request or merge. Restore every file that a probe changed.
-- Delete a `target` directory that you made.
-
-### The verdict
-
-- Say what you tested and what you did not test.
-- End with one verdict: MERGE when you have no charge, FIX FIRST with the charges.
-- "No case" is a valid result. Say it plainly.
-- For a pull request that the owner merges, the verdicts are READY FOR THE OWNER and FIX FIRST.
-- Post the review as a comment on the pull request. Name the reviewer's model and the builder's.
-
-### A second round
-
-- A second round tests the answer to each charge, and the code that the answer changed.
-- It does not open the rest of the pull request again.
-- A new charge in a second round must come from the fix.
-- A new charge from older code needs a reason why round one could not see it.
+- Read the head in a checkout of your own, or read its git objects. Run mutants only where no
+  other agent has uncommitted work.
+- Do not commit, push, edit the pull request or merge. Restore every file that a probe changed,
+  and delete a `target` directory that you made.
+- A second round tests the answer to each charge and the code that the answer changed. It does
+  not open the rest again.
+- Say what you tested and what you did not. End with one verdict: MERGE when you have no charge,
+  FIX FIRST with the charges. For a pull request that the owner merges, write READY FOR THE OWNER
+  in place of MERGE.
+- Post the review on the pull request. Name the reviewer's model and the builder's.
 
 ## The steward
 
-### Before a review
+### Reviews
 
-- Write the goal of the change into the brief: who needs it, and which public call serves them.
-- A change with no consumer that the steward can name does not go to review. It becomes an issue.
-
-### After a review
-
-- Try to refute each charge before a fix starts. A charge that does not hold is answered on the
-  pull request, not fixed.
-- A charge that holds gets a fix, and the fix gets a second round.
-- A note becomes an issue with the label `follow-up`, or nothing. It does not start a round.
-- After round three, write in the pull request why a fourth round is better than a smaller
-  design. Use three sentences or fewer. When that is not possible, split or cut the change.
+- Write the goal into the brief. A change with no consumer that you can name does not go to
+  review. It becomes an issue.
+- A charge that holds gets a fix, and the fix gets a second round. A charge that does not hold
+  gets an answer on the pull request.
+- A note becomes an issue with the label `follow-up`, or nothing. It starts no round.
+- Round three is the last that the steward can start alone. After it, choose one: cut the scope,
+  merge with follow-ups, or ask the owner or a reviewer from another model family which of the
+  two is right.
 
 ### A reviewer from another model family
 
-A reviewer of the builder's own family tests whether the code keeps a rule. It rarely asks
-whether the rule should exist. A reviewer from another family asks that.
+A reviewer of the builder's own family tests whether the code keeps a rule. One from another
+family is more likely to ask whether the rule should exist.
 
-- Ask for one at each milestone and before each decision on direction. It reads at altitude:
-  the goal, the plan and the contract. It reads no code.
-- Ask for one on each pull request that changes a contract: the spec, a shared vector or an
-  exported type. It prosecutes the premise. The same-family reviewer prosecutes the evidence.
-- Do not ask for one on a change to tests, tools or text alone.
-- Send it through an account that the owner approved for this work. On such an account, send
-  what the review needs: the code, the plan and the context.
-- Never print or commit the key of that account.
+- Ask for one at each milestone and before each decision on direction. It reads the goal, the
+  plan and the contract, not the code.
+- Ask for one on each pull request that changes a contract, the erasure code or this process,
+  and on each pull request that reaches round three. It reads the diff too.
+- Use an account that the owner approved for this work. Never print or commit its key.
 - Post its answer on the pull request or the issue, with the name of the model.
 
 ### A merge
