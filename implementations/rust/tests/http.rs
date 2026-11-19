@@ -138,7 +138,13 @@ fn a_bundle_member_whose_wire_sig_is_null_is_one_rejection_not_an_unsigned_membe
     let author = rhizomatic::sign::author_for_seed(SEED_A).unwrap();
     let member = rhizomatic::set::make_delta(note_claims(&author, 4.0, "member"), None).unwrap();
     let manifest = rhizomatic::sign::sign_claims(
-        &rhizomatic::reactor::make_manifest_claims(&author, 5.0, &[member.id.clone()], None, None),
+        &rhizomatic::reactor::make_manifest_claims(
+            &author,
+            5.0,
+            std::slice::from_ref(&member.id),
+            None,
+            None,
+        ),
         SEED_A,
     )
     .unwrap();
