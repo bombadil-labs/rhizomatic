@@ -129,6 +129,8 @@ describe("the shared digest vectors", () => {
         profile: { ...store.profile, capabilities: { ...capabilities, digest: false } },
         createPeer: (id, options) => store.createPeer(id, options),
         peer: (id) => store.peer(id),
+        deletePeer: (id) => store.deletePeer(id),
+        prove: () => store.prove(),
         openAdmin: () => store.openAdmin(),
         close: () => store.close(),
       };
@@ -181,6 +183,8 @@ function rooted(store: Store): Store {
     profile: store.profile,
     createPeer: async (id, options) => peer(await store.createPeer(id, options)),
     peer: async (id) => peer(await store.peer(id)),
+    deletePeer: (id) => store.deletePeer(id),
+    prove: () => store.prove(),
     openAdmin: () => store.openAdmin(),
     close: () => store.close(),
   };

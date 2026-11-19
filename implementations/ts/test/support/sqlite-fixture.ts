@@ -38,7 +38,7 @@ export function audit(path: string): void {
   try {
     const peers = db
       .prepare(
-        "SELECT id, revision, floor, count, max_seq, removed_at, max_transfer, root FROM peer",
+        "SELECT id, revision, floor, count, max_seq, removed_at, max_transfer, root FROM peer WHERE state = 'live'",
       )
       .all() as {
       id: string;
@@ -148,7 +148,9 @@ function auditedStore(store: Store, path: string): Store {
   });
   const peer = (p: PeerStore): PeerStore => ({
     id: p.id,
-    history: p.history,
+    get history() {
+      return p.history;
+    },
     erasure: p.erasure,
     get appFormat() {
       return p.appFormat;
@@ -162,6 +164,8 @@ function auditedStore(store: Store, path: string): Store {
     profile: store.profile,
     createPeer: async (id, options) => peer(await after(store.createPeer(id, options))),
     peer: async (id) => peer(await after(store.peer(id))),
+    deletePeer: (id) => after(store.deletePeer(id)),
+    prove: () => after(store.prove()),
     openAdmin: () => store.openAdmin(),
     close: () => store.close(),
   };
