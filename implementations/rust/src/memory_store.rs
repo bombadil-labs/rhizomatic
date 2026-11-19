@@ -3000,3 +3000,41 @@ fn a_damaged_count_in_the_digest_does_not_stop_a_purge_the_purge_removes_the_ids
     let kinds: BTreeSet<&str> = places(&store).into_iter().map(|p| p.0).collect();
     assert_eq!(kinds, BTreeSet::from(["digest-mismatch"]));
 }
+
+#[cfg(test)]
+#[test]
+fn a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged(
+) {
+    let (store, a, facts, _, _) = forty();
+    let last = &facts[39];
+    damage(&store, |state| {
+        let row = state.stored.map.get_mut(&last.id).unwrap();
+        row.holders.insert("peer:a".to_string(), 2);
+    });
+    let faults = fsck_details(&store);
+    let row = at("count-mismatch", None, &last.id, Some("holders"));
+    let detail =
+        "memory store: the row names the holders [peer:a (2)] and the peers [peer:a] hold it";
+    assert_eq!(faults, [(row, detail.to_string())]);
+    let root = a.read().unwrap().root().map(str::to_string);
+    let rows = with(&store.state, |state| digest_rows_of(state).clone());
+    let before = dump(&store);
+
+    let fault = match a.purge(&ids(&[&facts[0], last])) {
+        Err(StoreFailure::Integrity(fault)) => fault,
+        other => panic!("{other:?}"),
+    };
+
+    let want = at("count-mismatch", Some("peer:a"), &last.id, Some("holders"));
+    assert_eq!(place(&fault), want);
+    assert_eq!(a.read().unwrap().root().map(str::to_string), root);
+    assert_eq!(
+        with(&store.state, |state| digest_rows_of(state).clone()),
+        rows
+    );
+    assert_eq!(dump(&store), before);
+    assert_eq!(fsck_details(&store), faults);
+    let now = a.read().unwrap();
+    assert_eq!(now.count(), 40);
+    assert_eq!(now.get(&ids(&[&facts[0]])).unwrap(), vec![facts[0].clone()]);
+}

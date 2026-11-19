@@ -57435,6 +57435,154 @@
       "symbol": "a_damaged_count_in_the_digest_does_not_stop_a_purge_the_purge_removes_the_ids_and_fsck_then_reports_digest_mismatch"
     },
     {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "core::primitive::str::to_string"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::at",
+      "resolvedTarget": "crate::memory_store::at",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "crate::memory_store::at",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::damage",
+      "resolvedTarget": "crate::memory_store::damage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "crate::memory_store::damage",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::digest_rows_of",
+      "resolvedTarget": "crate::memory_store::digest_rows_of",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "crate::memory_store::digest_rows_of",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::dump",
+      "resolvedTarget": "crate::memory_store::dump",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "crate::memory_store::dump",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::forty",
+      "resolvedTarget": "crate::memory_store::forty",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "crate::memory_store::forty",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::fsck_details",
+      "resolvedTarget": "crate::memory_store::fsck_details",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "crate::memory_store::fsck_details",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::ids",
+      "resolvedTarget": "crate::memory_store::ids",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "crate::memory_store::ids",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::place",
+      "resolvedTarget": "crate::memory_store::place",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "crate::memory_store::place",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::memory_store::with",
+      "resolvedTarget": "crate::memory_store::with",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "crate::memory_store::with",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreFailure::Integrity",
+      "resolvedTarget": "crate::store::StoreFailure::Integrity",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged",
+      "target": "crate::store::StoreFailure::Integrity",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "panic"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "vec"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/memory_store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_purge_that_fails_with_count_mismatch_holders_on_a_peer_whose_root_is_a_node_leaves_its_root_digest_rows_and_fsck_unchanged"
+    },
+    {
       "form": "syn-external-import",
       "owner": "federation",
       "source": "implementations/rust/src/ordinary_journal.rs",
