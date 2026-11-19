@@ -154,7 +154,8 @@ const pct = (sorted: readonly number[], p: number): number =>
   sorted.length === 0 ? NaN : sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))]!;
 const stats = (samples: readonly number[]) => {
   const s = [...samples].sort((a, b) => a - b);
-  return { n: s.length, p50: pct(s, 0.5), p99: pct(s, 0.99), max: s[s.length - 1] ?? NaN };
+  const p99 = s.length >= 1000 ? pct(s, 0.99) : null;
+  return { n: s.length, p50: pct(s, 0.5), p99, max: s[s.length - 1] ?? NaN };
 };
 const fileBytes = (path: string): Record<string, number> => {
   const size = (p: string): number => (existsSync(p) ? statSync(p).size : 0);
@@ -248,7 +249,9 @@ function table(out: Record<string, unknown>): string {
         out,
       );
   const f = (v: unknown): string =>
-    typeof v === "number"
+    v === null
+      ? "n/a"
+      : typeof v === "number"
       ? Number.isInteger(v)
         ? String(v)
         : v.toFixed(v < 10 ? 3 : 1)
@@ -264,7 +267,7 @@ function table(out: Record<string, unknown>): string {
     ["db bytes after close", get("size.closed.db")],
     ["wal bytes before close", get("size.open.wal")],
     ["bytes per delta", get("size.bytesPerDelta")],
-    ["open + first read ms", get("openMs")],
+    ["warm open + first read ms", get("openMs")],
     ["read() ms", get("snapshot.readMs")],
     ["scope 1 anchor ms, p50", get("read.scopeOneAnchorMs.p50")],
     ["scope 1 anchor ms, p99", get("read.scopeOneAnchorMs.p99")],
@@ -275,17 +278,21 @@ function table(out: Record<string, unknown>): string {
     ["get 1 id ms, p50", get("read.getOneMs.p50")],
     ["get 1 id ms, p99", get("read.getOneMs.p99")],
     ["digest root node ms", get("digest.rootNodeMs")],
-    ["digest 2-digit prefix ms", get("digest.prefix2Ms")],
+    [
+      `digest at a 6-digit prefix of a held id (${f(get("digest.prefixCount"))} ids) ms`,
+      get("digest.prefixMs"),
+    ],
     ["feed from 0: ms", get("changes.fullFeedMs")],
     ["feed from 0: pages / records", `${f(get("changes.pages"))} / ${f(get("changes.records"))}`],
     ["feed latest page ms", get("changes.latestPageMs")],
     ["prove() clean ms", get("prove.cleanMs")],
     ["purge 1 id (unproven) ms, p50", get("purgeUnproven.perCallMs.p50")],
-    ["purge 1 id (unproven) ms, p99", get("purgeUnproven.perCallMs.p99")],
+    ["purge 1 id (unproven) ms, max of 100", get("purgeUnproven.perCallMs.max")],
     ["prove() dirty ms", get("prove.dirtyMs")],
     ["append deltas/s, proven store", get("appendProven.deltasPerSecond")],
     ["purge 100 ids (proven) ms", get("purgeProven.batchOf100Ms")],
     ["purge 100 ids (proven) claim", get("purgeProven.claim")],
+    ["purge 100 ids (proven) removed", get("purgeProven.removed")],
     ["peak RSS MiB", get("peakRssMiB")],
   ];
   return [
@@ -368,12 +375,15 @@ async function main(): Promise<void> {
 
     if (snap.root !== null) {
       const [node, rootMs] = await timed(() => snap.digest(""));
-      const [, prefixMs] = await timed(() => snap.digest("a7"));
+      const prefix = ids[0]!.slice(0, 6);
+      const [prefixNode, prefixMs] = await timed(() => snap.digest(prefix));
       out.digest = {
         root: snap.root,
         rootNodeMs: rootMs,
         rootCount: node.count,
-        prefix2Ms: prefixMs,
+        prefix,
+        prefixMs,
+        prefixCount: prefixNode.count,
       };
     } else out.digest = "the profile has no digest capability";
     snap.release();
