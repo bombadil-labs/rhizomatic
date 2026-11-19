@@ -991,30 +991,35 @@
     throw new Error(message);
   }
   var BARE = Object.freeze(/* @__PURE__ */ Object.create(null));
-  function bare(fields) {
-    return Object.assign(Object.create(BARE), fields);
+  function bare(fields2) {
+    return Object.assign(Object.create(BARE), fields2);
   }
-  var isEnumerable = Object.prototype.propertyIsEnumerable;
-  function read(given, key) {
-    const field = Object.getOwnPropertyDescriptor(given, key);
-    if (field === void 0) return void 0;
-    if (Object.hasOwn(field, "value")) return field.value;
-    return Object.hasOwn(field, "get") ? field.get?.call(given) : void 0;
-  }
-  function noSymbol(given, what) {
-    for (const key of Object.getOwnPropertySymbols(given))
-      if (isEnumerable.call(given, key)) refuse(`${what} must not have a Symbol key`);
+  function fields(given, what, hidden = () => {
+  }) {
+    const found = [];
+    for (const key of Reflect.ownKeys(given)) {
+      const field = Object.getOwnPropertyDescriptor(given, key);
+      if (field === void 0) continue;
+      if (field.enumerable !== true) {
+        hidden(key, field);
+        continue;
+      }
+      const value = Object.hasOwn(field, "value") ? field.value : field.get?.call(given);
+      if (value === void 0) continue;
+      if (typeof key === "symbol") return refuse(`${what} must not have a Symbol key`);
+      found.push([key, value]);
+    }
+    return found;
   }
   function holder(given, what, keys) {
     if (typeof given !== "object" || given === null || Array.isArray(given))
       return refuse(`${what} must be an object`);
     const own = Object.create(BARE);
-    for (const key of Object.keys(given)) {
+    for (const [key, value] of fields(given, what)) {
       if (!keys.includes(key))
         return refuse(`${what} has the key "${key}", which is not one of: ${keys.join(", ")}`);
-      own[key] = read(given, key);
+      own[key] = value;
     }
-    noSymbol(given, what);
     return own;
   }
   function text(value, what) {
@@ -1028,15 +1033,13 @@
   }
   function ownList(given, what) {
     if (!Array.isArray(given)) return refuse(`${what} must be an array`);
-    const length = read(given, "length");
-    const keys = Object.keys(given);
-    if (typeof length !== "number" || keys.length !== length)
+    let length;
+    const items = fields(given, what, (key, field) => {
+      if (key === "length") length = field.value;
+    });
+    if (typeof length !== "number" || items.length !== length || items.some(([key], i) => key !== String(i)))
       return refuse(`${what} must have exactly one item at each index, and no other key`);
-    for (let i = 0; i < length; i++)
-      if (keys[i] !== String(i))
-        return refuse(`${what} must have exactly one item at each index, and no other key`);
-    noSymbol(given, what);
-    return keys.map((key) => read(given, key));
+    return items.map(([, value]) => value);
   }
   var typedArrayName = Object.getOwnPropertyDescriptor(
     Object.getPrototypeOf(Uint8Array.prototype),
@@ -1252,8 +1255,17 @@
     }
     return { timestamp, validFrom: timestamp, author, pointers };
   }
+  var put;
+  function holdChecked(set, own) {
+    put(set, own);
+  }
   var DeltaSet = class _DeltaSet {
     byId = /* @__PURE__ */ new Map();
+    static {
+      put = (set, own) => {
+        if (!set.byId.has(own.id)) set.byId.set(own.id, own);
+      };
+    }
     static from(deltas) {
       if (deltas instanceof _DeltaSet) return deltas.copy();
       const s = new _DeltaSet();
@@ -1614,7 +1626,7 @@
     return len;
   }
   var bitMask = (n) => (_1n << BigInt(n)) - _1n;
-  function _validateObject(object, fields, optFields = {}) {
+  function _validateObject(object, fields2, optFields = {}) {
     if (!object || typeof object !== "object")
       throw new Error("expected valid options object");
     function checkField(fieldName, expectedType, isOpt) {
@@ -1625,7 +1637,7 @@
       if (current !== expectedType || val === null)
         throw new Error(`param "${fieldName}" is invalid: expected ${expectedType}, got ${current}`);
     }
-    Object.entries(fields).forEach(([k, v]) => checkField(k, v, false));
+    Object.entries(fields2).forEach(([k, v]) => checkField(k, v, false));
     Object.entries(optFields).forEach(([k, v]) => checkField(k, v, true));
   }
   var notImplemented = () => {
@@ -3054,6 +3066,9 @@
   function verifyDelta(delta) {
     return verifyOwn(ownCheckedDelta(delta));
   }
+  function verifyOwnDelta(own, id) {
+    return verifyOwn({ own, id });
+  }
   function verifyOwn({ own: delta, id }) {
     if (id !== delta.id) return "invalid";
     if (delta.sig === void 0) return "unsigned";
@@ -3227,7 +3242,13 @@
       return out;
     }
   };
-  function verifyPureDerivation(emitted, spec, fn, view, root, viewHex) {
+  function verifyPureDerivation(given, spec, fn, view, root, viewHex) {
+    let emitted;
+    try {
+      emitted = ownDelta(given);
+    } catch {
+      return false;
+    }
     if (verifyDelta(emitted) !== "verified") return false;
     const fromPtr = emitted.claims.pointers.find(
       (p) => p.role === `${VOCAB_PREFIX}.derived.from` && p.target.kind === "primitive"
@@ -3738,7 +3759,7 @@
         return pred;
     }
   }
-  function evalPred(pred, delta, root, bindings) {
+  function evalPredOn(pred, delta, root, bindings) {
     switch (pred.kind) {
       case "true":
         return true;
@@ -3753,11 +3774,11 @@
       case "hasPointer":
         return delta.claims.pointers.some((ptr) => pointerMatches(pred.ppred, ptr, root, bindings));
       case "and":
-        return evalPred(pred.left, delta, root, bindings) && evalPred(pred.right, delta, root, bindings);
+        return evalPredOn(pred.left, delta, root, bindings) && evalPredOn(pred.right, delta, root, bindings);
       case "or":
-        return evalPred(pred.left, delta, root, bindings) || evalPred(pred.right, delta, root, bindings);
+        return evalPredOn(pred.left, delta, root, bindings) || evalPredOn(pred.right, delta, root, bindings);
       case "not":
-        return !evalPred(pred.pred, delta, root, bindings);
+        return !evalPredOn(pred.pred, delta, root, bindings);
       case "actsFor":
         throw new Error("actsFor requires an explicit principal resolver (SPEC-14)");
       case "inView":
@@ -3789,8 +3810,8 @@
         return rank2(a.delta.claims.author) - rank2(b.delta.claims.author);
       }
       case "byPred": {
-        const am = evalPred(order.pred, a.delta) ? 0 : 1;
-        const bm = evalPred(order.pred, b.delta) ? 0 : 1;
+        const am = evalPredOn(order.pred, a.delta) ? 0 : 1;
+        const bm = evalPredOn(order.pred, b.delta) ? 0 : 1;
         if (am !== bm) return am - bm;
         return cmpByOrder(order.then, a, b);
       }
@@ -4051,7 +4072,7 @@
   var ALIAS_CONCEPT = `${VOCAB_PREFIX}.alias.concept`;
   function aliasClosure(input, spec, root) {
     const trustPred = spec.trust;
-    const trusted = trustPred === void 0 ? void 0 : (n) => evalPred(trustPred, n, root);
+    const trusted = trustPred === void 0 ? void 0 : (n) => evalPredOn(trustPred, n, root);
     const negated = computeNegated(input, trusted);
     const mappings = [];
     const slotConcepts = /* @__PURE__ */ new Map();
@@ -4245,7 +4266,7 @@
           budget,
           memo
         );
-        return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
+        return dsetResult(fork(of.set, (d) => evalPredOn(pred, d, root)));
       }
       case "union": {
         const left = expectDSet(
@@ -4304,7 +4325,7 @@
               budget,
               memo
             );
-            const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
+            const negated = computeNegated(of.set, (n) => evalPredOn(pred, n, root));
             return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
           }
         }
@@ -4585,6 +4606,7 @@
       throw new ParseError("invalid-shape", `expected object for ${what}`, x);
     }
     const o = Object.assign(/* @__PURE__ */ Object.create(null), x);
+    for (const key of Reflect.ownKeys(o)) if (o[key] === void 0) delete o[key];
     if (Object.getOwnPropertySymbols(o).length > 0)
       throw new ParseError("unknown-key", `a Symbol key on ${what}`, x);
     return o;
@@ -4752,13 +4774,13 @@
     };
   }
   function parseClaims(raw) {
-    const fields = claimsFields(raw);
-    const pointers = ownList(fields.pointers, "claims.pointers");
-    return ownClaims({ ...fields, pointers: pointers.map((p) => readPointer(p, parsingReader)) });
+    const fields2 = claimsFields(raw);
+    const pointers = ownList(fields2.pointers, "claims.pointers");
+    return ownClaims({ ...fields2, pointers: pointers.map((p) => readPointer(p, parsingReader)) });
   }
 
   // src/delta/manifest.ts
-  function manifestMemberIds(manifest) {
+  function memberIdsOf(manifest) {
     return manifest.claims.pointers.filter((p) => p.role === `${VOCAB_PREFIX}.txn.member` && p.target.kind === "delta").map((p) => p.target.deltaRef.delta);
   }
 
@@ -4844,10 +4866,10 @@
   }
   function packSet(set) {
     const deltas = [...set].sort((a, b) => a.id < b.id ? -1 : 1);
-    const manifests = deltas.filter((d) => manifestMemberIds(d).length > 0);
+    const manifests = deltas.filter((d) => memberIdsOf(d).length > 0);
     const memberToManifest = /* @__PURE__ */ new Map();
     manifests.forEach((m, i) => {
-      for (const id of manifestMemberIds(m)) {
+      for (const id of memberIdsOf(m)) {
         if (set.has(id) && !memberToManifest.has(id)) memberToManifest.set(id, i);
       }
     });
@@ -5433,6 +5455,18 @@
     return next;
   }
   var reasonOf = (e) => e instanceof Error ? e.message : String(e);
+  function refusal(own) {
+    let id;
+    try {
+      id = idOfOwn(own.claims);
+    } catch (e) {
+      return reasonOf(e);
+    }
+    if (own.sig !== void 0 && verifyOwnDelta(own, id) !== "verified")
+      return "signature does not verify";
+    if (id !== own.id) return `delta id ${own.id} does not match its claims (content addressing, P6)`;
+    return void 0;
+  }
   var Reactor = class {
     // The append-only log in arrival order (v0: in-memory; the log is still the truth — V2).
     log = [];
@@ -5456,15 +5490,9 @@
         return { status: "rejected", reason: reasonOf(e) };
       }
       if (this.set.has(delta.id)) return { status: "duplicate" };
-      if (delta.sig !== void 0 && verifyDelta(delta) !== "verified") {
-        return { status: "rejected", reason: "signature does not verify" };
-      }
-      try {
-        this.set.add(delta);
-      } catch (e) {
-        return { status: "rejected", reason: reasonOf(e) };
-      }
-      delta = this.set.get(delta.id);
+      const reason = refusal(delta);
+      if (reason !== void 0) return { status: "rejected", reason };
+      holdChecked(this.set, delta);
       this.log.push(delta);
       this.index(delta);
       this.membershipRevision += 1;
@@ -5765,9 +5793,9 @@
       let result;
       let support;
       if (anchorAnalysis(program.term, program.registry).anchored) {
-        const read2 = evalAnchored(program.term, this.unsorted, mat.now, root, program.registry);
-        result = read2.result;
-        support = lowered === void 0 ? new Set(read2.scope) : lowered.deps === void 0 ? BROAD : /* @__PURE__ */ new Set([...read2.scope, ...lowered.deps]);
+        const read = evalAnchored(program.term, this.unsorted, mat.now, root, program.registry);
+        result = read.result;
+        support = lowered === void 0 ? new Set(read.scope) : lowered.deps === void 0 ? BROAD : /* @__PURE__ */ new Set([...read.scope, ...lowered.deps]);
       } else {
         result = evalTerm(program.term, this.set, mat.now, root, program.registry);
         support = BROAD;
@@ -5865,23 +5893,16 @@
         return { status: "rejected", reason: `batch member: ${reasonOf(e)}` };
       }
       for (const d of owned) {
-        if (d.sig !== void 0 && verifyDelta(d) !== "verified") {
-          return { status: "rejected", reason: `batch member ${d.id}: signature does not verify` };
-        }
-        try {
-          const probe = new DeltaSet();
-          probe.add(d);
-        } catch (e) {
-          return { status: "rejected", reason: `batch member ${d.id}: ${reasonOf(e)}` };
-        }
+        const reason = refusal(d);
+        if (reason !== void 0)
+          return { status: "rejected", reason: `batch member ${d.id}: ${reason}` };
         if (this.set.has(d.id) || seen.has(d.id)) continue;
         seen.add(d.id);
         fresh.push(d);
       }
       if (fresh.length === 0) return { status: "duplicate" };
-      for (let i = 0; i < fresh.length; i++) {
-        this.set.add(fresh[i]);
-        const d = fresh[i] = this.set.get(fresh[i].id);
+      for (const d of fresh) {
+        holdChecked(this.set, d);
         this.log.push(d);
         this.index(d);
       }
@@ -5904,26 +5925,19 @@
       }
       const fresh = [...members, manifest].filter((d) => !this.set.has(d.id));
       for (const d of fresh) {
-        if (d.sig !== void 0 && verifyDelta(d) !== "verified") {
-          return { status: "rejected", reason: `bundle member ${d.id}: signature does not verify` };
-        }
-        try {
-          const probe = new DeltaSet();
-          probe.add(d);
-        } catch (e) {
-          return { status: "rejected", reason: `bundle member ${d.id}: ${reasonOf(e)}` };
-        }
+        const reason = refusal(d);
+        if (reason !== void 0)
+          return { status: "rejected", reason: `bundle member ${d.id}: ${reason}` };
       }
-      const committed = new Set(manifestMemberIds(manifest));
+      const committed = new Set(memberIdsOf(manifest));
       for (const m of members) {
         if (!committed.has(m.id)) {
           return { status: "rejected", reason: `member ${m.id} is not claimed by the manifest` };
         }
       }
       if (fresh.length === 0) return { status: "duplicate" };
-      for (let i = 0; i < fresh.length; i++) {
-        this.set.add(fresh[i]);
-        const d = fresh[i] = this.set.get(fresh[i].id);
+      for (const d of fresh) {
+        holdChecked(this.set, d);
         this.log.push(d);
         this.index(d);
       }
@@ -5936,7 +5950,7 @@
     holdsAllMembers(manifestId) {
       const manifest = this.set.get(manifestId);
       if (manifest === void 0) return false;
-      return manifestMemberIds(manifest).every((id) => this.set.has(id));
+      return memberIdsOf(manifest).every((id) => this.set.has(id));
     }
   };
   function propHexesOf(h) {
@@ -5974,9 +5988,11 @@
       if (result.status === "rejected") throw new Error(`own claim rejected: ${result.reason}`);
       return signed;
     }
-    // The admission judgment (SPEC-6 §5 step 3), exposed for transport bindings (F5).
+    // The admission judgment (SPEC-6 §5 step 3), exposed for transport bindings (F5). It reads the
+    // own copy of the delta (`ownDelta`), once, and throws for a delta of the wrong shape.
     admits(d) {
-      return this.admission === void 0 || evalPred(this.admission, d);
+      const own = ownDelta(d);
+      return this.admission === void 0 || evalPredOn(this.admission, own);
     }
     // The offered set: eval(lens, log) — lens fidelity is a tested invariant (F4).
     offeredSet() {
@@ -5990,11 +6006,11 @@
       for (const d of this.reactor.legacyHoldings().arrivals()) have.add(d.id);
       const offered = other.offeredSet().filter((d) => !have.has(d.id));
       const offeredIds = new Set(offered.map((d) => d.id));
-      const isSignedManifest = (d) => d.sig !== void 0 && verifyDelta(d) === "verified" && manifestMemberIds(d).length > 0;
+      const isSignedManifest = (d) => d.sig !== void 0 && verifyDelta(d) === "verified" && memberIdsOf(d).length > 0;
       const bundles = [];
       const covered = /* @__PURE__ */ new Set();
       for (const m of offered.filter(isSignedManifest)) {
-        const members = manifestMemberIds(m).filter((id) => offeredIds.has(id)).map((id) => offered.find((d) => d.id === id)).filter((d) => !isSignedManifest(d));
+        const members = memberIdsOf(m).filter((id) => offeredIds.has(id)).map((id) => offered.find((d) => d.id === id)).filter((d) => !isSignedManifest(d));
         bundles.push({ manifest: m, members });
         for (const mem of members) covered.add(mem.id);
         covered.add(m.id);
