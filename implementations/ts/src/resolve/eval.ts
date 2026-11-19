@@ -19,7 +19,7 @@ import {
 export { firstByOrder } from "../resolve-kernel/resolution.js";
 import {
   comparePrimitives,
-  evalPred,
+  evalPredOn,
   strMatch,
   substituteHoles,
   type Bindings,
@@ -168,7 +168,8 @@ export interface AliasedSpec {
 // member, so an aliased with no surviving mappings degrades to exact(name).
 export function aliasClosure(input: DeltaSet, spec: AliasedSpec, root?: string): string[] {
   const trustPred = spec.trust;
-  const trusted = trustPred === undefined ? undefined : (n: Delta) => evalPred(trustPred, n, root);
+  const trusted =
+    trustPred === undefined ? undefined : (n: Delta) => evalPredOn(trustPred, n, root);
   const negated = computeNegated(input, trusted);
   const mappings: { fragment: string; slot: string }[] = [];
   const slotConcepts = new Map<string, Set<string>>();
@@ -416,7 +417,7 @@ function evalTermWithin(
         budget,
         memo,
       );
-      return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
+      return dsetResult(fork(of.set, (d) => evalPredOn(pred, d, root)));
     }
     case "union": {
       const left = expectDSet(
@@ -478,7 +479,7 @@ function evalTermWithin(
             budget,
             memo,
           );
-          const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
+          const negated = computeNegated(of.set, (n) => evalPredOn(pred, n, root));
           return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
         }
       }

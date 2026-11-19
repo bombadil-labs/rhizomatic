@@ -1,6 +1,7 @@
 // Exact acts selected by SPEC-15 R22; no ambient latest-definition selection.
 import { type CborValue, decode } from "../delta/cbor.js";
 import { bytesToHex } from "../delta/hash.js";
+import { ownDelta } from "../delta/own.js";
 import { verifyCanonicalDelta } from "../delta/sign.js";
 import type { Delta } from "../delta/types.js";
 import { VOCAB_PREFIX } from "../delta/vocab.js";
@@ -8,7 +9,14 @@ import { cborToJson, schemaCanonicalHex, termCanonicalHex } from "../syntax/term
 import { parseSchema, parseTerm } from "../syntax/term-json.js";
 import type { CommandProgramDefinition } from "../schema/command-program.js";
 
-export function readCommandDefinition(delta: Delta, at: number): CommandProgramDefinition {
+// It reads the own copy of the delta (`ownDelta`), once.
+export function readCommandDefinition(given: Delta, at: number): CommandProgramDefinition {
+  let delta: Delta;
+  try {
+    delta = ownDelta(given);
+  } catch {
+    throw new Error("invalid-definition");
+  }
   if (
     verifyCanonicalDelta(delta) !== "verified" ||
     !Number.isFinite(at) ||

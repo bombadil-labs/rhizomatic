@@ -92,7 +92,19 @@ export function verifyCommandAppearance(given: Delta): void {
     fail();
   canonicalBytes(delta.claims);
 }
+/** The own copy of a command delta (`ownDelta`), read once. A delta of the wrong shape fails. */
+export function owned(given: Delta): Delta {
+  try {
+    return ownDelta(given);
+  } catch {
+    return fail();
+  }
+}
+/** The command fields of a delta. It reads the own copy of the delta (`ownDelta`), once. */
 export function commandFields(delta: Delta): CommandFields {
+  return fieldsOf(owned(delta));
+}
+function fieldsOf(delta: Delta): CommandFields {
   const fields: Record<string, Target[]> = {};
   for (const p of delta.claims.pointers) {
     if (!p.role.startsWith(COMMAND_PREFIX)) fail();
@@ -177,8 +189,8 @@ function shapes(
     } else if (list.length !== (optional.includes(k) ? Math.min(list.length, 1) : 1)) fail();
   }
 }
-export function readConfiguration(delta: Delta): CommandFields {
-  const f = commandFields(delta);
+export function readConfiguration(given: Delta): CommandFields {
+  const f = fieldsOf(owned(given));
   shapes(f, ORDERS["endpoint/1"], [], ["caller", "installed"]);
   if (
     commandText(f, "kind") !== "endpoint/1" ||
@@ -200,8 +212,8 @@ export function readConfiguration(delta: Delta): CommandFields {
   }
   return f;
 }
-export function readOperation(delta: Delta): "retain" | "evaluate" {
-  const f = commandFields(delta);
+export function readOperation(given: Delta): "retain" | "evaluate" {
+  const f = fieldsOf(owned(given));
   shapes(f, ORDERS["operation/1"]);
   if (commandText(f, "kind") !== "operation/1") fail();
   const name = commandEntity(f, "name");
@@ -222,8 +234,11 @@ export function readOperation(delta: Delta): "retain" | "evaluate" {
   for (const [k, v] of Object.entries(expected)) if (commandText(f, k) !== v) fail();
   return kind;
 }
-export function readRequestCommon(delta: Delta): CommandFields {
-  const f = commandFields(delta);
+export function readRequestCommon(given: Delta): CommandFields {
+  return requestCommon(owned(given));
+}
+function requestCommon(delta: Delta): CommandFields {
+  const f = fieldsOf(delta);
   for (const k of COMMON) {
     const n = f[k]?.length ?? 0;
     if (k === "expected-head" ? n > 1 : n !== 1) fail();
@@ -234,8 +249,8 @@ export function readRequestCommon(delta: Delta): CommandFields {
   if (f["expected-head"] && !head(commandText(f, "expected-head"))) fail();
   return f;
 }
-export function readRequestArguments(delta: Delta, kind: "retain" | "evaluate"): CommandFields {
-  const f = readRequestCommon(delta);
+export function readRequestArguments(given: Delta, kind: "retain" | "evaluate"): CommandFields {
+  const f = requestCommon(owned(given));
   const allowed = kind === "retain" ? [...COMMON, "payload"] : [...COMMON, ...EVALUATE_FIELDS];
   shapes(f, allowed, kind === "retain" ? ["expected-head"] : ["expected-head", "expected-digest"], [
     kind === "retain" ? "payload" : "definition",
@@ -336,10 +351,11 @@ export interface ReadOutcome {
   readonly body: ReadonlyMap<string, CborValue>;
   readonly value?: Uint8Array;
 }
-export function readOutcome(delta: Delta): ReadOutcome {
+export function readOutcome(given: Delta): ReadOutcome {
+  const delta = owned(given);
   if (delta.claims.timestamp !== delta.claims.validFrom || delta.claims.validUntil !== undefined)
     fail();
-  const f = commandFields(delta);
+  const f = fieldsOf(delta);
   shapes(f, ORDERS["outcome/1"]);
   if (commandText(f, "kind") !== "outcome/1" || !isCommandKey(commandEntity(f, "receiver"))) fail();
   commandRef(f, "configuration");

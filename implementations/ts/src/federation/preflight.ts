@@ -1,6 +1,6 @@
 import { DeltaSet } from "../delta/set.js";
 import type { Delta } from "../delta/types.js";
-import { bundleEntryStatus, looseEntryStatus, type LooseEntryStatus } from "./entry.js";
+import { bundleEntry, looseEntry, type LooseEntryStatus } from "./entry.js";
 
 export type TransferUnit =
   | { readonly kind: "loose"; readonly delta: Delta }
@@ -72,10 +72,10 @@ export function preflightTransfer<State>(
   if (sendingPeerId.length === 0 || receivingPeerId.length === 0)
     throw new Error("peer ids must not be empty");
   if (!Number.isFinite(arrivedAt)) throw new Error("arrival time must be finite");
-  // Application guards are called after verification. Keep candidates and the admitted snapshot
-  // independent of caller-owned objects. Policy state is supplied by the application, whose
-  // guards are required by the contract to treat it as read-only.
-  const stableUnits = units.map((unit) => structuredClone(unit));
+  // Application guards are called after verification. Each gate decides on its own copy of each
+  // delta (`ownDelta`), read once, so a caller's object and a field on `Object.prototype` reach no
+  // decision. Policy state is supplied by the application, whose guards are required by the
+  // contract to treat it as read-only.
   const stableBefore = admittedBefore.copy();
   const admittedView: ReadonlyAdmittedSet = Object.freeze({
     has: (id: string) => stableBefore.has(id),
@@ -94,12 +94,18 @@ export function preflightTransfer<State>(
     },
   });
   const activeIds = new Set([...stableBefore].map((delta) => delta.id));
-  const verified = stableUnits.map((unit) => {
-    const status =
-      unit.kind === "loose"
-        ? looseEntryStatus(unit.delta, activeIds, refusedIds)
-        : bundleEntryStatus(unit.manifest, unit.members, activeIds, refusedIds);
-    const candidates = unit.kind === "loose" ? [unit.delta] : [unit.manifest, ...unit.members];
+  const verified = units.map((given) => {
+    const loose = given.kind === "loose";
+    const { status, deltas: candidates } = loose
+      ? looseEntry(given.delta, activeIds, refusedIds)
+      : bundleEntry(given.manifest, given.members, activeIds, refusedIds);
+    const [first, ...rest] = candidates;
+    const unit: TransferUnit =
+      first === undefined
+        ? structuredClone(given)
+        : loose
+          ? { kind: "loose", delta: first }
+          : { kind: "bundle", manifest: first, members: rest };
     const fresh = new Map<string, Delta>();
     if (status === "eligible") {
       for (const candidate of candidates) {

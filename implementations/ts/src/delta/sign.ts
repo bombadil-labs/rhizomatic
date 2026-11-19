@@ -83,6 +83,14 @@ export function verifyDelta(delta: Delta): Verification {
   return verifyOwn(ownCheckedDelta(delta));
 }
 
+/**
+ * `verifyDelta` on a delta that is already an own copy (`ownDelta`) whose claims hash to `id`. The
+ * package root does not export it; only code that holds such a copy calls it.
+ */
+export function verifyOwnDelta(own: Delta, id: string): Verification {
+  return verifyOwn({ own, id });
+}
+
 function verifyOwn({ own: delta, id }: { own: Delta; id: string }): Verification {
   if (id !== delta.id) return "invalid";
   if (delta.sig === undefined) return "unsigned";

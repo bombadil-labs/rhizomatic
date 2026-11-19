@@ -19,13 +19,14 @@ import { viewCanonicalHex } from "../resolve-kernel/resolution.js";
 import type { SchemaRegistry } from "../schema/schema.js";
 import { negationWitnesses as witnessesOver, type Suppression } from "../delta/negation.js";
 export type { Suppression } from "../delta/negation.js";
-import { DeltaSet } from "../delta/set.js";
+import { DeltaSet, holdChecked } from "../delta/set.js";
 import type { DeltaSource } from "../delta/source.js";
 import { VOCAB_PREFIX } from "../delta/vocab.js";
-import { manifestMemberIds } from "../delta/manifest.js";
+import { memberIdsOf } from "../delta/manifest.js";
 export { manifestMemberIds } from "../delta/manifest.js";
+import { idOfOwn } from "../delta/delta.js";
 import { ownDelta } from "../delta/own.js";
-import { verifyDelta } from "../delta/sign.js";
+import { verifyOwnDelta } from "../delta/sign.js";
 import type { Delta, Primitive } from "../delta/types.js";
 
 // A change event carries: root, affected property paths, responsible delta ids, new content
@@ -145,6 +146,21 @@ function boundaryAfter(node: BoundaryNode | undefined, now: number): number | un
 
 const reasonOf = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
+// Why the reactor refuses an own copy (`ownDelta`), or undefined: its claims must be valid, a
+// present signature must verify, and its id must recompute (P6). It makes no second copy.
+function refusal(own: Delta): string | undefined {
+  let id: string;
+  try {
+    id = idOfOwn(own.claims);
+  } catch (e) {
+    return reasonOf(e);
+  }
+  if (own.sig !== undefined && verifyOwnDelta(own, id) !== "verified")
+    return "signature does not verify";
+  if (id !== own.id) return `delta id ${own.id} does not match its claims (content addressing, P6)`;
+  return undefined;
+}
+
 export class Reactor implements DeltaSource {
   // The append-only log in arrival order (v0: in-memory; the log is still the truth — V2).
   private readonly log: Delta[] = [];
@@ -173,15 +189,9 @@ export class Reactor implements DeltaSource {
     }
     if (this.set.has(delta.id)) return { status: "duplicate" };
     // A present signature must verify; unsigned deltas remain legal at L1 (D9).
-    if (delta.sig !== undefined && verifyDelta(delta) !== "verified") {
-      return { status: "rejected", reason: "signature does not verify" };
-    }
-    try {
-      this.set.add(delta); // recomputes the content address and runs L1 validation
-    } catch (e) {
-      return { status: "rejected", reason: reasonOf(e) };
-    }
-    delta = this.set.get(delta.id)!;
+    const reason = refusal(delta);
+    if (reason !== undefined) return { status: "rejected", reason };
+    holdChecked(this.set, delta);
     this.log.push(delta);
     this.index(delta);
     this.membershipRevision += 1;
@@ -661,23 +671,16 @@ export class Reactor implements DeltaSource {
       return { status: "rejected", reason: `batch member: ${reasonOf(e)}` };
     }
     for (const d of owned) {
-      if (d.sig !== undefined && verifyDelta(d) !== "verified") {
-        return { status: "rejected", reason: `batch member ${d.id}: signature does not verify` };
-      }
-      try {
-        const probe = new DeltaSet();
-        probe.add(d);
-      } catch (e) {
-        return { status: "rejected", reason: `batch member ${d.id}: ${reasonOf(e)}` };
-      }
+      const reason = refusal(d);
+      if (reason !== undefined)
+        return { status: "rejected", reason: `batch member ${d.id}: ${reason}` };
       if (this.set.has(d.id) || seen.has(d.id)) continue;
       seen.add(d.id);
       fresh.push(d);
     }
     if (fresh.length === 0) return { status: "duplicate" };
-    for (let i = 0; i < fresh.length; i++) {
-      this.set.add(fresh[i]!);
-      const d = (fresh[i] = this.set.get(fresh[i]!.id)!);
+    for (const d of fresh) {
+      holdChecked(this.set, d);
       this.log.push(d);
       this.index(d);
     }
@@ -702,27 +705,20 @@ export class Reactor implements DeltaSource {
     const fresh = [...members, manifest].filter((d) => !this.set.has(d.id));
     // Validate all before admitting any (atomic acceptance).
     for (const d of fresh) {
-      if (d.sig !== undefined && verifyDelta(d) !== "verified") {
-        return { status: "rejected", reason: `bundle member ${d.id}: signature does not verify` };
-      }
-      try {
-        const probe = new DeltaSet();
-        probe.add(d);
-      } catch (e) {
-        return { status: "rejected", reason: `bundle member ${d.id}: ${reasonOf(e)}` };
-      }
+      const reason = refusal(d);
+      if (reason !== undefined)
+        return { status: "rejected", reason: `bundle member ${d.id}: ${reason}` };
     }
     // The manifest must commit to every supplied member by content address (SPEC-1 §9).
-    const committed = new Set(manifestMemberIds(manifest));
+    const committed = new Set(memberIdsOf(manifest));
     for (const m of members) {
       if (!committed.has(m.id)) {
         return { status: "rejected", reason: `member ${m.id} is not claimed by the manifest` };
       }
     }
     if (fresh.length === 0) return { status: "duplicate" };
-    for (let i = 0; i < fresh.length; i++) {
-      this.set.add(fresh[i]!);
-      const d = (fresh[i] = this.set.get(fresh[i]!.id)!);
+    for (const d of fresh) {
+      holdChecked(this.set, d);
       this.log.push(d);
       this.index(d);
     }
@@ -738,7 +734,7 @@ export class Reactor implements DeltaSource {
   holdsAllMembers(manifestId: string): boolean {
     const manifest = this.set.get(manifestId);
     if (manifest === undefined) return false;
-    return manifestMemberIds(manifest).every((id) => this.set.has(id));
+    return memberIdsOf(manifest).every((id) => this.set.has(id));
   }
 }
 

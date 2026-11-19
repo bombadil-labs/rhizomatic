@@ -42471,6 +42471,156 @@
       "contract": "rhizomatic.delta/native-api/1",
       "classification": "native_extension",
       "semantics": "Native delta API bareDelta implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/own.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:command-data/codec.ts:owned",
+      "owner": "command-data",
+      "symbol": "owned",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command/1/description-validation",
+      "classification": "portable_contract",
+      "semantics": "owned: Closed shape codecs and canonical bindings plus separate strict appearance verification. Pure shape readers alone do not authenticate; native parse accepts missing signature so size-before-verification priority can be enforced. R-06, R-08, R-09, R-10, R-20, R-25, R-26; definition implementations/ts/src/command-data/codec.ts."
+    },
+    {
+      "id": "ts:delta/manifest.ts:memberIdsOf",
+      "owner": "delta",
+      "symbol": "memberIdsOf",
+      "source": "implementations/ts/src/delta/manifest.ts",
+      "definition": "implementations/ts/src/delta/manifest.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API memberIdsOf implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/manifest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/own.ts:bare",
+      "owner": "delta",
+      "symbol": "bare",
+      "source": "implementations/ts/src/delta/own.ts",
+      "definition": "implementations/ts/src/delta/own.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API bare implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/own.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/set.ts:holdChecked",
+      "owner": "delta",
+      "symbol": "holdChecked",
+      "source": "implementations/ts/src/delta/set.ts",
+      "definition": "implementations/ts/src/delta/set.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API holdChecked implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/set.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/sign.ts:verifyOwnDelta",
+      "owner": "delta",
+      "symbol": "verifyOwnDelta",
+      "source": "implementations/ts/src/delta/sign.ts",
+      "definition": "implementations/ts/src/delta/sign.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API verifyOwnDelta implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/sign.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:federation/entry.ts:looseEntry",
+      "owner": "federation",
+      "symbol": "looseEntry",
+      "source": "implementations/ts/src/federation/entry.ts",
+      "definition": "implementations/ts/src/federation/entry.ts",
+      "contract": "rhizomatic.federation/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native federation API looseEntry implements SPEC-6 explicit admission/durability/transport capabilities at implementations/ts/src/federation/entry.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:federation/entry.ts:bundleEntry",
+      "owner": "federation",
+      "symbol": "bundleEntry",
+      "source": "implementations/ts/src/federation/entry.ts",
+      "definition": "implementations/ts/src/federation/entry.ts",
+      "contract": "rhizomatic.federation/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native federation API bundleEntry implements SPEC-6 explicit admission/durability/transport capabilities at implementations/ts/src/federation/entry.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:federation/entry.ts:EntryCheck",
+      "owner": "federation",
+      "symbol": "EntryCheck",
+      "source": "implementations/ts/src/federation/entry.ts",
+      "definition": "implementations/ts/src/federation/entry.ts",
+      "contract": "rhizomatic.federation/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native federation API EntryCheck implements SPEC-6 explicit admission/durability/transport capabilities at implementations/ts/src/federation/entry.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:federation/entry.ts:EntryCheck#status",
+      "owner": "federation",
+      "symbol": "EntryCheck.status",
+      "source": "implementations/ts/src/federation/entry.ts",
+      "definition": "implementations/ts/src/federation/entry.ts",
+      "contract": "rhizomatic.federation/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native federation API EntryCheck.status implements SPEC-6 explicit admission/durability/transport capabilities at implementations/ts/src/federation/entry.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:federation/entry.ts:EntryCheck#deltas",
+      "owner": "federation",
+      "symbol": "EntryCheck.deltas",
+      "source": "implementations/ts/src/federation/entry.ts",
+      "definition": "implementations/ts/src/federation/entry.ts",
+      "contract": "rhizomatic.federation/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native federation API EntryCheck.deltas implements SPEC-6 explicit admission/durability/transport capabilities at implementations/ts/src/federation/entry.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:manifest.ts:memberIdsOf",
+      "owner": "delta",
+      "symbol": "memberIdsOf",
+      "source": "implementations/ts/src/manifest.ts",
+      "definition": "implementations/ts/src/delta/manifest.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API memberIdsOf implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/manifest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:pred.ts:evalPredOn",
+      "owner": "syntax",
+      "symbol": "evalPredOn",
+      "source": "implementations/ts/src/pred.ts",
+      "definition": "implementations/ts/src/syntax/pred.ts",
+      "contract": "rhizomatic.syntax/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native syntax API evalPredOn implements SPEC-2 serializable grammar and explicit binding rules at implementations/ts/src/syntax/pred.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:set.ts:holdChecked",
+      "owner": "delta",
+      "symbol": "holdChecked",
+      "source": "implementations/ts/src/set.ts",
+      "definition": "implementations/ts/src/delta/set.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API holdChecked implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/set.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:sign.ts:verifyOwnDelta",
+      "owner": "delta",
+      "symbol": "verifyOwnDelta",
+      "source": "implementations/ts/src/sign.ts",
+      "definition": "implementations/ts/src/delta/sign.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API verifyOwnDelta implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/sign.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:syntax/pred.ts:evalPredOn",
+      "owner": "syntax",
+      "symbol": "evalPredOn",
+      "source": "implementations/ts/src/syntax/pred.ts",
+      "definition": "implementations/ts/src/syntax/pred.ts",
+      "contract": "rhizomatic.syntax/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native syntax API evalPredOn implements SPEC-2 serializable grammar and explicit binding rules at implementations/ts/src/syntax/pred.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }

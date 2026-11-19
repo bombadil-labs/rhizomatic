@@ -2,6 +2,7 @@
 // authors read materializations and write signed claims back through the ordinary ingest path.
 
 import { computeId } from "../delta/delta.js";
+import { ownDelta } from "../delta/own.js";
 import type { HView } from "../algebra/hview.js";
 import { Reactor, type IngestResult, type MaterializationChange } from "../reactor/reactor.js";
 import { VOCAB_PREFIX } from "../delta/vocab.js";
@@ -210,15 +211,22 @@ export class DerivationHost {
 }
 
 // Pure-replay verification (SPEC-7 §4, G5): recompute the emission from (fn, input view) and
-// compare content addresses; the signature must also verify.
+// compare content addresses; the signature must also verify. It reads the own copy of the
+// emitted delta (`ownDelta`), once; a delta of the wrong shape does not verify.
 export function verifyPureDerivation(
-  emitted: Delta,
+  given: Delta,
   spec: BindingSpec,
   fn: DerivedFn,
   view: HView,
   root: string,
   viewHex: string,
 ): boolean {
+  let emitted: Delta;
+  try {
+    emitted = ownDelta(given);
+  } catch {
+    return false;
+  }
   if (verifyDelta(emitted) !== "verified") return false;
   const fromPtr = emitted.claims.pointers.find(
     (p) => p.role === `${VOCAB_PREFIX}.derived.from` && p.target.kind === "primitive",

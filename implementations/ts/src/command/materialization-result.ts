@@ -9,6 +9,7 @@ import {
   commandBytes,
   commandNumber,
   verifyCommandAppearance,
+  owned,
   type CommandFields,
 } from "../command-data/codec.js";
 import {
@@ -145,12 +146,23 @@ const SELECTION_FIELDS = [
   "schemaPin",
   "availability",
 ];
+/**
+ * Full result validation. It reads the own copy (`ownDelta`) of the outcome, of the request and of
+ * the evidence, each once; a context delta of the wrong shape fails.
+ */
 export function readMaterializationResult(
-  outcome: Delta,
-  context: MaterializationResultContext,
+  givenOutcome: Delta,
+  givenContext: MaterializationResultContext,
   limits: MaterializationLimits = MATERIALIZATION_MAX_LIMITS,
 ): MaterializationResult {
   encodeMaterializationLimits(limits);
+  const outcome = owned(givenOutcome);
+  const { requestDelta, evidence, ...rest } = givenContext;
+  const context: MaterializationResultContext = {
+    ...rest,
+    ...(requestDelta === undefined ? {} : { requestDelta: owned(requestDelta) }),
+    ...(evidence === undefined ? {} : { evidence: owned(evidence) }),
+  };
   verifyCommandAppearance(outcome);
   const outer = readMaterializationDescription(outcome);
   if (

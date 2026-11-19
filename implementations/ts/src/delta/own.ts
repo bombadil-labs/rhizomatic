@@ -3,8 +3,10 @@
 // what the delta holds, in both directions.
 //
 // - Each holder's own enumerable fields are read once. A field that only a prototype holds, also
-//   one set on `Object.prototype`, reads as absent. An own accessor is called once.
-// - An own enumerable key that the holder's schema does not name is refused, text or Symbol.
+//   one set on `Object.prototype`, reads as absent. An own accessor is called once. An own field
+//   whose value is `undefined` reads as absent, at any key, as JSON drops it.
+// - An own enumerable key with a value that the holder's schema does not name is refused, text or
+//   Symbol.
 // - A value of the wrong type is refused. Nothing is converted.
 // - `pointers` must pass `Array.isArray`. Each index is read once; a hole or an extra key refuses.
 // - A number is written as `+0` where it was `-0`. The bytes of a bytes target are copied.
@@ -24,36 +26,45 @@ function refuse(message: string): never {
 // prototype does not.
 const BARE: object = Object.freeze(Object.create(null) as object);
 
-function bare<T extends object>(fields: T): T {
+/** An object of these fields whose prototype is the step's frozen, empty one. */
+export function bare<T extends object>(fields: T): T {
   return Object.assign(Object.create(BARE) as T, fields);
 }
 
-const isEnumerable = Object.prototype.propertyIsEnumerable;
-
-// The value of an own field, read once: a data field's value, or the answer of its getter. A key
-// that is no longer own reads as absent; nothing reads through the prototype.
-function read(given: object, key: string): unknown {
-  const field = Object.getOwnPropertyDescriptor(given, key);
-  if (field === undefined) return undefined;
-  if (Object.hasOwn(field, "value")) return field.value;
-  return Object.hasOwn(field, "get") ? field.get?.call(given) : undefined;
-}
-
-function noSymbol(given: object, what: string): void {
-  for (const key of Object.getOwnPropertySymbols(given))
-    if (isEnumerable.call(given, key)) refuse(`${what} must not have a Symbol key`);
+// The own enumerable fields of an object, each read once through its property descriptor: a data
+// field's value, or the answer of its getter. A Proxy's `get` trap is never called; its
+// `getOwnPropertyDescriptor` trap is called once per key. A field whose value is `undefined` is
+// absent, as in JSON. Nothing reads through the prototype. A Symbol key with a value is refused.
+function fields(
+  given: object,
+  what: string,
+  hidden: (key: string | symbol, field: PropertyDescriptor) => void = () => {},
+): [string, unknown][] {
+  const found: [string, unknown][] = [];
+  for (const key of Reflect.ownKeys(given)) {
+    const field = Object.getOwnPropertyDescriptor(given, key);
+    if (field === undefined) continue;
+    if (field.enumerable !== true) {
+      hidden(key, field);
+      continue;
+    }
+    const value: unknown = Object.hasOwn(field, "value") ? field.value : field.get?.call(given);
+    if (value === undefined) continue;
+    if (typeof key === "symbol") return refuse(`${what} must not have a Symbol key`);
+    found.push([key, value]);
+  }
+  return found;
 }
 
 function holder(given: unknown, what: string, keys: readonly string[]): Record<string, unknown> {
   if (typeof given !== "object" || given === null || Array.isArray(given))
     return refuse(`${what} must be an object`);
   const own = Object.create(BARE) as Record<string, unknown>;
-  for (const key of Object.keys(given)) {
+  for (const [key, value] of fields(given, what)) {
     if (!keys.includes(key))
       return refuse(`${what} has the key "${key}", which is not one of: ${keys.join(", ")}`);
-    own[key] = read(given, key);
+    own[key] = value;
   }
-  noSymbol(given, what);
   return own;
 }
 
@@ -75,15 +86,17 @@ function context(value: unknown, what: string): { context?: string } {
  */
 export function ownList(given: unknown, what: string): unknown[] {
   if (!Array.isArray(given)) return refuse(`${what} must be an array`);
-  const length = read(given, "length");
-  const keys = Object.keys(given);
-  if (typeof length !== "number" || keys.length !== length)
+  let length: unknown;
+  const items = fields(given, what, (key, field) => {
+    if (key === "length") length = field.value;
+  });
+  if (
+    typeof length !== "number" ||
+    items.length !== length ||
+    items.some(([key], i) => key !== String(i))
+  )
     return refuse(`${what} must have exactly one item at each index, and no other key`);
-  for (let i = 0; i < length; i++)
-    if (keys[i] !== String(i))
-      return refuse(`${what} must have exactly one item at each index, and no other key`);
-  noSymbol(given, what);
-  return keys.map((key) => read(given, key));
+  return items.map(([, value]) => value);
 }
 
 // The name of a typed array's kind, read from the object's internal slot. It is "Uint8Array" for

@@ -4,9 +4,10 @@
 import { createServer, type Server } from "node:http";
 import { claimsToJson, parseClaims } from "../delta/json-profile.js";
 import { Peer } from "./peer.js";
-import { manifestMemberIds } from "../delta/manifest.js";
+import { memberIdsOf } from "../delta/manifest.js";
 import { makeDelta } from "../delta/set.js";
 import { verifyDelta } from "../delta/sign.js";
+import { asObject } from "../delta/strict.js";
 import type { Delta } from "../delta/types.js";
 
 interface WireDelta {
@@ -26,20 +27,32 @@ function toWire(d: Delta): WireDelta {
     : { claims: claimsToJson(d.claims), sig: d.sig };
 }
 
-function fromWire(w: WireDelta): Delta {
-  return makeDelta(parseClaims(w.claims), w.sig);
+// A wire entry is `{claims, sig?}` and nothing else. An entry of another shape, a `sig` that is not
+// text, or claims that do not parse or validate give undefined: one rejected entry, and the pull
+// goes on. Rust's `from_wire` refuses the same entries.
+function fromWire(w: unknown): Delta | undefined {
+  try {
+    const entry = asObject(w, "a wire delta", ["claims", "sig"]);
+    const sig = entry["sig"];
+    if (sig !== undefined && typeof sig !== "string") return undefined;
+    return makeDelta(parseClaims(entry["claims"]), sig);
+  } catch {
+    return undefined;
+  }
 }
+
+const listOf = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
 // Compute the OFFER for a WANT, partitioned per the signature boundary (F3).
 export function offerFor(peer: Peer, have: ReadonlySet<string>): SyncResponse {
   const offered = peer.offeredSet().filter((d) => !have.has(d.id));
   const offeredIds = new Set(offered.map((d) => d.id));
   const isSignedManifest = (d: Delta) =>
-    d.sig !== undefined && verifyDelta(d) === "verified" && manifestMemberIds(d).length > 0;
+    d.sig !== undefined && verifyDelta(d) === "verified" && memberIdsOf(d).length > 0;
   const covered = new Set<string>();
   const bundles: SyncResponse["bundles"] = [];
   for (const m of offered.filter(isSignedManifest)) {
-    const members = manifestMemberIds(m)
+    const members = memberIdsOf(m)
       .filter((id) => offeredIds.has(id))
       .map((id) => offered.find((d) => d.id === id)!)
       .filter((d) => !isSignedManifest(d));
@@ -98,13 +111,23 @@ export async function pullFromUrl(
   let rejected = 0;
   // Reuse the local admission machinery by reconstructing deltas and handing them to the
   // same ingest paths pullFrom uses: bundles atomically, loose individually.
-  for (const b of offer.bundles) {
-    const manifest = fromWire(b.manifest);
-    if (verifyDelta(manifest) !== "verified") {
-      rejected += 1 + b.members.length;
+  for (const b of listOf(offer.bundles) as Partial<SyncResponse["bundles"][number]>[]) {
+    const manifest = fromWire(b?.manifest);
+    if (manifest === undefined) {
+      rejected += 1;
       continue;
     }
-    const members = b.members.map(fromWire);
+    const wireMembers = listOf(b?.members);
+    if (verifyDelta(manifest) !== "verified") {
+      rejected += 1 + wireMembers.length;
+      continue;
+    }
+    const read = wireMembers.map(fromWire);
+    if (read.some((member) => member === undefined)) {
+      rejected += 1;
+      continue;
+    }
+    const members = read as Delta[];
     if (!peer.admits(manifest) || !members.every((m) => peer.admits(m))) {
       rejected += 1 + members.length;
       continue;
@@ -113,9 +136,9 @@ export async function pullFromUrl(
     if (result.status === "accepted") accepted += 1;
     else if (result.status === "rejected") rejected += 1;
   }
-  for (const w of offer.loose) {
+  for (const w of listOf(offer.loose)) {
     const d = fromWire(w);
-    if (verifyDelta(d) !== "verified" || !peer.admits(d)) {
+    if (d === undefined || verifyDelta(d) !== "verified" || !peer.admits(d)) {
       rejected += 1;
       continue;
     }

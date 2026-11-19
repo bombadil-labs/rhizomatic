@@ -25,23 +25,53 @@ Step 4d adds more, listed under Breaking.
   passes up unchanged, after the snapshot is released (§4.13 readings 127 to 129).
 - The package root exports the store's id types: `Id`, `Entity`, `Head` and `ArrivalSeq`.
 - **The hash covers exactly what the delta holds (issue #133).** One step in `delta/own.ts`
-  reads a delta for the core and for the stores. It reads the own enumerable fields of each
-  object once. A field that only a prototype holds, or that is not enumerable, is absent. It
-  refuses an own key that the schema does not name, text or Symbol. It refuses a value of the
-  wrong type and converts nothing: an entity id and a referenced delta id must be strings, and a
-  target's `kind` must be one of the four kinds. `pointers` must pass `Array.isArray` and is read
-  by index; a hole or an extra key on it refuses. It writes `+0` for `-0` and copies the bytes of
-  a bytes target. Every object it writes has a frozen, empty prototype with no prototype of its
-  own, so a field set on `Object.prototype` reaches neither the hash nor a later read. Every
-  core entry point takes the step: `computeId`, `canonicalBytes`, `canonicalHex`,
-  `claimsToCbor`, `assertValidClaims`, `makeDelta`, `signClaims`, `verifyDelta`,
-  `verifyCanonicalDelta`, `DeltaSet.add`, `Reactor.ingest`, `ingestBatch`, `ingestBundle`,
-  `claimsToJson`, `parseClaims` and the command and HView writers. `packSet` reads a
-  `DeltaSet`, which holds only copies. The step refuses with an `Error` that names the field,
+  reads a delta for the core and for the stores. It reads each object's own keys once
+  (`Reflect.ownKeys`) and each own enumerable field once, through its property descriptor. So a
+  Proxy's `get` trap is never called, and its `getOwnPropertyDescriptor` trap is called once per
+  key. A field that only a prototype holds, a field that is not enumerable, and a field whose
+  value is `undefined` are absent, at any key. It refuses another own key with a value that the
+  schema does not name, text or Symbol, also a key of another target kind. It refuses a value of
+  the wrong type and converts nothing: an entity id and a referenced delta id must be strings, and
+  a target's `kind` must be one of the four kinds. `pointers` must pass `Array.isArray` and is
+  read by index; a hole or an extra key on it refuses. It writes `+0` for `-0` and copies the
+  bytes of a bytes target. Each object it writes, except the `pointers` array and a bytes value,
+  has a frozen, empty prototype with no prototype of its own. So a field set on
+  `Object.prototype` reaches neither the hash nor a later read. The `pointers` array keeps
+  `Array.prototype` and a bytes value keeps `Uint8Array.prototype`. The returned claims have the
+  step's key order, not the caller's. The step refuses with an `Error` that names the field,
   where many shapes threw a raw `TypeError` before. No delta of plain data changes its id: the
   4272 claims objects of the shared vectors that parse keep their canonical bytes. This
   supersedes the entry above on an inherited `validUntil`: the core no longer hashes it, so the
   store commits such a delta under the id of its own fields.
+- **Each exported function that decides on a caller's delta takes the step once, and then reads
+  only its copy.** These are `computeId`, `canonicalBytes`, `canonicalHex`, `claimsToCbor`,
+  `assertValidClaims`, `makeDelta`, `signClaims`, `verifyDelta`, `verifyCanonicalDelta`,
+  `DeltaSet.add`, `Reactor.ingest`, `ingestBatch`, `ingestBundle`, `claimsToJson`,
+  `parseClaims`, `looseEntryStatus`, `bundleEntryStatus`, `preflightTransfer`,
+  `manifestMemberIds`, `relationSignature`, `relationSignatureCanonicalHex`, `evalPred`,
+  `Peer.admits`, `admissionOf`, a store's `append`, the command and HView writers, the command
+  readers (`commandFields`, `readConfiguration`, `readOperation`, `readRequestCommon`,
+  `readRequestArguments`, `readOutcome`, `verifyCommandAppearance`, `readCommandResult`,
+  `readCommandDefinition`), the materialization readers (`materializationFields`,
+  `readMaterializationDescription`, `readMaterializationResult` for its outcome, request and
+  evidence, `encodeMaterializationAppearance`), and `verifyPureDerivation`. `preflightTransfer`
+  returns the copies it decided on, not `structuredClone` copies, so `Object.prototype` reaches
+  no decision there. These still read a caller's object as given, because they decide no id and
+  admit nothing: `packSet` and `scopeSource` (they read a `DeltaSet` or store answers, which are
+  copies), `validityWindow`, `touching`, `scopeOver` and `passesSelection` (they read store
+  answers), and the callbacks of `fork`, `federate`, `DeltaSet.filtered`, `latestByKey` and
+  `subscribeRaw` (they receive set members). `readMaterializationResult` reads `capture` and
+  `snapshot` of its context as given; it compares only their ids.
+- **A malformed wire entry is one rejected entry, and the pull goes on, in both witnesses.**
+  `pullFromUrl` (TypeScript) and `pull_from_url` (Rust) reject a wire entry that is not
+  `{claims, sig?}`: an unknown key, a `sig` that is not text, or claims that do not parse. Before,
+  TypeScript threw on such an entry and dropped the rest of the offer, after it ingested the
+  entries before it. Rust read a `sig` that is not text as absent, so it could accept a bundle
+  member with `"sig": null` as an unsigned member, where TypeScript refused it. Now an offer of a
+  good entry, a bad entry and a good entry gives accepted 2 and rejected 1 in both.
+- `Reactor.ingest`, `ingestBatch` and `ingestBundle` copy each delta once and hash it once. Before
+  this change, a signed delta was copied three times. A signed delta whose claims are not valid
+  is now rejected; before, `ingest` threw.
 - A store reads a delta's `sig` and `validUntil` as own fields. Before, an append of an unsigned
   delta stored a `sig` that only `Object.prototype` held. The core's delta id does not change.
   The store computes the id over its own copy of the claims, which has no prototype, so a delta
@@ -424,26 +454,46 @@ Step 4d adds more, listed under Breaking.
 - **A delta field that only a prototype holds is absent (issue #133).** This covers a class
   getter, an object made with `Object.create`, and an own field that is not enumerable. Before,
   the core hashed and read such a field. A host that builds claims as a class instance must put
-  each field on the object itself.
-- **An own accessor of a delta is read once.** A getter or a Proxy that answers differently on
-  each read gives the answer of its first read.
+  each field on the object itself. A host that defines `validUntil`, `context` or `sig` with
+  `Object.defineProperty` and no `enumerable: true` gets another id, with no refusal.
+- **An own field whose value is `undefined` is absent, at any key.** This is the JSON rule.
+  `{kind: "primitive", value: 1, entity: undefined}` now has the id of `{kind: "primitive",
+  value: 1}`; before this change it was refused. An unknown key with the value `undefined` is
+  also absent, in the step and in `parseClaims`.
+- **An own accessor of a delta is called once.** The step reads each field through its own
+  property descriptor. A Proxy's `get` trap is never called. Its `getOwnPropertyDescriptor` trap is
+  called once per key, and its `ownKeys` trap once per object. A Proxy that changes a value only
+  in its `get` trap is read as its target.
 - **An unknown own key of a delta is refused, at any level, in the core and in the store.** This
-  covers a Symbol key and an extra key on the `pointers` array. `computeId`, `makeDelta` and the
-  other core entry points throw; a store's `append` and `admissionOf` refuse
-  `invalid-admission` and `invalid-request`. Before, the core ignored such a key, and a store
-  committed the delta with the key dropped. A host that keeps its own fields on a delta object
-  must keep them elsewhere.
+  covers a Symbol key, a key of another target kind and an extra key on the `pointers` array.
+  `computeId`, `makeDelta` and the other core entry points throw; a store's `append` and
+  `admissionOf` refuse `invalid-admission` and `invalid-request`. Before, the core ignored such a
+  key, and a store committed the delta with the key dropped. A host that keeps its own fields on
+  a delta object must keep them elsewhere. A store still drops an extra key of the arrival record
+  and of the append entry: the hash does not cover them.
 - **A delta value of the wrong type is refused, with no conversion.** An entity id or a
   referenced delta id that is a number, a boolean or a `String` object is refused, as is a
   `pointers` value that is not an array.
 - **`makeDelta` and `signClaims` return a copy of the claims.** A caller that compares
   `delta.claims === claims`, or changes its claims object after the call to change the delta,
   must use the returned delta. `DeltaSet` and `Reactor` also hold their own copy: `get` and the
-  reactor's reads answer that copy, not the caller's object.
-- **The objects of a delta that the core makes have no `Object.prototype`.** `toString` and
-  `hasOwnProperty` are not on them; use `Object.hasOwn`. A deep comparison that checks
-  prototypes, such as `isDeepStrictEqual` or `toStrictEqual`, does not equal a plain object; a
-  `structuredClone` of the delta is plain.
+  reactor's reads answer that copy, not the caller's object. The copy has the step's key order,
+  so `JSON.stringify(makeDelta(c).claims)` can differ from `JSON.stringify(c)`.
+- **The objects of a delta that the core or a store makes have no `Object.prototype`.** This
+  covers the claims, each pointer, each target, each entity reference and each delta reference;
+  the `pointers` array and a bytes value keep their own prototypes. Both stores answer this
+  shape. On these objects `toString` and `hasOwnProperty` are absent; use `Object.hasOwn`. A
+  template string, `String(x)`, `"" + x` and `x == "text"` throw a `TypeError`. `x instanceof
+  Object` is false, and `x.constructor` is `undefined`. `util.inspect` names a null
+  prototype. A deep comparison that checks prototypes, such as `isDeepStrictEqual` or
+  `toStrictEqual`, does not equal a plain object. `JSON.stringify`, spread, `Object.entries`,
+  `structuredClone` (the clone is plain) and a loose deep comparison work as before.
+- **`preflightTransfer` returns the copies it decided on.** `GuardedUnit.unit` holds the step's
+  copies for a unit that is not `invalid`, and a `structuredClone` of the given unit for one that
+  is `invalid`.
+- **`evalPred`, `Peer.admits`, `manifestMemberIds`, `relationSignature` and the command and
+  materialization readers throw, or fail as they fail for a wrong description, for a delta of the
+  wrong shape.** Before, some of them read such a delta as it was.
 - **SQLite format `rhizomatic-store-sqlite/7`.** The `peer` table gains `removed_at`,
   `max_transfer`, `root`, `state` and `origin`, `app_format` gains a check, the `digest` table is new, and
   a trigger counts the delete of a `peer` row in `residue.dirty`. Open refuses a file of format

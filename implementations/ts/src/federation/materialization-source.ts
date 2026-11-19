@@ -13,6 +13,7 @@ import {
 import { canonicalBytes } from "../delta/delta.js";
 import { contentAddress, bytesToHex } from "../delta/hash.js";
 import { parseClaims } from "../delta/json-profile.js";
+import { ownDelta } from "../delta/own.js";
 import { verifyCanonicalDelta } from "../delta/sign.js";
 import { DeltaSet } from "../delta/set.js";
 import type { Delta } from "../delta/types.js";
@@ -162,12 +163,14 @@ function canonical(
   return v;
 }
 /** Strict canonical full signed appearance; detached signature participates in transport identity. */
+// It reads the own copy of the delta (`ownDelta`), once.
 export function encodeMaterializationAppearance(
-  delta: Delta,
+  given: Delta,
   limits: MaterializationSourceLimits = DEFAULT_MATERIALIZATION_SOURCE_LIMITS,
 ): Uint8Array {
   return boundary(() => {
     checkedLimits(limits);
+    const delta = ownDelta(given);
     limit(delta.claims.pointers.length, limits.pointers);
     const claims = canonicalBytes(delta.claims);
     limit(claims.length, limits.artifactBytes);

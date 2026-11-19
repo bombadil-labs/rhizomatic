@@ -3,6 +3,7 @@
 
 import { array, encode, tstr } from "./cbor.js";
 import { bytesToHex } from "./hash.js";
+import { ownDelta } from "./own.js";
 import type { Delta } from "./types.js";
 
 function byteCompare(a: Uint8Array, b: Uint8Array): number {
@@ -17,9 +18,10 @@ function byteCompare(a: Uint8Array, b: Uint8Array): number {
 // The [role, context] pairs ([role] when the pointer has no context) of the delta's EntityRef
 // pointers, sorted bytewise by their canonical CBOR encoding. Primitive and DeltaRef pointers
 // contribute nothing: primitives are not vertices (SPEC-1 §2.3); delta references are plumbing.
+// It reads the own copy of the delta (`ownDelta`), once.
 export function relationSignature(delta: Delta): readonly (readonly string[])[] {
   const pairs: { pair: string[]; bytes: Uint8Array }[] = [];
-  for (const ptr of delta.claims.pointers) {
+  for (const ptr of ownDelta(delta).claims.pointers) {
     if (ptr.target.kind !== "entity") continue;
     const context = ptr.target.entity.context;
     const pair = context === undefined ? [ptr.role] : [ptr.role, context];

@@ -33,8 +33,25 @@ export function makeNegationClaims(
   return { timestamp, validFrom: timestamp, author, pointers };
 }
 
+// Set by the class below: puts a member into a set without a copy.
+let put: (set: DeltaSet, own: Delta) => void;
+
+/**
+ * Holds an own copy (`ownDelta`) whose claims are valid and hash to its id, with no second copy.
+ * The package root does not export it; only code that has made and checked such a copy calls it.
+ */
+export function holdChecked(set: DeltaSet, own: Delta): void {
+  put(set, own);
+}
+
 export class DeltaSet implements Iterable<Delta> {
   private readonly byId = new Map<string, Delta>();
+
+  static {
+    put = (set, own) => {
+      if (!set.byId.has(own.id)) set.byId.set(own.id, own);
+    };
+  }
 
   static from(deltas: Iterable<Delta>): DeltaSet {
     if (deltas instanceof DeltaSet) return deltas.copy();

@@ -63,12 +63,14 @@ function unknownKeyMessage(key: string, known: readonly string[], what: string):
 }
 
 // The own enumerable fields of the node, each read once, in an object with no prototype. A field
-// that only a prototype holds reads as absent; a Symbol key is refused (issue #133).
+// that only a prototype holds reads as absent, and so does a field whose value is `undefined`, as
+// JSON drops it; a Symbol key is refused (issue #133).
 function asRecord(x: unknown, what: string): Record<string, unknown> {
   if (typeof x !== "object" || x === null || Array.isArray(x)) {
     throw new ParseError("invalid-shape", `expected object for ${what}`, x);
   }
   const o = Object.assign(Object.create(null) as Record<string, unknown>, x);
+  for (const key of Reflect.ownKeys(o)) if (o[key as string] === undefined) delete o[key as string];
   if (Object.getOwnPropertySymbols(o).length > 0)
     throw new ParseError("unknown-key", `a Symbol key on ${what}`, x);
   return o;

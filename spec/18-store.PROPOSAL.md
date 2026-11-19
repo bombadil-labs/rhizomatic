@@ -1187,7 +1187,9 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     operation scans. Only the `Exporter` scans.
 18. **Ownership** (§4.1). The memory store copies claims, signature and arrival at append and
     again on every read, because a bytes payload cannot be frozen. A field outside the canonical
-    claims is refused `invalid-admission` at append (issue #133).
+    claims is refused `invalid-admission` at append (issue #133). An extra key of the arrival
+    record or of the append entry is dropped, because the hash does not cover them. Both stores
+    answer claims whose objects have the core copy's prototype.
 19. **Order of checks in `append`.** Two orders are pinned: the head compare-and-set comes before
     the batch is looked at, and every entry is checked (id, signature form, arrival record) even
     when its id is already held. Nothing else is ordered: an empty next head or an unstorable

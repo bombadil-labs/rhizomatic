@@ -24,6 +24,7 @@ import type BetterSqlite3 from "better-sqlite3";
 import { compareUtf8, decode, type CborValue } from "../delta/cbor.js";
 import { canonicalBytes } from "../delta/delta.js";
 import { contentAddress } from "../delta/hash.js";
+import { bare } from "../delta/own.js";
 import type { Claims, Delta, Pointer, Target } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
 import {
@@ -324,33 +325,39 @@ function numberOf(value: CborValue | undefined): number {
 
 function targetOf(value: CborValue | undefined): Target {
   if (value?.t === "tstr" || value?.t === "float" || value?.t === "bool")
-    return { kind: "primitive", value: value.v };
+    return bare({ kind: "primitive", value: value.v });
   const fields = fieldsOf(value);
   const context = fields.has("context") ? { context: textOf(fields.get("context")) } : {};
   if (fields.has("id"))
-    return { kind: "entity", entity: { id: textOf(fields.get("id")), ...context } };
+    return bare({ kind: "entity", entity: bare({ id: textOf(fields.get("id")), ...context }) });
   if (fields.has("delta"))
-    return { kind: "delta", deltaRef: { delta: textOf(fields.get("delta")), ...context } };
+    return bare({
+      kind: "delta",
+      deltaRef: bare({ delta: textOf(fields.get("delta")), ...context }),
+    });
   const bytes = fields.get("value");
   if (bytes?.t !== "bstr") throw new Error("sqlite store: stored claims hold a wrong target");
-  return { kind: "bytes", mime: textOf(fields.get("mime")), value: bytes.v };
+  return bare({ kind: "bytes", mime: textOf(fields.get("mime")), value: bytes.v });
 }
 
-/** The claims whose canonical bytes these are. The caller checked the bytes against the id. */
+/**
+ * The claims whose canonical bytes these are. The caller checked the bytes against the id. Their
+ * objects have the prototype of the step's copy (`bare`), as the memory store's answer has.
+ */
 function claimsOf(bytes: Uint8Array): Claims {
   const fields = fieldsOf(decode(bytes));
   const pointers = fields.get("pointers");
   if (pointers?.t !== "array") throw new Error("sqlite store: stored claims have no pointers");
-  return {
+  return bare({
     timestamp: numberOf(fields.get("timestamp")),
     validFrom: numberOf(fields.get("validFrom")),
     ...(fields.has("validUntil") ? { validUntil: numberOf(fields.get("validUntil")) } : {}),
     author: textOf(fields.get("author")),
     pointers: pointers.v.map((pointer): Pointer => {
       const parts = fieldsOf(pointer);
-      return { role: textOf(parts.get("role")), target: targetOf(parts.get("target")) };
+      return bare({ role: textOf(parts.get("role")), target: targetOf(parts.get("target")) });
     }),
-  };
+  });
 }
 
 /**

@@ -16,6 +16,10 @@ import type { Claims, Delta } from "../src/delta/types.js";
 import {
   assertValidClaims,
   authorForSeed,
+  bundleEntryStatus,
+  looseEntryStatus,
+  makeManifestClaims,
+  preflightTransfer,
   canonicalBytes,
   canonicalHex,
   claimsToCbor,
@@ -490,6 +494,25 @@ async function stored(store: Store, delta: Delta, id: string, where: string): Pr
   }
 }
 
+const manifests = new Map<string, Delta>();
+
+/** A manifest that AUTHOR signs, which commits to the one member `id`. */
+function manifestFor(id: string): Delta {
+  let manifest = manifests.get(id);
+  if (manifest === undefined) {
+    manifest = signClaims(makeManifestClaims(AUTHOR, 50, [id]), SEED);
+    manifests.set(id, manifest);
+  }
+  return manifest;
+}
+
+/** The answers of an entry gate: refused when every call answers invalid. */
+const gate = (answers: readonly string[]): string =>
+  answers.every((answer) => answer === "invalid") ? "refused" : answers.join(" ");
+
+/** The entry gates refuse an unsigned loose delta, so their plain equivalent may be refused. */
+const GATES = new Set(["looseEntryStatus", "bundleEntryStatus", "preflightTransfer"]);
+
 const DELTA_RUNNERS: Readonly<Record<string, Runner>> = {
   verifyDelta: async (d) => verdict(verifyDelta(asDelta(d))),
   verifyCanonicalDelta: async (d) => verdict(verifyCanonicalDelta(asDelta(d))),
@@ -523,6 +546,47 @@ const DELTA_RUNNERS: Readonly<Record<string, Runner>> = {
     });
     return held(admission.added[0]?.delta, where);
   },
+  "Reactor.ingestBundle": async (d, id, where) => {
+    const reactor = new Reactor();
+    const manifest = manifestFor(id);
+    if (reactor.ingestBundle(manifest, [asDelta(d)]).status !== "accepted") return "refused";
+    return held(
+      reactor.arrivalLog().find((delta) => delta.id !== manifest.id),
+      where,
+    );
+  },
+  looseEntryStatus: async (d, id) =>
+    gate([
+      looseEntryStatus(asDelta(d), new Set(), new Set([id])),
+      looseEntryStatus(asDelta(d), new Set([id]), new Set()),
+      looseEntryStatus(asDelta(d), new Set(), new Set()),
+    ]),
+  bundleEntryStatus: async (d, id) =>
+    gate([
+      bundleEntryStatus(manifestFor(id), [asDelta(d)], new Set(), new Set([id])),
+      bundleEntryStatus(manifestFor(id), [asDelta(d)], new Set([id]), new Set()),
+      bundleEntryStatus(manifestFor(id), [asDelta(d)], new Set(), new Set()),
+    ]),
+  preflightTransfer: async (d, id) => {
+    const answers = [new Set([id]), new Set<string>()].flatMap((refusedIds) =>
+      preflightTransfer(
+        [
+          { kind: "loose", delta: asDelta(d) },
+          { kind: "bundle", manifest: manifestFor(id), members: [asDelta(d)] },
+        ],
+        {
+          admittedBefore: new DeltaSet(),
+          refusedIds,
+          sendingPeerId: "sender",
+          receivingPeerId: "receiver",
+          arrivedAt: 1,
+          policyState: {},
+          guards: [],
+        },
+      ).map((unit) => `${unit.status}[${unit.freshIds.join(",")}]`),
+    );
+    return answers.every((answer) => answer === "invalid[]") ? "refused" : answers.join(" ");
+  },
   "memory store append, get": async (d, id, where) =>
     stored(createMemoryStore(), asDelta(d), id, where),
   "SQLite store append, get": async (d, id, where) =>
@@ -554,7 +618,7 @@ describe("every entry point reads a delta by one rule: own fields, once, of the 
             (await run(runner, () => clone(c.plain!), id, `${where} (plain)`));
           plainAnswers.set(key, want);
         }
-        if (c.plain !== undefined && want === "refused")
+        if (c.plain !== undefined && want === "refused" && !GATES.has(entry))
           wrong.push(`${where}: the plain equivalent is refused`);
         const got = await run(runner, c.odd, id, where);
         if (got !== want) wrong.push(`${where}: answers ${got}, not ${want}`);
@@ -739,6 +803,255 @@ describe("finding 10: a field set on Object.prototype does not reach the hash", 
       delete proto.sig;
     }
     expect(seen).toEqual([want, want, "unsigned", false, false]);
+  });
+});
+
+describe("the first review of #137: each gate reads its own copy, once", () => {
+  const unsignedOther = (): Delta =>
+    makeDelta({
+      timestamp: 3,
+      validFrom: 3,
+      author: OTHER_AUTHOR,
+      pointers: [{ role: "note", target: { kind: "primitive", value: "other" } }],
+    });
+  const signedOwn = (value: string): Delta =>
+    signClaims(
+      {
+        timestamp: 4,
+        validFrom: 4,
+        author: AUTHOR,
+        pointers: [{ role: "note", target: { kind: "primitive", value } }],
+      },
+      SEED,
+    );
+  const plainOf = (delta: Delta): Delta => structuredClone(delta);
+  const NONE = new Set<string>();
+
+  it("looseEntryStatus: an id accessor that changes after its second read answers refused and duplicate, as its plain delta does", () => {
+    const plain = plainOf(signedOwn("loose"));
+    const odd = (): Delta => {
+      let reads = 0;
+      const delta = { claims: structuredClone(plain.claims), sig: plain.sig } as Json;
+      Object.defineProperty(delta, "id", {
+        enumerable: true,
+        get: () => (++reads <= 2 ? plain.id : REF),
+      });
+      return delta as unknown as Delta;
+    };
+    const refused = new Set([plain.id]);
+    expect([
+      looseEntryStatus(odd(), NONE, refused),
+      looseEntryStatus(odd(), refused, NONE),
+      looseEntryStatus(plain, NONE, refused),
+      looseEntryStatus(plain, refused, NONE),
+    ]).toEqual(["refused", "duplicate", "refused", "duplicate"]);
+  });
+
+  it("bundleEntryStatus: an unsigned member of another author with sig only on its prototype is invalid, as its structuredClone is", () => {
+    const member = unsignedOther();
+    const manifest = signClaims(makeManifestClaims(AUTHOR, 9, [member.id]), SEED);
+    const odd = Object.assign(Object.create({ sig: "ab".repeat(64) }) as Json, {
+      id: member.id,
+      claims: structuredClone(member.claims),
+    }) as unknown as Delta;
+    expect([
+      bundleEntryStatus(manifest, [odd], NONE, NONE),
+      bundleEntryStatus(manifest, [structuredClone(odd)], NONE, NONE),
+    ]).toEqual(["invalid", "invalid"]);
+  });
+
+  it("bundleEntryStatus and ingestBundle: a manifest whose claims accessor answers other members on its second read refuses a member the signed manifest does not name", () => {
+    const named = signedOwn("named");
+    const other = signedOwn("other");
+    const manifest = plainOf(signClaims(makeManifestClaims(AUTHOR, 9, [named.id]), SEED));
+    const swapped = makeManifestClaims(AUTHOR, 9, [other.id]);
+    const odd = (): Delta => {
+      let reads = 0;
+      const delta = { id: manifest.id } as Json;
+      Object.defineProperty(delta, "claims", {
+        enumerable: true,
+        get: () => (++reads === 2 ? structuredClone(swapped) : structuredClone(manifest.claims)),
+      });
+      delta.sig = manifest.sig;
+      return delta as unknown as Delta;
+    };
+    expect([
+      bundleEntryStatus(odd(), [other], NONE, NONE),
+      bundleEntryStatus(manifest, [other], NONE, NONE),
+      bundleEntryStatus(odd(), [named], NONE, NONE),
+    ]).toEqual(["invalid", "invalid", "eligible"]);
+    expect([
+      new Reactor().ingestBundle(odd(), [other]).status,
+      new Reactor().ingestBundle(odd(), [named]).status,
+    ]).toEqual(["rejected", "accepted"]);
+  });
+
+  it("preflightTransfer: Object.prototype.sig does not make an unsigned member of another author eligible", () => {
+    const member = unsignedOther();
+    const manifest = signClaims(makeManifestClaims(AUTHOR, 9, [member.id]), SEED);
+    const run = () =>
+      preflightTransfer([{ kind: "bundle", manifest, members: [member] }], {
+        admittedBefore: new DeltaSet(),
+        refusedIds: NONE,
+        sendingPeerId: "sender",
+        receivingPeerId: "receiver",
+        arrivedAt: 1,
+        policyState: {},
+        guards: [],
+      }).map((unit) => unit.status);
+    const proto = Object.prototype as Json;
+    let polluted: string[];
+    proto.sig = "ab".repeat(64);
+    try {
+      polluted = run();
+    } finally {
+      delete proto.sig;
+    }
+    expect([polluted, run()]).toEqual([["invalid"], ["invalid"]]);
+  });
+
+  it("the step never calls a Proxy's get trap, and calls its getOwnPropertyDescriptor trap once per field", () => {
+    const gets: string[] = [];
+    const descriptors = new Map<string, number>();
+    const watched = <T extends object>(target: T, where: string): T =>
+      new Proxy(target, {
+        get: (t, key, receiver) => {
+          gets.push(`${where}.${String(key)}`);
+          return Reflect.get(t, key, receiver) as unknown;
+        },
+        getOwnPropertyDescriptor: (t, key) => {
+          const name = `${where}.${String(key)}`;
+          descriptors.set(name, (descriptors.get(name) ?? 0) + 1);
+          return Reflect.getOwnPropertyDescriptor(t, key);
+        },
+      });
+    const plain = plainOf(BASE as unknown as Delta);
+    const claims = structuredClone(plain.claims) as unknown as Json;
+    claims.pointers = watched(
+      (claims.pointers as Json[]).map((p, i) => watched(p, `pointers[${i}]`)),
+      "pointers",
+    );
+    const odd = watched(
+      { id: plain.id, claims: watched(claims, "claims"), sig: plain.sig },
+      "delta",
+    ) as unknown as Delta;
+    const reactor = new Reactor();
+    expect(reactor.ingest(odd).status).toBe("accepted");
+    expect(gets).toEqual([]);
+    expect([...descriptors].filter(([, n]) => n !== 1)).toEqual([]);
+    expect(descriptors.size).toBe(3 + 5 + 5 + 4 * 2);
+  });
+
+  it("a target refuses a defined key of another kind: a primitive with a mime, an entity with a value", () => {
+    const at = (target: Json): Claims =>
+      ({ ...clone(baseClaims()), pointers: [{ role: "x", target }] }) as unknown as Claims;
+    const answers = [
+      { kind: "primitive", value: 1, mime: "x" },
+      { kind: "entity", entity: { id: "e" }, value: 1 },
+      { kind: "delta", deltaRef: { delta: REF }, entity: { id: "e" } },
+      { kind: "bytes", mime: "x", value: new Uint8Array([1]), deltaRef: { delta: REF } },
+    ].map((target) => {
+      try {
+        return computeId(at(target));
+      } catch (error) {
+        return (error as Error).message;
+      }
+    });
+    expect(answers).toEqual([
+      'claims.pointers[0].target of kind primitive has the key "mime"',
+      'claims.pointers[0].target of kind entity has the key "value"',
+      'claims.pointers[0].target of kind delta has the key "entity"',
+      'claims.pointers[0].target of kind bytes has the key "deltaRef"',
+    ]);
+  });
+
+  it("pointers with an extra key that holds a pointer is refused, and is not hashed as one more pointer", () => {
+    const claims = clone(baseClaims());
+    const pointers = claims.pointers as Json[] & Json;
+    pointers.extra = { role: "x", target: { kind: "primitive", value: 1 } };
+    expect(() => computeId(claims as unknown as Claims)).toThrow(
+      "claims.pointers must have exactly one item at each index, and no other key",
+    );
+  });
+
+  it("verifyCanonicalDelta reads the format of the own sig: a malformed sig only on the prototype reads as unsigned", () => {
+    const plain = makeDelta(clone(baseClaims()) as unknown as Claims);
+    const odd = Object.assign(Object.create({ sig: "ZZ" }) as Json, {
+      id: plain.id,
+      claims: clone(baseClaims()),
+    }) as unknown as Delta;
+    expect([verifyCanonicalDelta(odd), verifyDelta(odd)]).toEqual(["unsigned", "unsigned"]);
+  });
+
+  it("both stores answer claims of one shape: each object has the prototype of the core's copy", async () => {
+    const made = makeDelta(clone(baseClaims()) as unknown as Claims);
+    const proto = Object.getPrototypeOf(made.claims) as object;
+    const shapeOf = (delta: Delta): boolean[] =>
+      [
+        delta.claims,
+        ...delta.claims.pointers.flatMap((p) => [
+          p,
+          p.target,
+          ...(p.target.kind === "entity" ? [p.target.entity] : []),
+          ...(p.target.kind === "delta" ? [p.target.deltaRef] : []),
+        ]),
+      ].map((value) => Object.getPrototypeOf(value) === proto);
+    const read = async (store: Store): Promise<boolean[]> => {
+      try {
+        const peer = await store.createPeer(PEER, { erasure: "unproven" });
+        await peer.append({
+          expectedHead: null,
+          nextHead: "h1",
+          frame: null,
+          added: [
+            {
+              delta: made,
+              arrival: { id: made.id, at: 1, sequence: 1, transfer: 1, sender: "local" },
+            },
+          ],
+        });
+        const [own] = await (await peer.read()).get([made.id]);
+        return shapeOf(own!);
+      } finally {
+        await store.close();
+      }
+    };
+    const all = shapeOf(made).map(() => true);
+    expect([
+      await read(createMemoryStore()),
+      await read(await openSqliteStore(join(dir, `store-${++files}.db`))),
+    ]).toEqual([all, all]);
+  });
+
+  it("an own key whose value is undefined is absent everywhere: a schema key, an unknown key, and a key of another target kind", () => {
+    const plain = clone(baseClaims());
+    delete plain.validUntil;
+    const want = computeId(clone(plain) as unknown as Claims);
+    const shapes: Json[] = [
+      { ...clone(plain), validUntil: undefined },
+      { ...clone(plain), extra: undefined },
+      { ...clone(plain), [Symbol("extra")]: undefined },
+      replaceAt(plain, ["pointers", 0], (h) => ({ ...h, extra: undefined })),
+      replaceAt(plain, ["pointers", 2, "target"], (h) => ({
+        ...h,
+        entity: undefined,
+        mime: undefined,
+      })),
+      replaceAt(plain, ["pointers", 0, "target", "entity"], (h) => ({ ...h, extra: undefined })),
+    ];
+    const answers = shapes.map((claims) => {
+      try {
+        return computeId(claims as unknown as Claims);
+      } catch (error) {
+        return (error as Error).message;
+      }
+    });
+    expect(answers).toEqual(shapes.map(() => want));
+    const made = makeDelta(clone(plain) as unknown as Claims);
+    const reactor = new Reactor();
+    const delta = { id: made.id, claims: shapes[4], sig: undefined, extra: undefined };
+    expect(reactor.ingest(delta as unknown as Delta).status).toBe("accepted");
+    expect(Object.keys(reactor.arrivalLog()[0]!)).toEqual(["id", "claims"]);
   });
 });
 

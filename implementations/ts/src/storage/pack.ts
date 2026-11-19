@@ -14,7 +14,7 @@ import {
   type CborValue,
 } from "../delta/cbor.js";
 import { contentAddress } from "../delta/hash.js";
-import { manifestMemberIds } from "../delta/manifest.js";
+import { memberIdsOf } from "../delta/manifest.js";
 import { DeltaSet, makeDelta } from "../delta/set.js";
 import type { Claims, Delta, Pointer, Target } from "../delta/types.js";
 
@@ -115,11 +115,11 @@ function memberRecord(
 export function packSet(set: DeltaSet): Uint8Array {
   const deltas = [...set].sort((a, b) => (a.id < b.id ? -1 : 1));
   // Manifests: deltas carrying rdb.txn.member pointers, sorted by id.
-  const manifests = deltas.filter((d) => manifestMemberIds(d).length > 0);
+  const manifests = deltas.filter((d) => memberIdsOf(d).length > 0);
   // Each member is dehydrated against the lexicographically FIRST claiming manifest (P1).
   const memberToManifest = new Map<string, number>();
   manifests.forEach((m, i) => {
-    for (const id of manifestMemberIds(m)) {
+    for (const id of memberIdsOf(m)) {
       if (set.has(id) && !memberToManifest.has(id)) memberToManifest.set(id, i);
     }
   });

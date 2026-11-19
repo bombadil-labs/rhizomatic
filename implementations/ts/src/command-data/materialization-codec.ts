@@ -13,6 +13,7 @@ import {
   decodeBindings,
   isCommandId,
   isCommandKey,
+  owned,
   type CommandFields,
 } from "./codec.js";
 
@@ -257,7 +258,9 @@ export function encodeMaterializationLimits(limits: MaterializationLimits): Uint
   return bytes;
 }
 /** Readers accept pointer permutations: set-valued roles read in their canonical sorted order. */
-export function materializationFields(delta: Delta): CommandFields {
+/** The materialization fields of a delta. It reads the own copy of the delta (`ownDelta`), once. */
+export function materializationFields(given: Delta): CommandFields {
+  const delta = owned(given);
   const fields: Record<string, Target[]> = Object.create(null) as Record<string, Target[]>;
   for (const p of delta.claims.pointers) {
     if (!p.role.startsWith(MATERIALIZATION_PREFIX)) fail();
