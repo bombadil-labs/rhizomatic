@@ -175,7 +175,7 @@ describe("a signature and a validity end set only on Object.prototype read as ab
     ]);
   });
 
-  it("validUntil: a delta whose id hashes a validUntil that only a prototype holds (a class getter, Object.create) is refused invalid-admission on either store, and the store keeps nothing", async () => {
+  it("validUntil: claims whose validUntil only a prototype holds (a class getter, Object.create) are refused by computeId and invalid-admission by either store, and the store keeps nothing", async () => {
     class Getter {
       get validUntil(): number {
         return 5;
@@ -187,34 +187,43 @@ describe("a signature and a validity end set only on Object.prototype read as ab
         Object.assign(Object.create({ validUntil: 5 }) as Claims, claims("target", 1, "one")),
     };
     const seen: unknown[] = [];
-    for (const { name, store } of await stores()) {
-      const peer = await store.createPeer(PEER, { erasure: "unproven" });
-      for (const [shape, make] of Object.entries(shapes)) {
-        const inherited = make();
-        const delta = { id: computeId(inherited), claims: inherited };
+    for (const [shape, make] of Object.entries(shapes))
+      for (const { name, store } of await stores()) {
+        const peer = await store.createPeer(PEER, { erasure: "unproven" });
+        const delta = { id: fact("target", 1, "one").id, claims: make() };
         const answer = await outcome(async () => (await peer.append(batch([delta]))).status);
         const held = await (await peer.read()).get([delta.id]);
         const stored: string[] = [];
         for await (const id of store.openAdmin().storedIds()) stored.push(id);
-        seen.push([name, shape, delta.id === fact("target", 1, "one").id, answer, held, stored]);
+        seen.push([
+          name,
+          shape,
+          await outcome(async () => computeId(make())),
+          answer,
+          held,
+          stored,
+        ]);
+        await store.close();
       }
-      await store.close();
-    }
     expect(seen).toEqual(
-      ["memory", "sqlite"].flatMap((name) =>
-        ["getter", "created"].map((shape) => [name, shape, false, "invalid-admission", [], []]),
+      ["getter", "created"].flatMap((shape) =>
+        ["memory", "sqlite"].map((name) => [name, shape, "Error", "invalid-admission", [], []]),
       ),
     );
   });
 
-  it("validUntil: under a polluted Object.prototype, readAnchored and fetchScope throw the store fault malformed-member, and neither answers a window from the inherited field", async () => {
+  it("validUntil: under a polluted Object.prototype, readAnchored and fetchScope answer what they answer without it", async () => {
     const peer = await peerWith([fact("target", 1, "one")]);
     const snapshot = await peer.read();
-    const answers = await polluted("validUntil", 50, async () => [
-      await outcome(() => readAnchored(snapshot, { term: LEAF, root: "target", now: 10 })),
-      await outcome(() => fetchScope(snapshot, ["target"])),
-    ]);
-    expect(answers).toEqual(["StoreFaultError", "StoreFaultError"]);
+    const reads = async () => {
+      const read = await readAnchored(snapshot, { term: LEAF, root: "target", now: 100 });
+      const scope = await fetchScope(snapshot, ["target"]);
+      return [read.members, read.since, read.expiresAt, scope.validityAt(100)];
+    };
+    const clean = await reads();
+    const answers = await polluted("validUntil", 50, reads);
+    expect(answers).toEqual(clean);
+    expect(clean).toEqual([[fact("target", 1, "one").id], 1, null, { since: 1, expiresAt: null }]);
   });
 
   it("validUntil: validityWindow reads a validUntil that only a prototype holds as absent", () => {

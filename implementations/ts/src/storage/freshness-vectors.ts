@@ -31,6 +31,7 @@ import {
 } from "./store-vector-format.js";
 import { Model, PEERS, type Entry, type ModelPeer, type Named } from "./store-vectors.js";
 import type { ChangeRetention, Pushdown } from "./store.js";
+import { ownField, validBefore } from "../delta/own.js";
 
 const ALICE = "did:key:zAlice";
 const BOB = "did:key:zBob";
@@ -139,16 +140,13 @@ export function proveWindow(
   };
   const validAt = (t: number): string =>
     operand
-      .filter(
-        (d) =>
-          d.claims.validFrom <= t && (d.claims.validUntil === undefined || t < d.claims.validUntil),
-      )
+      .filter((d) => d.claims.validFrom <= t && validBefore(d.claims, t))
       .map((d) => d.id)
       .join();
   const boundaries = operand.flatMap((d) =>
-    d.claims.validUntil === undefined
+    ownField(d.claims, "validUntil") === undefined
       ? [d.claims.validFrom]
-      : [d.claims.validFrom, d.claims.validUntil],
+      : [d.claims.validFrom, ownField(d.claims, "validUntil")!],
   );
   const at = validAt(now);
   const lo = since ?? now;
@@ -262,7 +260,10 @@ class Case {
     let expiresAt: number | null = null;
     for (const entry of state.held)
       if (operand.has(entry.delta.id))
-        for (const b of [entry.delta.claims.validFrom, entry.delta.claims.validUntil]) {
+        for (const b of [
+          entry.delta.claims.validFrom,
+          ownField(entry.delta.claims, "validUntil"),
+        ]) {
           if (b === undefined) continue;
           if (b > now && (expiresAt === null || b < expiresAt)) expiresAt = b;
           if (b <= now && (since === null || b > since)) since = b;

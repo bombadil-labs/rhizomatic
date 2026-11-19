@@ -299,7 +299,12 @@ describe("frozen principal evidence fixtures (SPEC-14)", () => {
     expect(authorsForPrincipal(reactor, root, options)).toEqual(expected);
     expect(authorsForPrincipal(reactor, root, options)).toEqual(expected);
 
-    const mutable = delegation as { id: string; sig?: string; claims: Delta["claims"] };
+    // The reactor holds its own copy of each delta (issue #133), so the change is made to that.
+    const mutable = reactor.snapshot().get(delegation.id)! as {
+      id: string;
+      sig?: string;
+      claims: Delta["claims"];
+    };
     const originalSig = mutable.sig!;
     mutable.sig = named.get("connectionDelegation")!.sig!;
     expect(authorsForPrincipal(reactor, root, options)).toEqual([root]);

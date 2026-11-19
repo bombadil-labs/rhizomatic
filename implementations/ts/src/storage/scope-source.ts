@@ -3,11 +3,12 @@
 // evaluates over it without another store call.
 
 import { compareUtf8 } from "../delta/cbor.js";
-import { computeId } from "../delta/delta.js";
+import { idOfOwn } from "../delta/delta.js";
 import type { DeltaSource } from "../delta/source.js";
 import type { Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
-import { copyArrival, copyDelta, copyMember, ownFields } from "./copy.js";
+import { ownDelta } from "../delta/own.js";
+import { copyArrival, copyMember, ownFields } from "./copy.js";
 import { StoreError, type Entity, type Id, type VerifiedDelta } from "./store.js";
 
 /**
@@ -55,10 +56,10 @@ export function scopeSource(members: Iterable<VerifiedDelta>): ScopeSource {
       const id: unknown = delta.id;
       if (typeof id === "string" && held.has(id)) continue;
       own = {
-        delta: copyDelta(delta, id),
+        delta: ownDelta(delta),
         arrival: copyArrival(from.arrival as VerifiedDelta["arrival"]),
       };
-      if (computeId(own.delta.claims) !== own.delta.id) own = undefined;
+      if (idOfOwn(own.delta.claims) !== own.delta.id) own = undefined;
     } catch {
       own = undefined;
     }

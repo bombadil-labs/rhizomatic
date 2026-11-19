@@ -9,6 +9,7 @@ import {
   commandBytes,
   commandNumber,
   verifyCommandAppearance,
+  owned,
   type CommandFields,
 } from "../command-data/codec.js";
 import {
@@ -52,6 +53,7 @@ import {
   mEqual,
   mFail,
 } from "./materialization-values.js";
+import { validBefore } from "../delta/own.js";
 
 export interface MaterializationResultContext {
   readonly receiver: string;
@@ -145,12 +147,23 @@ const SELECTION_FIELDS = [
   "schemaPin",
   "availability",
 ];
+/**
+ * Full result validation. It reads the own copy (`ownDelta`) of the outcome, of the request and of
+ * the evidence, each once; a context delta of the wrong shape fails.
+ */
 export function readMaterializationResult(
-  outcome: Delta,
-  context: MaterializationResultContext,
+  givenOutcome: Delta,
+  givenContext: MaterializationResultContext,
   limits: MaterializationLimits = MATERIALIZATION_MAX_LIMITS,
 ): MaterializationResult {
   encodeMaterializationLimits(limits);
+  const outcome = owned(givenOutcome);
+  const { requestDelta, evidence, ...rest } = givenContext;
+  const context: MaterializationResultContext = {
+    ...rest,
+    ...(requestDelta === undefined ? {} : { requestDelta: owned(requestDelta) }),
+    ...(evidence === undefined ? {} : { evidence: owned(evidence) }),
+  };
   verifyCommandAppearance(outcome);
   const outer = readMaterializationDescription(outcome);
   if (
@@ -329,8 +342,7 @@ function verifySourceCommitments(
     commandRef(cf, "authority") !== snapshot.authority ||
     context.capture.claims.timestamp !== snapshot.servingAt ||
     context.capture.claims.validFrom !== snapshot.servingAt ||
-    (context.capture.claims.validUntil !== undefined &&
-      snapshot.servingAt >= context.capture.claims.validUntil)
+    !validBefore(context.capture.claims, snapshot.servingAt)
   )
     mFail();
   validateMaterializationBasis(basis, limits, snapshot);

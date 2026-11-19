@@ -8,6 +8,7 @@ import { computeId } from "../delta/delta.js";
 import type { Delta, Pointer, Primitive } from "../delta/types.js";
 import { negationPredicate, type Suppression } from "../delta/negation.js";
 import type { DeltaSource } from "../delta/source.js";
+import { ownField, validBefore, validUntilOf } from "../delta/own.js";
 
 export type ScopePolicy = "exact" | "prefix" | ((edgeScope: string, request: string) => boolean);
 export type PrincipalSuppression = "sameAuthor" | "rootOrSameAuthor" | Suppression;
@@ -62,8 +63,7 @@ const AUTHOR = /^ed25519:[0-9a-f]{64}$/;
 const isAuthor = (value: unknown): value is string =>
   typeof value === "string" && AUTHOR.test(value);
 const validAt = (delta: Delta, at: number): boolean =>
-  delta.claims.validFrom <= at &&
-  (delta.claims.validUntil === undefined || at < delta.claims.validUntil);
+  delta.claims.validFrom <= at && validBefore(delta.claims, at);
 
 // Signature verification is costly on a hot authority read. Cache only a successful verdict for
 // this exact object/id/signature, and recheck its content address each time: a caller that mutates
@@ -72,10 +72,14 @@ const verifiedEvidence = new WeakMap<Delta, { readonly id: string; readonly sig:
 
 function evidenceSignatureHolds(delta: Delta): boolean {
   const cached = verifiedEvidence.get(delta);
-  if (cached?.id === delta.id && cached.sig === delta.sig && computeId(delta.claims) === delta.id)
+  if (
+    cached?.id === delta.id &&
+    cached.sig === ownField(delta, "sig") &&
+    computeId(delta.claims) === delta.id
+  )
     return true;
   if (verifyDelta(delta) !== "verified") return false;
-  verifiedEvidence.set(delta, { id: delta.id, sig: delta.sig! });
+  verifiedEvidence.set(delta, { id: delta.id, sig: ownField(delta, "sig")! });
   return true;
 }
 
@@ -94,7 +98,7 @@ function parseEvidence(delta: Delta, root: string): Evidence | undefined {
   if (
     principal?.kind !== "entity" ||
     principal.entity.id !== root ||
-    principal.entity.context !== "rhizomatic.principal"
+    ownField(principal.entity, "context") !== "rhizomatic.principal"
   )
     return undefined;
   const kind = primitive(fields.get("kind"));
@@ -340,7 +344,7 @@ export function associatedKeys(
         const claims = source.get(id)!.claims;
         return {
           validFrom: claims.validFrom,
-          ...(claims.validUntil === undefined ? {} : { validUntil: claims.validUntil }),
+          ...validUntilOf(claims),
         };
       }),
       negated: path.ids.some(isNegated),

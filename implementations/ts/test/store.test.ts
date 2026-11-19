@@ -764,39 +764,43 @@ describe("a store owns what it holds", () => {
     expect((await again.purge([one.id])).surfaces).toHaveLength(3);
   });
 
-  it("fields outside the canonical claims are not stored and not served", async () => {
-    const store = createMemoryStore();
-    const a = await store.createPeer(A, { erasure: "unproven" });
-    const b = await store.createPeer(B, { erasure: "unproven" });
+  it("a delta with a field outside the canonical claims, at any level, is refused invalid-admission and nothing is stored; an extra field of the arrival record is not stored and not served", async () => {
     const clean = fact("e", 1);
+    const pointers = (extra: object, target: object) =>
+      clean.claims.pointers.map((p) => ({ ...p, ...extra, target: { ...p.target, ...target } }));
     const padded = {
-      ...clean,
-      note: "on the delta",
-      claims: {
-        ...clean.claims,
-        secret: "on the claims",
-        pointers: clean.claims.pointers.map((p) => ({
-          ...p,
-          hidden: 1,
-          target: { ...p.target, smuggled: true },
-        })),
-      },
-    } as unknown as Delta;
+      delta: { ...clean, note: "on the delta" },
+      claims: { ...clean, claims: { ...clean.claims, secret: "on the claims" } },
+      pointer: { ...clean, claims: { ...clean.claims, pointers: pointers({ hidden: 1 }, {}) } },
+      target: { ...clean, claims: { ...clean.claims, pointers: pointers({}, { smuggled: 1 }) } },
+    };
     const arrival = { id: clean.id, at: 1, sequence: 1, transfer: 1, sender: "local", extra: "x" };
     const head = { expectedHead: null, nextHead: "h", frame: null };
-    await a.append({ ...head, added: [{ delta: padded, arrival }] });
-    await b.append({ ...head, added: [{ delta: clean, arrival }] });
-    for (const peer of [a, b]) {
-      const snapshot = await peer.read();
-      const seen = JSON.stringify([
-        await snapshot.get([clean.id]),
-        await snapshot.arrivals([clean.id]),
-        await snapshot.scope({ anchors: [{ kind: "entity", entity: "e" }] }),
-      ]);
-      for (const word of ["secret", "hidden", "smuggled", "note", "extra"])
-        expect(seen).not.toContain(word);
-      expect((await snapshot.get([clean.id]))[0]).toEqual(clean);
+    const seen: unknown[] = [];
+    for (const [level, delta] of Object.entries(padded)) {
+      const peer = await createMemoryStore().createPeer(A, { erasure: "unproven" });
+      const answer = await peer
+        .append({ ...head, added: [{ delta: delta as unknown as Delta, arrival }] })
+        .then((result) => result.status)
+        .catch((error: unknown) => (error instanceof StoreError ? error.code : String(error)));
+      seen.push([level, answer, (await peer.read()).count]);
     }
+    expect(seen).toEqual([
+      ["delta", "invalid-admission", 0],
+      ["claims", "invalid-admission", 0],
+      ["pointer", "invalid-admission", 0],
+      ["target", "invalid-admission", 0],
+    ]);
+    const b = await createMemoryStore().createPeer(B, { erasure: "unproven" });
+    await b.append({ ...head, added: [{ delta: clean, arrival }] });
+    const snapshot = await b.read();
+    const served = JSON.stringify([
+      await snapshot.get([clean.id]),
+      await snapshot.arrivals([clean.id]),
+      await snapshot.scope({ anchors: [{ kind: "entity", entity: "e" }] }),
+    ]);
+    expect(served).not.toContain("extra");
+    expect((await snapshot.get([clean.id]))[0]).toEqual(clean);
   });
 });
 

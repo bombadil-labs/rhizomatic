@@ -2,9 +2,10 @@
 // into the logical delta model. The CBOR form is normative; this is for authoring/inspection.
 
 import { b64uDecode, b64uEncode, b64uDecodedLength } from "./b64u.js";
-import { asObject } from "./strict.js";
+import { asObject, asOpenMap } from "./strict.js";
 import { cborHeadByteLength, cborFloatByteLength, cborTextByteLength } from "./cbor.js";
 import { assertValidClaims } from "./delta.js";
+import { hiddenKey, ownClaims, ownField, ownList, plainHolder } from "./own.js";
 import type { Claims, Primitive, Target } from "./types.js";
 
 const TARGET_SHAPES =
@@ -82,9 +83,25 @@ function readTarget<T>(raw: unknown, reader: TargetReader<T>): T {
   return reader.bytes(mime, value);
 }
 
+// A holder of the claims' JSON form follows the rule of `ownClaims`: it is a plain object, and no
+// key of its schema is own and not enumerable.
+function plainFields(raw: unknown, what: string, keys: readonly string[]): void {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return;
+  plainHolder(raw, what);
+  for (const key of keys)
+    if (Object.getOwnPropertyDescriptor(raw, key)?.enumerable === false) hiddenKey(what, keys, key);
+}
+
+function claimsObject(raw: unknown, what: string, keys: readonly string[]) {
+  plainFields(raw, what, keys);
+  return asObject(raw, what, keys);
+}
+
 const parsingReader: TargetReader<Target> = {
-  object: (raw, what, keys) =>
-    what === "target" ? (raw as Record<string, unknown>) : asObject(raw, what, keys),
+  object: (raw, what, keys) => {
+    plainFields(raw, what, keys);
+    return what === "target" ? asOpenMap(raw, what) : asObject(raw, what, keys);
+  },
   primitive: (value) => ({ kind: "primitive", value }),
   entity: (id, context) => ({
     kind: "entity",
@@ -102,12 +119,20 @@ function readPointer<T>(raw: unknown, reader: TargetReader<T>): { role: string; 
   return { role: o["role"], target: readTarget(o["target"], reader) };
 }
 
-// Serialize claims back to the JSON debug profile (the inverse of parseClaims).
-export function claimsToJson(claims: Claims): unknown {
+function contextOf(ref: { context?: string }): { context?: string } {
+  const context = ownField(ref, "context");
+  return context === undefined ? {} : { context };
+}
+
+// Serialize claims back to the JSON debug profile (the inverse of parseClaims). It writes the own
+// copy of the claims (`ownClaims`).
+export function claimsToJson(given: Claims): unknown {
+  const claims = ownClaims(given);
+  const validUntil = ownField(claims, "validUntil");
   return {
     timestamp: claims.timestamp,
     validFrom: claims.validFrom,
-    ...(claims.validUntil === undefined ? {} : { validUntil: claims.validUntil }),
+    ...(validUntil === undefined ? {} : { validUntil }),
     author: claims.author,
     pointers: claims.pointers.map((p) => {
       let target: unknown;
@@ -118,15 +143,13 @@ export function claimsToJson(claims: Claims): unknown {
         case "entity":
           target = {
             id: p.target.entity.id,
-            ...(p.target.entity.context === undefined ? {} : { context: p.target.entity.context }),
+            ...contextOf(p.target.entity),
           };
           break;
         case "delta":
           target = {
             delta: p.target.deltaRef.delta,
-            ...(p.target.deltaRef.context === undefined
-              ? {}
-              : { context: p.target.deltaRef.context }),
+            ...contextOf(p.target.deltaRef),
           };
           break;
         case "bytes":
@@ -155,9 +178,11 @@ function claimsFields(raw: unknown, object = asObject) {
   };
 }
 
+// Own fields only, each read once (`asObject`, `ownList`); the answer is an own copy (`ownClaims`).
 export function parseClaims(raw: unknown): Claims {
-  const fields = claimsFields(raw);
-  return { ...fields, pointers: fields.pointers.map((p) => readPointer(p, parsingReader)) };
+  const fields = claimsFields(raw, claimsObject);
+  const pointers = ownList(fields.pointers, "claims.pointers");
+  return ownClaims({ ...fields, pointers: pointers.map((p) => readPointer(p, parsingReader)) });
 }
 
 /** Count/capture errors are independent of any command profile. */

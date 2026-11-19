@@ -1,4 +1,5 @@
 import {
+  owned,
   readOutcome,
   verifyCommandAppearance,
   commandEntity,
@@ -13,12 +14,14 @@ import { contentAddress } from "../delta/hash.js";
 import { decodeView } from "../resolve-kernel/resolution.js";
 import type { View } from "../syntax/model.js";
 import type { Delta } from "../delta/types.js";
-/** Full result validation: attribution, optional originating request, and strict View reconstruction. */
+/** Full result validation: attribution, optional originating request, and strict View reconstruction.
+ * It reads the own copy of each delta (`ownDelta`), once. */
 export function readCommandResult(
-  delta: Delta,
+  given: Delta,
   expected: { receiver: string; configuration: string; request: string },
   originatingRequest?: Delta,
 ): ReadOutcome & { readonly view?: View } {
+  const delta = owned(given);
   verifyCommandAppearance(delta);
   const result = readOutcome(delta);
   if (
@@ -30,8 +33,9 @@ export function readCommandResult(
     throw new Error("command outcome attribution mismatch");
   // A receiver may refuse an invalid appearance; that refusal does not authenticate the request.
   if (result.status === "completed" && originatingRequest) {
-    verifyCommandAppearance(originatingRequest);
-    if (originatingRequest.id !== expected.request)
+    const originating = owned(originatingRequest);
+    verifyCommandAppearance(originating);
+    if (originating.id !== expected.request)
       throw new Error("command originating request mismatch");
     const bodyText = (key: string) => {
       const v = result.body.get(key);
@@ -40,7 +44,7 @@ export function readCommandResult(
     };
     const kind = bodyText("kind");
     if (kind !== "retain" && kind !== "evaluate") throw new Error("command result kind");
-    const request = readRequestArguments(originatingRequest, kind);
+    const request = readRequestArguments(originating, kind);
     if (
       commandEntity(request, "receiver") !== expected.receiver ||
       commandRef(request, "configuration") !== expected.configuration

@@ -8,6 +8,7 @@ import type { Schema } from "../syntax/model.js";
 // Runtime-safe: term-io's only import from this module's dependents is the type-only Term.
 import { schemaHash } from "../syntax/term-io.js";
 import type { Claims, Delta, Target } from "../delta/types.js";
+import { ownField } from "../delta/own.js";
 
 export interface HVEntry {
   readonly delta: Delta;
@@ -51,12 +52,14 @@ function targetToCborWithExpansion(
     }
     case "entity": {
       const entries: Array<[string, CborValue]> = [["id", tstr(t.entity.id)]];
-      if (t.entity.context !== undefined) entries.push(["context", tstr(t.entity.context)]);
+      const context = ownField(t.entity, "context");
+      if (context !== undefined) entries.push(["context", tstr(context)]);
       return map(entries);
     }
     case "delta": {
       const entries: Array<[string, CborValue]> = [["delta", tstr(t.deltaRef.delta)]];
-      if (t.deltaRef.context !== undefined) entries.push(["context", tstr(t.deltaRef.context)]);
+      const context = ownField(t.deltaRef, "context");
+      if (context !== undefined) entries.push(["context", tstr(context)]);
       return map(entries);
     }
     case "bytes":
@@ -96,7 +99,8 @@ export function hvEntryToCbor(e: HVEntry): CborValue {
     ["id", tstr(e.delta.id)],
     ["claims", claimsToCborWithExpansions(e.delta.claims, e.expanded, e.readings)],
   ];
-  if (e.delta.sig !== undefined) entries.push(["sig", tstr(e.delta.sig)]);
+  const sig = ownField(e.delta, "sig");
+  if (sig !== undefined) entries.push(["sig", tstr(sig)]);
   if (e.negated) entries.push(["negated", bool(true)]);
   return map(entries);
 }

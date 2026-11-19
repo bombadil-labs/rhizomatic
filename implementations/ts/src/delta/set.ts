@@ -3,14 +3,17 @@
 // There is no conflict at this layer — contradiction lives in superposition until evaluation.
 
 import { array, encode, tstr } from "./cbor.js";
-import { computeId } from "./delta.js";
+import { claimsWithId, idOfOwn } from "./delta.js";
 import { contentAddress } from "./hash.js";
+import { ownDelta } from "./own.js";
 import type { Claims, Delta, Pointer } from "./types.js";
 
-// Build a complete delta from claims (id computed, optional detached sig attached).
+// Build a complete delta from claims (id computed, optional detached sig attached). The delta
+// holds the own copy of the claims (`ownClaims`), not the caller's object.
 export function makeDelta(claims: Claims, sig?: string): Delta {
-  const id = computeId(claims);
-  return sig === undefined ? { id, claims } : { id, claims, sig };
+  if (sig !== undefined && typeof sig !== "string") throw new Error("sig must be a string");
+  const { own, id } = claimsWithId(claims);
+  return sig === undefined ? { id, claims: own } : { id, claims: own, sig };
 }
 
 // The negation vocabulary convention (SPEC-1 §7): an ordinary delta whose pointer targets the
@@ -30,8 +33,25 @@ export function makeNegationClaims(
   return { timestamp, validFrom: timestamp, author, pointers };
 }
 
+// Set by the class below: puts a member into a set without a copy.
+let put: (set: DeltaSet, own: Delta) => void;
+
+/**
+ * Holds an own copy (`ownDelta`) whose claims are valid and hash to its id, with no second copy.
+ * The package root does not export it; only code that has made and checked such a copy calls it.
+ */
+export function holdChecked(set: DeltaSet, own: Delta): void {
+  put(set, own);
+}
+
 export class DeltaSet implements Iterable<Delta> {
   private readonly byId = new Map<string, Delta>();
+
+  static {
+    put = (set, own) => {
+      if (!set.byId.has(own.id)) set.byId.set(own.id, own);
+    };
+  }
 
   static from(deltas: Iterable<Delta>): DeltaSet {
     if (deltas instanceof DeltaSet) return deltas.copy();
@@ -75,13 +95,15 @@ export class DeltaSet implements Iterable<Delta> {
 
   // Idempotent insert; returns false when the id was already present. Verifies content
   // addressing on the way in (P6): a delta whose id does not recompute is rejected, never
-  // repaired (SPEC-4 §2) — set semantics depend on true ids.
+  // repaired (SPEC-4 §2) — set semantics depend on true ids. The set holds the own copy of the
+  // delta (`ownDelta`), not the caller's object; `get` answers that copy.
   add(delta: Delta): boolean {
-    if (this.byId.has(delta.id)) return false;
-    if (computeId(delta.claims) !== delta.id) {
-      throw new Error(`delta id ${delta.id} does not match its claims (content addressing, P6)`);
+    const own = ownDelta(delta);
+    if (this.byId.has(own.id)) return false;
+    if (idOfOwn(own.claims) !== own.id) {
+      throw new Error(`delta id ${own.id} does not match its claims (content addressing, P6)`);
     }
-    this.byId.set(delta.id, delta);
+    this.byId.set(own.id, own);
     return true;
   }
 

@@ -168,7 +168,7 @@ describe("shared SPEC-6 typed single-peer API", () => {
     expect(store.writes - after).toBe(vector.noOpWrites);
   });
 
-  it("strips caller-only row fields and verifies a changed image before planning", async () => {
+  it("refuses a row with a caller-only field at any level, commits the plain row, and verifies a changed image before planning", async () => {
     const store = new MemoryStore();
     await openSinglePeer(store, vector.peerId);
     const offered = {
@@ -187,16 +187,20 @@ describe("shared SPEC-6 typed single-peer API", () => {
         ],
       },
     };
-    const result = await admitSinglePeerTransfer(store, vector.peerId, {
-      offered: [offered],
-      origin: { kind: "local" },
-      arrivedAt: vector.local.at,
-      policyState: {},
-      guards: [],
-      isErasureCandidate: ordinary,
-      mode: "atomic",
-    });
-    expect(result.status).toBe("committed");
+    const admit = (offer: Delta) =>
+      admitSinglePeerTransfer(store, vector.peerId, {
+        offered: [offer],
+        origin: { kind: "local" },
+        arrivedAt: vector.local.at,
+        policyState: {},
+        guards: [],
+        isErasureCandidate: ordinary,
+        mode: "atomic",
+      });
+    const extra = (await admit(offered as Delta)).status;
+    const rowsAfterExtra = store.rows.size;
+    const result = await admit(first);
+    expect([extra, rowsAfterExtra, result.status]).toEqual(["rejected", 0, "committed"]);
     expect(Object.keys(store.rows.get(first.id)!)).toEqual(["id", "claims", "sig"]);
     expect(store.rows.get(first.id)).toEqual(first);
     if (result.status !== "committed") throw new Error("expected commit");

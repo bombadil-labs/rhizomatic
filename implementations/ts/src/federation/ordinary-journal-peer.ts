@@ -32,6 +32,7 @@ import {
 import type { ArrivalOrigin, PeerImageWrite, SinglePeerTransferInput } from "./single-peer.js";
 import type { ArrivalRecord } from "./arrival.js";
 import { ownFields } from "../storage/copy.js";
+import { ownField, sigOf } from "../delta/own.js";
 
 export type OrdinaryJournalRead =
   | { readonly status: "empty" }
@@ -191,7 +192,7 @@ function plainDelta(delta: Delta): Delta {
   return {
     id: delta.id,
     claims: parseClaims(claimsToJson(delta.claims)),
-    ...(delta.sig === undefined ? {} : { sig: delta.sig }),
+    ...sigOf(delta),
   };
 }
 
@@ -217,7 +218,11 @@ function assertAdmittedRows(state: DurablePeerState, rows: readonly Delta[]): vo
   const seen = new Set<string>();
   for (const row of rows) {
     const expected = state.base.admitted.get(row.id);
-    if (expected === undefined || seen.has(row.id) || row.sig !== expected.sig)
+    if (
+      expected === undefined ||
+      seen.has(row.id) ||
+      ownField(row, "sig") !== ownField(expected, "sig")
+    )
       throw new Error("ordinary journal: admitted row mismatch");
     try {
       if (computeId(row.claims) !== row.id)
@@ -250,7 +255,12 @@ function classifyAdmittedRows(
     if (row === undefined) return [{ id, reason: read.fault ?? "missing row" }];
     const expected = state.base.admitted.get(id)!;
     try {
-      if (row.id === id && row.sig === expected.sig && computeId(row.claims) === id) return [];
+      if (
+        row.id === id &&
+        ownField(row, "sig") === ownField(expected, "sig") &&
+        computeId(row.claims) === id
+      )
+        return [];
     } catch {
       /* The bad row is isolated below. */
     }

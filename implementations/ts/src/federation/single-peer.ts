@@ -14,6 +14,7 @@ import {
   planSignedLooseOrdinaryTransferFromVerified,
   type SignedLooseOutcome,
 } from "./signed-loose-admission.js";
+import { sigOf } from "../delta/own.js";
 
 export type ArrivalOrigin =
   | { readonly kind: "local" }
@@ -180,7 +181,7 @@ function plainDelta(delta: Delta): Delta {
   return {
     id: delta.id,
     claims: parseClaims(claimsToJson(delta.claims)),
-    ...(delta.sig === undefined ? {} : { sig: delta.sig }),
+    ...sigOf(delta),
   };
 }
 

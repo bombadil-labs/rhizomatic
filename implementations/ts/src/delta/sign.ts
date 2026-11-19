@@ -4,7 +4,8 @@
 import { ed25519 } from "@noble/curves/ed25519";
 import { sha512 } from "@noble/hashes/sha2";
 import { bytesToHex, concatBytes, hexToBytes } from "@noble/hashes/utils";
-import { computeId } from "./delta.js";
+import { claimsWithId, idOfOwn, ownCheckedDelta } from "./delta.js";
+import { ownDelta, ownField } from "./own.js";
 import type { Claims, Delta } from "./types.js";
 
 export const AUTHOR_PREFIX = "ed25519:";
@@ -18,16 +19,21 @@ export function authorForSeed(seedHex: string): string {
   return AUTHOR_PREFIX + publicKeyFromSeed(seedHex);
 }
 
-// Sign claims, producing a complete delta. Refuses to sign claims whose author does not match
-// the signing key — a signature contradicting its own author field is born broken (ERRATA D8).
+// The signing options have no prototype. The library reads `context` from them, so a field of that
+// name set on `Object.prototype` would change or refuse the signature.
+const SIGN_OPTIONS: { context?: Uint8Array } = Object.freeze(Object.create(null) as object);
+
+// Sign claims, producing a complete delta that holds the own copy of the claims (`ownClaims`).
+// Refuses to sign claims whose author does not match the signing key — a signature contradicting
+// its own author field is born broken (ERRATA D8).
 export function signClaims(claims: Claims, seedHex: string): Delta {
+  const { own, id } = claimsWithId(claims);
   const expected = authorForSeed(seedHex);
-  if (claims.author !== expected) {
-    throw new Error(`author must be ${expected} for this signing key, got ${claims.author}`);
+  if (own.author !== expected) {
+    throw new Error(`author must be ${expected} for this signing key, got ${own.author}`);
   }
-  const id = computeId(claims);
-  const sig = bytesToHex(ed25519.sign(hexToBytes(id), hexToBytes(seedHex)));
-  return { id, claims, sig };
+  const sig = bytesToHex(ed25519.sign(hexToBytes(id), hexToBytes(seedHex), SIGN_OPTIONS));
+  return { id, claims: own, sig };
 }
 
 export type Verification = "verified" | "unsigned" | "invalid";
@@ -75,16 +81,30 @@ const verifiedSigs = new Set<string>();
 const VERIFIED_SIGS_MAX = 65536;
 
 // Full verification per ERRATA D9: content addressing must hold, then the signature must verify
-// over the raw id bytes against the key named in `author`, under the §5.1 strict criterion.
+// over the raw id bytes against the key named in `author`, under the §5.1 strict criterion. It
+// reads the own copy of the delta (`ownDelta`) and throws for a delta of the wrong shape.
 export function verifyDelta(delta: Delta): Verification {
-  if (computeId(delta.claims) !== delta.id) return "invalid";
-  if (delta.sig === undefined) return "unsigned";
+  return verifyOwn(ownCheckedDelta(delta));
+}
+
+/**
+ * `verifyDelta` on a delta that is already an own copy (`ownDelta`) whose claims hash to `id`. The
+ * package root does not export it; only code that holds such a copy calls it.
+ */
+export function verifyOwnDelta(own: Delta, id: string): Verification {
+  return verifyOwn({ own, id });
+}
+
+function verifyOwn({ own: delta, id }: { own: Delta; id: string }): Verification {
+  if (id !== delta.id) return "invalid";
+  const sig = ownField(delta, "sig");
+  if (sig === undefined) return "unsigned";
   if (!delta.claims.author.startsWith(AUTHOR_PREFIX)) return "invalid";
-  const key = delta.id + delta.sig;
+  const key = delta.id + sig;
   if (verifiedSigs.has(key)) return "verified";
   const pubHex = delta.claims.author.slice(AUTHOR_PREFIX.length);
   try {
-    if (!verifySigStrict(hexToBytes(delta.sig), hexToBytes(delta.id), hexToBytes(pubHex)))
+    if (!verifySigStrict(hexToBytes(sig), hexToBytes(delta.id), hexToBytes(pubHex)))
       return "invalid";
   } catch {
     return "invalid";
@@ -96,10 +116,12 @@ export function verifyDelta(delta: Delta): Verification {
 
 /** Strict debug-profile appearance verification; preserves the legacy byte verifier API. */
 export function verifyCanonicalDelta(delta: Delta): Verification {
+  const own = ownDelta(delta);
+  const sig = ownField(own, "sig");
   if (
-    !/^ed25519:[0-9a-f]{64}$/.test(delta.claims.author) ||
-    (delta.sig !== undefined && !/^[0-9a-f]{128}$/.test(delta.sig))
+    !/^ed25519:[0-9a-f]{64}$/.test(own.claims.author) ||
+    (sig !== undefined && !/^[0-9a-f]{128}$/.test(sig))
   )
     return "invalid";
-  return verifyDelta(delta);
+  return verifyOwn({ own, id: idOfOwn(own.claims) });
 }

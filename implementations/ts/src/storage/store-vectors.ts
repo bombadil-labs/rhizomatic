@@ -31,6 +31,7 @@ import {
   type VectorRequirement,
 } from "./store-vector-format.js";
 import type { ErasurePosture, PurgeOutcome, Pushdown, VerifiedDelta } from "./store.js";
+import { ownField, sigOf } from "../delta/own.js";
 
 // ---- corpus -------------------------------------------------------------------------------
 
@@ -371,7 +372,8 @@ export class Model {
       };
       // Every entry is checked, also one whose id the peer already holds.
       if (entry.forged === true) return invalid();
-      if (entry.delta.sig !== undefined && !SIG.test(entry.delta.sig)) return invalid();
+      const sig = ownField(entry.delta, "sig");
+      if (sig !== undefined && !SIG.test(sig)) return invalid();
       if (arrival.id !== undefined && this.id(arrival.id) !== entry.delta.id) return invalid();
       if (!isCount(arrival.sequence) || !isCount(arrival.transfer) || arrival.sender === "")
         return invalid();
@@ -1565,7 +1567,7 @@ export function storeVectors(): StoreVectors {
     name,
     id: delta.id,
     claims: claimsToJson(delta.claims),
-    ...(delta.sig === undefined ? {} : { sig: delta.sig }),
+    ...sigOf(delta),
     ...(forged === true ? { forged } : {}),
   }));
   const header = {

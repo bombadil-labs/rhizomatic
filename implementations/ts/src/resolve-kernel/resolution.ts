@@ -16,7 +16,7 @@ import {
 } from "../delta/cbor.js";
 import { bytesToHex } from "../delta/hash.js";
 import type { HVEntry, HView } from "../algebra/hview.js";
-import { comparePrimitives, evalPred } from "../syntax/pred.js";
+import { comparePrimitives, evalPredOn } from "../syntax/pred.js";
 import type { Primitive, Target } from "../delta/types.js";
 
 import type { BytesView, MergeFn, Order, Policy, Schema, View } from "../syntax/model.js";
@@ -53,8 +53,8 @@ function cmpByOrder(order: Order, a: HVEntry, b: HVEntry): number {
       return rank(a.delta.claims.author) - rank(b.delta.claims.author);
     }
     case "byPred": {
-      const am = evalPred(order.pred, a.delta) ? 0 : 1;
-      const bm = evalPred(order.pred, b.delta) ? 0 : 1;
+      const am = evalPredOn(order.pred, a.delta) ? 0 : 1;
+      const bm = evalPredOn(order.pred, b.delta) ? 0 : 1;
       if (am !== bm) return am - bm; // matches first
       return cmpByOrder(order.then, a, b);
     }

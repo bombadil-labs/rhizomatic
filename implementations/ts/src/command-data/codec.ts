@@ -1,6 +1,8 @@
 // SPEC-15: pure description codecs. Verification is attribution, never installation.
 import { decode, encode, map, tstr, float, bool, type CborValue } from "../delta/cbor.js";
-import { canonicalBytes, assertValidClaims } from "../delta/delta.js";
+import { canonicalBytes, validClaims } from "../delta/delta.js";
+import { ownDelta, ownField } from "../delta/own.js";
+import { asObject } from "../delta/strict.js";
 import { claimsToJson, parseClaims } from "../delta/json-profile.js";
 import { signClaims, verifyDelta, authorForSeed } from "../delta/sign.js";
 import { VOCAB_PREFIX } from "../delta/vocab.js";
@@ -55,38 +57,55 @@ export function decodeBindings(bytes: Uint8Array): Readonly<Record<string, Primi
   });
   return Object.fromEntries(entries);
 }
-export function serializeCommandDelta(delta: Delta): unknown {
-  return { id: delta.id, claims: claimsToJson(delta.claims), sig: delta.sig };
+export function serializeCommandDelta(given: Delta): unknown {
+  const delta = ownDelta(given);
+  return { id: delta.id, claims: claimsToJson(delta.claims), sig: ownField(delta, "sig") };
 }
 export function parseCommandDelta(raw: unknown): Delta {
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) fail();
-  const o = raw as Record<string, unknown>;
-  if (
-    Object.keys(o).some((k) => !["id", "claims", "sig"].includes(k)) ||
-    typeof o.id !== "string" ||
-    (o.sig !== undefined && typeof o.sig !== "string")
-  )
-    fail();
-  const d = {
+  let o: Record<string, unknown>;
+  try {
+    o = asObject(raw, "a command delta", ["id", "claims", "sig"]);
+  } catch {
+    return fail();
+  }
+  if (typeof o.id !== "string" || (o.sig !== undefined && typeof o.sig !== "string")) fail();
+  return {
     id: o.id,
-    claims: parseClaims(o.claims),
-    ...(o.sig === undefined ? {} : { sig: o.sig }),
+    claims: validClaims(parseClaims(o.claims)),
+    ...(o.sig === undefined ? {} : { sig: o.sig as string }),
   };
-  assertValidClaims(d.claims);
-  return d;
 }
-export function verifyCommandAppearance(delta: Delta): void {
+export function verifyCommandAppearance(given: Delta): void {
+  let delta: Delta;
+  try {
+    delta = ownDelta(given);
+  } catch {
+    return fail();
+  }
+  const sig = ownField(delta, "sig");
   if (
     !isCommandId(delta.id) ||
     !isCommandKey(delta.claims.author) ||
-    delta.sig === undefined ||
-    !/^[0-9a-f]{128}$/.test(delta.sig) ||
+    sig === undefined ||
+    !/^[0-9a-f]{128}$/.test(sig) ||
     verifyDelta(delta) !== "verified"
   )
     fail();
   canonicalBytes(delta.claims);
 }
+/** The own copy of a command delta (`ownDelta`), read once. A delta of the wrong shape fails. */
+export function owned(given: Delta): Delta {
+  try {
+    return ownDelta(given);
+  } catch {
+    return fail();
+  }
+}
+/** The command fields of a delta. It reads the own copy of the delta (`ownDelta`), once. */
 export function commandFields(delta: Delta): CommandFields {
+  return fieldsOf(owned(delta));
+}
+function fieldsOf(delta: Delta): CommandFields {
   const fields: Record<string, Target[]> = {};
   for (const p of delta.claims.pointers) {
     if (!p.role.startsWith(COMMAND_PREFIX)) fail();
@@ -102,12 +121,16 @@ export function commandText(fields: CommandFields, key: string): string {
 }
 export function commandEntity(fields: CommandFields, key: string): string {
   const t = fields[key]?.[0];
-  if (t?.kind !== "entity" || t.entity.context !== undefined) fail();
+  if (t?.kind !== "entity" || ownField(t.entity, "context") !== undefined) fail();
   return t.entity.id;
 }
 export function commandRef(fields: CommandFields, key: string): string {
   const t = fields[key]?.[0];
-  if (t?.kind !== "delta" || t.deltaRef.context !== undefined || !isCommandId(t.deltaRef.delta))
+  if (
+    t?.kind !== "delta" ||
+    ownField(t.deltaRef, "context") !== undefined ||
+    !isCommandId(t.deltaRef.delta)
+  )
     fail();
   return t.deltaRef.delta;
 }
@@ -171,8 +194,8 @@ function shapes(
     } else if (list.length !== (optional.includes(k) ? Math.min(list.length, 1) : 1)) fail();
   }
 }
-export function readConfiguration(delta: Delta): CommandFields {
-  const f = commandFields(delta);
+export function readConfiguration(given: Delta): CommandFields {
+  const f = fieldsOf(owned(given));
   shapes(f, ORDERS["endpoint/1"], [], ["caller", "installed"]);
   if (
     commandText(f, "kind") !== "endpoint/1" ||
@@ -185,7 +208,11 @@ export function readConfiguration(delta: Delta): CommandFields {
     if (t.kind !== "primitive" || typeof t.value !== "string" || !isCommandKey(t.value)) fail();
   }
   for (const t of f.installed) {
-    if (t.kind !== "delta" || t.deltaRef.context !== undefined || !isCommandId(t.deltaRef.delta))
+    if (
+      t.kind !== "delta" ||
+      ownField(t.deltaRef, "context") !== undefined ||
+      !isCommandId(t.deltaRef.delta)
+    )
       fail();
   }
   for (const k of ["quota", "max-deltas", "max-bytes"]) {
@@ -194,8 +221,8 @@ export function readConfiguration(delta: Delta): CommandFields {
   }
   return f;
 }
-export function readOperation(delta: Delta): "retain" | "evaluate" {
-  const f = commandFields(delta);
+export function readOperation(given: Delta): "retain" | "evaluate" {
+  const f = fieldsOf(owned(given));
   shapes(f, ORDERS["operation/1"]);
   if (commandText(f, "kind") !== "operation/1") fail();
   const name = commandEntity(f, "name");
@@ -216,8 +243,11 @@ export function readOperation(delta: Delta): "retain" | "evaluate" {
   for (const [k, v] of Object.entries(expected)) if (commandText(f, k) !== v) fail();
   return kind;
 }
-export function readRequestCommon(delta: Delta): CommandFields {
-  const f = commandFields(delta);
+export function readRequestCommon(given: Delta): CommandFields {
+  return requestCommon(owned(given));
+}
+function requestCommon(delta: Delta): CommandFields {
+  const f = fieldsOf(delta);
   for (const k of COMMON) {
     const n = f[k]?.length ?? 0;
     if (k === "expected-head" ? n > 1 : n !== 1) fail();
@@ -228,8 +258,8 @@ export function readRequestCommon(delta: Delta): CommandFields {
   if (f["expected-head"] && !head(commandText(f, "expected-head"))) fail();
   return f;
 }
-export function readRequestArguments(delta: Delta, kind: "retain" | "evaluate"): CommandFields {
-  const f = readRequestCommon(delta);
+export function readRequestArguments(given: Delta, kind: "retain" | "evaluate"): CommandFields {
+  const f = requestCommon(owned(given));
   const allowed = kind === "retain" ? [...COMMON, "payload"] : [...COMMON, ...EVALUATE_FIELDS];
   shapes(f, allowed, kind === "retain" ? ["expected-head"] : ["expected-head", "expected-digest"], [
     kind === "retain" ? "payload" : "definition",
@@ -237,7 +267,11 @@ export function readRequestArguments(delta: Delta, kind: "retain" | "evaluate"):
   if (kind === "retain") {
     if (!f.payload?.length) fail();
     for (const t of f.payload) {
-      if (t.kind !== "delta" || t.deltaRef.context !== undefined || !isCommandId(t.deltaRef.delta))
+      if (
+        t.kind !== "delta" ||
+        ownField(t.deltaRef, "context") !== undefined ||
+        !isCommandId(t.deltaRef.delta)
+      )
         fail();
     }
   } else {
@@ -255,7 +289,11 @@ export function readRequestArguments(delta: Delta, kind: "retain" | "evaluate"):
     for (const k of ["hyperschema-pin", "schema-pin", "expected-digest"])
       if (f[k] && !isCommandId(commandText(f, k))) fail();
     for (const t of f.definition ?? [])
-      if (t.kind !== "delta" || t.deltaRef.context !== undefined || !isCommandId(t.deltaRef.delta))
+      if (
+        t.kind !== "delta" ||
+        ownField(t.deltaRef, "context") !== undefined ||
+        !isCommandId(t.deltaRef.delta)
+      )
         fail();
     const ids = [
       commandRef(f, "hyperschema"),
@@ -287,9 +325,7 @@ export function commandDescriptionClaims(
     for (const target of targets) pointers.push({ role: COMMAND_PREFIX + key, target });
   }
   if (Object.keys(f).some((k) => !ORDERS[kind].includes(k))) fail();
-  const claims = { timestamp: at, validFrom: at, author, pointers };
-  assertValidClaims(claims);
-  return claims;
+  return validClaims({ timestamp: at, validFrom: at, author, pointers });
 }
 /** Seed convenience; explicit signer users sign commandDescriptionClaims themselves. */
 export function writeCommandDescription(
@@ -332,10 +368,14 @@ export interface ReadOutcome {
   readonly body: ReadonlyMap<string, CborValue>;
   readonly value?: Uint8Array;
 }
-export function readOutcome(delta: Delta): ReadOutcome {
-  if (delta.claims.timestamp !== delta.claims.validFrom || delta.claims.validUntil !== undefined)
+export function readOutcome(given: Delta): ReadOutcome {
+  const delta = owned(given);
+  if (
+    delta.claims.timestamp !== delta.claims.validFrom ||
+    ownField(delta.claims, "validUntil") !== undefined
+  )
     fail();
-  const f = commandFields(delta);
+  const f = fieldsOf(delta);
   shapes(f, ORDERS["outcome/1"]);
   if (commandText(f, "kind") !== "outcome/1" || !isCommandKey(commandEntity(f, "receiver"))) fail();
   commandRef(f, "configuration");

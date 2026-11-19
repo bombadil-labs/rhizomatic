@@ -19,7 +19,7 @@ import {
 export { firstByOrder } from "../resolve-kernel/resolution.js";
 import {
   comparePrimitives,
-  evalPred,
+  evalPredOn,
   strMatch,
   substituteHoles,
   type Bindings,
@@ -45,10 +45,7 @@ export function governedDeltas(input: DeltaSet, now: number, authors: AuthorSele
   const admits = typeof authors === "function" ? authors : (author: string) => authors.has(author);
   return fork(
     input,
-    (d) =>
-      admits(d.claims.author) &&
-      d.claims.validFrom <= now &&
-      (d.claims.validUntil === undefined || now < d.claims.validUntil),
+    (d) => admits(d.claims.author) && d.claims.validFrom <= now && validBefore(d.claims, now),
   );
 }
 
@@ -80,6 +77,7 @@ export function latestByKey(
 }
 
 import type { GroupKey, SchemaRefT, Term } from "../syntax/model.js";
+import { ownField, validBefore } from "../delta/own.js";
 export type { GroupKey, MaskPolicy, SchemaRefT, Term } from "../syntax/model.js";
 export { termContainsInView } from "../syntax/term-analysis.js";
 
@@ -168,7 +166,8 @@ export interface AliasedSpec {
 // member, so an aliased with no surviving mappings degrades to exact(name).
 export function aliasClosure(input: DeltaSet, spec: AliasedSpec, root?: string): string[] {
   const trustPred = spec.trust;
-  const trusted = trustPred === undefined ? undefined : (n: Delta) => evalPred(trustPred, n, root);
+  const trusted =
+    trustPred === undefined ? undefined : (n: Delta) => evalPredOn(trustPred, n, root);
   const negated = computeNegated(input, trusted);
   const mappings: { fragment: string; slot: string }[] = [];
   const slotConcepts = new Map<string, Set<string>>();
@@ -360,7 +359,7 @@ function evalGroup(
     for (const ptr of d.claims.pointers) {
       if (ptr.target.kind !== "entity" || ptr.target.entity.id !== root) continue;
       if (key.kind === "byTargetContext") {
-        const ctx = ptr.target.entity.context;
+        const ctx = ownField(ptr.target.entity, "context");
         if (ctx !== undefined) file(ctx, d);
       } else {
         file(ptr.role, d);
@@ -416,7 +415,7 @@ function evalTermWithin(
         budget,
         memo,
       );
-      return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
+      return dsetResult(fork(of.set, (d) => evalPredOn(pred, d, root)));
     }
     case "union": {
       const left = expectDSet(
@@ -478,7 +477,7 @@ function evalTermWithin(
             budget,
             memo,
           );
-          const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
+          const negated = computeNegated(of.set, (n) => evalPredOn(pred, n, root));
           return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
         }
       }
@@ -643,11 +642,7 @@ export function evalTermWithHooks(
   bindings?: Bindings,
 ): EvalResult {
   if (!Number.isFinite(now)) throw new Error("now must be a finite number");
-  const valid = fork(
-    input,
-    (d) =>
-      d.claims.validFrom <= now && (d.claims.validUntil === undefined || now < d.claims.validUntil),
-  );
+  const valid = fork(input, (d) => d.claims.validFrom <= now && validBefore(d.claims, now));
   return evalTermWithin(term, valid, root, registry, bindings, hooks.budget, hooks.memo);
 }
 
