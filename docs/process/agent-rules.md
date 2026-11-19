@@ -118,10 +118,10 @@ A purge, a peer delete and every success report of them are erasure code.
 
 ### The Rust export inventory
 
-- `contracts/command/rust-exports.json` must match the source. `precheck` says when it is stale.
-- The checker compares the dependency rows as a sorted list. Keep a repeated row repeated.
-- Update a row whose owner or target moved.
-- Keep the hand-written `classification` and `semantics` fields of existing rows.
+- Run `node tools/check-rust-command-boundaries.mjs --adopt` at the root. It rewrites
+  `contracts/command/rust-exports.json` from the source and prints rows added, removed, updated and kept.
+- It keeps the hand-written texts of an export. It replaces them when the owner or definition moved.
+- Read each row that it names, and correct a text that is no longer true.
 - Name a new module in `implementations/rust/examples/command_inventory.rs`.
 - The scanner refuses some forms, such as an inline production module and an undeclared
   capability. Read its message and change the code, not the scanner.

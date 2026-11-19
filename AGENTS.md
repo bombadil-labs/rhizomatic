@@ -182,6 +182,9 @@ GitHub issues when useful; coordinate design changes with Myk and Loam's owner.
   witnesses from `implementations/*/witness.json`; pass names to filter (`node tools/check-all.mjs ts elixir`)
 - Elixir: `cd implementations/elixir && mix test`
 - Haskell: `cd implementations/haskell && node check.mjs` (needs GHC ≥ 9.4 on PATH; no cabal, no deps)
+- Rust export inventory: `node tools/check-rust-command-boundaries.mjs --adopt` from the repo root
+  rewrites `contracts/command/rust-exports.json` from the live source and prints what it changed.
+  Without `--adopt` it only checks. The TypeScript twin is `node tools/command-inventory.mjs --adopt`.
 - Before every push: `node tools/precheck.mjs` from the repo root (a few minutes). It runs the
   contract and inventory checks, the package graph, the Rust boundaries, TS format/lint/types,
   Rust fmt/clippy, and regenerates every generated file to prove the committed bytes are fresh.

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Source-level enforcement, not compiler trait resolution or a transitive purity proof.
-import { readFileSync, existsSync } from 'node:fs';
-import { dirname, resolve, basename, join } from 'node:path';
+import { readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { dirname, resolve, basename, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { processOutput } from './command-tower-process.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -85,14 +85,55 @@ export function validateRustBoundaries(actual, inventory, boundaries, { compareI
   assert(recorded.size === inventory.exports.length, 'duplicate Rust export classification');
   for (const e of actual.exports) {
     const known = recorded.get(e.id);
-    assert(known, `unclassified public Rust export: ${e.id}`);
-    for (const key of ['id', 'source', 'symbol', 'owner', 'definition', 'target', 'cfg']) assert(stable(known[key] ?? null) === stable(e[key] ?? null), `stale Rust export ${e.id}: ${key}`);
+    assert(known, `unclassified public Rust export: ${e.id}${adoptHint}`);
+    for (const key of ['id', 'source', 'symbol', 'owner', 'definition', 'target', 'cfg']) assert(stable(known[key] ?? null) === stable(e[key] ?? null), `stale Rust export ${e.id}: ${key}${adoptHint}`);
     assert(contracts.get(known.contract)?.includes(known.owner) && boundaries.export_classifications.includes(known.classification) && typeof known.semantics === 'string' && known.semantics.trim(), `invalid Rust export contract/classification: ${e.id}`);
     recorded.delete(e.id);
   }
-  assert(recorded.size === 0, `removed Rust exports remain classified: ${[...recorded.keys()].join(', ')}`);
+  assert(recorded.size === 0, `removed Rust exports remain classified: ${[...recorded.keys()].join(', ')}${adoptHint}`);
   const canonicalRows = rows => rows.map(stable).sort();
-  assert(stable(canonicalRows(inventory.dependencies)) === stable(canonicalRows(actual.dependencies)), 'stale Rust dependency inventory; regenerate and review ownership');
+  assert(stable(canonicalRows(inventory.dependencies)) === stable(canonicalRows(actual.dependencies)), `stale Rust dependency inventory${adoptHint}`);
+}
+// --adopt: rewrite the recorded inventory from the live one. Recorded rows keep their place. A row
+// that matches no recorded row goes after the nearest earlier live row that does.
+const adoptHint = '. Run node tools/check-rust-command-boundaries.mjs --adopt and review the diff.';
+const exportShape = ['id', 'source', 'symbol', 'owner', 'definition', 'target', 'cfg'];
+const handWritten = ['contract', 'classification', 'semantics'];
+const sortedKeys = value => JSON.parse(stable(value));
+const sameTarget = d => stable([d.source, d.symbol, d.form, d.rawTarget ?? d.target ?? null]);
+function place(recorded, live, keys) {
+  const match = new Map(), taken = new Set();
+  for (const key of keys) {
+    const pool = new Map();
+    recorded.forEach((row, i) => { if (!taken.has(i)) pool.set(key(row), [...pool.get(key(row)) ?? [], i]); });
+    live.forEach((row, j) => { if (match.has(j)) return; const i = pool.get(key(row))?.shift(); if (i !== undefined) { match.set(j, i); taken.add(i); } });
+  }
+  const after = new Map(), at = new Map();
+  let last = -1;
+  live.forEach((row, j) => { if (match.has(j)) { last = match.get(j); at.set(last, row); } else after.set(last, [...after.get(last) ?? [], row]); });
+  const rows = [...(after.get(-1) ?? []).map(row => [undefined, row])];
+  recorded.forEach((old, i) => { if (at.has(i)) rows.push([old, at.get(i)]); rows.push(...(after.get(i) ?? []).map(row => [undefined, row])); });
+  return { rows, removed: recorded.length - taken.size };
+}
+// An export keeps its hand-written contract, classification and semantics. When its owner or
+// definition changed, those texts name the wrong thing, so the generator's texts replace them.
+function adoptExport(old, live, notes) {
+  if (!old) return live;
+  const changed = exportShape.filter(k => stable(old[k] ?? null) !== stable(live[k] ?? null));
+  if (changed.includes('owner') || changed.includes('definition')) {
+    notes.push(`regenerated ${live.id}: ${changed.join(', ')} changed; write its semantics again if they were hand-written`);
+    return live;
+  }
+  if (changed.length) notes.push(`kept the text of ${live.id}: ${changed.join(', ')} changed; check that its semantics are still true`);
+  return { ...live, ...Object.fromEntries(handWritten.filter(k => k in old).map(k => [k, old[k]])) };
+}
+export function adoptRustInventory(recorded, actual) {
+  const notes = [], count = (rows, removed) => ({ added: rows.filter(([old]) => !old).length, removed, updated: rows.filter(([old, row]) => old && stable(old) !== stable(row)).length, kept: rows.filter(([old, row]) => old && stable(old) === stable(row)).length });
+  const exports = place(recorded?.exports ?? [], actual.exports.map(sortedKeys), [e => e.id]);
+  exports.rows = exports.rows.map(([old, row]) => [old, sortedKeys(adoptExport(old, row, notes))]);
+  const dependencies = place(recorded?.dependencies ?? [], actual.dependencies.map(sortedKeys), [stable, sameTarget]);
+  const inventory = sortedKeys({ ...actual, exports: exports.rows.map(([, row]) => row), dependencies: dependencies.rows.map(([, row]) => row) });
+  return { inventory, notes, summary: { exports: count(exports.rows, exports.removed), dependencies: count(dependencies.rows, dependencies.removed) } };
 }
 export async function buildRustInventoryGenerator(repository = root) {
   const rust = await processOutput('rustc', ['--version', '--verbose']);
@@ -107,6 +148,16 @@ export async function generateRustInventory(binary, repository = root) { return 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   const binary = await buildRustInventoryGenerator();
   const actual = await generateRustInventory(binary);
-  validateRustBoundaries(actual, read(join(root, 'contracts/command/rust-exports.json')), read(join(root, 'contracts/command/BOUNDARIES.json')), { api: existsSync(join(root, 'contracts/command/API.json')) ? read(join(root, 'contracts/command/API.json')).contracts : [] });
+  const path = join(root, 'contracts/command/rust-exports.json');
+  if (process.argv.includes('--adopt')) {
+    const before = existsSync(path) ? readFileSync(path, 'utf8') : '';
+    const { inventory, notes, summary } = adoptRustInventory(before ? JSON.parse(before) : null, actual);
+    const after = JSON.stringify(inventory, null, 2) + '\n';
+    if (after !== before) writeFileSync(path, after);
+    for (const note of notes) console.log(note);
+    for (const [name, c] of Object.entries(summary)) console.log(`${name}: ${c.added} added, ${c.removed} removed, ${c.updated} updated, ${c.kept} kept`);
+    console.log(after === before ? 'The Rust inventory was already fresh. Nothing changed.' : `Wrote ${relative(root, path)}. Review the diff.`);
+  }
+  validateRustBoundaries(actual, read(path), read(join(root, 'contracts/command/BOUNDARIES.json')), { api: existsSync(join(root, 'contracts/command/API.json')) ? read(join(root, 'contracts/command/API.json')).contracts : [] });
   console.log(`Rust boundaries: ${actual.exports.length} classified exports and ${actual.dependencies.length} AST dependency records checked against live source.`);
 }
