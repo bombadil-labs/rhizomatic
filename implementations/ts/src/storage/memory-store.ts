@@ -40,6 +40,7 @@ import {
   type ChangeRecord,
   type ChangeRetention,
   type CreatePeerOptions,
+  type DeleteReport,
   type Entity,
   type ErasureClass,
   type ErasurePosture,
@@ -51,6 +52,7 @@ import {
   type IntegrityFault,
   type PeerId,
   type PeerStore,
+  type ProofReport,
   type PurgeOutcome,
   type PurgeReport,
   type Revision,
@@ -163,6 +165,8 @@ type PeerState = {
   /** The holdings digest by prefix (§4.7.6): the root and each node of more than 16 ids' children. */
   readonly digest: Index<DigestRow>;
   root: DigestNode;
+  /** Set by `deletePeer`. A snapshot of this state refuses from then on. */
+  deleted: boolean;
 };
 
 // The default histories: one counter for every memory store in this copy of the module, so two
@@ -339,6 +343,7 @@ class MemoryStore implements Store {
       feed: { records: [], start: 0, floor: 0 },
       digest: new Index(this.#meter),
       root: EMPTY_DIGEST,
+      deleted: false,
     };
     this.#peers.set(id, state);
     return this.#handle(state);
@@ -352,35 +357,103 @@ class MemoryStore implements Store {
   }
 
   #handle(state: PeerState): PeerStore {
-    // After `close`, `history` and `appFormat` refuse `store-closed`, as on the SQLite store.
-    const open = (): void => this.#open();
+    // After `close`, `history` and `appFormat` refuse `store-closed`, as on the SQLite store. A
+    // handle names the state it was made for: after `deletePeer` every call refuses
+    // `peer-absent`, also when a `createPeer` of the id made a new peer (§4.13 reading 144). As on
+    // the SQLite store, a call checks `store-closed`, then the form of its request, then the peer.
+    const live = (): PeerState => {
+      this.#open();
+      if (state.deleted) throw new StoreError("peer-absent", "the peer was deleted");
+      return state;
+    };
     return {
       id: state.id,
       get history() {
-        open();
-        return state.history;
+        return live().history;
       },
       erasure: { posture: state.posture, storeClass: this.#own.capabilities.erasure },
       get appFormat() {
-        open();
-        return state.appFormat;
+        return live().appFormat;
       },
-      read: async () => {
-        this.#open();
-        return this.#snapshot(state);
-      },
+      read: async () => this.#snapshot(live()),
       append: async (batch) => {
         this.#open();
-        return this.#append(state, batch);
+        return this.#append(live, batch);
       },
       purge: async (ids) => {
         this.#open();
-        return this.#purge(state, strings(ids, "purge: ids"));
+        const asked = strings(ids, "purge: ids");
+        return this.#purge(live(), asked);
       },
       changes: async (from, to) => {
         this.#open();
-        return this.#changes(state, from, to);
+        return this.#changes(live, from, to);
       },
+    };
+  }
+
+  /**
+   * The peer delete (§4.13 reading 144), all at once: no writer can come between its steps. A
+   * held id without its stored claims, or whose row counts no holder, refuses the delete before
+   * it removes anything, as the purge of that id does (reading 136). Process memory cannot
+   * prove absence, so the claim is `unproven`.
+   */
+  async deletePeer(id: PeerId): Promise<DeleteReport> {
+    this.#open();
+    if (typeof id !== "string" || id.length === 0 || !wellFormed(id))
+      throw new StoreError(
+        "invalid-request",
+        "deletePeer: the peer id must be a non-empty, well-formed string",
+      );
+    const state = this.#peers.get(id);
+    if (state === undefined) throw new StoreError("peer-absent", "deletePeer: no such peer");
+    const held = state.holdings.scan().map(([key]) => key);
+    for (const key of held) this.#releasable(state, key);
+    const gone = held.filter((key) => this.#release(state, key).gone);
+    const owed = state.owed.scan().map(([key]) => key);
+    for (const key of owed) this.#settle(state, key);
+    this.#peers.delete(id);
+    state.deleted = true;
+    return {
+      claim: "unproven",
+      boundary: PURGE_BOUNDARY,
+      // The report states what a second look finds, not what the removal intended.
+      surfaces: [
+        {
+          surface: "rows",
+          state: gone.some((key) => this.#rows.get(key) !== undefined) ? "owed" : "absent",
+        },
+        { surface: "index-entries", state: "absent" },
+        { surface: "process-memory", state: "unprovable" },
+      ],
+      retains: [
+        { surface: "change-feed", holds: "id" },
+        // As the purge's: a debt another peer still has for an id this peer held or owed.
+        ...([...held, ...owed].some((key) => this.#debtors.get(key) !== undefined)
+          ? [{ surface: "purge-debt" as const, holds: "id" as const }]
+          : []),
+      ],
+      released: held.length,
+      keptByOtherPeers: held.length - gone.length,
+    };
+  }
+
+  /**
+   * The proof for the whole store (§4.13 reading 145). A purge and a delete remove a row and its
+   * index entries in the same synchronous call, and no delete runs in pages, so no row the store
+   * deleted is in its maps. Process memory cannot prove absence, so the claim is `unproven`, as
+   * in its purge.
+   */
+  async prove(): Promise<ProofReport> {
+    this.#open();
+    return {
+      claim: "unproven",
+      boundary: PURGE_BOUNDARY,
+      surfaces: [
+        { surface: "rows", state: "absent" },
+        { surface: "index-entries", state: "absent" },
+        { surface: "process-memory", state: "unprovable" },
+      ],
     };
   }
 
@@ -388,7 +461,7 @@ class MemoryStore implements Store {
    * The answer of `changes`. Cost O(records returned + ids returned): `from` finds its slot by
    * arithmetic, and the records are frozen when written, so they are handed out as they are.
    */
-  #changes(state: PeerState, from: unknown, to: unknown): ChangePage {
+  #changes(live: () => PeerState, from: unknown, to: unknown): ChangePage {
     const revision = (value: unknown, what: string): Revision => {
       if (!(Number.isSafeInteger(value) && (value as number) >= 0))
         throw new StoreError("invalid-request", `changes: ${what} must be an integer, 0 or more`);
@@ -401,6 +474,7 @@ class MemoryStore implements Store {
     // future answers `resync-required`, not this.
     if (upTo !== undefined && upTo < after)
       throw new StoreError("invalid-request", "changes: to must not be less than from");
+    const state = live();
     const feed = state.feed;
     const current = state.revision;
     if (after > current || after < feed.floor) return { status: "resync-required", current };
@@ -469,6 +543,24 @@ class MemoryStore implements Store {
     return row;
   }
 
+  /**
+   * The stored row of an id this peer holds, checked before a release: a row that counts no
+   * holder, though this peer holds it, would stay after the release, so it fails (§4.13 reading
+   * 136). It reads only.
+   */
+  #releasable(state: PeerState, id: Id): Row {
+    const row = this.#row(state, id);
+    if (!(row.holders >= 1))
+      throw new StoreIntegrityError({
+        kind: "count-mismatch",
+        peer: state.id,
+        id,
+        key: "holders",
+        detail: `memory store: the row counts ${row.holders} holders and this peer holds it`,
+      });
+    return row;
+  }
+
   #held(state: PeerState, id: Id): VerifiedDelta | undefined {
     const holding = state.holdings.get(id);
     if (holding === undefined) return undefined;
@@ -493,6 +585,8 @@ class MemoryStore implements Store {
     const guard = (): void => {
       this.#open();
       if (released) throw new StoreError("snapshot-released", "the snapshot was released");
+      if (state.deleted)
+        throw new StoreError("snapshot-moved", "the peer was deleted after this snapshot");
       if (state.removedAt > revision)
         throw new StoreError("snapshot-moved", "the peer released a holding after this snapshot");
     };
@@ -664,20 +758,32 @@ class MemoryStore implements Store {
     return { deltas, applied };
   }
 
-  #append(state: PeerState, batch: Admission): AppendResult {
+  #append(live: () => PeerState, batch: Admission): AppendResult {
     // Each field of the call is read once. A second read could give another value.
     const { expectedHead, nextHead, added } = takeAppend(batch);
+    // The entries are copied and checked before the peer is read, as in the SQLite store. An
+    // accessor of an entry can call this store, a delete of this peer included; the peer read
+    // after it sees what that call did. A refusal among them still waits for the head
+    // compare-and-set, which answers first.
+    let entries: ReturnType<typeof admit>[] | undefined;
+    let refusal: unknown;
+    try {
+      if (!Array.isArray(added))
+        throw new StoreError("invalid-admission", "append: the added entries must be a list");
+      entries = added.map((entry: unknown) => admit(entry));
+    } catch (error) {
+      refusal = error;
+    }
+    const state = live();
     if (state.head !== expectedHead) return { status: "conflict" };
+    if (entries === undefined) throw refusal;
 
     // Validate the whole batch before the first write, so a refusal leaves nothing behind.
     // Every entry is checked, also one whose id is already held: a forged repeat is refused.
-    if (!Array.isArray(added))
-      throw new StoreError("invalid-admission", "append: the added entries must be a list");
     const fresh = new Map<Id, { claims: Claims; holding: Holding }>();
     const sequences = new Set<number>();
     let lastTransfer = state.lastTransfer;
-    for (let i = 0; i < added.length; i++) {
-      const { id, claims, sig, arrival } = admit(added[i]);
+    for (const { id, claims, sig, arrival } of entries) {
       const holding: Holding = { sig, arrival };
       if (fresh.has(id) || state.holdings.get(id) !== undefined) continue;
       const sequence = holding.arrival.sequence;
@@ -747,6 +853,22 @@ class MemoryStore implements Store {
     else this.#debtors.set(id, left);
   }
 
+  /**
+   * Releases the peer's holding of `id`: the holding and its index entries, and the stored row
+   * when no other peer holds the id (`gone`). A purge and a peer delete release only through this.
+   */
+  #release(state: PeerState, id: Id): { keys: ReturnType<typeof indexKeys>; gone: boolean } {
+    const row = this.#row(state, id);
+    const keys = indexKeys(row.claims);
+    for (const entity of keys.entities) this.#unfile(state.targets, entity, id);
+    for (const negated of keys.negated) this.#unfile(state.negators, negated, id);
+    state.holdings.delete(id);
+    state.count--;
+    row.holders--;
+    if (row.holders === 0) this.#rows.delete(id);
+    return { keys, gone: row.holders === 0 };
+  }
+
   #purge(state: PeerState, ids: readonly Id[]): PurgeReport {
     const targets: { id: Id; outcome: PurgeOutcome }[] = [];
     // The ids that leave this peer's holdings. A settled debt is not one: the peer stopped
@@ -757,31 +879,13 @@ class MemoryStore implements Store {
     const order = sorted(ids);
     // A held id without its stored claims, or whose row counts no holder, refuses the whole
     // purge before it removes anything (§4.13 reading 136).
-    for (const id of order) {
-      if (state.holdings.get(id) === undefined) continue;
-      const { holders } = this.#row(state, id);
-      if (!(holders >= 1))
-        throw new StoreIntegrityError({
-          kind: "count-mismatch",
-          peer: state.id,
-          id,
-          key: "holders",
-          detail: `memory store: the row counts ${holders} holders and this peer holds it`,
-        });
-    }
+    for (const id of order) if (state.holdings.get(id) !== undefined) this.#releasable(state, id);
     for (const id of order) {
       const holding = state.holdings.get(id);
       let outcome: PurgeOutcome;
       if (holding !== undefined) {
-        const row = this.#row(state, id);
-        const keys = indexKeys(row.claims);
-        for (const entity of keys.entities) this.#unfile(state.targets, entity, id);
-        for (const negated of keys.negated) this.#unfile(state.negators, negated, id);
-        state.holdings.delete(id);
-        state.count--;
-        row.holders--;
-        if (row.holders === 0) this.#rows.delete(id);
-        else this.#owe(state, id);
+        const { keys, gone } = this.#release(state, id);
+        if (!gone) this.#owe(state, id);
         released.push(id);
         // The report states what a second look finds, not what the removal intended.
         indexesOwed ||=

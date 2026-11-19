@@ -188,6 +188,94 @@ Step 4d adds more, listed under Breaking.
 - The memory store's test meter counts the digest's path in `append` and `purge`. A rail bounds
   their lookups by a fixed cost per level of the tree for each changed id, with the levels
   counted from the ids.
+- **Peer delete** (step 4d, §4.13 reading 144). `Store.deletePeer(id)` deletes a peer: its
+  holdings, index entries, change records, purge debts, records of removals and digest, then the
+  peer. Bytes that another peer holds stay. It answers a `DeleteReport`
+  `{claim, boundary, surfaces, retains, released, keptByOtherPeers}`, in the purge report's
+  words, with two counts and no ids. The SQLite store marks the peer first, releases its
+  holdings in pages of 256, one write transaction each, removes the peer row last, and then
+  rebuilds and decides the report as a purge does. A delete that dies leaves the mark, and the
+  next `deletePeer` of the id finishes it. From the mark on, every call on the peer with a
+  well-formed request refuses `peer-absent`, every snapshot refuses `snapshot-moved`, and `createPeer` of the id refuses
+  `peer-exists` until the delete ends. A history is never issued again, so a peer created later under the id gets a
+  new one. The memory store deletes all at once, and its claim is always `unproven`. The package
+  root exports `DeleteReport`. Rust takes peer delete in step 4e.
+- Every call is bound to one peer, not to its id. A delete works only on the peer row its first
+  transaction read (`peer.origin`, the history `createPeer` issued), and removes that row only on
+  the same terms. A purge's last transaction refuses `peer-absent` for a peer created again under
+  the id. Every call of an old handle with a well-formed request refuses `peer-absent` after a
+  delete, also after a `createPeer` of the id: a host gets a new handle. The same holds for a
+  page of an export listing of one peer.
+- Both stores check a call of a handle in one order: `store-closed`, then the form of the
+  request, then the peer. The form is what the call checks before it reads the peer: the ids of
+  `purge`, `from` and `to` of `changes`, and the fields, next head and frame of an `append` (not
+  its entries). So a malformed request answers the same code on a live peer's handle and on a
+  deleted peer's handle. The memory store checked the peer first before; a live peer's answers
+  do not change.
+- A delete of a `proven` peer can answer `unproven`, also with one deleter: when another
+  connection's checkpoint stays busy past the truncate's bound (reading 143), when a reader
+  holds the log, or when a lock wait passes `busyTimeoutMs`. A host does not repeat the call
+  to get the proof: a second `deletePeer` of the id refuses `peer-absent` or deletes a new peer.
+  It calls `Store.prove()` (below). Two deletes of one peer at once
+  share the work. The other delete's report carries the proof only when it answered `proven`.
+  When no wait passes `busyTimeoutMs`, at least one of the two answers `proven`.
+- After the round-6 review of PR #101: the memory store's `append` copies and checks its
+  entries before it reads the peer, as the SQLite store does. An accessor of an entry that
+  deletes the peer now makes the append refuse `peer-absent`; before, the append wrote bytes
+  that no peer held. Among several faults of one batch, a malformed entry now answers before a
+  sequence that does not pass, as on the SQLite store; the code is `invalid-admission` in both
+  cases. The `peer-deleting` fault and the `peer-exists` refusal of `createPeer` say that a
+  delete "has not ended" and may still run. Reading 144 states what `close()` during a delete
+  does, and a rail holds the `origin` compare of `fsck`.
+- After the transaction that removes the peer row, a delete does not refuse
+  `store-unavailable`. When its last transaction fails for any engine error (a lock, a full
+  disk, an I/O error), it answers its counts with every file surface `owed` (`temp-files` is
+  `unprovable` on a store of class `unprovable`). The host sees the cause at its next call. If
+  the commit that removes the peer row fails in doubt, the call refuses, and a repeat answers
+  `peer-absent` when that commit was durable.
+- A refusal before the transaction that removes the peer row leaves the mark. For every engine
+  error, its message says that the call did not finish, that a peer it marked stays marked for
+  delete until a delete ends it, and that a repeat deletes the peer that has the id at that time.
+  For a transient error (reading 105) it says that the store cannot serve the call now, and does
+  not say "ask again". For any other error it first names the error and says that it is not a
+  lock. A failed commit of the transaction that removes the peer row gives the same message. A
+  repeat goes on from there while the mark is there; its
+  counts cover only what the repeat released. If another delete of the peer ended and the id
+  was created again, the repeat is a new call and deletes the new peer. A host that must not
+  delete a new peer reads the peer before it repeats.
+- On the memory store, a delete's `retains` names `purge-debt` also when another peer's
+  purge debt names an id the deleted peer owed from an earlier purge. Before, it checked only
+  the ids the delete released. Its rule is now the purge's. What a delete removes does not
+  change.
+- On the memory store, a delete refuses `count-mismatch` (key `holders`) for a held id whose row
+  counts fewer than 1 holder, before it removes anything, by the purge's check. Before, it
+  removed the peer and its report counted that id as kept by another peer, though none held it.
+  What a delete removes does not grow.
+- Known gap: on a damaged memory store, a row can count 1 or more holders but fewer than hold
+  it. A delete of one holder then removes the row, and another holder's `get` fails
+  `claims-unreadable`. The purge has the same gap. The delete report gives no sign of the loss:
+  its values are the values of a correct delete. Only `fsck` shows it. Before the call, `fsck`
+  reports the row (`count-mismatch`, key `holders`). After the call, it reports
+  `claims-unreadable` and `index-stray` for the other peer. The SQLite store keeps no count and
+  cannot reach it.
+- `IntegrityFaultKind` gains `peer-deleting` in both witnesses; the Rust witness has it as data,
+  with no producer until step 4e.
+- What can now be deleted that could not be deleted before: every holding, index entry, change
+  record, purge debt, record of a removal, digest row and peer row of one peer, and the bytes of
+  each delta that no other peer holds, by one call. Never a peer created later under the same
+  id. The exception: on a damaged memory store, where a row counts fewer holders than hold it,
+  one call deletes bytes that another peer holds (the known gap above).
+- **A proof for the whole store** (step 4d, §4.13 reading 145). `Store.prove()` asks for the
+  proof of every removal that committed before its last transaction, and names no peer and no
+  id. It answers a `ProofReport` `{claim, boundary, surfaces}` in the purge report's words. The
+  SQLite store runs the rebuild of a purge and decides the report by the same rule, in one
+  shared copy: every file surface is `absent` only when the log is empty at the lock, the file
+  is clean, and no peer is marked by a delete that has not ended. It removes no row and ends no
+  record of a removal: a record ends in its own peer's next ask. On a store of class
+  `unprovable` it runs no rebuild and never says `proven`. The memory store answers `unproven`,
+  as its purge does. Both refuse `store-closed` after close. The package root exports
+  `ProofReport`. Rust takes `prove()` in step 4e. What can now be deleted that could not be
+  deleted before: nothing.
 - Step 4e starts. The Rust purge report gains `retains` (`Retained`, `RetainedSurface`), and
   the Rust refusal codes gain `StoreErrorCode::StoreUnavailable` (§4.13 readings 105 and 108).
   The Rust memory store names `change-feed`, and `purge-debt` while a purge debt of any peer
@@ -260,8 +348,8 @@ Step 4d adds more, listed under Breaking.
 - Step 4e: a Rust read can fail with damage that is not a refusal (§4.13 reading 136). The new
   `store::StoreFailure` is `Refused(StoreError)` or `Integrity(IntegrityFault)`. The five
   `Snapshot` reads, `PeerStore::purge`, `PeerStore::changes` and every `Listing` answer it. The
-  new `IntegrityFault {kind, peer, id, key, detail}` and `IntegrityFaultKind` (the eleven kinds
-  of TypeScript) are data only: no Rust store produces a fault yet. `FeedError` and
+  new `IntegrityFault {kind, peer, id, key, detail}` and `IntegrityFaultKind` (the kinds of
+  TypeScript) are data only: no Rust store produces a fault yet. `FeedError` and
   `StoreReadError` gain an `Integrity` arm and `From<StoreFailure>`. An integrity fault has no
   refusal code, so `with_snapshot` and every reader pass it up after one run. No behavior
   changes. What a purge removes does not change.
@@ -356,10 +444,18 @@ Step 4d adds more, listed under Breaking.
   `hasOwnProperty` are not on them; use `Object.hasOwn`. A deep comparison that checks
   prototypes, such as `isDeepStrictEqual` or `toStrictEqual`, does not equal a plain object; a
   `structuredClone` of the delta is plain.
-- **SQLite format `rhizomatic-store-sqlite/6`.** The `peer` table gains `removed_at`,
-  `max_transfer` and `root`, `app_format` gains a check, and the `digest` table is new. Open
-  refuses a file of format `/1` to `/5` with `open-failed`, names both formats and changes no
-  byte. No migration ships: create a new file and append again.
+- **SQLite format `rhizomatic-store-sqlite/7`.** The `peer` table gains `removed_at`,
+  `max_transfer`, `root`, `state` and `origin`, `app_format` gains a check, the `digest` table is new, and
+  a trigger counts the delete of a `peer` row in `residue.dirty`. Open refuses a file of format
+  `/1` to `/6` with `open-failed`, names both formats and changes no byte. No migration ships:
+  create a new file and append again.
+- **`Store` has two new members, `deletePeer` and `prove`.** A host that builds its own `Store`
+  object must give both.
+- **`IntegrityFaultKind` has a new kind, `peer-deleting`.** `fsck` reports it for a peer that is
+  marked when the scan lists it, and checks no other row of that peer. A peer that a delete marks
+  later in the scan gets no fault from that scan: each later step of a peer reads the peer row in
+  its own transaction and stops when the row is marked, absent or of another `origin`. A host
+  that matches every kind must add it.
 - **`Snapshot` has two more new members, `root` and `digest`.** A host that builds its own
   `Snapshot` object must pass them through. A store without the digest gives `root` null and
   refuses `digest` with `capability-absent`.

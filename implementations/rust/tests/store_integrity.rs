@@ -263,7 +263,7 @@ fn pushdown() -> Pushdown {
 }
 
 #[test]
-fn the_eleven_fault_kinds_have_the_names_of_the_typescript_union() {
+fn the_twelve_fault_kinds_have_the_names_of_the_typescript_union() {
     use IntegrityFaultKind::*;
     let kinds = [
         ClaimsMismatch,
@@ -277,13 +277,14 @@ fn the_eleven_fault_kinds_have_the_names_of_the_typescript_union() {
         OrphanBytes,
         Engine,
         DigestMismatch,
+        PeerDeleting,
     ];
     // A new kind fails to compile here until it is in the list above.
     for kind in kinds {
         match kind {
             ClaimsMismatch | ClaimsUnreadable | IndexMissing | IndexStray | ColumnMismatch
             | CountMismatch | SequenceMismatch | FeedGap | OrphanBytes | Engine
-            | DigestMismatch => {}
+            | DigestMismatch | PeerDeleting => {}
         }
     }
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../ts/src/storage/store.ts");
@@ -293,7 +294,7 @@ fn the_eleven_fault_kinds_have_the_names_of_the_typescript_union() {
     let names: Vec<&str> = union.split('"').skip(1).step_by(2).collect();
     let ours: Vec<&str> = kinds.iter().map(|kind| kind.as_str()).collect();
     assert_eq!(ours, names);
-    assert_eq!(names.len(), 11);
+    assert_eq!(names.len(), 12);
 }
 
 #[test]
