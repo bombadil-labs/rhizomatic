@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { adoptRustInventory, validateRustBoundaries } from './check-rust-command-boundaries.mjs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, statSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { adoptRustInventory, adoptInventoryFile, validateRustBoundaries, buildRustInventoryGenerator, generateRustInventory } from './check-rust-command-boundaries.mjs';
 const boundaries = JSON.parse(readFileSync(new URL('../contracts/command/BOUNDARIES.json', import.meta.url)));
 const top = { format: 'rhizomatic-semantic-api-inventory/1', witness: 'rust', analysis: 'fixture' };
 const generated = (owner, module, symbol, extra = {}) => ({ id: `rust:${module}:${symbol}`, owner, symbol, source: `implementations/rust/src/${module}.rs`, definition: 'function', contract: `rhizomatic.${owner}/native-api/1`, classification: 'native_extension', semantics: `${owner} owns the existing ${module}::${symbol} function.`, cfg: [], ...extra });
@@ -86,7 +88,7 @@ test('an export whose owner moved takes the generator text, because the kept con
   const recorded = inventory([written(generated('delta', 'cbor', 'encode'), 'delta encodes by hand.')], []);
   const { inventory: out, notes, summary } = adopt(recorded, inventory([live], []));
   assert.deepEqual(out.exports[0], live);
-  assert.deepEqual(notes, ['regenerated rust:cbor:encode: owner changed; write its semantics again if they were hand-written']);
+  assert.deepEqual(notes, ["regenerated rust:cbor:encode: owner changed. The generator's text replaced its contract, classification and semantics. Write them again if they were hand-written. Old classification: implementation_helper. Old semantics: delta encodes by hand."]);
   assert.deepEqual(summary.exports, { added: 0, removed: 0, updated: 1, kept: 0 });
   accepts(inventory([live], []), out);
   const kept = { ...out, exports: [{ ...live, contract: 'rhizomatic.delta/native-api/1' }] };
@@ -102,4 +104,85 @@ test('a fresh inventory is a no-op: the second run changes nothing and reports e
   assert.deepEqual(second.notes, []);
   assert.deepEqual(second.summary, { exports: { added: 0, removed: 0, updated: 0, kept: 2 }, dependencies: { added: 0, removed: 0, updated: 0, kept: 3 } });
   assert.equal(first.inventory.exports.find(e => e.id === 'rust:cbor:a').semantics, 'A by hand.');
+});
+
+const scratch = body => { const dir = mkdtempSync(join(tmpdir(), 'rhz-rust-adopt-')); try { return body(join(dir, 'rust-exports.json')); } finally { rmSync(dir, { recursive: true, force: true }); } };
+const fileText = value => JSON.stringify(value, null, 2) + '\n';
+const sorted = value => Array.isArray(value) ? value.map(sorted) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(k => [k, sorted(value[k])])) : value;
+
+test('a dependency row repeated three or four times is kept in place: no row added or removed, and the file is not written', () => {
+  const x = dep('cbor', 'encode', 'crate::cbor::X'), a = dep('cbor', 'encode', 'crate::cbor::A');
+  for (const repeats of [3, 4]) {
+    const live = inventory([generated('delta', 'cbor', 'encode')], [...Array(repeats).fill(x), a]);
+    const { inventory: out, summary } = adopt(live, live);
+    assert.deepEqual(summary.dependencies, { added: 0, removed: 0, updated: 0, kept: repeats + 1 });
+    assert.equal(fileText(out), fileText(sorted(live)));
+    scratch(path => {
+      writeFileSync(path, fileText(sorted(live)));
+      const bytes = readFileSync(path, 'utf8'), written = statSync(path).mtimeMs;
+      const lines = adoptInventoryFile(path, live, boundaries);
+      assert.deepEqual(lines.slice(-3), ['exports: 0 added, 0 removed, 0 updated, 1 kept', `dependencies: 0 added, 0 removed, 0 updated, ${repeats + 1} kept`, 'The Rust inventory was already fresh. Nothing changed.']);
+      assert.equal(readFileSync(path, 'utf8'), bytes);
+      assert.equal(statSync(path).mtimeMs, written);
+    });
+  }
+  const moved = adopt(inventory([generated('delta', 'cbor', 'encode')], [x, x, a, x]), inventory([generated('delta', 'cbor', 'encode')], [x, x, x, a]));
+  assert.deepEqual(moved.inventory.dependencies.map(d => d.target), ['crate::cbor::X', 'crate::cbor::X', 'crate::cbor::A', 'crate::cbor::X'], 'the recorded order stays');
+  assert.deepEqual(moved.summary.dependencies, { added: 0, removed: 0, updated: 0, kept: 4 });
+});
+
+test('a removed export and an added export each get a line, so a rename shows its lost hand text', () => {
+  const recorded = inventory([written(generated('delta', 'cbor', 'encode'), 'Encodes by hand.')], []);
+  const live = inventory([generated('delta', 'cbor', 'encode_v2')], []);
+  const { notes, summary } = adopt(recorded, live);
+  assert.deepEqual(notes, [
+    "added rust:cbor:encode_v2: its contract, classification and semantics are the generator's text. Write them by hand if they are not true.",
+    'removed rust:cbor:encode: its hand-written contract, classification and semantics are lost unless you copy them to the row that replaces it. Old classification: implementation_helper. Old semantics: Encodes by hand.',
+  ]);
+  assert.deepEqual(summary.exports, { added: 1, removed: 1, updated: 0, kept: 0 });
+});
+
+test('an export whose definition alone changed is regenerated, and the tool names it with its old text', () => {
+  const live = generated('delta', 'cbor', 'encode', { definition: 'struct' });
+  const recorded = inventory([written(generated('delta', 'cbor', 'encode'), 'Encodes by hand.')], []);
+  const { inventory: out, notes } = adopt(recorded, inventory([live], []));
+  assert.deepEqual(out.exports[0], live);
+  assert.deepEqual(notes, ["regenerated rust:cbor:encode: definition changed. The generator's text replaced its contract, classification and semantics. Write them again if they were hand-written. Old classification: implementation_helper. Old semantics: Encodes by hand."]);
+});
+
+test('the file is not written when the checker refuses the live source', () => {
+  const live = inventory([generated('delta', 'cbor', 'encode')], [{ ...dep('cbor', 'encode', 'std::time::SystemTime::now'), form: 'syn-external-path', targetOwner: undefined }]);
+  scratch(path => {
+    const bytes = fileText(inventory([], []));
+    writeFileSync(path, bytes);
+    assert.throws(() => adoptInventoryFile(path, live, boundaries), /undeclared Rust external\/ambient capability/);
+    assert.equal(readFileSync(path, 'utf8'), bytes);
+  });
+});
+
+test('an empty or malformed inventory file is refused by name and not written; a missing file is created', () => {
+  const live = inventory([generated('delta', 'cbor', 'encode')], [dep('cbor', 'encode', 'crate::cbor::X')]);
+  scratch(path => {
+    for (const [bytes, message] of [['', /rust-exports\.json is empty/], ['  \n', /rust-exports\.json is empty/], ['{"exports": [', /rust-exports\.json is not valid JSON/]]) {
+      writeFileSync(path, bytes);
+      assert.throws(() => adoptInventoryFile(path, live, boundaries), message);
+      assert.equal(readFileSync(path, 'utf8'), bytes);
+    }
+    rmSync(path);
+    assert.match(adoptInventoryFile(path, live, boundaries).at(-1), /^Wrote .*rust-exports\.json\. Review the diff\.$/);
+    assert.ok(existsSync(path));
+    accepts(live, JSON.parse(readFileSync(path, 'utf8')));
+  });
+});
+
+test('--adopt on the committed inventory and the live source finds it already fresh and leaves the file unchanged', async () => {
+  const actual = await generateRustInventory(await buildRustInventoryGenerator());
+  const committed = readFileSync(new URL('../contracts/command/rust-exports.json', import.meta.url), 'utf8');
+  scratch(path => {
+    writeFileSync(path, committed);
+    const lines = adoptInventoryFile(path, actual, boundaries);
+    assert.equal(lines.at(-1), 'The Rust inventory was already fresh. Nothing changed.');
+    assert.equal(lines.length, 3, lines.join('\n'));
+    assert.equal(readFileSync(path, 'utf8'), committed);
+  });
 });

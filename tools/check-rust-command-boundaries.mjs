@@ -113,27 +113,46 @@ function place(recorded, live, keys) {
   live.forEach((row, j) => { if (match.has(j)) { last = match.get(j); at.set(last, row); } else after.set(last, [...after.get(last) ?? [], row]); });
   const rows = [...(after.get(-1) ?? []).map(row => [undefined, row])];
   recorded.forEach((old, i) => { if (at.has(i)) rows.push([old, at.get(i)]); rows.push(...(after.get(i) ?? []).map(row => [undefined, row])); });
-  return { rows, removed: recorded.length - taken.size };
+  return { rows, removed: recorded.filter((_, i) => !taken.has(i)) };
 }
 // An export keeps its hand-written contract, classification and semantics. When its owner or
 // definition changed, those texts name the wrong thing, so the generator's texts replace them.
+const oldText = old => `Old classification: ${old.classification}. Old semantics: ${old.semantics}`;
 function adoptExport(old, live, notes) {
-  if (!old) return live;
+  if (!old) {
+    notes.push(`added ${live.id}: its contract, classification and semantics are the generator's text. Write them by hand if they are not true.`);
+    return live;
+  }
   const changed = exportShape.filter(k => stable(old[k] ?? null) !== stable(live[k] ?? null));
   if (changed.includes('owner') || changed.includes('definition')) {
-    notes.push(`regenerated ${live.id}: ${changed.join(', ')} changed; write its semantics again if they were hand-written`);
+    notes.push(`regenerated ${live.id}: ${changed.join(', ')} changed. The generator's text replaced its contract, classification and semantics. Write them again if they were hand-written. ${oldText(old)}`);
     return live;
   }
   if (changed.length) notes.push(`kept the text of ${live.id}: ${changed.join(', ')} changed; check that its semantics are still true`);
   return { ...live, ...Object.fromEntries(handWritten.filter(k => k in old).map(k => [k, old[k]])) };
 }
 export function adoptRustInventory(recorded, actual) {
-  const notes = [], count = (rows, removed) => ({ added: rows.filter(([old]) => !old).length, removed, updated: rows.filter(([old, row]) => old && stable(old) !== stable(row)).length, kept: rows.filter(([old, row]) => old && stable(old) === stable(row)).length });
+  const notes = [], count = (rows, removed) => ({ added: rows.filter(([old]) => !old).length, removed: removed.length, updated: rows.filter(([old, row]) => old && stable(old) !== stable(row)).length, kept: rows.filter(([old, row]) => old && stable(old) === stable(row)).length });
   const exports = place(recorded?.exports ?? [], actual.exports.map(sortedKeys), [e => e.id]);
   exports.rows = exports.rows.map(([old, row]) => [old, sortedKeys(adoptExport(old, row, notes))]);
+  for (const old of exports.removed) notes.push(`removed ${old.id}: its hand-written contract, classification and semantics are lost unless you copy them to the row that replaces it. ${oldText(old)}`);
   const dependencies = place(recorded?.dependencies ?? [], actual.dependencies.map(sortedKeys), [stable, sameTarget]);
   const inventory = sortedKeys({ ...actual, exports: exports.rows.map(([, row]) => row), dependencies: dependencies.rows.map(([, row]) => row) });
   return { inventory, notes, summary: { exports: count(exports.rows, exports.removed), dependencies: count(dependencies.rows, dependencies.removed) } };
+}
+// Refuses a live source that the checker refuses, and an empty or malformed file, before it writes.
+// A missing file is created.
+export function adoptInventoryFile(path, actual, boundaries) {
+  validateRustBoundaries(actual, null, boundaries, { compareInventory: false });
+  const name = path.startsWith(root) ? relative(root, path) : path;
+  const before = existsSync(path) ? readFileSync(path, 'utf8') : null;
+  assert(before === null || before.trim(), `${name} is empty. Restore it from git, then run --adopt again.`);
+  let recorded = null;
+  try { recorded = before === null ? null : JSON.parse(before); } catch (error) { throw Error(`${name} is not valid JSON: ${error.message}. Restore it from git, then run --adopt again.`); }
+  const { inventory, notes, summary } = adoptRustInventory(recorded, actual);
+  const after = JSON.stringify(inventory, null, 2) + '\n';
+  if (after !== before) writeFileSync(path, after);
+  return [...notes, ...Object.entries(summary).map(([kind, c]) => `${kind}: ${c.added} added, ${c.removed} removed, ${c.updated} updated, ${c.kept} kept`), after === before ? 'The Rust inventory was already fresh. Nothing changed.' : `Wrote ${name}. Review the diff.`];
 }
 export async function buildRustInventoryGenerator(repository = root) {
   const rust = await processOutput('rustc', ['--version', '--verbose']);
@@ -149,15 +168,8 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
   const binary = await buildRustInventoryGenerator();
   const actual = await generateRustInventory(binary);
   const path = join(root, 'contracts/command/rust-exports.json');
-  if (process.argv.includes('--adopt')) {
-    const before = existsSync(path) ? readFileSync(path, 'utf8') : '';
-    const { inventory, notes, summary } = adoptRustInventory(before ? JSON.parse(before) : null, actual);
-    const after = JSON.stringify(inventory, null, 2) + '\n';
-    if (after !== before) writeFileSync(path, after);
-    for (const note of notes) console.log(note);
-    for (const [name, c] of Object.entries(summary)) console.log(`${name}: ${c.added} added, ${c.removed} removed, ${c.updated} updated, ${c.kept} kept`);
-    console.log(after === before ? 'The Rust inventory was already fresh. Nothing changed.' : `Wrote ${relative(root, path)}. Review the diff.`);
-  }
-  validateRustBoundaries(actual, read(path), read(join(root, 'contracts/command/BOUNDARIES.json')), { api: existsSync(join(root, 'contracts/command/API.json')) ? read(join(root, 'contracts/command/API.json')).contracts : [] });
+  const boundaries = read(join(root, 'contracts/command/BOUNDARIES.json'));
+  if (process.argv.includes('--adopt')) for (const line of adoptInventoryFile(path, actual, boundaries)) console.log(line);
+  validateRustBoundaries(actual, read(path), boundaries, { api: existsSync(join(root, 'contracts/command/API.json')) ? read(join(root, 'contracts/command/API.json')).contracts : [] });
   console.log(`Rust boundaries: ${actual.exports.length} classified exports and ${actual.dependencies.length} AST dependency records checked against live source.`);
 }

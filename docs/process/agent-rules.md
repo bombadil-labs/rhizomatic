@@ -47,6 +47,12 @@ So a merge commit needs the whole bar too.
 
 Commit first. The generators must then leave the tree clean.
 
+Use the compiler that CI uses. Set `RUSTUP_TOOLCHAIN=1.100.0` in the shell for steps 2 to 6.
+That covers the Rust steps, the WASM step and `node tools/precheck.mjs`. Install it once:
+`rustup toolchain install 1.100.0 --no-self-update -c rustfmt,clippy -t wasm32-unknown-unknown`.
+To raise the pin, change in one commit the seven `dtolnay/rust-toolchain` lines of `ci.yml`, this
+paragraph and the Commands section of `AGENTS.md`. Then run the heavy tier once.
+
 1. In `implementations/ts`: `npm run gen-vectors`, `npm run docs:build`, then `npm run check`.
 2. In `implementations/rust`: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
    `cargo test`, `cargo clippy --lib -- -D warnings`.
@@ -56,9 +62,11 @@ Commit first. The generators must then leave the tree clean.
 4. The WASM clippy and build, as the Rust witness job of `.github/workflows/ci.yml` runs them.
 5. At the root: `node tools/precheck.mjs` and `node tools/check-rust-command-boundaries.mjs`.
 6. At the root: the `node --test` line of the `contracts` job of `ci.yml`.
-7. `node tools/check-all.mjs haskell elixir`, for a change to `vectors/`, to the Haskell or Elixir
-   witness, or to a witness's delta, hash or canonical encoding code. When those tools are not
-   installed, say so in the body. CI runs them for a code change.
+7. Run `node tools/check-all.mjs haskell elixir` for a change to `vectors/` or to the Haskell or
+   Elixir witness. Run it for a change to the delta, hash or canonical encoding code of the other
+   witnesses: `implementations/ts/src/delta/`, and `delta.rs`, `hash.rs` and `cbor.rs` in
+   `implementations/rust/src/`. Run it where GHC and Elixir are installed. When they are not, say
+   so in the body. CI runs them for a code change.
 
 What a change can skip:
 
@@ -95,7 +103,7 @@ A purge, a peer delete and every success report of them are erasure code.
   count.
 - The change widens when the new build removes a delta that the old build kept on that state.
 - An old error or refusal keeps the delta. A removal there is a widening.
-- A crash is a panic or an abort of the old build. Only a crash is not kept behavior.
+- A crash is a panic or an abort of the old release build. Only a crash is not kept behavior.
 - An error that the old code returns or throws keeps the delta, also part-way through a call.
 - Name each crash state in the body. When you are not sure that it is a crash, treat it as kept.
 - When the change widens, write at the top of the body that the owner merges it.
@@ -121,7 +129,11 @@ A purge, a peer delete and every success report of them are erasure code.
 - Run `node tools/check-rust-command-boundaries.mjs --adopt` at the root. It rewrites
   `contracts/command/rust-exports.json` from the source and prints rows added, removed, updated and kept.
 - It keeps the hand-written texts of an export. It replaces them when the owner or definition moved.
-- Read each row that it names, and correct a text that is no longer true.
+- It prints one line for each export that it adds, removes or regenerates, and for each export
+  whose text it kept while a field changed. A line for a replaced or removed text shows the old text.
+- Read each line, and correct a text that is no longer true.
+- A removed export loses its hand-written texts. For a rename, copy them to the new row.
+- It refuses an empty or malformed file, and a source that the checker refuses. It writes nothing then.
 - Name a new module in `implementations/rust/examples/command_inventory.rs`.
 - The scanner refuses some forms, such as an inline production module and an undeclared
   capability. Read its message and change the code, not the scanner.

@@ -182,9 +182,11 @@ GitHub issues when useful; coordinate design changes with Myk and Loam's owner.
   witnesses from `implementations/*/witness.json`; pass names to filter (`node tools/check-all.mjs ts elixir`)
 - Elixir: `cd implementations/elixir && mix test`
 - Haskell: `cd implementations/haskell && node check.mjs` (needs GHC ≥ 9.4 on PATH; no cabal, no deps)
-- Rust toolchain: every CI job uses Rust 1.100.0 (`dtolnay/rust-toolchain@1.100.0` in `ci.yml`).
-  To build with the CI compiler: `rustup toolchain install 1.100.0 -c rustfmt,clippy -t wasm32-unknown-unknown`,
-  then `cargo +1.100.0 ...`. To raise the pin, change all seven lines of `ci.yml` in one commit.
+- Rust toolchain: every CI job that installs Rust uses Rust 1.100.0 (`dtolnay/rust-toolchain@1.100.0`
+  in `ci.yml`). Set `RUSTUP_TOOLCHAIN=1.100.0` for the Rust commands and for `node tools/precheck.mjs`.
+  Install it once: `rustup toolchain install 1.100.0 --no-self-update -c rustfmt,clippy -t wasm32-unknown-unknown`.
+  To raise the pin, change in one commit the seven lines of `ci.yml`, this bullet and the bar in
+  `docs/process/agent-rules.md`. Then run the heavy tier once.
 - Rust export inventory: `node tools/check-rust-command-boundaries.mjs --adopt` from the repo root
   rewrites `contracts/command/rust-exports.json` from the live source and prints what it changed.
   Without `--adopt` it only checks. The TypeScript twin is `node tools/command-inventory.mjs --adopt`.
