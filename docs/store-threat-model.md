@@ -48,8 +48,8 @@ medium, a bug, or a write by the operator.
 - A store does not defend against damage that an adversary shapes. A party that can write the
   files is the operator, and the operator is trusted.
 - After a crash, the next open completes the cut write, refuses, or leaves a state that `fsck`
-  names. One case needs a second call: a cut `deletePeer` leaves the peer marked, `fsck` reports
-  `peer-deleting`, and a second `deletePeer` ends the delete.
+  names. A cut `deletePeer` can need more calls from the host. The proposal gives each case in
+  §4.13, in the readings on `deletePeer` and `Store.prove()`. This document adds no recovery rule.
 
 ## The boundary of the erasure report
 
