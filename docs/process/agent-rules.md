@@ -193,9 +193,10 @@ when you can show the harm.
 - A charge that holds gets a fix, and the fix gets a second round. A charge that does not hold
   gets an answer on the pull request.
 - A note becomes an issue with the label `follow-up`, or nothing. It starts no round.
-- Round three is the last that the steward can start alone. After it, choose one: cut the scope,
-  merge with follow-ups, or ask the owner or a reviewer from another model family which of the
-  two is right.
+- A pull request with a charge that holds does not merge.
+- The steward can start three rounds alone. When round three ends with a charge that holds, do
+  not start round four. Cut the part that the charge is about, or ask the owner or a reviewer
+  from another model family whether to cut it or to fix it.
 
 ### A reviewer from another model family
 
@@ -204,14 +205,16 @@ family is more likely to ask whether the rule should exist.
 
 - Ask for one at each milestone and before each decision on direction. It reads the goal, the
   plan and the contract, not the code.
-- Ask for one on each pull request that changes a contract, the erasure code or this process,
-  and on each pull request that reaches round three. It reads the diff too.
+- Ask for one on each pull request that changes a contract, the erasure code or this process.
+  It reads the diff too.
+- Ask for one when round three of any pull request ends with a charge that holds.
 - Use an account that the owner approved for this work. Never print or commit its key.
 - Post its answer on the pull request or the issue, with the name of the model.
 
 ### A merge
 
-- A merge needs a green fast tier on the reviewed head, and a posted review of that head.
+- A merge needs a green fast tier on the reviewed head.
+- It needs a posted review of that head with the verdict MERGE or READY FOR THE OWNER.
 - A release needs a green heavy tier on `main` first.
 - A reviewer in a fresh context writes that review.
 - A change to Markdown alone gets no CI run. It needs the review only.
