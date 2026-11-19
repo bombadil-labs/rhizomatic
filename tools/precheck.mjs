@@ -35,6 +35,7 @@ const steps = [
   ["Rust boundaries and dependency inventory", root, "node tools/check-rust-command-boundaries.mjs"],
   ["Rust test programs stay few", root, "node --test tools/check-rust-test-programs.test.mjs"],
   ["Rust wrong holders need their feature", root, "node --test tools/check-rust-wrong-holders.test.mjs"],
+  ["CI installs one exact Rust version", root, "node --test tools/check-ci-rust-toolchain.test.mjs"],
   ["TS format, lint and types", ts, "npm run -s format:check && npm run -s lint && npm run -s typecheck"],
   ["Rust format and clippy", rust, "cargo fmt --check && cargo clippy -q --all-targets -- -D warnings && cargo clippy -q --lib -- -D warnings"],
   [

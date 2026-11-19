@@ -187,6 +187,10 @@ GitHub issues when useful; coordinate design changes with Myk and Loam's owner.
   `release-candidate`. A Markdown-only change skips both tiers, and a newer push to a pull request
   cancels its older run. Any TS source change also requires `npm run docs:build` (the tour and
   playground bundles under `docs/` are committed bytes and CI diffs them).
+- Every CI job installs one exact Node version and one exact Rust version. The M4 job compares
+  build fingerprints with the ones earlier jobs of the same run made, so the jobs must not
+  resolve a moving name such as `stable`. To move to a new Rust, change every job in `ci.yml`
+  in one commit; `tools/check-ci-rust-toolchain.test.mjs` refuses a mixed or moving version.
 
 ## Build size
 
