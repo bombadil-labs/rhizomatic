@@ -1,6 +1,6 @@
 import { type CborValue, array, bool, bstr, encode, float, map, tstr } from "./cbor.js";
 import { bytesToHex, contentAddress } from "./hash.js";
-import { ownClaims, ownDelta } from "./own.js";
+import { ownClaims, ownDelta, ownField } from "./own.js";
 import type { Claims, Delta, Pointer, Target } from "./types.js";
 
 function targetToCbor(t: Target): CborValue {
@@ -13,12 +13,14 @@ function targetToCbor(t: Target): CborValue {
     }
     case "entity": {
       const entries: Array<[string, CborValue]> = [["id", tstr(t.entity.id)]];
-      if (t.entity.context !== undefined) entries.push(["context", tstr(t.entity.context)]);
+      const context = ownField(t.entity, "context");
+      if (context !== undefined) entries.push(["context", tstr(context)]);
       return map(entries);
     }
     case "delta": {
       const entries: Array<[string, CborValue]> = [["delta", tstr(t.deltaRef.delta)]];
-      if (t.deltaRef.context !== undefined) entries.push(["context", tstr(t.deltaRef.context)]);
+      const context = ownField(t.deltaRef, "context");
+      if (context !== undefined) entries.push(["context", tstr(context)]);
       return map(entries);
     }
     // Bytes: map { "mime": tstr, "value": bstr } — the raw payload is the bstr and identity is its
@@ -45,7 +47,8 @@ function ownToCbor(claims: Claims): CborValue {
     ["timestamp", float(claims.timestamp)],
     ["validFrom", float(claims.validFrom)],
   ];
-  if (claims.validUntil !== undefined) entries.push(["validUntil", float(claims.validUntil)]);
+  const validUntil = ownField(claims, "validUntil");
+  if (validUntil !== undefined) entries.push(["validUntil", float(validUntil)]);
   return map(entries);
 }
 
@@ -55,9 +58,10 @@ function check(claims: Claims): void {
   if (claims.author.length === 0) throw new Error("author must be non-empty");
   if (!Number.isFinite(claims.timestamp)) throw new Error("timestamp must be finite");
   if (!Number.isFinite(claims.validFrom)) throw new Error("validFrom must be finite");
-  if (claims.validUntil !== undefined) {
-    if (!Number.isFinite(claims.validUntil)) throw new Error("validUntil must be finite");
-    if (claims.validUntil <= claims.validFrom)
+  const validUntil = ownField(claims, "validUntil");
+  if (validUntil !== undefined) {
+    if (!Number.isFinite(validUntil)) throw new Error("validUntil must be finite");
+    if (validUntil <= claims.validFrom)
       throw new Error("validUntil must be greater than validFrom");
   }
   if (claims.pointers.length < 1) throw new Error("a delta MUST contain at least one pointer");
@@ -71,7 +75,11 @@ function check(claims: Claims): void {
     if (t.kind === "bytes" && t.mime.length === 0)
       throw new Error("bytes target mime must be non-empty (SPEC-1 §2.1)");
     const ctx =
-      t.kind === "entity" ? t.entity.context : t.kind === "delta" ? t.deltaRef.context : undefined;
+      t.kind === "entity"
+        ? ownField(t.entity, "context")
+        : t.kind === "delta"
+          ? ownField(t.deltaRef, "context")
+          : undefined;
     if (ctx !== undefined && ctx.length === 0)
       throw new Error("context, when present, must be non-empty");
   }

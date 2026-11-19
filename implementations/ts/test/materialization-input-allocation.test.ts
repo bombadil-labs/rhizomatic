@@ -110,10 +110,6 @@ it("every target arm has exact size, including contexts, Unicode and optional va
     }),
   ).toThrow("resource-limit");
 });
-// The core holds claims in objects with no prototype (issue #133), so two claims are compared as
-// plain copies: the same fields and values, whatever the prototype.
-const sameClaims = (a: unknown, b: unknown): boolean =>
-  isDeepStrictEqual(structuredClone(a), structuredClone(b));
 for (const id of [
   "delivery_scan_oversized_carrier",
   "delivery_scan_oversized_malformed_sibling",
@@ -159,14 +155,14 @@ for (const id of [
       // Boot verification legitimately constructs its own small canonical bytes. None of
       // these calls contain an offered appearance, including the 16KiB carrier.
       expect(
-        canonical.mock.calls.every(([claims]) => allowed.some((d) => sameClaims(d, claims))),
+        canonical.mock.calls.every(([claims]) => allowed.some((d) => isDeepStrictEqual(d, claims))),
       ).toBe(true);
       expect(serializeCommandDelta(await endpoint.invoke(f.request.id, f.delivery, 1000))).toEqual(
         f.expected.outcome,
       );
       expect(decode).not.toHaveBeenCalled();
       expect(
-        canonical.mock.calls.every(([claims]) => allowed.some((d) => sameClaims(d, claims))),
+        canonical.mock.calls.every(([claims]) => allowed.some((d) => isDeepStrictEqual(d, claims))),
       ).toBe(true);
     } finally {
       vi.restoreAllMocks();

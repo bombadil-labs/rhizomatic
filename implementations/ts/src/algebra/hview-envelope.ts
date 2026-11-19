@@ -13,7 +13,7 @@ import {
 import { canonicalBytes } from "../delta/delta.js";
 import { bytesToHex, contentAddress } from "../delta/hash.js";
 import { parseClaims } from "../delta/json-profile.js";
-import { ownDelta } from "../delta/own.js";
+import { ownDelta, ownField } from "../delta/own.js";
 import { verifyCanonicalDelta } from "../delta/sign.js";
 import type { Delta } from "../delta/types.js";
 import { cborToJson } from "../syntax/term-io.js";
@@ -88,14 +88,18 @@ function original(given: Delta, limits: HViewEnvelopeLimits, verified: Set<strin
       case "primitive":
         if (typeof p.target.value === "string") text(p.target.value);
         break;
-      case "entity":
+      case "entity": {
         text(p.target.entity.id);
-        if (p.target.entity.context !== undefined) text(p.target.entity.context);
+        const context = ownField(p.target.entity, "context");
+        if (context !== undefined) text(context);
         break;
-      case "delta":
+      }
+      case "delta": {
         text(p.target.deltaRef.delta);
-        if (p.target.deltaRef.context !== undefined) text(p.target.deltaRef.context);
+        const context = ownField(p.target.deltaRef, "context");
+        if (context !== undefined) text(context);
         break;
+      }
       case "bytes":
         text(p.target.mime);
         codecLimit((minimum += p.target.value.length), limits.artifactBytes);
@@ -105,7 +109,7 @@ function original(given: Delta, limits: HViewEnvelopeLimits, verified: Set<strin
   const claims = canonicalBytes(delta.claims);
   codecLimit(claims.length, limits.artifactBytes);
   const deltaId = id(delta.id),
-    sig = delta.sig;
+    sig = ownField(delta, "sig");
   if (deltaId !== contentAddress(claims)) return invalid();
   const fields: [string, CborValue][] = [
     ["id", tstr(deltaId)],

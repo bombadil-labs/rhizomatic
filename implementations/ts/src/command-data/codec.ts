@@ -1,7 +1,7 @@
 // SPEC-15: pure description codecs. Verification is attribution, never installation.
 import { decode, encode, map, tstr, float, bool, type CborValue } from "../delta/cbor.js";
 import { canonicalBytes, validClaims } from "../delta/delta.js";
-import { ownDelta } from "../delta/own.js";
+import { ownDelta, ownField } from "../delta/own.js";
 import { asObject } from "../delta/strict.js";
 import { claimsToJson, parseClaims } from "../delta/json-profile.js";
 import { signClaims, verifyDelta, authorForSeed } from "../delta/sign.js";
@@ -59,7 +59,7 @@ export function decodeBindings(bytes: Uint8Array): Readonly<Record<string, Primi
 }
 export function serializeCommandDelta(given: Delta): unknown {
   const delta = ownDelta(given);
-  return { id: delta.id, claims: claimsToJson(delta.claims), sig: delta.sig };
+  return { id: delta.id, claims: claimsToJson(delta.claims), sig: ownField(delta, "sig") };
 }
 export function parseCommandDelta(raw: unknown): Delta {
   let o: Record<string, unknown>;
@@ -82,11 +82,12 @@ export function verifyCommandAppearance(given: Delta): void {
   } catch {
     return fail();
   }
+  const sig = ownField(delta, "sig");
   if (
     !isCommandId(delta.id) ||
     !isCommandKey(delta.claims.author) ||
-    delta.sig === undefined ||
-    !/^[0-9a-f]{128}$/.test(delta.sig) ||
+    sig === undefined ||
+    !/^[0-9a-f]{128}$/.test(sig) ||
     verifyDelta(delta) !== "verified"
   )
     fail();
@@ -120,12 +121,16 @@ export function commandText(fields: CommandFields, key: string): string {
 }
 export function commandEntity(fields: CommandFields, key: string): string {
   const t = fields[key]?.[0];
-  if (t?.kind !== "entity" || t.entity.context !== undefined) fail();
+  if (t?.kind !== "entity" || ownField(t.entity, "context") !== undefined) fail();
   return t.entity.id;
 }
 export function commandRef(fields: CommandFields, key: string): string {
   const t = fields[key]?.[0];
-  if (t?.kind !== "delta" || t.deltaRef.context !== undefined || !isCommandId(t.deltaRef.delta))
+  if (
+    t?.kind !== "delta" ||
+    ownField(t.deltaRef, "context") !== undefined ||
+    !isCommandId(t.deltaRef.delta)
+  )
     fail();
   return t.deltaRef.delta;
 }
@@ -203,7 +208,11 @@ export function readConfiguration(given: Delta): CommandFields {
     if (t.kind !== "primitive" || typeof t.value !== "string" || !isCommandKey(t.value)) fail();
   }
   for (const t of f.installed) {
-    if (t.kind !== "delta" || t.deltaRef.context !== undefined || !isCommandId(t.deltaRef.delta))
+    if (
+      t.kind !== "delta" ||
+      ownField(t.deltaRef, "context") !== undefined ||
+      !isCommandId(t.deltaRef.delta)
+    )
       fail();
   }
   for (const k of ["quota", "max-deltas", "max-bytes"]) {
@@ -258,7 +267,11 @@ export function readRequestArguments(given: Delta, kind: "retain" | "evaluate"):
   if (kind === "retain") {
     if (!f.payload?.length) fail();
     for (const t of f.payload) {
-      if (t.kind !== "delta" || t.deltaRef.context !== undefined || !isCommandId(t.deltaRef.delta))
+      if (
+        t.kind !== "delta" ||
+        ownField(t.deltaRef, "context") !== undefined ||
+        !isCommandId(t.deltaRef.delta)
+      )
         fail();
     }
   } else {
@@ -276,7 +289,11 @@ export function readRequestArguments(given: Delta, kind: "retain" | "evaluate"):
     for (const k of ["hyperschema-pin", "schema-pin", "expected-digest"])
       if (f[k] && !isCommandId(commandText(f, k))) fail();
     for (const t of f.definition ?? [])
-      if (t.kind !== "delta" || t.deltaRef.context !== undefined || !isCommandId(t.deltaRef.delta))
+      if (
+        t.kind !== "delta" ||
+        ownField(t.deltaRef, "context") !== undefined ||
+        !isCommandId(t.deltaRef.delta)
+      )
         fail();
     const ids = [
       commandRef(f, "hyperschema"),
@@ -353,7 +370,10 @@ export interface ReadOutcome {
 }
 export function readOutcome(given: Delta): ReadOutcome {
   const delta = owned(given);
-  if (delta.claims.timestamp !== delta.claims.validFrom || delta.claims.validUntil !== undefined)
+  if (
+    delta.claims.timestamp !== delta.claims.validFrom ||
+    ownField(delta.claims, "validUntil") !== undefined
+  )
     fail();
   const f = fieldsOf(delta);
   shapes(f, ORDERS["outcome/1"]);

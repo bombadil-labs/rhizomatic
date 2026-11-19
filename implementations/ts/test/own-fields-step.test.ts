@@ -12,6 +12,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { parseCommandDelta, serializeCommandDelta } from "../src/command-data/codec.js";
 import { array, bool, bstr, type CborValue, encode, float, map, tstr } from "../src/delta/cbor.js";
 import { verifyCanonicalDelta } from "../src/delta/sign.js";
+import { verifyPureDerivation } from "../src/derivation/derivation.js";
 import type { Claims, Delta } from "../src/delta/types.js";
 import {
   assertValidClaims,
@@ -20,6 +21,7 @@ import {
   looseEntryStatus,
   makeManifestClaims,
   preflightTransfer,
+  readCommandDefinition,
   canonicalBytes,
   canonicalHex,
   claimsToCbor,
@@ -171,6 +173,8 @@ type Shape = {
   readonly name: string;
   readonly expect: (field: Field) => Expect;
   readonly make: (holder: Json, field: Field, value: unknown) => unknown;
+  /** True when the case sets the field on `Object.prototype` while each entry point runs. */
+  readonly pollutes?: boolean;
 };
 
 const absent = (field: Field): Expect => (field.optional ? "without" : "refuse");
@@ -183,13 +187,19 @@ function changing(first: unknown, then: unknown): () => unknown {
 
 const FIELD_SHAPES: readonly Shape[] = [
   {
-    name: "inherited from a prototype",
+    name: "set only on Object.prototype",
     expect: absent,
+    make: (h, f) => without(h, f.key),
+    pollutes: true,
+  },
+  {
+    name: "inherited from a prototype made with Object.create",
+    expect: () => "refuse",
     make: (h, f, v) => Object.assign(Object.create({ [f.key]: v }) as Json, without(h, f.key)),
   },
   {
     name: "inherited from a class instance",
-    expect: absent,
+    expect: () => "refuse",
     make: (h, f, v) => {
       class Held {}
       Object.defineProperty(Held.prototype, f.key, { get: () => v });
@@ -198,7 +208,7 @@ const FIELD_SHAPES: readonly Shape[] = [
   },
   {
     name: "own and not enumerable",
-    expect: absent,
+    expect: () => "refuse",
     make: (h, f, v) => Object.defineProperty(without(h, f.key), f.key, { value: v }),
   },
   {
@@ -247,8 +257,18 @@ const HOLDER_SHAPES: readonly Shape[] = [
   { name: "a Proxy", expect: () => "base", make: (h) => new Proxy(h, {}) },
   {
     name: "a class instance with own fields",
-    expect: () => "base",
+    expect: () => "refuse",
     make: (h) => Object.assign(new (class Held {})(), h),
+  },
+  {
+    name: "an Object.create(proto) object with own fields",
+    expect: () => "refuse",
+    make: (h) => Object.assign(Object.create({}) as Json, h),
+  },
+  {
+    name: "an object with a null prototype",
+    expect: () => "base",
+    make: (h) => Object.assign(Object.create(null) as Json, h),
   },
 ];
 
@@ -328,6 +348,8 @@ type Case = {
   readonly odd: () => Json;
   /** The plain delta with the expected meaning. Undefined for a refusal. */
   readonly plain: Json | undefined;
+  /** The field and value set on `Object.prototype` while each entry point runs the odd delta. */
+  readonly pollute?: readonly [string, unknown];
 };
 
 const BASE = plainDelta(baseClaims(), true);
@@ -350,17 +372,40 @@ function oddDelta(at: Path, change: (holder: Json) => unknown, plain: Json | und
   };
 }
 
+// `value` is not set on Object.prototype: `Object.defineProperty` reads a descriptor's `value`
+// through the prototype, so the test's own odd shapes could not be built.
+const UNPOLLUTED = new Set(["value"]);
+
+/** Runs `body` while `Object.prototype[key]` is `value`, and removes the field afterwards. */
+async function polluted<T>(
+  pollute: readonly [string, unknown] | undefined,
+  body: () => Promise<T>,
+): Promise<T> {
+  if (pollute === undefined) return body();
+  const proto = Object.prototype as Json;
+  proto[pollute[0]] = pollute[1];
+  try {
+    return await body();
+  } finally {
+    delete proto[pollute[0]];
+  }
+}
+
 const CASES: Case[] = [];
 for (const field of FIELDS) {
   const shapes = field.key === "pointers" ? [...FIELD_SHAPES, ...LIST_SHAPES] : FIELD_SHAPES;
   for (const shape of shapes) {
     const expect = shape.expect(field);
     const plain = expected(expect, field.at, field.key);
+    if (shape.pollutes === true && UNPOLLUTED.has(field.key)) continue;
     CASES.push({
       name: `${[...field.at, field.key].join(".")}: ${shape.name}`,
       expect,
       topLevel: field.at.length === 0,
       plain,
+      ...(shape.pollutes === true
+        ? { pollute: [field.key, clone(get(BASE, [...field.at, field.key]))] as const }
+        : {}),
       odd: () =>
         oddDelta(
           field.at,
@@ -453,7 +498,7 @@ function held(delta: Delta | undefined, where: string): string {
     )
   )
     problems.push(`${where}: holds -0`);
-  return `${id} sig:${delta.sig ?? "none"}`;
+  return `${id} sig:${Object.hasOwn(delta, "sig") ? delta.sig : "none"}`;
 }
 
 type Runner = (delta: () => Json, id: string, where: string) => Promise<string>;
@@ -620,7 +665,7 @@ describe("every entry point reads a delta by one rule: own fields, once, of the 
         }
         if (c.plain !== undefined && want === "refused" && !GATES.has(entry))
           wrong.push(`${where}: the plain equivalent is refused`);
-        const got = await run(runner, c.odd, id, where);
+        const got = await polluted(c.pollute, () => run(runner, c.odd, id, where));
         if (got !== want) wrong.push(`${where}: answers ${got}, not ${want}`);
       }
     }
@@ -685,7 +730,18 @@ describe("every entry point reads a delta by one rule: own fields, once, of the 
   });
 });
 
-describe("findings 1 to 4: a held delta means what its copies mean", () => {
+/** Runs `body` while each field of `fields` is set on `Object.prototype`, then removes them. */
+function withPrototype<T>(fields: Json, body: () => T): T {
+  const proto = Object.prototype as Json;
+  Object.assign(proto, fields);
+  try {
+    return body();
+  } finally {
+    for (const key of Object.keys(fields)) delete proto[key];
+  }
+}
+
+describe("findings 1 to 4: a field that only a prototype holds", () => {
   const MASK = parseTerm({ op: "mask", policy: "drop", in: "input" });
   const fact = makeDelta({
     timestamp: 1,
@@ -697,77 +753,110 @@ describe("findings 1 to 4: a held delta means what its copies mean", () => {
     const result = evalTerm(MASK, DeltaSet.from(deltas), now);
     return result.sort === "dset" ? result.set.ids() : [];
   };
+  const refusal = (call: () => unknown): string => {
+    try {
+      call();
+      return "accepted";
+    } catch (error) {
+      return (error as Error).message;
+    }
+  };
 
-  it("finding 1: a negation with an inherited validUntil has the id of its copy, and negates at 5000 when read from the held object and from its copy", () => {
+  it("finding 1: a negation with Object.prototype.validUntil set has its plain id, and negates at 5000 as its plain copy does", () => {
     const own = makeNegationClaims(AUTHOR, 1000, fact.id);
-    const inherited = Object.assign(Object.create({ validUntil: 2000 }) as Claims, own);
-    const held = makeDelta(inherited);
-    const copy = makeDelta(structuredClone(inherited));
-    expect(held.id).toBe(copy.id);
-    expect(held.id).toBe(makeDelta(own).id);
-    expect(survivors([fact, held], 5000)).toEqual(survivors([fact, copy], 5000));
-    expect(survivors([fact, structuredClone(held)], 5000)).toEqual([held.id]);
-    expect(survivors([fact, held], 5000)).toEqual([held.id]);
-  });
-
-  it("finding 2: an entity reference with an inherited context has the id of its copy, and files under no context in the held object and in its copy", () => {
-    const entity = Object.assign(Object.create({ context: "name" }) as object, { id: "e1" });
-    const claims = {
-      timestamp: 1,
-      validFrom: 1,
-      author: AUTHOR,
-      pointers: [{ role: "subject", target: { kind: "entity", entity } }],
-    } as Claims;
-    const held = makeDelta(claims);
-    const copy = makeDelta(structuredClone(claims));
-    expect(held.id).toBe(copy.id);
-    const group = parseTerm({ op: "group", key: "byTargetContext", in: "input" });
-    const contexts = (delta: Delta): string[] => {
-      const result = evalTerm(group, DeltaSet.from([delta]), 10, "e1");
-      return result.sort === "hview" ? [...result.hview.props.keys()] : ["not an hview"];
-    };
-    expect(contexts(held)).toEqual(contexts(copy));
-    const target = held.claims.pointers[0]!.target;
-    expect(target.kind === "entity" && "context" in target.entity).toBe(false);
-  });
-
-  it("finding 3: a delta reference with an inherited context has the id of its copy, and the held reference has no context", () => {
-    const deltaRef = Object.assign(Object.create({ context: "why" }) as object, { delta: fact.id });
-    const claims = {
-      timestamp: 1,
-      validFrom: 1,
-      author: AUTHOR,
-      pointers: [{ role: "about", target: { kind: "delta", deltaRef } }],
-    } as Claims;
-    const held = makeDelta(claims);
-    expect(held.id).toBe(makeDelta(structuredClone(claims)).id);
-    const target = held.claims.pointers[0]!.target;
-    expect(target.kind === "delta" && "context" in target.deltaRef).toBe(false);
-  });
-
-  it("finding 4: a delta with an inherited sig reads as unsigned in the core and in both stores", async () => {
-    const signed = signClaims(baseClaims() as unknown as Claims, SEED);
-    const inherited = Object.assign(Object.create({ sig: signed.sig }) as Delta, {
-      id: signed.id,
-      claims: structuredClone(signed.claims),
+    const plain = makeDelta(structuredClone(own));
+    const answers = withPrototype({ validUntil: 2000 }, () => {
+      const held = makeDelta(structuredClone(own));
+      return [held.id, survivors([fact, held], 5000), survivors([fact, plain], 5000)];
     });
-    const set = new DeltaSet();
-    set.add(inherited);
-    const reactor = new Reactor();
-    reactor.ingest(inherited);
-    const answers = [
-      verifyDelta(inherited),
-      verifyCanonicalDelta(inherited),
-      "sig" in set.get(signed.id)!,
-      "sig" in reactor.arrivalLog()[0]!,
-      await stored(createMemoryStore(), inherited, signed.id, "memory"),
-      await stored(
-        await openSqliteStore(join(dir, `store-${++files}.db`)),
-        inherited,
-        signed.id,
-        "sqlite",
+    expect(answers).toEqual([plain.id, [plain.id], [plain.id]]);
+  });
+
+  it("findings 1 to 4: a field held only by a prototype made with Object.create or a class is refused, and names the holder", () => {
+    const negation = makeNegationClaims(AUTHOR, 1000, fact.id);
+    const entity = Object.assign(Object.create({ context: "name" }) as object, { id: "e1" });
+    const deltaRef = Object.assign(Object.create({ context: "why" }) as object, { delta: fact.id });
+    const at = (target: unknown): Claims =>
+      ({ timestamp: 1, validFrom: 1, author: AUTHOR, pointers: [{ role: "r", target }] }) as Claims;
+    class Signed {
+      get sig(): string {
+        return "ab".repeat(64);
+      }
+    }
+    const signed = Object.assign(new Signed(), {
+      id: fact.id,
+      claims: structuredClone(fact.claims),
+    });
+    expect([
+      refusal(() =>
+        makeDelta(Object.assign(Object.create({ validUntil: 2000 }) as Claims, negation)),
       ),
-    ];
+      refusal(() => makeDelta(at({ kind: "entity", entity }))),
+      refusal(() => makeDelta(at({ kind: "delta", deltaRef }))),
+      refusal(() => verifyDelta(signed as unknown as Delta)),
+    ]).toEqual([
+      "claims must be a plain object, not a class instance or an object made with Object.create",
+      "claims.pointers[0].target.entity must be a plain object, not a class instance or an object made with Object.create",
+      "claims.pointers[0].target.deltaRef must be a plain object, not a class instance or an object made with Object.create",
+      "the delta must be a plain object, not a class instance or an object made with Object.create",
+    ]);
+  });
+
+  it("findings 1 to 4: an own schema field that is not enumerable is refused, and names the field", () => {
+    const hidden = (holder: object, key: string, value: unknown): object =>
+      Object.defineProperty(holder, key, { value });
+    const claims = (target: unknown): Claims =>
+      ({ timestamp: 1, validFrom: 1, author: AUTHOR, pointers: [{ role: "r", target }] }) as Claims;
+    expect([
+      refusal(() => makeDelta(hidden(structuredClone(fact.claims), "validUntil", 2000) as Claims)),
+      refusal(() =>
+        makeDelta(claims({ kind: "entity", entity: hidden({ id: "e1" }, "context", "name") })),
+      ),
+      refusal(() =>
+        makeDelta(
+          claims({ kind: "delta", deltaRef: hidden({ delta: fact.id }, "context", "why") }),
+        ),
+      ),
+      refusal(() =>
+        verifyDelta(
+          hidden({ id: fact.id, claims: structuredClone(fact.claims) }, "sig", "ab") as Delta,
+        ),
+      ),
+    ]).toEqual([
+      'claims has the key "validUntil", which is not enumerable',
+      'claims.pointers[0].target.entity has the key "context", which is not enumerable',
+      'claims.pointers[0].target.deltaRef has the key "context", which is not enumerable',
+      'the delta has the key "sig", which is not enumerable',
+    ]);
+  });
+
+  it("finding 4: a delta with Object.prototype.sig set reads as unsigned in the core and in both stores", async () => {
+    const signed = signClaims(baseClaims() as unknown as Claims, SEED);
+    const plain = { id: signed.id, claims: structuredClone(signed.claims) } as Delta;
+    const proto = Object.prototype as Json;
+    proto.sig = signed.sig;
+    let answers: unknown[];
+    try {
+      const set = new DeltaSet();
+      set.add(structuredClone(plain));
+      const reactor = new Reactor();
+      reactor.ingest(structuredClone(plain));
+      answers = [
+        verifyDelta(structuredClone(plain)),
+        verifyCanonicalDelta(structuredClone(plain)),
+        Object.hasOwn(set.get(signed.id)!, "sig"),
+        Object.hasOwn(reactor.arrivalLog()[0]!, "sig"),
+        await stored(createMemoryStore(), structuredClone(plain), signed.id, "memory"),
+        await stored(
+          await openSqliteStore(join(dir, `store-${++files}.db`)),
+          structuredClone(plain),
+          signed.id,
+          "sqlite",
+        ),
+      ];
+    } finally {
+      delete proto.sig;
+    }
     expect(answers).toEqual([
       "unsigned",
       "unsigned",
@@ -779,30 +868,34 @@ describe("findings 1 to 4: a held delta means what its copies mean", () => {
   });
 });
 
-describe("finding 10: a field set on Object.prototype does not reach the hash", () => {
-  it("validUntil and sig set on Object.prototype change no id and no verdict, and no held delta reads them [gap: context is not polluted here, because the BLAKE3 library reads its own context option through the prototype]", () => {
+describe("finding 10: a field set on Object.prototype reaches no hash and no decision", () => {
+  it("validUntil, sig, context and key set on Object.prototype change no id, no signature and no verdict", () => {
     const plain = baseClaims();
     delete plain.validUntil;
-    const want = computeId(clone(plain) as unknown as Claims);
-    const proto = Object.prototype as Json;
-    const seen: unknown[] = [];
-    proto.validUntil = 50;
-    proto.sig = "ab".repeat(64);
-    try {
+    const entity = (plain.pointers as Json[])[0]!.target as Json;
+    delete (entity.entity as Json).context;
+    const ref = (plain.pointers as Json[])[1]!.target as Json;
+    delete (ref.deltaRef as Json).context;
+    const run = (): unknown[] => {
       const made = makeDelta(clone(plain) as unknown as Claims);
-      const set = DeltaSet.from([{ id: made.id, claims: clone(plain) as unknown as Claims }]);
-      seen.push(
+      const signed = signClaims(clone(plain) as unknown as Claims, SEED);
+      const unsigned = { id: made.id, claims: clone(plain) } as unknown as Delta;
+      return [
         computeId(clone(plain) as unknown as Claims),
         made.id,
-        verifyDelta({ id: made.id, claims: clone(plain) as unknown as Claims }),
-        "validUntil" in made.claims,
-        "sig" in set.get(made.id)!,
-      );
-    } finally {
-      delete proto.validUntil;
-      delete proto.sig;
-    }
-    expect(seen).toEqual([want, want, "unsigned", false, false]);
+        signed.sig,
+        verifyDelta(unsigned),
+        verifyDelta({ ...unsigned, sig: signed.sig } as Delta),
+        new Reactor().ingest(unsigned).status,
+        looseEntryStatus(unsigned, new Set(), new Set()),
+      ];
+    };
+    const want = run();
+    const got = withPrototype(
+      { validUntil: 50, sig: "ab".repeat(64), context: "polluted", key: new Uint8Array(32) },
+      run,
+    );
+    expect(got).toEqual(want);
   });
 });
 
@@ -974,18 +1067,17 @@ describe("the first review of #137: each gate reads its own copy, once", () => {
     );
   });
 
-  it("verifyCanonicalDelta reads the format of the own sig: a malformed sig only on the prototype reads as unsigned", () => {
+  it("verifyCanonicalDelta reads the format of the own sig: a malformed sig only on Object.prototype reads as unsigned", () => {
     const plain = makeDelta(clone(baseClaims()) as unknown as Claims);
-    const odd = Object.assign(Object.create({ sig: "ZZ" }) as Json, {
-      id: plain.id,
-      claims: clone(baseClaims()),
-    }) as unknown as Delta;
-    expect([verifyCanonicalDelta(odd), verifyDelta(odd)]).toEqual(["unsigned", "unsigned"]);
+    const odd = { id: plain.id, claims: clone(baseClaims()) } as unknown as Delta;
+    expect(
+      withPrototype({ sig: "ZZ" }, () => [verifyCanonicalDelta(odd), verifyDelta(odd)]),
+    ).toEqual(["unsigned", "unsigned"]);
   });
 
-  it("both stores answer claims of one shape: each object has the prototype of the core's copy", async () => {
+  it("both stores answer claims of one shape: each object is plain, as the core's copy is", async () => {
     const made = makeDelta(clone(baseClaims()) as unknown as Claims);
-    const proto = Object.getPrototypeOf(made.claims) as object;
+    const proto = Object.prototype;
     const shapeOf = (delta: Delta): boolean[] =>
       [
         delta.claims,
@@ -1052,6 +1144,70 @@ describe("the first review of #137: each gate reads its own copy, once", () => {
     const delta = { id: made.id, claims: shapes[4], sig: undefined, extra: undefined };
     expect(reactor.ingest(delta as unknown as Delta).status).toBe("accepted");
     expect(Object.keys(reactor.arrivalLog()[0]!)).toEqual(["id", "claims"]);
+  });
+});
+
+describe("the second review of #137", () => {
+  const PREFLIGHT = {
+    admittedBefore: new DeltaSet(),
+    refusedIds: new Set<string>(),
+    sendingPeerId: "sender",
+    receivingPeerId: "receiver",
+    arrivedAt: 1,
+    policyState: {},
+    guards: [],
+  };
+  const message = (call: () => unknown): unknown => {
+    try {
+      return call();
+    } catch (error) {
+      return (error as Error).message;
+    }
+  };
+
+  it("charge 2: verifyCanonicalDelta answers invalid for an empty author, and readCommandDefinition throws invalid-definition", () => {
+    const odd = { id: REF, claims: { ...clone(baseClaims()), author: "" } } as unknown as Delta;
+    expect([
+      message(() => verifyCanonicalDelta(odd)),
+      message(() => readCommandDefinition(odd, 5)),
+    ]).toEqual(["invalid", "invalid-definition"]);
+  });
+
+  it("charge 3: preflightTransfer answers invalid for an invalid unit that holds a function or is a Proxy, and reads it no second time", () => {
+    let reads = 0;
+    const once = { claims: clone(baseClaims()) } as Json;
+    Object.defineProperty(once, "id", {
+      enumerable: true,
+      get: () => (++reads === 1 ? REF : `${REF}`),
+    });
+    const units = [
+      { id: REF, claims: { ...clone(baseClaims()), author: () => AUTHOR } },
+      new Proxy({ id: REF, claims: clone(baseClaims()) }, {}),
+      once,
+    ];
+    expect(
+      units.map((delta) =>
+        message(
+          () =>
+            preflightTransfer([{ kind: "loose", delta: delta as unknown as Delta }], PREFLIGHT)[0]!
+              .status,
+        ),
+      ),
+    ).toEqual(["invalid", "invalid", "invalid"]);
+    expect(reads).toBe(1);
+  });
+
+  it("note 3: verifyPureDerivation answers false for an emitted delta whose claims are not valid", () => {
+    const bad = {
+      id: REF,
+      claims: { ...clone(baseClaims()), validUntil: -1 },
+      sig: "ab".repeat(64),
+    } as unknown as Delta;
+    expect(
+      message(() =>
+        verifyPureDerivation(bad, {} as never, (() => []) as never, {} as never, "e1", "v"),
+      ),
+    ).toBe(false);
   });
 });
 

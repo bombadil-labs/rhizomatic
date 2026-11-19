@@ -4,6 +4,7 @@
 
 import type { DeltaSource } from "./source.js";
 import type { Delta } from "./types.js";
+import { validBefore } from "./own.js";
 
 /** Whether a valid negation has authority to suppress its held target at this read. */
 export type Suppression = (negation: Delta, target: Delta) => boolean;
@@ -44,8 +45,7 @@ export function negationWitnesses(
   // True while a suppression callback runs: a walk that starts then is a re-entry.
   let inSuppression = false;
   const valid = (delta: Delta): boolean =>
-    delta.claims.validFrom <= now &&
-    (delta.claims.validUntil === undefined || now < delta.claims.validUntil);
+    delta.claims.validFrom <= now && validBefore(delta.claims, now);
   const witnesses = (id: string): readonly Delta[] => {
     if (epoch !== undefined) {
       const current = epoch();

@@ -74,8 +74,9 @@ export function preflightTransfer<State>(
   if (!Number.isFinite(arrivedAt)) throw new Error("arrival time must be finite");
   // Application guards are called after verification. Each gate decides on its own copy of each
   // delta (`ownDelta`), read once, so a caller's object and a field on `Object.prototype` reach no
-  // decision. Policy state is supplied by the application, whose guards are required by the
-  // contract to treat it as read-only.
+  // decision. An invalid unit is answered as given: it is not read or copied again. Policy state
+  // is supplied by the application, whose guards are required by the contract to treat it as
+  // read-only.
   const stableBefore = admittedBefore.copy();
   const admittedView: ReadonlyAdmittedSet = Object.freeze({
     has: (id: string) => stableBefore.has(id),
@@ -102,7 +103,7 @@ export function preflightTransfer<State>(
     const [first, ...rest] = candidates;
     const unit: TransferUnit =
       first === undefined
-        ? structuredClone(given)
+        ? given
         : loose
           ? { kind: "loose", delta: first }
           : { kind: "bundle", manifest: first, members: rest };

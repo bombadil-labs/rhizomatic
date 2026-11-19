@@ -1,5 +1,5 @@
 import { memberIdsOf } from "../delta/manifest.js";
-import { ownDelta } from "../delta/own.js";
+import { ownDelta, ownField } from "../delta/own.js";
 import { verifyDelta } from "../delta/sign.js";
 import type { Delta } from "../delta/types.js";
 
@@ -69,7 +69,7 @@ export function bundleEntry(
     !members.every((member) => committed.includes(member.id))
   )
     return invalid;
-  const hasUnsigned = members.some((member) => member.sig === undefined);
+  const hasUnsigned = members.some((member) => ownField(member, "sig") === undefined);
   for (const member of members) {
     if (verificationOf(member) === "invalid") return invalid;
     if (hasUnsigned && member.claims.author !== manifest.claims.author) return invalid;

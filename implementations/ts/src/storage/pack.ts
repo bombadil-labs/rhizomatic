@@ -17,6 +17,7 @@ import { contentAddress } from "../delta/hash.js";
 import { memberIdsOf } from "../delta/manifest.js";
 import { DeltaSet, makeDelta } from "../delta/set.js";
 import type { Claims, Delta, Pointer, Target } from "../delta/types.js";
+import { ownField } from "../delta/own.js";
 
 const PACK_VERSION = 2;
 
@@ -25,18 +26,23 @@ const PACK_VERSION = 2;
 function stringsOf(delta: Delta, out: Set<string>): void {
   out.add(delta.id); // stored ids make rehydration self-verifying (SPEC-8 §4)
   out.add(delta.claims.author);
-  if (delta.sig !== undefined) out.add(delta.sig);
+  const sig = ownField(delta, "sig");
+  if (sig !== undefined) out.add(sig);
   for (const p of delta.claims.pointers) {
     out.add(p.role);
     switch (p.target.kind) {
-      case "entity":
+      case "entity": {
         out.add(p.target.entity.id);
-        if (p.target.entity.context !== undefined) out.add(p.target.entity.context);
+        const context = ownField(p.target.entity, "context");
+        if (context !== undefined) out.add(context);
         break;
-      case "delta":
+      }
+      case "delta": {
         out.add(p.target.deltaRef.delta);
-        if (p.target.deltaRef.context !== undefined) out.add(p.target.deltaRef.context);
+        const context = ownField(p.target.deltaRef, "context");
+        if (context !== undefined) out.add(context);
         break;
+      }
       case "primitive":
         if (typeof p.target.value === "string") out.add(p.target.value);
         break;
@@ -55,11 +61,11 @@ function ptrToCbor(p: Pointer, idx: (s: string) => number): CborValue {
   switch (p.target.kind) {
     case "entity":
       entries.push(["e", float(idx(p.target.entity.id))]);
-      context = p.target.entity.context;
+      context = ownField(p.target.entity, "context");
       break;
     case "delta":
       entries.push(["d", float(idx(p.target.deltaRef.delta))]);
-      context = p.target.deltaRef.context;
+      context = ownField(p.target.deltaRef, "context");
       break;
     case "primitive": {
       const v = p.target.value;
@@ -86,8 +92,10 @@ function hydratedRecord(d: Delta, idx: (s: string) => number): CborValue {
     ["f", float(d.claims.validFrom)],
     ["p", array(d.claims.pointers.map((p) => ptrToCbor(p, idx)))],
   ];
-  if (d.claims.validUntil !== undefined) entries.push(["u", float(d.claims.validUntil)]);
-  if (d.sig !== undefined) entries.push(["s", float(idx(d.sig))]);
+  const validUntil = ownField(d.claims, "validUntil");
+  if (validUntil !== undefined) entries.push(["u", float(validUntil)]);
+  const sig = ownField(d, "sig");
+  if (sig !== undefined) entries.push(["s", float(idx(sig))]);
   return map(entries);
 }
 
@@ -103,12 +111,14 @@ function memberRecord(
     ["f", float(d.claims.validFrom)],
     ["p", array(d.claims.pointers.map((p) => ptrToCbor(p, idx)))],
   ];
-  if (d.claims.validUntil !== undefined) entries.push(["u", float(d.claims.validUntil)]);
+  const validUntil = ownField(d.claims, "validUntil");
+  if (validUntil !== undefined) entries.push(["u", float(validUntil)]);
   // Dehydrate against the envelope (SPEC-8 §3.1); divergent fields stored explicitly (P2).
   if (d.claims.author !== manifest.claims.author) entries.push(["a", float(idx(d.claims.author))]);
   const dt = d.claims.timestamp - manifest.claims.timestamp;
   if (dt !== 0) entries.push(["dt", float(dt)]);
-  if (d.sig !== undefined) entries.push(["s", float(idx(d.sig))]);
+  const sig = ownField(d, "sig");
+  if (sig !== undefined) entries.push(["s", float(idx(sig))]);
   return map(entries);
 }
 

@@ -25,24 +25,32 @@ Step 4d adds more, listed under Breaking.
   passes up unchanged, after the snapshot is released (§4.13 readings 127 to 129).
 - The package root exports the store's id types: `Id`, `Entity`, `Head` and `ArrivalSeq`.
 - **The hash covers exactly what the delta holds (issue #133).** One step in `delta/own.ts`
-  reads a delta for the core and for the stores. It reads each object's own keys once
-  (`Reflect.ownKeys`) and each own enumerable field once, through its property descriptor. So a
-  Proxy's `get` trap is never called, and its `getOwnPropertyDescriptor` trap is called once per
-  key. A field that only a prototype holds, a field that is not enumerable, and a field whose
-  value is `undefined` are absent, at any key. It refuses another own key with a value that the
+  reads a delta for the core and for the stores. Each holder (the delta, the claims, a pointer, a
+  target, an entity reference, a delta reference) must be a plain object: its prototype is null
+  or a realm's `Object.prototype`, as the store's `isPlainObject` already decided for a request. It reads each object's own keys once (`Reflect.ownKeys`) and each
+  own enumerable field once, through its property descriptor. So a Proxy's `get` trap is never
+  called, and its `getOwnPropertyDescriptor` trap is called once per key. A field that only
+  `Object.prototype` holds and a field whose value is `undefined` are absent, at any key. It
+  refuses an own schema key that is not enumerable, and another own key with a value that the
   schema does not name, text or Symbol, also a key of another target kind. It refuses a value of
   the wrong type and converts nothing: an entity id and a referenced delta id must be strings, and
-  a target's `kind` must be one of the four kinds. `pointers` must pass `Array.isArray` and is
-  read by index; a hole or an extra key on it refuses. It writes `+0` for `-0` and copies the
-  bytes of a bytes target. Each object it writes, except the `pointers` array and a bytes value,
-  has a frozen, empty prototype with no prototype of its own. So a field set on
-  `Object.prototype` reaches neither the hash nor a later read. The `pointers` array keeps
-  `Array.prototype` and a bytes value keeps `Uint8Array.prototype`. The returned claims have the
-  step's key order, not the caller's. The step refuses with an `Error` that names the field,
-  where many shapes threw a raw `TypeError` before. No delta of plain data changes its id: the
-  4272 claims objects of the shared vectors that parse keep their canonical bytes. This
-  supersedes the entry above on an inherited `validUntil`: the core no longer hashes it, so the
-  store commits such a delta under the id of its own fields.
+  a target's `kind` must be one of the four kinds. `pointers` must pass `Array.isArray` (an Array
+  subclass passes) and is read by index; a hole or an extra key on it refuses. It writes `+0` for
+  `-0` and copies the bytes of a bytes target. The copy is made of ordinary plain objects that
+  hold exactly the schema's fields. The returned claims have the step's key order, not the
+  caller's. The step refuses with an `Error` that names the holder or the field, where many shapes
+  threw a raw `TypeError` before. No delta of plain data changes its id: the 4272 claims objects of
+  the shared vectors that parse keep their canonical bytes. This supersedes the entry below on an
+  inherited `validUntil`: the core and both stores now refuse claims whose `validUntil` only a
+  class or an `Object.create` prototype holds, and read one set on `Object.prototype` as absent.
+- **A field set on `Object.prototype` reaches no hash and no decision of the core.** The core
+  reads an optional field of a delta (`validUntil`, an entity or delta reference's `context`,
+  `sig`) only when the object holds it as its own (`ownField`, `Object.hasOwn`). A required field
+  is always own on a copy. The BLAKE3 and Ed25519 calls pass options with no prototype: both
+  libraries read `context` (BLAKE3 also `key`) from their options, so a polluted
+  `Object.prototype.context` changed every id and refused every signature. The core cannot guard
+  a read that a caller makes: a caller that reads `delta.sig` on an unsigned delta that the core
+  or a store returned reads `Object.prototype.sig` when that is set. Use `Object.hasOwn`.
 - **Each exported function that decides on a caller's delta takes the step once, and then reads
   only its copy.** These are `computeId`, `canonicalBytes`, `canonicalHex`, `claimsToCbor`,
   `assertValidClaims`, `makeDelta`, `signClaims`, `verifyDelta`, `verifyCanonicalDelta`,
@@ -54,21 +62,31 @@ Step 4d adds more, listed under Breaking.
   `readRequestArguments`, `readOutcome`, `verifyCommandAppearance`, `readCommandResult`,
   `readCommandDefinition`), the materialization readers (`materializationFields`,
   `readMaterializationDescription`, `readMaterializationResult` for its outcome, request and
-  evidence, `encodeMaterializationAppearance`), and `verifyPureDerivation`. `preflightTransfer`
-  returns the copies it decided on, not `structuredClone` copies, so `Object.prototype` reaches
-  no decision there. These still read a caller's object as given, because they decide no id and
-  admit nothing: `packSet` and `scopeSource` (they read a `DeltaSet` or store answers, which are
-  copies), `validityWindow`, `touching`, `scopeOver` and `passesSelection` (they read store
-  answers), and the callbacks of `fork`, `federate`, `DeltaSet.filtered`, `latestByKey` and
-  `subscribeRaw` (they receive set members). `readMaterializationResult` reads `capture` and
-  `snapshot` of its context as given; it compares only their ids.
+  evidence, `encodeMaterializationAppearance`) and `verifyPureDerivation`. `scopeSource` reads
+  each member's delta into a copy of its own enumerable fields (`ownFields`), skips a repeated id
+  unread, and then takes the step on that copy. So for the delta object itself, not its claims,
+  it does not refuse a class instance or a field that is not enumerable: it reads store answers.
+  `preflightTransfer` returns the copies it decided on, not `structuredClone` copies, so
+  `Object.prototype` reaches no decision there; it answers an `invalid` unit as given, and does
+  not read or copy it again. These still read a caller's object as given, because they decide no
+  id and admit nothing: `packSet` (it reads a `DeltaSet`, which holds copies), `validityWindow`,
+  `touching`, `scopeOver` and `passesSelection` (they read store answers), and the callbacks of
+  `fork`, `federate`, `DeltaSet.filtered`, `latestByKey` and `subscribeRaw` (they receive set
+  members). `readMaterializationResult` reads `capture` and `snapshot` of its context as given;
+  it compares only their ids. `verifyCanonicalDelta` checks the format of the author and of the
+  `sig` before it hashes the claims, as it did before this change, so an empty author is
+  `invalid` and not a thrown `Error`. `verifyPureDerivation` answers `false` for an emitted delta
+  whose claims are not valid; before, it threw.
 - **A malformed wire entry is one rejected entry, and the pull goes on, in both witnesses.**
   `pullFromUrl` (TypeScript) and `pull_from_url` (Rust) reject a wire entry that is not
   `{claims, sig?}`: an unknown key, a `sig` that is not text, or claims that do not parse. Before,
   TypeScript threw on such an entry and dropped the rest of the offer, after it ingested the
   entries before it. Rust read a `sig` that is not text as absent, so it could accept a bundle
   member with `"sig": null` as an unsigned member, where TypeScript refused it. Now an offer of a
-  good entry, a bad entry and a good entry gives accepted 2 and rejected 1 in both.
+  good entry, a bad entry and a good entry gives accepted 2 and rejected 1 in both. A bundle
+  whose `members` is not a list is one rejected entry too; before, both witnesses read it as no
+  members and accepted the manifest alone. A top-level `bundles` or `loose` that is not a list
+  is still read as empty.
 - `Reactor.ingest`, `ingestBatch` and `ingestBundle` copy each delta once and hash it once. Before
   this change, a signed delta was copied three times. A signed delta whose claims are not valid
   is now rejected; before, `ingest` threw.
@@ -451,11 +469,17 @@ Step 4d adds more, listed under Breaking.
 
 ### ⚠️ Breaking
 
-- **A delta field that only a prototype holds is absent (issue #133).** This covers a class
-  getter, an object made with `Object.create`, and an own field that is not enumerable. Before,
-  the core hashed and read such a field. A host that builds claims as a class instance must put
-  each field on the object itself. A host that defines `validUntil`, `context` or `sig` with
-  `Object.defineProperty` and no `enumerable: true` gets another id, with no refusal.
+- **A delta holder that is not a plain object is refused (issue #133).** The delta, the claims, a
+  pointer, a target, an entity reference and a delta reference must each have a prototype that is
+  null or a realm's `Object.prototype`. An object literal from another realm (`vm`) passes. A
+  class instance and an object made with `Object.create(proto)` are refused, with an `Error` that
+  names the holder, at every entry point and in both stores. Before, the core hashed and read
+  fields that such a prototype held. A host must build these objects as object literals,
+  `structuredClone` copies or `JSON.parse` results.
+- **An own schema field that is not enumerable is refused.** A host that defines `validUntil`,
+  `context`, `sig` or another schema field with `Object.defineProperty` and no
+  `enumerable: true` gets an `Error` that names the field. Before, the core hashed it. A field that
+  only `Object.prototype` holds is still absent.
 - **An own field whose value is `undefined` is absent, at any key.** This is the JSON rule.
   `{kind: "primitive", value: 1, entity: undefined}` now has the id of `{kind: "primitive",
   value: 1}`; before this change it was refused. An unknown key with the value `undefined` is
@@ -479,18 +503,8 @@ Step 4d adds more, listed under Breaking.
   must use the returned delta. `DeltaSet` and `Reactor` also hold their own copy: `get` and the
   reactor's reads answer that copy, not the caller's object. The copy has the step's key order,
   so `JSON.stringify(makeDelta(c).claims)` can differ from `JSON.stringify(c)`.
-- **The objects of a delta that the core or a store makes have no `Object.prototype`.** This
-  covers the claims, each pointer, each target, each entity reference and each delta reference;
-  the `pointers` array and a bytes value keep their own prototypes. Both stores answer this
-  shape. On these objects `toString` and `hasOwnProperty` are absent; use `Object.hasOwn`. A
-  template string, `String(x)`, `"" + x` and `x == "text"` throw a `TypeError`. `x instanceof
-  Object` is false, and `x.constructor` is `undefined`. `util.inspect` names a null
-  prototype. A deep comparison that checks prototypes, such as `isDeepStrictEqual` or
-  `toStrictEqual`, does not equal a plain object. `JSON.stringify`, spread, `Object.entries`,
-  `structuredClone` (the clone is plain) and a loose deep comparison work as before.
 - **`preflightTransfer` returns the copies it decided on.** `GuardedUnit.unit` holds the step's
-  copies for a unit that is not `invalid`, and a `structuredClone` of the given unit for one that
-  is `invalid`.
+  copies for a unit that is not `invalid`, and the given unit itself for one that is `invalid`.
 - **`evalPred`, `Peer.admits`, `manifestMemberIds`, `relationSignature` and the command and
   materialization readers throw, or fail as they fail for a wrong description, for a delta of the
   wrong shape.** Before, some of them read such a delta as it was.

@@ -2,7 +2,7 @@
 // authors read materializations and write signed claims back through the ordinary ingest path.
 
 import { computeId } from "../delta/delta.js";
-import { ownDelta } from "../delta/own.js";
+import { ownDelta, ownField } from "../delta/own.js";
 import type { HView } from "../algebra/hview.js";
 import { Reactor, type IngestResult, type MaterializationChange } from "../reactor/reactor.js";
 import { VOCAB_PREFIX } from "../delta/vocab.js";
@@ -40,7 +40,7 @@ function emissionKey(substantive: readonly Pointer[], contexts: readonly string[
   const pairs: string[] = [];
   for (const p of substantive) {
     if (p.target.kind !== "entity") continue;
-    const ctx = p.target.entity.context;
+    const ctx = ownField(p.target.entity, "context");
     if (ctx !== undefined && contexts.includes(ctx)) {
       pairs.push(`${p.target.entity.id}${ctx}`);
     }
@@ -212,7 +212,8 @@ export class DerivationHost {
 
 // Pure-replay verification (SPEC-7 §4, G5): recompute the emission from (fn, input view) and
 // compare content addresses; the signature must also verify. It reads the own copy of the
-// emitted delta (`ownDelta`), once; a delta of the wrong shape does not verify.
+// emitted delta (`ownDelta`), once; a delta of the wrong shape or with invalid claims does not
+// verify.
 export function verifyPureDerivation(
   given: Delta,
   spec: BindingSpec,
@@ -224,10 +225,10 @@ export function verifyPureDerivation(
   let emitted: Delta;
   try {
     emitted = ownDelta(given);
+    if (verifyDelta(emitted) !== "verified") return false;
   } catch {
     return false;
   }
-  if (verifyDelta(emitted) !== "verified") return false;
   const fromPtr = emitted.claims.pointers.find(
     (p) => p.role === `${VOCAB_PREFIX}.derived.from` && p.target.kind === "primitive",
   );

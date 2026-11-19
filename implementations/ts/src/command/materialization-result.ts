@@ -53,6 +53,7 @@ import {
   mEqual,
   mFail,
 } from "./materialization-values.js";
+import { validBefore } from "../delta/own.js";
 
 export interface MaterializationResultContext {
   readonly receiver: string;
@@ -341,8 +342,7 @@ function verifySourceCommitments(
     commandRef(cf, "authority") !== snapshot.authority ||
     context.capture.claims.timestamp !== snapshot.servingAt ||
     context.capture.claims.validFrom !== snapshot.servingAt ||
-    (context.capture.claims.validUntil !== undefined &&
-      snapshot.servingAt >= context.capture.claims.validUntil)
+    !validBefore(context.capture.claims, snapshot.servingAt)
   )
     mFail();
   validateMaterializationBasis(basis, limits, snapshot);

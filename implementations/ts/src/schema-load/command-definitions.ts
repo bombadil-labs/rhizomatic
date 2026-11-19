@@ -1,7 +1,7 @@
 // Exact acts selected by SPEC-15 R22; no ambient latest-definition selection.
 import { type CborValue, decode } from "../delta/cbor.js";
 import { bytesToHex } from "../delta/hash.js";
-import { ownDelta } from "../delta/own.js";
+import { ownDelta, ownField, validBefore } from "../delta/own.js";
 import { verifyCanonicalDelta } from "../delta/sign.js";
 import type { Delta } from "../delta/types.js";
 import { VOCAB_PREFIX } from "../delta/vocab.js";
@@ -21,7 +21,7 @@ export function readCommandDefinition(given: Delta, at: number): CommandProgramD
     verifyCanonicalDelta(delta) !== "verified" ||
     !Number.isFinite(at) ||
     delta.claims.validFrom > at ||
-    (delta.claims.validUntil !== undefined && at >= delta.claims.validUntil)
+    !validBefore(delta.claims, at)
   )
     throw new Error("invalid-definition");
   const pointers = delta.claims.pointers;
@@ -42,7 +42,7 @@ export function readCommandDefinition(given: Delta, at: number): CommandProgramD
     blob = fields.get(prefix + "term")!;
   if (
     entity.kind !== "entity" ||
-    entity.entity.context !== "definition" ||
+    ownField(entity.entity, "context") !== "definition" ||
     name.kind !== "primitive" ||
     typeof name.value !== "string" ||
     alg.kind !== "primitive" ||

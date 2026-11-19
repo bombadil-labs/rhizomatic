@@ -3,7 +3,7 @@
 // exception, inView (SPEC-2 §3.1), is lowered to inSet before predicates meet data.
 
 import type { Term } from "./model.js";
-import { ownDelta } from "../delta/own.js";
+import { ownDelta, ownField } from "../delta/own.js";
 import type { Delta, Pointer, Primitive } from "../delta/types.js";
 
 export type Cmp = "eq" | "neq" | "lt" | "lte" | "gt" | "gte" | "prefix" | "inSet";
@@ -230,9 +230,9 @@ function pointerMatches(
   if (p.context !== undefined) {
     const ctx =
       ptr.target.kind === "entity"
-        ? ptr.target.entity.context
+        ? ownField(ptr.target.entity, "context")
         : ptr.target.kind === "delta"
-          ? ptr.target.deltaRef.context
+          ? ownField(ptr.target.deltaRef, "context")
           : undefined;
     if (ctx === undefined || !strMatch(p.context, ctx)) return false;
   }

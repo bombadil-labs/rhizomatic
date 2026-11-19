@@ -25,7 +25,7 @@ import { VOCAB_PREFIX } from "../delta/vocab.js";
 import { memberIdsOf } from "../delta/manifest.js";
 export { manifestMemberIds } from "../delta/manifest.js";
 import { idOfOwn } from "../delta/delta.js";
-import { ownDelta } from "../delta/own.js";
+import { ownDelta, ownField } from "../delta/own.js";
 import { verifyOwnDelta } from "../delta/sign.js";
 import type { Delta, Primitive } from "../delta/types.js";
 
@@ -155,7 +155,7 @@ function refusal(own: Delta): string | undefined {
   } catch (e) {
     return reasonOf(e);
   }
-  if (own.sig !== undefined && verifyOwnDelta(own, id) !== "verified")
+  if (ownField(own, "sig") !== undefined && verifyOwnDelta(own, id) !== "verified")
     return "signature does not verify";
   if (id !== own.id) return `delta id ${own.id} does not match its claims (content addressing, P6)`;
   return undefined;
@@ -202,8 +202,9 @@ export class Reactor implements DeltaSource {
 
   private index(delta: Delta): void {
     this.validityBoundaries = insertBoundary(this.validityBoundaries, delta.claims.validFrom);
-    if (delta.claims.validUntil !== undefined) {
-      this.validityBoundaries = insertBoundary(this.validityBoundaries, delta.claims.validUntil);
+    const validUntil = ownField(delta.claims, "validUntil");
+    if (validUntil !== undefined) {
+      this.validityBoundaries = insertBoundary(this.validityBoundaries, validUntil);
     }
     for (const ptr of delta.claims.pointers) {
       switch (ptr.target.kind) {

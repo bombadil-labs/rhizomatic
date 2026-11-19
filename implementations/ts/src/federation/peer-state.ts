@@ -9,6 +9,7 @@ import { verifyDelta } from "../delta/sign.js";
 import { packSet, unpackSet } from "../storage/pack.js";
 import type { Delta } from "../delta/types.js";
 import type { ArrivalCursor, ArrivalRecord } from "./arrival.js";
+import { ownField } from "../delta/own.js";
 
 const VERSION = 1;
 const MAX_SEQUENCE = Number.MAX_SAFE_INTEGER;
@@ -20,7 +21,8 @@ const verifiedSignatures = new WeakMap<Delta, { id: string; sig: string }>();
 
 /** Share a strict check already completed at another trusted peer-state boundary. */
 export function rememberVerifiedSignature(delta: Delta): void {
-  if (delta.sig !== undefined) verifiedSignatures.set(delta, { id: delta.id, sig: delta.sig });
+  const sig = ownField(delta, "sig");
+  if (sig !== undefined) verifiedSignatures.set(delta, { id: delta.id, sig });
 }
 
 function wellFormed(text: string): boolean {
@@ -106,7 +108,8 @@ function validateState(state: PeerState): void {
     if (computeId(delta.claims) !== delta.id)
       throw new Error("peer state: invalid admitted content id");
     const verified = verifiedSignatures.get(delta);
-    if (delta.sig !== undefined && (verified?.id !== delta.id || verified.sig !== delta.sig)) {
+    const sig = ownField(delta, "sig");
+    if (sig !== undefined && (verified?.id !== delta.id || verified.sig !== sig)) {
       if (verifyDelta(delta) !== "verified")
         throw new Error("peer state: invalid admitted signature");
       rememberVerifiedSignature(delta);
@@ -140,7 +143,7 @@ export function validatePeerStateTransition(before: PeerState, after: PeerState)
   }
   for (const prior of before.admitted) {
     const current = after.admitted.get(prior.id);
-    if (current !== undefined && current.sig !== prior.sig)
+    if (current !== undefined && ownField(current, "sig") !== ownField(prior, "sig"))
       throw new Error("peer state: admitted signature changed");
   }
 }

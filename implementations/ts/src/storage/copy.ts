@@ -7,9 +7,11 @@
 // are one object, which no caller can reach. A delta is copied by the core's own step
 // (`ownDelta`), so a store and the core read one delta object by one rule (issue #133).
 
-import { ownDelta } from "../delta/own.js";
+import { isPlainObject, ownDelta } from "../delta/own.js";
 import type { ArrivalRecord } from "./arrival-record.js";
 import type { VerifiedDelta } from "./store.js";
+
+export { isPlainObject };
 
 function malformed(what: string): never {
   throw new TypeError(`malformed member: ${what}`);
@@ -34,29 +36,6 @@ function record(value: unknown, what: string): Record<string, unknown> {
  */
 export function ownFields<T extends object>(given: T | undefined): T {
   return Object.assign(Object.create(null) as T, given);
-}
-/**
- * A plain object: not null, not a list, not a function, and made by an object literal or with a
- * null prototype. An optional object field of a request takes nothing else.
- *
- * Plainness is the shape of the prototype chain, not identity with this realm's
- * `Object.prototype`, so an object literal from another realm (`vm`, an iframe) is plain, as a
- * list from another realm is a list. The prototype is null, or it is some realm's
- * `Object.prototype`: its own prototype is null, and its own `constructor` is a data property
- * holding a function named `Object` whose `prototype` it is. A class instance and an object
- * made from another object are not plain. No getter is called.
- */
-export function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const prototype: unknown = Object.getPrototypeOf(value);
-  if (prototype === null || prototype === Object.prototype) return true;
-  if (typeof prototype !== "object" || Object.getPrototypeOf(prototype) !== null) return false;
-  const constructor: unknown = Object.getOwnPropertyDescriptor(prototype, "constructor")?.value;
-  if (typeof constructor !== "function") return false;
-  return (
-    Object.getOwnPropertyDescriptor(constructor, "prototype")?.value === prototype &&
-    Object.getOwnPropertyDescriptor(constructor, "name")?.value === "Object"
-  );
 }
 
 /** The five fields of an arrival record, each of its own type. Ranges are the store's to check. */

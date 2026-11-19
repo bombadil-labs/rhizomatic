@@ -175,7 +175,7 @@ describe("a signature and a validity end set only on Object.prototype read as ab
     ]);
   });
 
-  it("validUntil: a validUntil that only a prototype holds (a class getter, Object.create) is not in the id, and either store commits the delta without it", async () => {
+  it("validUntil: claims whose validUntil only a prototype holds (a class getter, Object.create) are refused by computeId and invalid-admission by either store, and the store keeps nothing", async () => {
     class Getter {
       get validUntil(): number {
         return 5;
@@ -190,8 +190,7 @@ describe("a signature and a validity end set only on Object.prototype read as ab
     for (const [shape, make] of Object.entries(shapes))
       for (const { name, store } of await stores()) {
         const peer = await store.createPeer(PEER, { erasure: "unproven" });
-        const inherited = make();
-        const delta = { id: computeId(inherited), claims: inherited };
+        const delta = { id: fact("target", 1, "one").id, claims: make() };
         const answer = await outcome(async () => (await peer.append(batch([delta]))).status);
         const held = await (await peer.read()).get([delta.id]);
         const stored: string[] = [];
@@ -199,20 +198,18 @@ describe("a signature and a validity end set only on Object.prototype read as ab
         seen.push([
           name,
           shape,
-          delta.id === fact("target", 1, "one").id,
+          await outcome(async () => computeId(make())),
           answer,
-          held.map((own) => "validUntil" in own.claims),
+          held,
           stored,
         ]);
         await store.close();
       }
-    const id = fact("target", 1, "one").id;
-    expect(seen).toEqual([
-      ["memory", "getter", true, "committed", [false], [id]],
-      ["sqlite", "getter", true, "committed", [false], [id]],
-      ["memory", "created", true, "committed", [false], [id]],
-      ["sqlite", "created", true, "committed", [false], [id]],
-    ]);
+    expect(seen).toEqual(
+      ["getter", "created"].flatMap((shape) =>
+        ["memory", "sqlite"].map((name) => [name, shape, "Error", "invalid-admission", [], []]),
+      ),
+    );
   });
 
   it("validUntil: under a polluted Object.prototype, readAnchored and fetchScope answer what they answer without it", async () => {

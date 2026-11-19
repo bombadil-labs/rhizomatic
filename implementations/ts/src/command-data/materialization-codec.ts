@@ -16,6 +16,7 @@ import {
   owned,
   type CommandFields,
 } from "./codec.js";
+import { ownField } from "../delta/own.js";
 
 export const MATERIALIZATION_PREFIX = `${VOCAB_PREFIX}.materialization.`;
 export const MATERIALIZATION_MAX_LIMITS = Object.freeze({
@@ -190,7 +191,7 @@ const setKey = (t: Target): string =>
     ? t.deltaRef.delta
     : t.kind === "primitive" && typeof t.value === "string"
       ? t.value
-      : t.kind === "entity" && t.entity.context === undefined
+      : t.kind === "entity" && ownField(t.entity, "context") === undefined
         ? t.entity.id
         : fail();
 /**
@@ -381,7 +382,7 @@ export function readMaterializationDescription(
     // MR-13: roots are distinct nonempty entities and aliases distinct nonempty texts, each
     // sorted bytewise; a text root or an entity alias is not a registration descriptor.
     const roots = (f.roots ?? []).map((t) =>
-      t.kind === "entity" && t.entity.context === undefined ? t.entity.id : fail(),
+      t.kind === "entity" && ownField(t.entity, "context") === undefined ? t.entity.id : fail(),
     );
     const strictlyAscending = (xs: string[]) =>
       xs.every((x, i) => x && (i === 0 || compareMaterializationText(xs[i - 1]!, x) < 0));
@@ -414,7 +415,10 @@ export function readMaterializationDescription(
     for (const k of ["at", "definition-at"]) commandNumber(f, k);
     if ((verb === "retire") !== (f.capture === undefined)) fail();
     if (f.capture) commandRef(f, "capture");
-    if (delta.claims.timestamp !== delta.claims.validFrom || delta.claims.validUntil !== undefined)
+    if (
+      delta.claims.timestamp !== delta.claims.validFrom ||
+      ownField(delta.claims, "validUntil") !== undefined
+    )
       fail();
   }
   if (["authority/1", "capture/1"].includes(kind)) commandRef(f, "source-binding");
@@ -427,7 +431,7 @@ export function readMaterializationDescription(
     if (
       delta.claims.author !== commandEntity(f, "receiver") ||
       delta.claims.timestamp !== delta.claims.validFrom ||
-      delta.claims.validUntil !== undefined ||
+      ownField(delta.claims, "validUntil") !== undefined ||
       !["completed", "refused", "indeterminate"].includes(commandText(f, "status"))
     )
       fail();

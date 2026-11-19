@@ -5,7 +5,7 @@
 import { array, encode, tstr } from "./cbor.js";
 import { claimsWithId, idOfOwn } from "./delta.js";
 import { contentAddress } from "./hash.js";
-import { bareDelta, ownDelta } from "./own.js";
+import { ownDelta } from "./own.js";
 import type { Claims, Delta, Pointer } from "./types.js";
 
 // Build a complete delta from claims (id computed, optional detached sig attached). The delta
@@ -13,7 +13,7 @@ import type { Claims, Delta, Pointer } from "./types.js";
 export function makeDelta(claims: Claims, sig?: string): Delta {
   if (sig !== undefined && typeof sig !== "string") throw new Error("sig must be a string");
   const { own, id } = claimsWithId(claims);
-  return bareDelta(id, own, sig);
+  return sig === undefined ? { id, claims: own } : { id, claims: own, sig };
 }
 
 // The negation vocabulary convention (SPEC-1 §7): an ordinary delta whose pointer targets the

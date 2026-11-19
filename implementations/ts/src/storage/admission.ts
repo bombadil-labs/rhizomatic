@@ -3,7 +3,7 @@
 
 import { compareUtf8 } from "../delta/cbor.js";
 import { idOfOwn } from "../delta/delta.js";
-import { ownDelta } from "../delta/own.js";
+import { ownDelta, ownField } from "../delta/own.js";
 import type { Delta } from "../delta/types.js";
 import { isPlainObject, ownFields } from "./copy.js";
 import { wellFormed, wellFormedSig } from "./request.js";
@@ -96,7 +96,8 @@ export function admissionOf(
     } catch {
       return refuse("a delta is malformed, or its id does not match its claims");
     }
-    if (delta.sig !== undefined && !wellFormedSig(delta.sig))
+    const sig = ownField(delta, "sig");
+    if (sig !== undefined && !wellFormedSig(sig))
       refuse("a signature is not 128 lowercase hex characters");
     if (!own.has(delta.id)) own.set(delta.id, delta);
   }

@@ -4,8 +4,8 @@
 import { ed25519 } from "@noble/curves/ed25519";
 import { sha512 } from "@noble/hashes/sha2";
 import { bytesToHex, concatBytes, hexToBytes } from "@noble/hashes/utils";
-import { claimsWithId, ownCheckedDelta } from "./delta.js";
-import { bareDelta } from "./own.js";
+import { claimsWithId, idOfOwn, ownCheckedDelta } from "./delta.js";
+import { ownDelta, ownField } from "./own.js";
 import type { Claims, Delta } from "./types.js";
 
 export const AUTHOR_PREFIX = "ed25519:";
@@ -19,6 +19,10 @@ export function authorForSeed(seedHex: string): string {
   return AUTHOR_PREFIX + publicKeyFromSeed(seedHex);
 }
 
+// The signing options have no prototype. The library reads `context` from them, so a field of that
+// name set on `Object.prototype` would change or refuse the signature.
+const SIGN_OPTIONS: { context?: Uint8Array } = Object.freeze(Object.create(null) as object);
+
 // Sign claims, producing a complete delta that holds the own copy of the claims (`ownClaims`).
 // Refuses to sign claims whose author does not match the signing key — a signature contradicting
 // its own author field is born broken (ERRATA D8).
@@ -28,8 +32,8 @@ export function signClaims(claims: Claims, seedHex: string): Delta {
   if (own.author !== expected) {
     throw new Error(`author must be ${expected} for this signing key, got ${own.author}`);
   }
-  const sig = bytesToHex(ed25519.sign(hexToBytes(id), hexToBytes(seedHex)));
-  return bareDelta(id, own, sig);
+  const sig = bytesToHex(ed25519.sign(hexToBytes(id), hexToBytes(seedHex), SIGN_OPTIONS));
+  return { id, claims: own, sig };
 }
 
 export type Verification = "verified" | "unsigned" | "invalid";
@@ -93,13 +97,14 @@ export function verifyOwnDelta(own: Delta, id: string): Verification {
 
 function verifyOwn({ own: delta, id }: { own: Delta; id: string }): Verification {
   if (id !== delta.id) return "invalid";
-  if (delta.sig === undefined) return "unsigned";
+  const sig = ownField(delta, "sig");
+  if (sig === undefined) return "unsigned";
   if (!delta.claims.author.startsWith(AUTHOR_PREFIX)) return "invalid";
-  const key = delta.id + delta.sig;
+  const key = delta.id + sig;
   if (verifiedSigs.has(key)) return "verified";
   const pubHex = delta.claims.author.slice(AUTHOR_PREFIX.length);
   try {
-    if (!verifySigStrict(hexToBytes(delta.sig), hexToBytes(delta.id), hexToBytes(pubHex)))
+    if (!verifySigStrict(hexToBytes(sig), hexToBytes(delta.id), hexToBytes(pubHex)))
       return "invalid";
   } catch {
     return "invalid";
@@ -111,12 +116,12 @@ function verifyOwn({ own: delta, id }: { own: Delta; id: string }): Verification
 
 /** Strict debug-profile appearance verification; preserves the legacy byte verifier API. */
 export function verifyCanonicalDelta(delta: Delta): Verification {
-  const checked = ownCheckedDelta(delta);
-  const { claims, sig } = checked.own;
+  const own = ownDelta(delta);
+  const sig = ownField(own, "sig");
   if (
-    !/^ed25519:[0-9a-f]{64}$/.test(claims.author) ||
+    !/^ed25519:[0-9a-f]{64}$/.test(own.claims.author) ||
     (sig !== undefined && !/^[0-9a-f]{128}$/.test(sig))
   )
     return "invalid";
-  return verifyOwn(checked);
+  return verifyOwn({ own, id: idOfOwn(own.claims) });
 }

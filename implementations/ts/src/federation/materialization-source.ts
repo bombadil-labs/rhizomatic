@@ -13,7 +13,7 @@ import {
 import { canonicalBytes } from "../delta/delta.js";
 import { contentAddress, bytesToHex } from "../delta/hash.js";
 import { parseClaims } from "../delta/json-profile.js";
-import { ownDelta } from "../delta/own.js";
+import { ownDelta, ownField } from "../delta/own.js";
 import { verifyCanonicalDelta } from "../delta/sign.js";
 import { DeltaSet } from "../delta/set.js";
 import type { Delta } from "../delta/types.js";
@@ -174,12 +174,13 @@ export function encodeMaterializationAppearance(
     limit(delta.claims.pointers.length, limits.pointers);
     const claims = canonicalBytes(delta.claims);
     limit(claims.length, limits.artifactBytes);
-    if (verifyCanonicalDelta(delta) !== "verified" || delta.sig === undefined) invalid();
+    const sig = ownField(delta, "sig");
+    if (verifyCanonicalDelta(delta) !== "verified" || sig === undefined) invalid();
     const result = encode(
       map([
         ["id", tstr(delta.id)],
         ["claims", bstr(claims)],
-        ["sig", bstr(Uint8Array.from(delta.sig!.match(/../g)!, (h) => Number.parseInt(h, 16)))],
+        ["sig", bstr(Uint8Array.from(sig!.match(/../g)!, (h) => Number.parseInt(h, 16)))],
       ]),
     );
     limit(result.length, limits.artifactBytes);
@@ -746,7 +747,7 @@ export function produceMaterializationSnapshot(
     for (const d of c.operands) {
       const bytes = encodeMaterializationAppearance(d, limits);
       const held = chosen.get(d.id);
-      if (held === undefined || d.sig! < held.delta.sig!)
+      if (held === undefined || ownField(d, "sig")! < ownField(held.delta, "sig")!)
         chosen.set(d.id, { delta: d, bytes, key: contentAddress(bytes) });
       add(contributors, d.id, c.peer);
       add(holders, d.id, c.peer);

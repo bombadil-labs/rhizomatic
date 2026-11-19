@@ -165,16 +165,15 @@ pub fn pull_from_url(peer: &mut Peer, base_url: &str) -> Result<(usize, usize), 
                 continue;
             }
         };
+        let Some(wire_members) = b["members"].as_array() else {
+            rejected += 1;
+            continue;
+        };
         if verify_delta(&manifest) != Verification::Verified {
             rejected += 1;
             continue;
         }
-        let members: Result<Vec<Delta>, String> = b["members"]
-            .as_array()
-            .unwrap_or(&empty)
-            .iter()
-            .map(from_wire)
-            .collect();
+        let members: Result<Vec<Delta>, String> = wire_members.iter().map(from_wire).collect();
         let Ok(members) = members else {
             rejected += 1;
             continue;

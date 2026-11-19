@@ -102,6 +102,7 @@ async function pullOffer(body: unknown): Promise<{ accepted: number; rejected: n
 }
 
 const SEED_A = "a1".repeat(32);
+const REF = `1e20${"ab".repeat(32)}`;
 const AUTHOR_A = authorForSeed(SEED_A);
 const note = (timestamp: number, value: string): Claims => ({
   timestamp,
@@ -154,5 +155,19 @@ describe("a malformed wire entry is one rejection, and the pull goes on (as Rust
       { accepted: 2, rejected: 1 },
       { accepted: 3, rejected: 0 },
     ]);
+  });
+
+  it("a bundle whose members is not a list is one rejection, and the pull goes on", async () => {
+    const manifest = signClaims(makeManifestClaims(AUTHOR_A, 5, [REF]), SEED_A);
+    const wireManifest = { claims: claimsToJson(manifest.claims), sig: manifest.sig };
+    const offer = (bundle: object) => ({
+      bundles: [bundle],
+      loose: [signedEntry("one", 1), signedEntry("two", 2)],
+    });
+    const counts = [];
+    for (const members of ["bad", 5, null, {}])
+      counts.push(await pullOffer(offer({ manifest: wireManifest, members })));
+    counts.push(await pullOffer(offer({ manifest: wireManifest })));
+    expect(counts).toEqual([1, 2, 3, 4, 5].map(() => ({ accepted: 2, rejected: 1 })));
   });
 });

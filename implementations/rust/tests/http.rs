@@ -170,3 +170,41 @@ fn a_bundle_member_whose_wire_sig_is_null_is_one_rejection_not_an_unsigned_membe
         (3, 0)
     );
 }
+
+#[test]
+fn a_bundle_whose_members_is_not_a_list_is_one_rejection_and_the_pull_goes_on() {
+    let author = rhizomatic::sign::author_for_seed(SEED_A).unwrap();
+    let member = format!("1e20{}", "ab".repeat(32));
+    let manifest = rhizomatic::sign::sign_claims(
+        &rhizomatic::reactor::make_manifest_claims(&author, 5.0, &[member], None, None),
+        SEED_A,
+    )
+    .unwrap();
+    let wire_manifest = serde_json::json!({
+        "claims": rhizomatic::json_profile::claims_to_json(&manifest.claims),
+        "sig": manifest.sig.unwrap(),
+    });
+    let offer = |bundle: serde_json::Value| {
+        serde_json::json!({
+            "bundles": [bundle],
+            "loose": [signed_entry("one", 1.0), signed_entry("two", 2.0)],
+        })
+    };
+    let mut counts: Vec<(usize, usize)> = [
+        serde_json::json!("bad"),
+        serde_json::json!(5),
+        serde_json::json!(null),
+        serde_json::json!({}),
+    ]
+    .into_iter()
+    .map(|members| {
+        pull_offer(offer(
+            serde_json::json!({ "manifest": wire_manifest, "members": members }),
+        ))
+    })
+    .collect();
+    counts.push(pull_offer(offer(
+        serde_json::json!({ "manifest": wire_manifest }),
+    )));
+    assert_eq!(counts, vec![(2, 1); 5]);
+}

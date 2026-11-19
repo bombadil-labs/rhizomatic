@@ -3,7 +3,7 @@
 
 import { evalTermRaw, type Term } from "../resolve/eval.js";
 import { evalPredOn, type Pred } from "../syntax/pred.js";
-import { ownDelta } from "../delta/own.js";
+import { ownDelta, ownField } from "../delta/own.js";
 import { Reactor, type IngestResult } from "../reactor/reactor.js";
 import { memberIdsOf } from "../delta/manifest.js";
 import { authorForSeed, signClaims, verifyDelta } from "../delta/sign.js";
@@ -67,7 +67,9 @@ export class Peer {
     // Partition per the signature boundary (F3): signed manifests carry their present members
     // as bundles; remaining signed deltas travel loose; unsigned uncovered are withheld.
     const isSignedManifest = (d: Delta) =>
-      d.sig !== undefined && verifyDelta(d) === "verified" && memberIdsOf(d).length > 0;
+      ownField(d, "sig") !== undefined &&
+      verifyDelta(d) === "verified" &&
+      memberIdsOf(d).length > 0;
     const bundles: Array<{ manifest: Delta; members: Delta[] }> = [];
     const covered = new Set<string>();
     for (const m of offered.filter(isSignedManifest)) {
@@ -80,7 +82,8 @@ export class Peer {
       covered.add(m.id);
     }
     const loose = offered.filter(
-      (d) => !covered.has(d.id) && d.sig !== undefined && verifyDelta(d) === "verified",
+      (d) =>
+        !covered.has(d.id) && ownField(d, "sig") !== undefined && verifyDelta(d) === "verified",
     );
     const withheld = offered.length - covered.size - loose.length;
 

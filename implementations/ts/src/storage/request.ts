@@ -7,6 +7,7 @@ import type { Claims } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
 import { copyMember, isPlainObject, ownFields } from "./copy.js";
 import { StoreError, type Id, type ScopeRequest, type VerifiedDelta } from "./store.js";
+import { ownField } from "../delta/own.js";
 
 // A lone surrogate: a UTF-16 code unit that is not half of a pair. Such a string has no UTF-8
 // form, so two of them can be stored as one (§4.13 reading 104).
@@ -71,7 +72,7 @@ export function admit(entry: unknown): Admitted {
   // Claims are shared across peers by id. An id that does not recompute would let one peer's
   // append change what another peer reads.
   if (id !== own.delta.id) refuse("a delta id does not match its claims");
-  const sig = own.delta.sig;
+  const sig = ownField(own.delta, "sig");
   if (sig !== undefined && !SIG.test(sig))
     refuse("a signature is not 128 lowercase hex characters");
   const { at, sequence, transfer, sender } = own.arrival;

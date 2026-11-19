@@ -38,6 +38,7 @@ import {
   lowerPrincipalRegistry,
   principalResolver,
 } from "../principal/term.js";
+import { ownField, validBefore } from "../delta/own.js";
 export class CommandTransportError extends Error {}
 /** One governing author and an explicit signing capability; no seed retrieval port. */
 export interface CommandSigner {
@@ -57,8 +58,7 @@ export type CommandBoot = CommandBootInputs &
     | { readonly seed?: never; readonly signer: CommandSigner }
   );
 const valid = (delta: Delta, at: number): boolean =>
-  delta.claims.validFrom <= at &&
-  (delta.claims.validUntil === undefined || at < delta.claims.validUntil);
+  delta.claims.validFrom <= at && validBefore(delta.claims, at);
 const text = (value: string): readonly Target[] => [{ kind: "primitive", value }];
 const reference = (id: string): readonly Target[] => [{ kind: "delta", deltaRef: { delta: id } }];
 export class CommandEndpoint {
@@ -172,9 +172,10 @@ export class CommandEndpoint {
     let size = 0;
     try {
       for (const d of deltas) {
-        if (d.sig !== undefined && (d.sig.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(d.sig)))
+        const sig = ownField(d, "sig");
+        if (sig !== undefined && (sig.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(sig)))
           throw new Error("signature bytes");
-        size += canonicalBytes(d.claims).length + (d.sig?.length ?? 0) / 2;
+        size += canonicalBytes(d.claims).length + (sig?.length ?? 0) / 2;
       }
     } catch {
       return refuse("invalid-appearance");
@@ -188,7 +189,8 @@ export class CommandEndpoint {
     const supplied = new Map<string, Delta>();
     for (const delta of deltas) {
       const previous = supplied.get(delta.id);
-      if (!previous || delta.sig! < previous.sig!) supplied.set(delta.id, delta);
+      if (!previous || ownField(delta, "sig")! < ownField(previous, "sig")!)
+        supplied.set(delta.id, delta);
     }
     const entry = supplied.get(entryId);
     if (!entry) return refuse("entry-missing");

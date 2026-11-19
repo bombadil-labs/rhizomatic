@@ -9,6 +9,7 @@ import { makeDelta } from "../delta/set.js";
 import { verifyDelta } from "../delta/sign.js";
 import { asObject } from "../delta/strict.js";
 import type { Delta } from "../delta/types.js";
+import { ownField } from "../delta/own.js";
 
 interface WireDelta {
   claims: unknown;
@@ -22,9 +23,10 @@ interface SyncResponse {
 
 function toWire(d: Delta): WireDelta {
   // No id on the wire: the receiver recomputes content addresses (F5; never trust the wire).
-  return d.sig === undefined
+  const sig = ownField(d, "sig");
+  return sig === undefined
     ? { claims: claimsToJson(d.claims) }
-    : { claims: claimsToJson(d.claims), sig: d.sig };
+    : { claims: claimsToJson(d.claims), sig };
 }
 
 // A wire entry is `{claims, sig?}` and nothing else. An entry of another shape, a `sig` that is not
@@ -48,7 +50,7 @@ export function offerFor(peer: Peer, have: ReadonlySet<string>): SyncResponse {
   const offered = peer.offeredSet().filter((d) => !have.has(d.id));
   const offeredIds = new Set(offered.map((d) => d.id));
   const isSignedManifest = (d: Delta) =>
-    d.sig !== undefined && verifyDelta(d) === "verified" && memberIdsOf(d).length > 0;
+    ownField(d, "sig") !== undefined && verifyDelta(d) === "verified" && memberIdsOf(d).length > 0;
   const covered = new Set<string>();
   const bundles: SyncResponse["bundles"] = [];
   for (const m of offered.filter(isSignedManifest)) {
@@ -61,7 +63,10 @@ export function offerFor(peer: Peer, have: ReadonlySet<string>): SyncResponse {
     covered.add(m.id);
   }
   const loose = offered
-    .filter((d) => !covered.has(d.id) && d.sig !== undefined && verifyDelta(d) === "verified")
+    .filter(
+      (d) =>
+        !covered.has(d.id) && ownField(d, "sig") !== undefined && verifyDelta(d) === "verified",
+    )
     .map(toWire);
   return { bundles, loose };
 }
@@ -117,7 +122,11 @@ export async function pullFromUrl(
       rejected += 1;
       continue;
     }
-    const wireMembers = listOf(b?.members);
+    const wireMembers: unknown = b?.members;
+    if (!Array.isArray(wireMembers)) {
+      rejected += 1;
+      continue;
+    }
     if (verifyDelta(manifest) !== "verified") {
       rejected += 1 + wireMembers.length;
       continue;
