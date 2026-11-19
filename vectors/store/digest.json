@@ -9227,6 +9227,397 @@
           "error": "invalid-request"
         }
       ]
+    },
+    {
+      "name": "each-peer-answers-its-own-tree",
+      "spec": "§4.13 reading 139: two peers hold different sets, and each answers its own root and nodes",
+      "requires": [
+        "digest"
+      ],
+      "steps": [
+        {
+          "op": "append",
+          "peer": "A",
+          "deltas": [
+            "deep-0",
+            "deep-1",
+            "deep-2",
+            "deep-3",
+            "deep-4",
+            "deep-5",
+            "deep-6",
+            "deep-7",
+            "deep-8",
+            "deep-9",
+            "deep-10",
+            "deep-11",
+            "deep-12",
+            "deep-13",
+            "deep-14",
+            "deep-15",
+            "deep-16",
+            "deep-17",
+            "deep-18",
+            "deep-19"
+          ]
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "deltas": [
+            "wide-0",
+            "wide-1",
+            "wide-2",
+            "wide-3",
+            "wide-4",
+            "wide-5",
+            "wide-6",
+            "wide-7",
+            "wide-8",
+            "wide-9",
+            "wide-10",
+            "wide-11",
+            "loose-0",
+            "loose-1",
+            "loose-2",
+            "loose-3",
+            "loose-4",
+            "loose-5"
+          ]
+        },
+        {
+          "op": "root",
+          "peer": "A",
+          "expect": {
+            "count": 20,
+            "hash": "1e20453c3dd15e4b2b94572e92af904f71d92ff821ef37736d882734b453616a3b3f"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c0d0",
+          "expect": {
+            "count": 1,
+            "hash": "1e206a01157bdc7c2babdb46013cf252a479ed024ae36e18ace2c81cd5d35d1722d3"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c0d1",
+          "expect": {
+            "count": 2,
+            "hash": "1e209ccb56e15be2e0b0c333af6aa0782475dcf424a4a3f12ac805498688d63daf31"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c0d3",
+          "expect": {
+            "count": 1,
+            "hash": "1e20bf5ba8c5dfe4825a4a9e71ab483059dd4e9806d0e56f95c496f6eaaab949f140"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c0d5",
+          "expect": {
+            "count": 2,
+            "hash": "1e2006b389db243ebbcffacc4bc3b1f9c62b1dbf8a4a43b1e22f8b97fac434dfb4dd"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c0d6",
+          "expect": {
+            "count": 1,
+            "hash": "1e2063e79267f3e0ad914615b0a0ca1c34454e92520295f5c878de0e989493594aac"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c0d8",
+          "expect": {
+            "count": 1,
+            "hash": "1e20eb0c824f5e03953ebb2cda0c04c71c2d62bd0c1cd39dd41042202fdcdf6e4009"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c0d9",
+          "expect": {
+            "count": 2,
+            "hash": "1e204bfa6cc059bad803bb08d5b315277de25fb72c4bc5a4d39cc4daceff1a800827"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c0da",
+          "expect": {
+            "count": 4,
+            "hash": "1e20a3bd1b0f65697c51e12fbf7ab8d8da25e3f6d6cfa4eb7b544ab246a29ffb932c"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c0db",
+          "expect": {
+            "count": 2,
+            "hash": "1e207119f28481e2958b212008b1c33043d74f0ba5f081bf2ec30bffb2f1b7db9c2e"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c0dd",
+          "expect": {
+            "count": 1,
+            "hash": "1e2059f73164ebde2c43ccd9894420cce3ab5c3dd53c30b6755d68e150d9a864f463"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c0de",
+          "expect": {
+            "count": 1,
+            "hash": "1e20aa7a4a1bf3d2c409c9c835852ba9dd9acb68f72575e7efa0f40a50d59e5d7efe"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c0df",
+          "expect": {
+            "count": 2,
+            "hash": "1e200d0f238c0eb103b08a37f0f593cec0d408d494a8d78dba9e7f285be96f38c94a"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c0d",
+          "expect": {
+            "count": 20,
+            "hash": "1e20bdf33634ab3c4f7c64e5a7e7e4613163ca609f8d35935a7233e51a27cff303c6"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c0",
+          "expect": {
+            "count": 20,
+            "hash": "1e206d840d32021610161ee6d2746695bdbe4d699aeebe8aacc612b84a7ec7d8c6e4"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20c",
+          "expect": {
+            "count": 20,
+            "hash": "1e208267caaedce39ad006ecf205fe8e5dd5798ae7fc898c75a5eaafb38007b3bca9"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e20",
+          "expect": {
+            "count": 20,
+            "hash": "1e207efe933c3d0eb2d2570d23c305b4fbe8e80613ef4178d8b0461926b98459a671"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e2",
+          "expect": {
+            "count": 20,
+            "hash": "1e2096e4f20c18213dee3b5b5a1350fcdd7ce473fec2cb027205eb5fe09bb263f9a6"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1e",
+          "expect": {
+            "count": 20,
+            "hash": "1e20c92ae4488dc30e37d7daff33a2e92c910c65a27ea07b40172e98cd8567b46094"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "1",
+          "expect": {
+            "count": 20,
+            "hash": "1e2001108cedae445670a5e9586ae3f05e8e26c59d2817f81570ab9641c06bdd1db0"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "A",
+          "prefix": "",
+          "expect": {
+            "count": 20,
+            "hash": "1e20453c3dd15e4b2b94572e92af904f71d92ff821ef37736d882734b453616a3b3f"
+          }
+        },
+        {
+          "op": "root",
+          "peer": "B",
+          "expect": {
+            "count": 18,
+            "hash": "1e20c9a9ce15f0d3181fddd85556829c55b8bb8e28069b3b5b087fcee5ed6184096f"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "B",
+          "prefix": "1e201",
+          "expect": {
+            "count": 1,
+            "hash": "1e20c9641f18b22cada88363595ad98d6a08f0d9581adb011607e594d740704a3b18"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "B",
+          "prefix": "1e204",
+          "expect": {
+            "count": 2,
+            "hash": "1e202d75f3c3aa9502fffd56c49964cd97032cdb8b67d9d96f4f696bc95cb296ffab"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "B",
+          "prefix": "1e208",
+          "expect": {
+            "count": 1,
+            "hash": "1e20f593e3385ac2b7b1963abc2d5aba5cd0f1a455637b24d36fcafee21d4d7c52de"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "B",
+          "prefix": "1e20a",
+          "expect": {
+            "count": 1,
+            "hash": "1e205634f9d3ffcc37c4a21537028eab06027349a77c1cb717f196ff98c7d6d513d6"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "B",
+          "prefix": "1e20c",
+          "expect": {
+            "count": 13,
+            "hash": "1e20ad073d743cf50f298d32ceee1ef018de9201e525f15b21f51f6371a8ccfd5660"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "B",
+          "prefix": "1e20",
+          "expect": {
+            "count": 18,
+            "hash": "1e20360c13fbd4cf3ca42a8563b2d9da08aafb9fa454d94722019d865d863fd23863"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "B",
+          "prefix": "1e2",
+          "expect": {
+            "count": 18,
+            "hash": "1e20bef2b65e3c098a9a21eb045c662c9f1eec8daaa7122d948473b9912c8b927f2e"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "B",
+          "prefix": "1e",
+          "expect": {
+            "count": 18,
+            "hash": "1e20073cc33a37970a3b4b57844137091f0528decc5e92261cd3a69883249ad57f64"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "B",
+          "prefix": "1",
+          "expect": {
+            "count": 18,
+            "hash": "1e20ad3617ddcdafd3d39148d5495501b5c77af8ae0785f4fda017f6cf98e40e24c4"
+          }
+        },
+        {
+          "op": "digest",
+          "peer": "B",
+          "prefix": "",
+          "expect": {
+            "count": 18,
+            "hash": "1e20c9a9ce15f0d3181fddd85556829c55b8bb8e28069b3b5b087fcee5ed6184096f"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-bad-prefix-is-refused-before-the-move",
+      "spec": "§4.13 readings 139 and 140: a moved snapshot refuses a prefix that is not lowercase hex as invalid-request",
+      "requires": [
+        "digest"
+      ],
+      "steps": [
+        {
+          "op": "append",
+          "peer": "A",
+          "deltas": [
+            "loose-0"
+          ]
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "as": "old"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "deltas": [
+            "loose-1"
+          ]
+        },
+        {
+          "op": "digest",
+          "snapshot": "old",
+          "prefix": "",
+          "error": "snapshot-moved"
+        },
+        {
+          "op": "digest",
+          "snapshot": "old",
+          "prefix": "1E20",
+          "error": "invalid-request"
+        },
+        {
+          "op": "digest",
+          "snapshot": "old",
+          "prefix": "g",
+          "error": "invalid-request"
+        }
+      ]
     }
   ]
 }

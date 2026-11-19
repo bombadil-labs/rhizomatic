@@ -63,7 +63,7 @@ import {
 } from "../src/storage/store.js";
 import { parseTerm } from "../src/syntax/term-json.js";
 import { roundVectors } from "../tools/store-round-vectors.js";
-import { broken, sparse, type Break } from "./support/broken-store.js";
+import { broken, forgesScopeArrival, sparse, type Break } from "./support/broken-store.js";
 import { countingSnapshot, type StoreCall } from "./support/store-fixture.js";
 import { moveByPurge, sacrificial } from "./support/move-snapshot.js";
 
@@ -284,6 +284,13 @@ describe("freshness vectors", () => {
     const found = await failures(stuck);
     expect(found.find((f) => f.name === "freshness/unrelated-appends")?.message).toContain(
       "the store broke no-progress: checkFresh: the store's page from 1 to 3 ends at 1",
+    );
+  });
+
+  it("a store fault the capture passes up fails with the fixed words", async () => {
+    const found = await failures(WITNESS, forgesScopeArrival);
+    expect(found.find((f) => f.name === "freshness/unrelated-appends")?.message).toContain(
+      "step 3 (capture): the store broke malformed-member: the store answered a scope member that is malformed",
     );
   });
 });

@@ -28,7 +28,11 @@
 // Not covered here: what a store must do (store-vectors.test.ts, "each broken store fails"),
 // and ownership, which no conformance run checks (store.test.ts).
 
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { runDigestConformance } from "../src/storage/digest-conformance.js";
+import type { DigestStep, StoreDigestDocument } from "../src/storage/digest-vectors.js";
+import { EMPTY_DIGEST } from "../src/storage/digest.js";
 import { createMemoryStore } from "../src/storage/memory-store.js";
 import { runStoreConformance, StoreConformanceError } from "../src/storage/store-conformance.js";
 import type { StoreVectors } from "../src/storage/store-vector-format.js";
@@ -48,7 +52,7 @@ import type {
   StoreProfile,
   VerifiedDelta,
 } from "../src/storage/store.js";
-import { StoreError } from "../src/storage/store.js";
+import { StoreError, StoreIntegrityError } from "../src/storage/store.js";
 import type { Delta } from "../src/delta/types.js";
 import {
   broken,
@@ -2622,5 +2626,268 @@ describe("runner rules: a wrong document", () => {
   it("a forged corpus entry is not checked: the documents carry one on purpose", async () => {
     expect(vectors.scripts.deltas.filter((d) => d.forged === true)).toHaveLength(1);
     await expect(runStoreConformance(memory, vectors)).resolves.toBeDefined();
+  });
+});
+
+// ---- the digest runner (README §12) ---------------------------------------------------------
+// Each line of `runDigestConformance` that judges an answer has one wrong store here; each line
+// that judges the document has one wrong document. Every failure carries one of the row's
+// messages, each message appears, and the failures are in the row's parts: `trees`, or
+// `digest` (the cases, the deltas, or the whole file when it is refused).
+
+const digestFile = (): StoreDigestDocument =>
+  JSON.parse(
+    readFileSync(new URL("../../../vectors/store/digest.json", import.meta.url), "utf8"),
+  ) as StoreDigestDocument;
+type Doc = StoreDigestDocument;
+type DigestRule = {
+  readonly store?: () => Promise<Store>;
+  readonly doc?: (doc: Doc) => Doc;
+  readonly messages: readonly string[];
+  readonly parts: readonly ("trees" | "digest")[];
+};
+const digestOnly = (digest: (s: Snapshot, peer: PeerStore) => Snapshot["digest"]): Break => ({
+  snapshot: (s, peer) => ({ digest: digest(s, peer) }),
+});
+/** The document with the nodes of its first tree of two nodes or more changed by `change`. */
+const twoNodes = (
+  doc: Doc,
+  change: (nodes: Doc["trees"][number]["nodes"]) => typeof nodes,
+): Doc => {
+  const at = doc.trees.findIndex((t) => t.nodes.length >= 2);
+  const trees = [...doc.trees];
+  trees[at] = { ...trees[at]!, nodes: change(trees[at]!.nodes) };
+  return { ...doc, trees };
+};
+
+/** A store whose snapshot's `root` is the peer's present root, read at the call. */
+function rootLive(): Promise<Store> {
+  const live = new Map<string, string | null>();
+  const note = async (p: PeerStore) => {
+    const now = await p.read();
+    live.set(p.id, now.root);
+    now.release();
+  };
+  return broken({
+    peer: (p) => ({
+      append: async (admission) => {
+        const result = await p.append(admission);
+        await note(p);
+        return result;
+      },
+      purge: async (ids) => {
+        const report = await p.purge(ids);
+        await note(p);
+        return report;
+      },
+      read: async () => {
+        const s = await p.read();
+        return Object.defineProperty({ ...s }, "root", { get: () => live.get(p.id) ?? s.root });
+      },
+    }),
+  })();
+}
+
+const DIGEST_RULES: Readonly<Record<string, DigestRule>> = {
+  "a root that is not the root of the peer's set": {
+    store: broken({ snapshot: () => ({ root: EMPTY_DIGEST.hash }) }),
+    messages: [`root is ${EMPTY_DIGEST.hash}`],
+    parts: ["digest"],
+  },
+  "a snapshot's root read at the call, not at the read": {
+    store: rootLive,
+    messages: ["root is 1e20"],
+    parts: ["digest"],
+  },
+  'digest("") that is not the root\'s node': {
+    store: broken(
+      digestOnly((s) => async (prefix) => {
+        const node = await s.digest(prefix);
+        return prefix === "" ? { ...node, count: node.count + 1 } : node;
+      }),
+    ),
+    messages: ['(root): digest("") is {count ', '(digest): digest("") is {count '],
+    parts: ["digest"],
+  },
+  "a digest call that answers after an append that adds an id or a purge that releases one": {
+    store: broken(
+      digestOnly((s, peer) => async (prefix) => {
+        try {
+          return await s.digest(prefix);
+        } catch (error) {
+          if (codeOf(error) !== "snapshot-moved") throw error;
+          return (await peer.read()).digest(prefix);
+        }
+      }),
+    ),
+    messages: [", expected a refusal snapshot-moved"],
+    parts: ["digest"],
+  },
+  "a digest call that refuses after a head-only append": {
+    store: broken(
+      digestOnly((s, peer) => async (prefix) => {
+        const node = await s.digest(prefix);
+        const now = await peer.read();
+        now.release();
+        if (now.revision !== s.revision) throw new StoreError("snapshot-moved", "moved");
+        return node;
+      }),
+    ),
+    messages: ['digest("") refused snapshot-moved'],
+    parts: ["digest"],
+  },
+  "a digest call that refuses with another code": {
+    store: broken(
+      digestOnly(
+        (s) => (prefix) => recoded("snapshot-moved", "peer-absent", () => s.digest(prefix)),
+      ),
+    ),
+    messages: ["answered refusal peer-absent, expected a refusal snapshot-moved"],
+    parts: ["digest"],
+  },
+  "a prefix below a leaf that answers the empty node": {
+    store: broken(
+      digestOnly((s) => async (prefix) => {
+        const node = await s.digest(prefix);
+        return prefix.length > 8 ? EMPTY_DIGEST : node;
+      }),
+    ),
+    messages: [`) is {count 0, hash ${EMPTY_DIGEST.hash.slice(0, 16)}}, expected {count `],
+    parts: ["digest"],
+  },
+  "a digest call that answers an integrity fault": {
+    store: broken(
+      digestOnly(() => (prefix) => {
+        throw new StoreIntegrityError({
+          kind: "digest-mismatch",
+          key: `digest:${prefix}`,
+          detail: "a wrong store met damage in its digest",
+        });
+      }),
+    ),
+    messages: ["a wrong store met damage in its digest"],
+    parts: ["digest"],
+  },
+  "a prefix that is not lowercase hex digits, answered": {
+    store: broken(
+      digestOnly((s) => (prefix) => s.digest(prefix.toLowerCase().replace(/[^0-9a-f]/g, ""))),
+    ),
+    messages: [", expected a refusal invalid-request"],
+    parts: ["digest"],
+  },
+  "a peer that answers another peer's root and nodes": {
+    store: broken({
+      peer: (p, inner) => ({
+        read: async () => {
+          const s = await p.read();
+          if (p.id !== "B") return s;
+          const a = await (await inner.peer("A")).read();
+          return { ...s, root: a.root, digest: (prefix) => a.digest(prefix) };
+        },
+      }),
+    }),
+    messages: ["root is 1e20"],
+    parts: ["digest"],
+  },
+  "a moved snapshot that refuses snapshot-moved before it checks the prefix": {
+    store: broken(
+      digestOnly((s) => async (prefix) => {
+        try {
+          return await s.digest(prefix);
+        } catch (error) {
+          if (codeOf(error) === "invalid-request")
+            await s.digest("").catch((moved: unknown) => {
+              if (codeOf(moved) === "snapshot-moved") throw moved;
+            });
+          throw error;
+        }
+      }),
+    ),
+    messages: ["answered refusal snapshot-moved, expected a refusal invalid-request"],
+    parts: ["digest"],
+  },
+  "a file of another format": {
+    doc: (doc) => ({ ...doc, format: "rhizomatic-store-digest/0" as Doc["format"] }),
+    messages: ["unknown store digest format"],
+    parts: ["digest"],
+  },
+  "a tree whose node is not the reference's": {
+    doc: (doc) => twoNodes(doc, ([a, b, ...rest]) => [a!, { ...b!, count: 1000 }, ...rest]),
+    messages: ["the node at "],
+    parts: ["trees"],
+  },
+  "a tree whose first node is not its root": {
+    doc: (doc) => twoNodes(doc, ([a, b, ...rest]) => [b!, a!, ...rest]),
+    messages: ["the first node is not the root"],
+    parts: ["trees"],
+  },
+  "a delta whose id does not recompute": {
+    doc: (doc) => {
+      const [first, ...rest] = doc.deltas;
+      return {
+        ...doc,
+        deltas: [{ ...first!, claims: { ...(first!.claims as object), timestamp: 1 } }, ...rest],
+      };
+    },
+    messages: ["is not its claims' id"],
+    parts: ["digest"],
+  },
+  "a case with an unknown requirement": {
+    doc: (doc) => ({
+      ...doc,
+      cases: doc.cases.map((c) => ({ ...c, requires: ["digests"] as unknown as ["digest"] })),
+    }),
+    messages: ["unknown script requirement digests"],
+    parts: ["digest"],
+  },
+  "a step of an unknown op": {
+    doc: (doc) => ({
+      ...doc,
+      cases: doc.cases.map((c) => ({
+        ...c,
+        steps: [{ ...c.steps[0]!, op: "digests" } as unknown as DigestStep, ...c.steps.slice(1)],
+      })),
+    }),
+    messages: ["unknown step digests"],
+    parts: ["digest"],
+  },
+};
+
+describe("runner rules: each wrong digest store or document fails with the message of its rule", () => {
+  for (const [name, rule] of Object.entries(DIGEST_RULES))
+    it(name, async () => {
+      const doc = rule.doc?.(digestFile()) ?? digestFile();
+      const error: unknown = await runDigestConformance(
+        rule.store ?? (async () => createMemoryStore()),
+        doc,
+      ).then(
+        () => undefined,
+        (e: unknown) => e,
+      );
+      expect(error, "the run must fail").toBeInstanceOf(StoreConformanceError);
+      const failures = (error as StoreConformanceError).failures;
+      const lines = failures.map((f) => `${f.name}: ${f.message}`);
+      expect(
+        lines.filter((line) => !rule.messages.some((m) => line.includes(m))),
+        "a failure for another reason",
+      ).toEqual([]);
+      for (const m of rule.messages)
+        expect(
+          lines.some((line) => line.includes(m)),
+          `no failure carries ${m}:\n${lines.join("\n")}`,
+        ).toBe(true);
+      expect(new Set(failures.map((f) => f.name.split("/")[0]))).toEqual(new Set(rule.parts));
+    });
+
+  it("the wrapper itself changes nothing: every tree and case passes, none skipped", async () => {
+    const doc = digestFile();
+    const report = await runDigestConformance(broken({}), doc);
+    expect(report).toEqual({
+      passed: [
+        ...doc.trees.map((t) => `trees/${t.name}`),
+        ...doc.cases.map((c) => `digest/${c.name}`),
+      ],
+      skipped: [],
+    });
   });
 });

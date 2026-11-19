@@ -188,6 +188,37 @@ describe.each(STORES)("peer delete on the %s store", (name, open, posture, claim
     expect((await store.openAdmin().fsck()).faults).toEqual([]);
   });
 
+  it("a peer whose root was a node (40 ids) is deleted and created again: the new peer's root and digest(\"\") are the empty digest, then the digest of only what it appends; fsck is clean, and the bystander's root names its set", async () => {
+    const store = await open();
+    const a = await store.createPeer("peer:a", { erasure: posture });
+    const b = await store.createPeer("peer:b", { erasure: posture });
+    const deltas = facts("dg", 40);
+    const bystander = facts("dgb", 3);
+    await add(a, deltas);
+    await add(b, bystander);
+    const before = await a.read();
+    expect([before.root, await before.digest("")]).toEqual([
+      digestOf(ids(deltas)).hash,
+      digestOf(ids(deltas)),
+    ]);
+    before.release();
+    await store.deletePeer("peer:a");
+    const again = await store.createPeer("peer:a", { erasure: posture });
+    const now = await again.read();
+    expect([now.root, await now.digest("")]).toEqual([EMPTY_DIGEST.hash, EMPTY_DIGEST]);
+    now.release();
+    const two = deltas.slice(0, 2);
+    await add(again, two);
+    const refilled = await again.read();
+    expect([refilled.root, await refilled.digest("")]).toEqual([
+      digestOf(ids(two)).hash,
+      digestOf(ids(two)),
+    ]);
+    refilled.release();
+    await holds(b, bystander);
+    expect((await store.openAdmin().fsck()).faults).toEqual([]);
+  });
+
   it("R4: after a delete and a createPeer of the id, every call of an old handle with a well-formed request refuses peer-absent and changes nothing; a new handle answers every call", async () => {
     const store = await open();
     const a = await store.createPeer("peer:a", { erasure: posture });
