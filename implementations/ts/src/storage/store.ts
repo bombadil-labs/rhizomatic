@@ -64,8 +64,7 @@ export class StoreError extends Error {
  *   one twice, or is not ascending;
  * - `revision-out-of-range`: a snapshot's revision is not an integer from 0 to 2^53 − 1;
  * - `malformed-member`: a member of a `scope` answer is malformed, its id does not recompute from
- *   its claims, or its arrival record is missing or names another id (reading 21). TypeScript
- *   only until step 4e.
+ *   its claims, or its arrival record is missing or names another id (reading 21).
  */
 export type StoreFaultRule =
   | "no-progress"

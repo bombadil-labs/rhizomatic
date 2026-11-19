@@ -236,6 +236,10 @@ class FreshnessRun {
         this.run.pushdown(step.selection ?? {}, PUSHDOWN_FIELDS),
         step.now,
       );
+    } catch (error) {
+      if (error instanceof StoreFaultError)
+        throw new Error(`the store broke ${error.rule}: ${error.message}`);
+      throw error;
     } finally {
       snapshot.release();
     }

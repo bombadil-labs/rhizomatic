@@ -48,6 +48,25 @@ export function broken(fault: Break): () => Promise<Store> {
 }
 
 /**
+ * A store whose `scope` answers each member with an arrival record that names another id: a
+ * malformed member, which a reader reports as the store fault `malformed-member`.
+ */
+export const forgesScopeArrival: Break = {
+  snapshot: (snapshot) => ({
+    scope: async (request) => {
+      const answer = await snapshot.scope(request);
+      return {
+        ...answer,
+        deltas: answer.deltas.map((m) => ({
+          ...m,
+          arrival: { ...m.arrival, id: `${m.delta.id}-other` },
+        })),
+      };
+    },
+  }),
+};
+
+/**
  * A store that serves a peer's first arrival record for an id again after the id is appended
  * anew. It forgets the record on a purge only when `forgets` says so for that target's outcome.
  */

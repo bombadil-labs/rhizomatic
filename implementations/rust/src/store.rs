@@ -8,6 +8,7 @@ use std::fmt;
 
 use crate::delta::compute_id;
 use crate::set::{DeltaSet, DeltaSource};
+use crate::store_digest::DigestNode;
 use crate::types::{Claims, Delta, Target};
 
 /// Receiver-local arrival testimony for one held delta (SPEC-6 vNext §3). The store keeps it
@@ -704,6 +705,17 @@ pub trait Snapshot {
     /// The highest transfer ordinal of a new holding the peer had committed at `revision`, 0
     /// before the first (§4.13 reading 135). A head-only append and a purge keep it.
     fn last_transfer(&self) -> u64;
+    /// The root hash of the holdings digest at `revision` (§4.7.6, §4.13 reading 139): one value
+    /// that names the exact set of ids the peer holds. Fixed at the read. `None` when the store's
+    /// profile has no `digest` capability.
+    fn root(&self) -> Option<&str>;
+    /// The node of the holdings digest at `prefix`, a string of lowercase hex digits: how many
+    /// held ids start with it, and its hash. Strict (§4.13 reading 140): it refuses
+    /// `snapshot-moved` once the peer's held set differs from the snapshot's, after an append too.
+    /// Refuses `invalid-request` for another prefix, and `capability-absent` when the profile has
+    /// no `digest` capability. A store that meets damage in its digest answers
+    /// `StoreFailure::Integrity` with the kind `digest-mismatch`.
+    fn digest(&self, prefix: &str) -> Result<DigestNode, StoreFailure>;
     /// The held deltas among `ids`, each with the signature this peer admitted.
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure>;
     /// This peer's arrival record for each held id among `ids`.

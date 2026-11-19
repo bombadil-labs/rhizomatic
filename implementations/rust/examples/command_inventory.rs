@@ -97,6 +97,7 @@ fn owner(module: &str, symbol: &str) -> &'static str {
         | "memory_store"
         | "store_open"
         | "store_conformance"
+        | "store_digest"
         | "store_fresh"
         | "store_follow"
         | "store_held"
