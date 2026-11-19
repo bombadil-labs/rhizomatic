@@ -301,9 +301,11 @@ Step 4d adds more, listed under Breaking.
   changed id, at most 24 lookups per level on average. The memory profile says `digest: true`.
   `fsck` reports `digest-mismatch` for a damaged, lost or stray node and for a damaged root,
   after the change records of each peer. `store_conformance::run_digest_conformance` runs
-  `vectors/store/digest.json`; the memory store passes its 12 trees and 6 cases. The Rust runner
-  table has a wrong store or a wrong document for each line of the digest runner. What a purge
-  removes does not change.
+  `vectors/store/digest.json`; the memory store passes its 12 trees and 8 cases. Two new cases
+  hold that each peer answers its own tree, and that a moved snapshot refuses a bad prefix as
+  `invalid-request`. The runner table of each witness has a wrong store or a wrong document for
+  each line of the digest runner. Two time rails in `store_cost.rs` hold an append and a purge
+  of one id against the holdings. What a purge removes does not change.
 - Follow-ups of the review of #120: TypeScript tests hold a malformed `scope` member through
   `StoreReactor.read`, `StoreReactor.fetch`, `captureScope`, a hold and a refresh; a Rust test
   holds each arm of `From<FeedError> for StoreReadError`.

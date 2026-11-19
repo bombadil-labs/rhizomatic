@@ -204,6 +204,10 @@ enum Wrong {
     DigestDamaged,
     /// A prefix with an uppercase digit, a space or a letter past `f` answers as its lowercase hex.
     DigestTakesAnyPrefix,
+    /// Peer `B` answers the root and the nodes of peer `A`.
+    DigestOtherPeer,
+    /// A moved snapshot refuses `snapshot-moved` before it checks the prefix.
+    DigestMovedBeforePrefix,
     /// Right, not wrong: the profile has no `digest`, and no case runs.
     NoDigest,
 }
@@ -885,6 +889,12 @@ impl Snapshot for RigSnapshot {
                 .ok()
                 .and_then(|now| now.root().map(|root| &*Box::leak(root.into())))
                 .or(self.inner.root()),
+            Wrong::DigestOtherPeer if self.id == "B" => self
+                .store
+                .peer("A")
+                .and_then(|peer| peer.read())
+                .ok()
+                .and_then(|a| a.root().map(|root| &*Box::leak(root.into()))),
             _ => self.inner.root(),
         }
     }
@@ -899,8 +909,22 @@ impl Snapshot for RigSnapshot {
                 .collect(),
             _ => prefix.to_string(),
         };
+        if self.wrong == Wrong::DigestOtherPeer && self.id == "B" {
+            return self.store.peer("A")?.read()?.digest(&asked);
+        }
         let answer = self.inner.digest(&asked);
+        let moved = || {
+            self.inner.digest("").err().map(as_refusal).map(|e| e.code)
+                == Some(StoreErrorCode::SnapshotMoved)
+        };
         match (self.wrong, answer) {
+            (Wrong::DigestMovedBeforePrefix, Err(StoreFailure::Refused(e)))
+                if e.code == StoreErrorCode::InvalidRequest && moved() =>
+            {
+                Err(StoreFailure::Refused(refusal(
+                    StoreErrorCode::SnapshotMoved,
+                )))
+            }
             (Wrong::DigestTopCount, Ok(mut node)) if prefix.is_empty() => {
                 node.count += 1;
                 Ok(node)
@@ -2683,6 +2707,20 @@ const DIGEST_TABLE: &[DigestRule] = &[
         wrong: W::DigestTakesAnyPrefix,
         doc: None,
         messages: &[", expected a refusal invalid-request"],
+        parts: CASES,
+    },
+    DigestRule {
+        rule: "a peer that answers another peer's root and nodes",
+        wrong: W::DigestOtherPeer,
+        doc: None,
+        messages: &["root is 1e20"],
+        parts: CASES,
+    },
+    DigestRule {
+        rule: "a moved snapshot that refuses snapshot-moved before it checks the prefix",
+        wrong: W::DigestMovedBeforePrefix,
+        doc: None,
+        messages: &["answered refusal snapshot-moved, expected a refusal invalid-request"],
         parts: CASES,
     },
     DigestRule {

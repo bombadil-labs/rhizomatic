@@ -1653,14 +1653,14 @@ The table covers at least:
   call; a `digest("")` that is not the root's node; a digest call that answers where it must
   refuse `snapshot-moved`, one that refuses after a head-only append, and one that refuses
   with another code; a prefix below a leaf that answers the empty node; a digest call that
-  answers an integrity fault; a prefix that is not lowercase hex, answered. Documents: an
+  answers an integrity fault; a prefix that is not lowercase hex, answered; a peer that answers
+  another peer's root and nodes; a moved snapshot that refuses `snapshot-moved` before it
+  checks the prefix. Documents: an
   unknown `format`, a tree node that is not the reference's, a tree whose first node is not its
   root, a delta id that does not recompute, an unknown requirement and an unknown step. A store
   whose profile lacks `digest` passes every tree and skips every case.
 - **Rows in one witness only.** Each witness names, in its rule-table file, the rows it cannot
   build and why:
-  - TypeScript has no row of the digest runner yet. Its tests hold the runner on both its
-    stores and the skip of a store without `digest`; Rust holds each line with a row.
   - Rust has no row for exact keys (§3.9.3), for a page that is neither `ok` nor
     `resync-required` (§3.9.5, check 3), or for the store that hands out its live records or
     live id lists (check 14). Its `ChangeRecord` and `ChangePage` types have exactly the
@@ -2950,7 +2950,16 @@ The JSON cannot express these; each witness builds them.
   `cargo test --release --test witness -- --ignored per_view_scan`. Since step 4e the Rust rails
   time each refresh and not the commit before it. A commit walks the holdings digest; timed with
   the refresh, it hid both wrong holders (13.5 and 24.0). Timed alone, they measure 107 and 67,
-  and the right holders 8.3 to 9.2. The store's cost rail holds the commit.
+  and the right holders 8.3 to 9.2. Two rails of `store_cost.rs` hold the commit instead. The
+  counting rail `core_operations_cost_their_footprint_not_the_store` holds its metered index
+  calls. The time rails `an_append_of_one_id_costs_its_digest_path_not_the_holdings_in_time`
+  and `a_purge_of_one_id_costs_its_digest_path_not_the_holdings_in_time` hold its time, so they
+  also hold work the meter does not count. Each times N single-id appends, or N purges that
+  release one id, beside N and 8N holdings, with the bound 24 and the method of §3.9.9, with two
+  changes: the run at N takes at least 200 ms, and a run at 8N stops when it reaches the bound.
+  They run in `cargo test`. The memory store measures 9.3 to 12.1. Without the stop, a commit
+  that builds the whole digest again from the holdings measures 77 to 87 in release, and one
+  that copies every held id 62 to 67 in debug and 116 to 129 in release.
 
 ### 11.7 What the cases hold
 
@@ -3085,6 +3094,11 @@ A peer is created, with posture `unproven`, the first time a step names it.
   append that adds an id and after a purge that releases one (`a-digest-call-is-strict`).
 - A prefix with an uppercase digit, a space or a letter past `f` is refused `invalid-request`
   (`a-prefix-is-lowercase-hex`).
+- Two peers hold different sets, and each answers the root and every stored node of its own
+  set (`each-peer-answers-its-own-tree`).
+- A snapshot whose held set moved refuses `""` with `snapshot-moved`, and refuses a prefix that
+  is not lowercase hex with `invalid-request`: the prefix is checked first
+  (`a-bad-prefix-is-refused-before-the-move`).
 
 ### 12.5 Rails each witness adds
 
