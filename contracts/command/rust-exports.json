@@ -17802,7 +17802,25 @@
       "source": "implementations/rust/src/http.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "from_wire",
-      "target": "core::primitive::str::to_string"
+      "target": "serde_json::Value::Null"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/http.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "from_wire",
+      "target": "serde_json::Value::String"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "federation",
+      "source": "implementations/rust/src/http.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "from_wire"
     },
     {
       "form": "syn-resolved-path",
@@ -17844,14 +17862,6 @@
       "sourceRegion": "semantic-owner",
       "symbol": "from_wire",
       "target": "serde_json::Value"
-    },
-    {
-      "form": "syn-external-path",
-      "owner": "federation",
-      "source": "implementations/rust/src/http.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "from_wire",
-      "target": "serde_json::Value::as_str"
     },
     {
       "form": "syn-resolved-path",
