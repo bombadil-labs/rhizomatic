@@ -2704,7 +2704,7 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      sequence or transfer above the peer's last, key `seq` or `transfer`), `feed-gap`,
      `orphan-bytes` (no `peer`) and `engine` (SQLite's `integrity_check` and
      `foreign_key_check`). `digest-mismatch` and `journal-broken` come with the digest and the
-     journal. `peer-deleting` names a peer whose delete did not end (reading 144). Every check that a read makes (reading 136) is also a check of `fsck`, with the
+     journal. `peer-deleting` names a peer whose delete has not ended: it may still run, or it died (reading 144). Every check that a read makes (reading 136) is also a check of `fsck`, with the
      same fault. `fsck` reports every fault of a holding, not the first: a fault of the claims
      ends only the checks that read the claims (the authors, the timestamp and the index rows),
      and the signature, the arrival record and the sequence are checked still. The SQLite store
@@ -2986,7 +2986,7 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        the transaction of the rows it compares, and checks nothing more of the peer when the row
        is marked, absent, or of another `origin`. So a peer that a delete marks during a scan
        gets no fault from that scan, not `peer-deleting` either; a later `fsck` reports
-       `peer-deleting` while the mark is there. Two deletes of one peer at once share the work; each
+       `peer-deleting` while the mark is there, also while that delete still runs. Two deletes of one peer at once share the work; each
        counts what it released. A delete that finds the row gone, or a row of another `origin`,
        removes nothing more and answers its own counts, decided by the same last transaction:
        a `peer` row of the id found there, of any state, makes every file surface `owed`. So
@@ -3003,12 +3003,13 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        - the log holds frames at each try of the last transaction (reading 119).
        Another call's rebuild can still make the file clean before the last transaction; the
        delete then answers `proven`, and that is true.
-     - **No call promises a later proof.** A purge keeps a record of each removal, so its next
-       ask can prove (reading 107). A deleted peer has no row to keep one. A later `proven` delete
-       or purge in the same file covers the earlier removals, because its rebuild begins after
-       them, but no call promises it, and a host must not rely on it. A second `deletePeer` of the
-       id refuses `peer-absent`, or deletes a new peer of the id. So a host must not repeat the
-       call to get a proof. A store-level proof call is owed (the slice 4 plan, §10).
+     - **The later proof is `Store.prove()`.** A purge keeps a record of each removal, so its
+       next ask can prove (reading 107). A deleted peer has no row to keep one. A second
+       `deletePeer` of the id refuses `peer-absent`, or deletes a new peer of the id. So a host
+       must not repeat the call to get a proof. After a delete answered `unproven`, the host ends
+       every delete that has not ended, then calls `Store.prove()` (reading 145). A `proven`
+       answer covers the earlier delete: its last removal committed before the last transaction
+       of `prove()`. A marked peer makes `prove()` answer `owed`.
      - **Two deletes at once.** Both end, and each counts what it released. A `proven` report of
        either covers the releases of both calls: its last transaction finds the `peer` row gone,
        so every release of either call committed before it. The other delete's report carries
@@ -3037,6 +3038,10 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        row before the call (`count-mismatch`, key `holders`). The SQLite store keeps no count and
        cannot reach this state. A fix is planned as its own change: the memory store keeps which
        peers hold each id.
+       An `append` copies and checks its entries before it reads the peer, as the SQLite store
+       does. So an accessor of an entry that deletes the peer makes the append refuse
+       `peer-absent`, and the append writes nothing (after the round-6 review of PR #101;
+       before, it wrote bytes that no peer held).
      - **A handle names one peer.** After a delete, every call of an old handle with a
        well-formed request refuses `peer-absent`, on both stores, also after a `createPeer` of
        the same id. Both stores check a call in one order: `store-closed`, then the form of the
@@ -3048,7 +3053,11 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
        peer either: the history differs. `fsck` beside a delete, and beside a delete and a
        `createPeer` of the id, gives no false fault: each step compares rows that it reads in one
        transaction, and each step of a peer after the first stops at a row that is marked,
-       absent or of another `origin`. It can miss rows of the new peer. The memory store's
+       absent or of another `origin`. It can miss rows of the new peer. Without the compare of
+       `origin`, a step would check rows of the new peer. Those checks agree and give no fault,
+       but `checked.holdings` would count holdings of a peer that the scan did not read. A rail
+       holds the compare: another process deletes the peer and creates it again with 300 deltas
+       just after the peer step, and the scan's count leaves them out. The memory store's
        export listing of a peer reads the peer's holdings once, at its first item. A listing
        that began before a delete ends with the old peer's deltas, and never gives the new
        peer's.
@@ -3062,8 +3071,102 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      - **What can now be deleted that could not be deleted before:** every row of one peer, and
        the bytes of each delta that no other peer holds, by one call. Only the peer that the
        call's first transaction read: never a peer created later under the same id.
+     - **`close()` during a delete.** The delete yields to the event loop between pages. A
+       `close()` there makes the delete refuse `store-closed` at its next page. The mark stays,
+       with the rows the delete has not reached. After a new open, `fsck` reports
+       `peer-deleting`, and a `deletePeer` of the id ends the delete; its counts cover only what
+       it released. Rail: `close()` after the first page of a delete of 600 holdings.
      Rust takes peer delete in step 4e. The shared scripts have no step for it yet; they gain one
      with the Rust store (reading 39 still holds until then).
+145. **A proof for the whole store** (slice 4, step 4d, after the round-3 review of PR #101).
+     `Store.prove()` asks for the proof of every removal that committed before the call's last
+     transaction. It names no peer and no id. It answers `ProofReport = {claim, boundary,
+     surfaces}`, in the purge report's words (§4.7.2). It removes no delta, holding, index row,
+     change record, purge debt, record of a removal or digest row. Its only write raises
+     `residue.clean`.
+     - **Why.** A delete of a peer of posture `proven` can answer `unproven` (reading 144). The
+       deleted peer has no row to keep a record, so no ask of that peer can prove later. The rule
+       of the proof is store-wide: `clean = dirty` and an empty log (readings 117 and 119).
+       Measured before this call: after 8 `unproven` deletes, one later `proven` delete in the
+       same file proved all of them. `prove()` asks for that rule, and the host can rely on it.
+     - **The SQLite store.** It reads whether the file is clean. It runs the rebuild of a purge:
+       `VACUUM` when the file is not clean, then the truncate with its bounded tries (reading
+       143). One last write transaction then decides the report. The purge, the delete and
+       `prove()` share one copy of the rule. Every file surface is `absent` only when, in that
+       transaction, the log was empty at the lock, the file is clean, and no `peer` row is
+       marked `deleting`. Every file surface is `owed` otherwise. When the log holds frames at
+       the lock, the transaction lets go of the lock, runs the truncate again and tries again,
+       three tries at most, as a purge does (reading 119). A failed `VACUUM` or truncate gives
+       `owed`.
+     - **What `proven` claims.** At the commit of the last transaction, no store-controlled
+       surface holds residue of a `holding`, `delta`, `target`, `reference` or `peer` row that the
+       store deleted before that transaction, nor of any row of a peer whose delete ended. The
+       surfaces are the database file, its log, the free space of its pages, its free pages and
+       its temporary files. These are the deletes that the triggers count (reading 117). The
+       claim is `proven` only when the store's class is `proven` and every surface is `absent`.
+     - **What it does not claim.**
+       - Ids and heads: the change records, purge debts and records of removals of live peers,
+         the `history` table, and the residue of such rows that retention or an ask removed. No
+         trigger counts those deletes (decision O4). The report has no `retains`, because it
+         names no target. These surfaces can always hold an id.
+       - The rows of a peer whose delete has not ended. A marked peer keeps rows that the delete
+         has not reached, and the store counts the deletes of its change records, debts, records
+         and digest rows only when its peer row goes (reading 144). So a marked peer makes every
+         file surface `owed`. A host ends that delete first: a `deletePeer` of the id ends a
+         delete that died, and a delete that runs in another process ends by itself.
+       - Process memory (decision S4-14), and anything outside the boundary (§4.7.2), such as a
+         log beside another name of the file (reading 119), or a copy of the file.
+       - Anything after its commit. An append after it can add the same bytes again.
+     - **A store of class `unprovable`.** The store runs no rebuild, raises no `clean` and takes
+       the lock once. Every file surface is `absent` only when the log is empty at the lock and
+       the file is clean, as for a purge by a peer of posture `unproven` (reading 110).
+       `temp-files` is `unprovable`, so the claim is always `unproven`.
+     - **The memory store.** Its purge and its delete remove a row and its index entries in one
+       synchronous call, so no deleted row is in its maps. It answers `rows` and `index-entries`
+       `absent`, `process-memory` `unprovable`, and the claim `unproven`, as its purge does.
+     - **Refusals.** `store-closed` first. An engine error before the report is decided refuses
+       `store-unavailable` with the ordinary text, which says "ask again" for a lock. That text is
+       true here: the call removed nothing, and a repeat of its rebuild does no harm.
+     - **Records of removals (decision S4-13).** `prove()` ends no record. A record
+       `(peer, delta)` ends in an ask of its own peer that answers `removed` with every file
+       surface `absent` (reading 107). That rule needs the store-wide condition and one more:
+       the delta row is not in the file. `prove()` could check both in its last transaction, but
+       it cannot end every record there. The records have no bound, and a write transaction must
+       stay bounded. Pages after the last transaction cannot tell a record that the proof covers
+       from a record that a later purge wrote: an append of the id ends a record, a later purge
+       can write the same key again (reading 118), and the key has no order in time. So a page
+       could end a record of a removal that no proof covers. That peer's next ask would then
+       answer `not-held` where reading 107 promises the proof. So `prove()` ends none. After a
+       `proven` `prove()`, the peer's next ask of a recorded id answers `removed` and `proven`
+       while the file is clean, and ends the record. The two reports agree. A host that wants
+       the records gone asks each peer once.
+     - **Liveness.** Under steady deletes in other processes, `prove()` can answer `owed` at
+       every call. That is a loss of liveness, never a false report. Measured on WSL, beside a
+       process that deletes a peer of posture `proven` with 600 deltas: 61 of 7,611 calls
+       answered `proven` before that delete ended, in 10 runs of 20 rounds, and 240 of 12,731
+       under load. Every call after the delete ended answered `proven`. Beside a process that
+       appends, 2,275 of 2,275 calls answered `proven`.
+     - **The cost.** One rebuild, O(store), when the file is not clean, and three truncates at
+       most, about six `busyTimeoutMs` (reading 143). It blocks the thread, as the purge of a
+       peer of posture `proven` does. The check for a marked peer scans the `peer` table once, in
+       the last transaction: O(peers). The plan rail lists that statement with its reason.
+     - **Rails** (`sqlite-store-prove.test.ts`). A peer deleted while a reader holds the log
+       answers `unproven`, then `prove()` answers `proven` and no file holds its markers. A purge
+       that answered `unproven`, then `prove()`: `proven`, the records stay, and the next ask
+       answers `proven` and ends them. A marked peer gives `owed` on a clean file, then
+       `proven` after the delete ends. A reader that holds the log gives `owed` and no raise of
+       `clean`. A write that does not commit, after the truncate: two tries, then `proven`, and
+       no file holds its marker. A commit before each try: three tries, then `owed`. No row but
+       `residue` changes. Two processes, 20 rounds each, beside an appender and beside a deleter:
+       each `proven` is followed by a scan with no marker. A store of class `unprovable` runs no
+       `VACUUM`. The memory store; `store-closed` on both. Each rail failed under a mutant of the
+       code it holds: no rebuild, no check for a marked peer, a log read as empty, records ended
+       by `prove()`, a rebuild on any class, a memory store that claims `proven`.
+     - No format change: `prove()` adds one statement and no table, column or trigger. Rust takes
+       `prove()` in step 4e, with a shared script step, as for peer delete.
+     - **What can now be deleted that could not be deleted before:** nothing. `prove()` deletes
+       no row. Its rebuild removes only the residue of rows already deleted, as the rebuild of a
+       purge does.
 
 ## 5. Architectures
 
@@ -3560,7 +3663,8 @@ changes what the system promises):
   sees them. A proof empties the log and reads its size under the write lock. This applies to a
   peer of posture `unproven` too: it says `absent` only with an empty log.
 - **S4-13.** A later purge gives the later proof (reading 107), until an append of the id ends the
-  record (reading 118).
+  record (reading 118). `Store.prove()` gives the proof for the whole store and ends no record
+  (reading 145).
 - **⚑ A report speaks for the state at its last commit** (reading 115). The last transaction of a
   purge looks again at every target it released or answers from a record, and consumes the
   records it answers from.

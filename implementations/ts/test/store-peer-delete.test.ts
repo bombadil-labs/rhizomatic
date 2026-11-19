@@ -401,6 +401,38 @@ describe.each(STORES)("peer delete on the %s store", (name, open, posture, claim
     expect(await malformed(a)).toEqual(Array(4).fill("store-closed"));
     expect(await malformed(b)).toEqual(Array(4).fill("store-closed"));
   });
+
+  it("an append whose entry has an accessor that deletes the peer refuses peer-absent and writes nothing: the delete releases what the peer held, fsck finds no bytes that no peer holds, and the bystander reads back", async () => {
+    const store = await open();
+    const a = await store.createPeer("peer:a", { erasure: posture });
+    const b = await store.createPeer("peer:b", { erasure: posture });
+    const bystander = facts("accessor-b", 2);
+    await add(a, facts("accessor-a", 1));
+    await add(b, bystander);
+    const now = await a.read();
+    const [entry] = admissionOf(now, facts("accessor-new", 1), {
+      at: 1,
+      sender: "local",
+      nextHead: "accessor-head",
+    }).added;
+    const head = now.head;
+    now.release();
+    let deletion: Promise<DeleteReport> | undefined;
+    const calling = {
+      get delta() {
+        deletion ??= store.deletePeer("peer:a");
+        return entry!.delta;
+      },
+      arrival: entry!.arrival,
+    };
+    const appended = await code(() =>
+      a.append({ expectedHead: head, nextHead: "accessor-head", frame: null, added: [calling] }),
+    );
+    expect([appended, (await deletion!).released]).toEqual(["peer-absent", 1]);
+    expect((await store.openAdmin().fsck()).faults).toEqual([]);
+    expect(await code(() => store.peer("peer:a"))).toBe("peer-absent");
+    await holds(b, bystander);
+  });
 });
 
 describe("peer delete on the memory store, with a damaged holding", () => {

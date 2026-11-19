@@ -135,6 +135,7 @@ export {
   type PeerExporter,
   type PeerId,
   type PeerStore,
+  type ProofReport,
   type PurgeOutcome,
   type PurgeReport,
   type Pushdown,

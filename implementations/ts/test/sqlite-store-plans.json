@@ -20,6 +20,7 @@
     "SEARCH digest USING PRIMARY KEY (peer=?)",
     "SEARCH holding USING COVERING INDEX sqlite_autoindex_holding_2 (peer=?)"
   ],
+  "peerDeleting": ["SCAN peer"],
   "peerHistory": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
   "peerAdvance": ["SEARCH peer USING INDEX sqlite_autoindex_peer_1 (id=?)"],
   "holdingFind": [

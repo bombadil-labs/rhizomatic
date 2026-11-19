@@ -41,6 +41,8 @@ const EXEMPT: Readonly<Record<string, string>> = {
     "a peer delete reads one page of the peer's holdings from the first, with a limit, and releases every holding it reads, so the next page starts after them: O(page) per page (§4.13 reading 144)",
   deleteDigest:
     "a peer delete removes one page of the peer's digest rows from the first, with a limit: O(page) per page (§4.13 reading 144)",
+  peerDeleting:
+    "prove reads whether any peer is marked, once, in its last transaction (§4.13 reading 145): O(peers), in a call that rebuilds the whole file with VACUUM; the scan stops at the first marked row",
   fsckCount:
     "fsck counts one peer's holdings to compare them with the peer's count, in the transaction that reads the count; it reads each holding once per scan",
 };

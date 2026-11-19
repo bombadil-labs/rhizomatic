@@ -165,6 +165,9 @@ export const SQLITE_STATEMENTS = {
   peerMark: "UPDATE peer SET state = 'deleting' WHERE id = ?",
   // The delete's last removal. It removes only the row its first transaction marked.
   peerDrop: "DELETE FROM peer WHERE id = ? AND state = 'deleting' AND origin = ?",
+  // `prove` reads whether a delete of any peer has not ended (§4.13 reading 145). It scans the
+  // peer table: O(peers), in a call that rebuilds the whole file.
+  peerDeleting: "SELECT 1 FROM peer WHERE state = 'deleting' LIMIT 1",
   peerHistory: "UPDATE peer SET history = ? WHERE id = ?",
   peerAdvance: `UPDATE peer SET revision = @revision, floor = @floor, head = @head, count = @count,
     max_seq = @maxSeq, removed_at = @removedAt, max_transfer = @maxTransfer, root = @root

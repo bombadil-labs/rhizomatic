@@ -177,8 +177,8 @@ Step 4d adds more, listed under Breaking.
   words, with two counts and no ids. The SQLite store marks the peer first, releases its
   holdings in pages of 256, one write transaction each, removes the peer row last, and then
   rebuilds and decides the report as a purge does. A delete that dies leaves the mark, and the
-  next `deletePeer` of the id finishes it. From the mark on, every call on the peer refuses
-  `peer-absent`, every snapshot refuses `snapshot-moved`, and `createPeer` of the id refuses
+  next `deletePeer` of the id finishes it. From the mark on, every call on the peer with a
+  well-formed request refuses `peer-absent`, every snapshot refuses `snapshot-moved`, and `createPeer` of the id refuses
   `peer-exists` until the delete ends. A history is never issued again, so a peer created later under the id gets a
   new one. The memory store deletes all at once, and its claim is always `unproven`. The package
   root exports `DeleteReport`. Rust takes peer delete in step 4e.
@@ -196,11 +196,19 @@ Step 4d adds more, listed under Breaking.
   do not change.
 - A delete of a `proven` peer can answer `unproven`, also with one deleter: when another
   connection's checkpoint stays busy past the truncate's bound (reading 143), when a reader
-  holds the log, or when a lock wait passes `busyTimeoutMs`. No call then promises a later
-  proof: a second `deletePeer` of the id refuses `peer-absent` or deletes a new peer, so a host
-  does not repeat the call. A store-level proof call is owed. Two deletes of one peer at once
+  holds the log, or when a lock wait passes `busyTimeoutMs`. A host does not repeat the call
+  to get the proof: a second `deletePeer` of the id refuses `peer-absent` or deletes a new peer.
+  It calls `Store.prove()` (below). Two deletes of one peer at once
   share the work. The other delete's report carries the proof only when it answered `proven`.
   When no wait passes `busyTimeoutMs`, at least one of the two answers `proven`.
+- After the round-6 review of PR #101: the memory store's `append` copies and checks its
+  entries before it reads the peer, as the SQLite store does. An accessor of an entry that
+  deletes the peer now makes the append refuse `peer-absent`; before, the append wrote bytes
+  that no peer held. Among several faults of one batch, a malformed entry now answers before a
+  sequence that does not pass, as on the SQLite store; the code is `invalid-admission` in both
+  cases. The `peer-deleting` fault and the `peer-exists` refusal of `createPeer` say that a
+  delete "has not ended" and may still run. Reading 144 states what `close()` during a delete
+  does, and a rail holds the `origin` compare of `fsck`.
 - After the transaction that removes the peer row, a delete does not refuse
   `store-unavailable`. When its last transaction fails for any engine error (a lock, a full
   disk, an I/O error), it answers its counts with every file surface `owed` (`temp-files` is
@@ -239,6 +247,17 @@ Step 4d adds more, listed under Breaking.
   each delta that no other peer holds, by one call. Never a peer created later under the same
   id. The exception: on a damaged memory store, where a row counts fewer holders than hold it,
   one call deletes bytes that another peer holds (the known gap above).
+- **A proof for the whole store** (step 4d, §4.13 reading 145). `Store.prove()` asks for the
+  proof of every removal that committed before its last transaction, and names no peer and no
+  id. It answers a `ProofReport` `{claim, boundary, surfaces}` in the purge report's words. The
+  SQLite store runs the rebuild of a purge and decides the report by the same rule, in one
+  shared copy: every file surface is `absent` only when the log is empty at the lock, the file
+  is clean, and no peer is marked by a delete that has not ended. It removes no row and ends no
+  record of a removal: a record ends in its own peer's next ask. On a store of class
+  `unprovable` it runs no rebuild and never says `proven`. The memory store answers `unproven`,
+  as its purge does. Both refuse `store-closed` after close. The package root exports
+  `ProofReport`. Rust takes `prove()` in step 4e. What can now be deleted that could not be
+  deleted before: nothing.
 - Step 4e starts. The Rust purge report gains `retains` (`Retained`, `RetainedSurface`), and
   the Rust refusal codes gain `StoreErrorCode::StoreUnavailable` (§4.13 readings 105 and 108).
   The Rust memory store names `change-feed`, and `purge-debt` while a purge debt of any peer
@@ -389,8 +408,8 @@ Step 4d adds more, listed under Breaking.
   a trigger counts the delete of a `peer` row in `residue.dirty`. Open refuses a file of format
   `/1` to `/6` with `open-failed`, names both formats and changes no byte. No migration ships:
   create a new file and append again.
-- **`Store` has a new member, `deletePeer`.** A host that builds its own `Store` object must
-  give one.
+- **`Store` has two new members, `deletePeer` and `prove`.** A host that builds its own `Store`
+  object must give both.
 - **`IntegrityFaultKind` has a new kind, `peer-deleting`.** `fsck` reports it for a peer that is
   marked when the scan lists it, and checks no other row of that peer. A peer that a delete marks
   later in the scan gets no fault from that scan: each later step of a peer reads the peer row in
