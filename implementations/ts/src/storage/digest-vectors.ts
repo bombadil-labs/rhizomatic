@@ -248,6 +248,30 @@ function cases(
     steps.push({ op: "digest", peer: "A", prefix, error: "invalid-request" });
   end("a-prefix-is-lowercase-hex", "§4.13 reading 139");
 
+  begin();
+  append("A", deep);
+  append("B", [...wide, ...loose]);
+  for (const peer of ["A", "B"]) {
+    root(peer);
+    for (const prefix of digestRows(held(peer)).keys()) node(peer, prefix);
+  }
+  end(
+    "each-peer-answers-its-own-tree",
+    "§4.13 reading 139: two peers hold different sets, and each answers its own root and nodes",
+  );
+
+  begin();
+  append("A", [loose[0]!]);
+  steps.push({ op: "read", peer: "A", as: "old" });
+  append("A", [loose[1]!]);
+  steps.push({ op: "digest", snapshot: "old", prefix: "", error: "snapshot-moved" });
+  for (const prefix of ["1E20", "g"])
+    steps.push({ op: "digest", snapshot: "old", prefix, error: "invalid-request" });
+  end(
+    "a-bad-prefix-is-refused-before-the-move",
+    "§4.13 readings 139 and 140: a moved snapshot refuses a prefix that is not lowercase hex as invalid-request",
+  );
+
   return out;
 }
 

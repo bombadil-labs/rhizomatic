@@ -55,6 +55,10 @@ pub enum StoreFault {
     },
     /// `revision-out-of-range`: a snapshot's revision is not an integer from 0 to 2^53 − 1.
     RevisionOutOfRange { revision: Revision },
+    /// `malformed-member`: a member of a `scope` answer on the snapshot at `revision` has an id
+    /// that does not recompute from its claims, or an arrival record that names another id
+    /// (§4.13 reading 21). `detail` is the fetch cache's refusal of the member.
+    MalformedMember { revision: Revision, detail: String },
 }
 
 impl StoreFault {
@@ -66,6 +70,7 @@ impl StoreFault {
             Self::MismatchedAnswers { .. } => "mismatched-answers",
             Self::UnaskedIds { .. } => "unasked-ids",
             Self::RevisionOutOfRange { .. } => "revision-out-of-range",
+            Self::MalformedMember { .. } => "malformed-member",
         }
     }
 }
@@ -97,6 +102,10 @@ impl std::fmt::Display for StoreFault {
             ),
             Self::RevisionOutOfRange { revision } => format!(
                 "the store's snapshot stands at revision {}, not an integer from 0 to 2^53 - 1",
+                revision.0
+            ),
+            Self::MalformedMember { revision, detail } => format!(
+                "the store answered a scope member at revision {} that is malformed or whose id does not recompute ({detail})",
                 revision.0
             ),
         };

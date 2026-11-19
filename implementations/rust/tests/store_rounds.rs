@@ -679,6 +679,12 @@ impl Snapshot for Tracing {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
+    fn root(&self) -> Option<&str> {
+        self.inner.root()
+    }
+    fn digest(&self, prefix: &str) -> Result<rhizomatic::store_digest::DigestNode, StoreFailure> {
+        self.inner.digest(prefix)
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.note("get", ids.len(), 0);
         self.inner.get(ids)
@@ -793,6 +799,12 @@ impl Snapshot for Double {
     }
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
+    }
+    fn root(&self) -> Option<&str> {
+        self.inner.root()
+    }
+    fn digest(&self, prefix: &str) -> Result<rhizomatic::store_digest::DigestNode, StoreFailure> {
+        self.inner.digest(prefix)
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
@@ -1426,7 +1438,7 @@ fn the_reader_passes_against_a_store_that_returns_an_unclosed_extra() {
 }
 
 #[test]
-fn a_member_whose_id_does_not_recompute_is_refused() {
+fn a_member_whose_id_does_not_recompute_is_the_store_fault_malformed_member() {
     let fx = fixture();
     let store = MemoryStore::new();
     let peer = fx.load(&store);
@@ -1439,7 +1451,10 @@ fn a_member_whose_id_does_not_recompute_is_refused() {
         Ok(answer)
     });
     let err = read_anchored(snapshot.as_ref(), request(&fx, case, FetchCache::On)).unwrap_err();
-    assert_eq!(err.store_code(), Some(StoreErrorCode::InvalidRequest));
+    assert!(
+        matches!(&err, StoreReadError::Fault(f) if f.rule() == "malformed-member"),
+        "{err:?}"
+    );
 }
 
 #[test]
@@ -1736,6 +1751,12 @@ impl Snapshot for Released {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
+    fn root(&self) -> Option<&str> {
+        self.inner.root()
+    }
+    fn digest(&self, prefix: &str) -> Result<rhizomatic::store_digest::DigestNode, StoreFailure> {
+        self.inner.digest(prefix)
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
     }
@@ -1870,6 +1891,12 @@ impl Snapshot for Restamped {
     }
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
+    }
+    fn root(&self) -> Option<&str> {
+        self.inner.root()
+    }
+    fn digest(&self, prefix: &str) -> Result<rhizomatic::store_digest::DigestNode, StoreFailure> {
+        self.inner.digest(prefix)
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
@@ -2545,7 +2572,8 @@ fn the_fetch_cache_indexes_each_target_once_and_only_negates_as_a_negation() {
 /// nothing (SPEC-18 §4.12 reading 13). A Rust `VerifiedDelta` always carries an arrival record, so
 /// a missing one cannot be expressed.
 #[test]
-fn a_member_whose_arrival_names_another_id_is_refused_and_adds_nothing() {
+fn a_member_whose_arrival_names_another_id_is_refused_by_the_source_adds_nothing_and_is_a_store_fault_in_a_read(
+) {
     let fx = fixture();
     let members = fx.loaded_members();
     let mut source = scope_source(&members[..1]).unwrap();
@@ -2597,7 +2625,7 @@ fn a_member_whose_arrival_names_another_id_is_refused_and_adds_nothing() {
         StoreErrorCode::InvalidRequest
     );
 
-    // The read refuses such an answer too.
+    // The read reports such an answer as the store fault `malformed-member`.
     let store = MemoryStore::new();
     let peer = fx.load(&store);
     let case = &fx.cases("cases")[0];
@@ -2609,7 +2637,10 @@ fn a_member_whose_arrival_names_another_id_is_refused_and_adds_nothing() {
         Ok(answer)
     });
     let err = read_anchored(snapshot.as_ref(), request(&fx, case, FetchCache::On)).unwrap_err();
-    assert_eq!(err.store_code(), Some(StoreErrorCode::InvalidRequest));
+    assert!(
+        matches!(&err, StoreReadError::Fault(f) if f.rule() == "malformed-member"),
+        "{err:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------------------------

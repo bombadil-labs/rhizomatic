@@ -224,6 +224,12 @@ impl Snapshot for Snap {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
+    fn root(&self) -> Option<&str> {
+        self.inner.root()
+    }
+    fn digest(&self, prefix: &str) -> Result<rhizomatic::store_digest::DigestNode, StoreFailure> {
+        self.inner.digest(prefix)
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
     }
@@ -327,6 +333,15 @@ impl Snapshot for Fabricated {
     fn last_transfer(&self) -> u64 {
         0
     }
+    fn root(&self) -> Option<&str> {
+        None
+    }
+    fn digest(&self, _: &str) -> Result<rhizomatic::store_digest::DigestNode, StoreFailure> {
+        Err(StoreFailure::Refused(StoreError::new(
+            StoreErrorCode::CapabilityAbsent,
+            "this double keeps no digest",
+        )))
+    }
     fn get(&self, _: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         Err(fabricated().into())
     }
@@ -423,6 +438,12 @@ impl Snapshot for OddSnap {
     }
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
+    }
+    fn root(&self) -> Option<&str> {
+        self.inner.root()
+    }
+    fn digest(&self, prefix: &str) -> Result<rhizomatic::store_digest::DigestNode, StoreFailure> {
+        self.inner.digest(prefix)
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         let mut got = self.inner.get(ids)?;

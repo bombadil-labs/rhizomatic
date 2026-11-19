@@ -85,7 +85,8 @@ fn held(deltas: &[Delta]) -> Vec<VerifiedDelta> {
         .collect()
 }
 
-/// The memory profile: slice 1's, and from slice 3 a change feed that keeps every record.
+/// The memory profile: slice 1's, from slice 3 a change feed that keeps every record, and from
+/// step 4e the holdings digest.
 #[test]
 fn memory_opens_a_new_empty_store_with_its_profile() {
     let store = open_store("memory:", &OpenOptions::default()).unwrap();
@@ -98,7 +99,7 @@ fn memory_opens_a_new_empty_store_with_its_profile() {
                 journal: false,
                 views: false,
                 derived_indexes: false,
-                digest: false,
+                digest: true,
                 erasure: ErasureClass::Unprovable,
             },
             indexed_value_roles: vec![],
@@ -242,7 +243,7 @@ fn open_refuses_a_store_that_lacks_a_requirement_and_closes_it() {
     use StoreRequirement::*;
     let profile = memory_store_profile();
     assert_eq!(
-        missing_requirements(&profile, &[Arrival, Purge, Changes]),
+        missing_requirements(&profile, &[Arrival, Purge, Changes, Digest]),
         []
     );
     let all = [
@@ -256,20 +257,13 @@ fn open_refuses_a_store_that_lacks_a_requirement_and_closes_it() {
         Purge,
         ErasureProven,
     ];
-    let missing = [
-        Values,
-        Journal,
-        Views,
-        DerivedIndexes,
-        Digest,
-        ErasureProven,
-    ];
+    let missing = [Values, Journal, Views, DerivedIndexes, ErasureProven];
     assert_eq!(missing_requirements(&profile, &all), missing);
-    assert_eq!(missing_requirements(&profile, &[Digest, Digest]), [Digest]);
+    assert_eq!(missing_requirements(&profile, &[Views, Views]), [Views]);
     assert!(open_store(
         "memory:",
         &OpenOptions {
-            requires: vec![Arrival, Purge]
+            requires: vec![Arrival, Purge, Digest]
         }
     )
     .is_ok());
@@ -288,12 +282,11 @@ fn open_refuses_a_store_that_lacks_a_requirement_and_closes_it() {
         "journal",
         "views",
         "derivedIndexes",
-        "digest",
         "erasure-proven",
     ] {
         assert!(refusal.message.contains(name), "{refusal} lacks {name}");
     }
-    for held in ["arrival", "purge", "changes"] {
+    for held in ["arrival", "purge", "changes", "digest"] {
         assert!(!refusal.message.contains(held), "{refusal} names {held}");
     }
 
@@ -310,7 +303,7 @@ fn open_refuses_a_store_that_lacks_a_requirement_and_closes_it() {
         )
         .unwrap();
     let options = OpenOptions {
-        requires: vec![Digest],
+        requires: vec![Views],
     };
     assert_eq!(
         code(schemes.open("kept:x", &options)),

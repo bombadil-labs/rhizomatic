@@ -265,13 +265,14 @@ Step 4d adds more, listed under Breaking.
     removes anything. The fault is `count-mismatch`, key `holders`, with the peer and the id.
     Before, TypeScript took the count to -1 and reported `held-by-other-peer` and `purge-debt`
     while no other peer held the row. A Rust debug build panicked after it removed the holding
-    and its index entries; a release build wrapped the count. The next entry widens this check
-    and names the damage that a purge still cannot see.
+    and its index entries; a release build wrapped the count. The step 4e entry "the memory
+    store decides a purge from who holds the id" widens this check and names the damage that a
+    purge still cannot see.
   - `changes` fails with `feed-gap`, with the peer, when the kept records are not the revisions
     of the page it answers. This covers the memory store in both witnesses and the TypeScript
     SQLite store. Before, TypeScript answered `ok` without the lost record and with a `through`
     past it, so a follower passed that revision. Rust panicked.
-  - The fault has `fsck`'s kind, key and detail. The next entry gives the `count-mismatch`
+  - The fault has `fsck`'s kind, key and detail. That step 4e entry gives the `count-mismatch`
     details of a purge and of `fsck`.
   - The checks cost nothing on an undamaged store. The purge check reads the row that the purge
     reads already. The feed check compares the revision of each record that the page answers.
@@ -281,6 +282,35 @@ Step 4d adds more, listed under Breaking.
   - Rust `fsck` reports `feed-gap` for a floor at `u64::MAX`. Before, a debug build panicked.
   - What can now be deleted that could not be deleted before: nothing. Each change refuses where
     the store answered or removed before.
+- Step 4e: a Rust reader names a malformed `scope` member (§4.13 reading 21). `read_anchored`,
+  `StoreReactor::read` and `fetch`, `fetch_scope`, `capture_scope` and a pass of held views
+  report a member whose id does not recompute, or whose arrival record names another id, as the
+  store fault `StoreFault::MalformedMember {revision, detail}`. Before, they refused
+  `invalid-request`, as if the caller had erred. The fault has no refusal code, so no reader
+  starts again on it. `ScopeSource::extend` still refuses `invalid-request` for a host that
+  calls it directly. A held-views pass passes a store fault of its read up as
+  `FeedError::Fault`, not as `FeedError::Read`. `StoreReadError` gains `From<FeedError>`. In
+  both witnesses, the freshness runner fails a capture that meets a store fault with
+  `the store broke <rule>: `, as it fails a check. No shared vector holds the rule: no
+  conforming store answers a malformed member. A wrong-store row in each witness holds it for
+  a capture and for a hold. What a purge removes does not change.
+- Step 4e: the Rust memory store keeps the holdings digest (§4.13 readings 139 to 141). The new
+  module `store_digest` has TypeScript's tree, hashes and update rule, `DigestNode`,
+  `DIGEST_LEAF`, `empty_digest` and the reference `digest_of`. `Snapshot::root()` is fixed at
+  read. `Snapshot::digest(prefix)` is strict: it refuses `snapshot-moved` after an append that
+  adds an id and after a purge that releases one, and answers after a head-only append and a
+  purge that releases nothing. An append and a purge move the digest along the path of each
+  changed id, at most 24 lookups per level on average. The memory profile says `digest: true`.
+  `fsck` reports `digest-mismatch` for a damaged, lost or stray node and for a damaged root,
+  after the change records of each peer. `store_conformance::run_digest_conformance` runs
+  `vectors/store/digest.json`; the memory store passes its 12 trees and 8 cases. Two new cases
+  hold that each peer answers its own tree, and that a moved snapshot refuses a bad prefix as
+  `invalid-request`. The runner table of each witness has a wrong store or a wrong document for
+  each line of the digest runner. Two time rails in `store_cost.rs` hold an append and a purge
+  of one id against the holdings. What a purge removes does not change.
+- Follow-ups of the review of #120: TypeScript tests hold a malformed `scope` member through
+  `StoreReactor.read`, `StoreReactor.fetch`, `captureScope`, a hold and a refresh; a Rust test
+  holds each arm of `From<FeedError> for StoreReadError`.
 - Step 4e: the memory store decides a purge from who holds the id (§4.13 reading 136), in both
   witnesses.
   - A memory row keeps the peers it counts as holders, each with a count, in place of one bare
@@ -352,8 +382,8 @@ Step 4d adds more, listed under Breaking.
   a refusal with `.into()`. A Rust caller matches `StoreFailure::Refused(e)` where it read `e`,
   and handles `StoreFailure::Integrity`.
 - **Rust functions that read a snapshot or a listing return `StoreFailure`.** These are
-  `store::collect_delta_set`, `store_fresh::raw_scope`, `store_read::fetch_scope`,
-  `store_read::capture_scope` and the trait method `FreshnessReader::capture`.
+  `store::collect_delta_set` and `store_fresh::raw_scope`. `store_read::fetch_scope`,
+  `store_read::capture_scope` and `FreshnessReader::capture` return `FeedError` (below).
 - **Rust `FeedError` and `StoreReadError` have a new arm, `Integrity(IntegrityFault)`.** A
   Rust `match` on either type handles it.
 - **Rust `Exporter` has a new required method, `fsck`.** A Rust `impl Exporter` must give one:
@@ -386,6 +416,12 @@ Step 4d adds more, listed under Breaking.
   not a `StoreError`.
 - **A malformed `scope` member is the store fault `malformed-member`.** A host that caught
   `invalid-request` from a read for it must catch `StoreFaultError`.
+- **Rust `StoreFault` has a new variant, `MalformedMember`.** A Rust `match` on `StoreFault`
+  handles it. A Rust host that matched `invalid-request` from a read for a malformed member
+  matches `StoreReadError::Fault` or `FeedError::Fault`.
+- **Rust `fetch_scope`, `capture_scope` and `FreshnessReader::capture` return `FeedError`.**
+  They returned `StoreFailure`. A Rust `impl FreshnessReader` changes its signature. A caller
+  that used `?` into its own error type needs `From<FeedError>`.
 - **`Exporter` has a new member, `fsck`.** A host that builds its own `Exporter` must give one.
 - **The memory store's `history` and `appFormat` refuse `store-closed` after `close`.** They
   answered before. A host that reads them after `close` must read them first.
@@ -396,6 +432,14 @@ Step 4d adds more, listed under Breaking.
 - **The memory store's `fsck` names an arrival record that names another id with key
   `holding.arrival`, as the SQLite store does.** It used `arrival`. A host that matched the key
   must change its match.
+- **Rust `Snapshot` has two new required methods, `root` and `digest`.** A Rust
+  `impl Snapshot` that wraps a store's snapshot passes both through. One with no digest answers
+  `root` `None` and refuses `digest` with `capability-absent`. `digest` returns
+  `Result<DigestNode, StoreFailure>`, so a durable store can answer damage in its digest.
+- **The Rust memory store's profile says `digest: true`.** A Rust host that required its
+  absence, or compared the whole profile, must change its check.
+- **The Rust memory `fsck` reports a new kind, `digest-mismatch`.** A host that expected no
+  fault of that kind, or matched the list of faults, must allow it.
 
 ## 0.11.0-next.11 — 2026-11-16
 
