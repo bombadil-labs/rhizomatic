@@ -32984,13 +32984,13 @@
     },
     {
       "id": "ts:storage/copy.ts:isPlainObject",
-      "owner": "storage",
+      "owner": "delta",
       "symbol": "isPlainObject",
       "source": "implementations/ts/src/storage/copy.ts",
-      "definition": "implementations/ts/src/storage/copy.ts",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native storage API isPlainObject implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/copy.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+      "definition": "implementations/ts/src/delta/own.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API isPlainObject implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/own.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
       "id": "ts:index.ts:collectDeltaSet",
@@ -42463,16 +42463,6 @@
       "semantics": "Native delta API ownDelta implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/own.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     },
     {
-      "id": "ts:delta/own.ts:bareDelta",
-      "owner": "delta",
-      "symbol": "bareDelta",
-      "source": "implementations/ts/src/delta/own.ts",
-      "definition": "implementations/ts/src/delta/own.ts",
-      "contract": "rhizomatic.delta/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native delta API bareDelta implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/own.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
-    },
-    {
       "id": "ts:command-data/codec.ts:owned",
       "owner": "command-data",
       "symbol": "owned",
@@ -42491,16 +42481,6 @@
       "contract": "rhizomatic.delta/native-api/1",
       "classification": "native_extension",
       "semantics": "Native delta API memberIdsOf implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/manifest.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
-    },
-    {
-      "id": "ts:delta/own.ts:bare",
-      "owner": "delta",
-      "symbol": "bare",
-      "source": "implementations/ts/src/delta/own.ts",
-      "definition": "implementations/ts/src/delta/own.ts",
-      "contract": "rhizomatic.delta/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native delta API bare implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/own.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     },
     {
       "id": "ts:delta/set.ts:holdChecked",
@@ -42621,6 +42601,76 @@
       "contract": "rhizomatic.syntax/native-api/1",
       "classification": "native_extension",
       "semantics": "Native syntax API evalPredOn implements SPEC-2 serializable grammar and explicit binding rules at implementations/ts/src/syntax/pred.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/own.ts:validBefore",
+      "owner": "delta",
+      "symbol": "validBefore",
+      "source": "implementations/ts/src/delta/own.ts",
+      "definition": "implementations/ts/src/delta/own.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API validBefore implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/own.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/own.ts:sigOf",
+      "owner": "delta",
+      "symbol": "sigOf",
+      "source": "implementations/ts/src/delta/own.ts",
+      "definition": "implementations/ts/src/delta/own.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API sigOf implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/own.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/own.ts:validUntilOf",
+      "owner": "delta",
+      "symbol": "validUntilOf",
+      "source": "implementations/ts/src/delta/own.ts",
+      "definition": "implementations/ts/src/delta/own.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API validUntilOf implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/own.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/own.ts:ownField",
+      "owner": "delta",
+      "symbol": "ownField",
+      "source": "implementations/ts/src/delta/own.ts",
+      "definition": "implementations/ts/src/delta/own.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API ownField implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/own.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/own.ts:isPlainObject",
+      "owner": "delta",
+      "symbol": "isPlainObject",
+      "source": "implementations/ts/src/delta/own.ts",
+      "definition": "implementations/ts/src/delta/own.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API isPlainObject implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/own.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/own.ts:plainHolder",
+      "owner": "delta",
+      "symbol": "plainHolder",
+      "source": "implementations/ts/src/delta/own.ts",
+      "definition": "implementations/ts/src/delta/own.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API plainHolder implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/own.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/own.ts:hiddenKey",
+      "owner": "delta",
+      "symbol": "hiddenKey",
+      "source": "implementations/ts/src/delta/own.ts",
+      "definition": "implementations/ts/src/delta/own.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API hiddenKey implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/own.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }
