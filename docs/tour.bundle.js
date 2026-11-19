@@ -977,8 +977,11 @@
   // src/delta/hash.ts
   var BLAKE3_MULTICODEC = 30;
   var DIGEST_LEN = 32;
+  var OPTIONS = Object.freeze(
+    Object.assign(/* @__PURE__ */ Object.create(null), { dkLen: DIGEST_LEN })
+  );
   function contentAddress(data) {
-    const digest = blake3(data, { dkLen: DIGEST_LEN });
+    const digest = blake3(data, OPTIONS);
     const mh = new Uint8Array(2 + digest.length);
     mh[0] = BLAKE3_MULTICODEC;
     mh[1] = digest.length;
@@ -987,12 +990,15 @@
   }
 
   // src/delta/own.ts
+  function validBefore(claims, at2) {
+    const validUntil = ownField(claims, "validUntil");
+    return validUntil === void 0 || at2 < validUntil;
+  }
   function refuse(message) {
     throw new Error(message);
   }
-  var BARE = Object.freeze(/* @__PURE__ */ Object.create(null));
-  function bare(fields2) {
-    return Object.assign(Object.create(BARE), fields2);
+  function ownField(holder2, key) {
+    return Object.hasOwn(holder2, key) ? holder2[key] : void 0;
   }
   function fields(given, what, hidden = () => {
   }) {
@@ -1011,11 +1017,31 @@
     }
     return found;
   }
+  function isPlainObject(value) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype === null || prototype === Object.prototype) return true;
+    if (typeof prototype !== "object" || Object.getPrototypeOf(prototype) !== null) return false;
+    const constructor = Object.getOwnPropertyDescriptor(prototype, "constructor")?.value;
+    if (typeof constructor !== "function") return false;
+    return Object.getOwnPropertyDescriptor(constructor, "prototype")?.value === prototype && Object.getOwnPropertyDescriptor(constructor, "name")?.value === "Object";
+  }
+  function plainHolder(given, what) {
+    if (!isPlainObject(given))
+      refuse(
+        `${what} must be a plain object, not a class instance or an object made with Object.create`
+      );
+  }
+  function hiddenKey(what, keys, key) {
+    if (typeof key === "string" && keys.includes(key))
+      refuse(`${what} has the key "${key}", which is not enumerable`);
+  }
   function holder(given, what, keys) {
     if (typeof given !== "object" || given === null || Array.isArray(given))
       return refuse(`${what} must be an object`);
-    const own = Object.create(BARE);
-    for (const [key, value] of fields(given, what)) {
+    plainHolder(given, what);
+    const own = /* @__PURE__ */ Object.create(null);
+    for (const [key, value] of fields(given, what, (key2) => hiddenKey(what, keys, key2))) {
       if (!keys.includes(key))
         return refuse(`${what} has the key "${key}", which is not one of: ${keys.join(", ")}`);
       own[key] = value;
@@ -1073,41 +1099,41 @@
         return refuse(`${what} of kind ${kind} has the key "${key}"`);
     switch (kind) {
       case "primitive":
-        return bare({ kind, value: primitive(own["value"], `${what}.value`) });
+        return { kind, value: primitive(own["value"], `${what}.value`) };
       case "entity": {
         const entity = holder(own["entity"], `${what}.entity`, ["id", "context"]);
-        return bare({
+        return {
           kind,
-          entity: bare({
+          entity: {
             id: text(entity["id"], `${what}.entity.id`),
             ...context(entity["context"], `${what}.entity`)
-          })
-        });
+          }
+        };
       }
       case "delta": {
         const ref = holder(own["deltaRef"], `${what}.deltaRef`, ["delta", "context"]);
-        return bare({
+        return {
           kind,
-          deltaRef: bare({
+          deltaRef: {
             delta: text(ref["delta"], `${what}.deltaRef.delta`),
             ...context(ref["context"], `${what}.deltaRef`)
-          })
-        });
+          }
+        };
       }
       default:
-        return bare({
+        return {
           kind: "bytes",
           mime: text(own["mime"], `${what}.mime`),
           value: bytes(own["value"], `${what}.value`)
-        });
+        };
     }
   }
   function pointer(given, what) {
     const own = holder(given, what, ["role", "target"]);
-    return bare({
+    return {
       role: text(own["role"], `${what}.role`),
       target: target(own["target"], `${what}.target`)
-    });
+    };
   }
   function ownClaims(given) {
     const own = holder(given, "claims", [
@@ -1118,7 +1144,7 @@
       "pointers"
     ]);
     const validUntil = own["validUntil"];
-    return bare({
+    return {
       timestamp: number(own["timestamp"], "claims.timestamp"),
       validFrom: number(own["validFrom"], "claims.validFrom"),
       ...validUntil === void 0 ? {} : { validUntil: number(validUntil, "claims.validUntil") },
@@ -1126,19 +1152,16 @@
       pointers: ownList(own["pointers"], "claims.pointers").map(
         (item, i) => pointer(item, `claims.pointers[${i}]`)
       )
-    });
+    };
   }
   function ownDelta(given) {
     const own = holder(given, "the delta", ["id", "claims", "sig"]);
     const sig = own["sig"];
-    return bare({
+    return {
       id: text(own["id"], "the delta id"),
       claims: ownClaims(own["claims"]),
       ...sig === void 0 ? {} : { sig: text(sig, "the delta sig") }
-    });
-  }
-  function bareDelta(id, claims, sig) {
-    return bare(sig === void 0 ? { id, claims } : { id, claims, sig });
+    };
   }
 
   // src/delta/delta.ts
@@ -1152,12 +1175,14 @@
       }
       case "entity": {
         const entries = [["id", tstr(t.entity.id)]];
-        if (t.entity.context !== void 0) entries.push(["context", tstr(t.entity.context)]);
+        const context2 = ownField(t.entity, "context");
+        if (context2 !== void 0) entries.push(["context", tstr(context2)]);
         return map(entries);
       }
       case "delta": {
         const entries = [["delta", tstr(t.deltaRef.delta)]];
-        if (t.deltaRef.context !== void 0) entries.push(["context", tstr(t.deltaRef.context)]);
+        const context2 = ownField(t.deltaRef, "context");
+        if (context2 !== void 0) entries.push(["context", tstr(context2)]);
         return map(entries);
       }
       // Bytes: map { "mime": tstr, "value": bstr } — the raw payload is the bstr and identity is its
@@ -1182,16 +1207,18 @@
       ["timestamp", float(claims.timestamp)],
       ["validFrom", float(claims.validFrom)]
     ];
-    if (claims.validUntil !== void 0) entries.push(["validUntil", float(claims.validUntil)]);
+    const validUntil = ownField(claims, "validUntil");
+    if (validUntil !== void 0) entries.push(["validUntil", float(validUntil)]);
     return map(entries);
   }
   function check(claims) {
     if (claims.author.length === 0) throw new Error("author must be non-empty");
     if (!Number.isFinite(claims.timestamp)) throw new Error("timestamp must be finite");
     if (!Number.isFinite(claims.validFrom)) throw new Error("validFrom must be finite");
-    if (claims.validUntil !== void 0) {
-      if (!Number.isFinite(claims.validUntil)) throw new Error("validUntil must be finite");
-      if (claims.validUntil <= claims.validFrom)
+    const validUntil = ownField(claims, "validUntil");
+    if (validUntil !== void 0) {
+      if (!Number.isFinite(validUntil)) throw new Error("validUntil must be finite");
+      if (validUntil <= claims.validFrom)
         throw new Error("validUntil must be greater than validFrom");
     }
     if (claims.pointers.length < 1) throw new Error("a delta MUST contain at least one pointer");
@@ -1202,7 +1229,7 @@
         throw new Error("numeric primitive must be finite");
       if (t.kind === "bytes" && t.mime.length === 0)
         throw new Error("bytes target mime must be non-empty (SPEC-1 \xA72.1)");
-      const ctx = t.kind === "entity" ? t.entity.context : t.kind === "delta" ? t.deltaRef.context : void 0;
+      const ctx = t.kind === "entity" ? ownField(t.entity, "context") : t.kind === "delta" ? ownField(t.deltaRef, "context") : void 0;
       if (ctx !== void 0 && ctx.length === 0)
         throw new Error("context, when present, must be non-empty");
     }
@@ -1244,7 +1271,7 @@
   function makeDelta(claims, sig) {
     if (sig !== void 0 && typeof sig !== "string") throw new Error("sig must be a string");
     const { own, id } = claimsWithId(claims);
-    return bareDelta(id, own, sig);
+    return sig === void 0 ? { id, claims: own } : { id, claims: own, sig };
   }
   function makeNegationClaims(author, timestamp, targetDeltaId, reason) {
     const pointers = [
@@ -3026,14 +3053,15 @@
   function authorForSeed(seedHex) {
     return AUTHOR_PREFIX + publicKeyFromSeed(seedHex);
   }
+  var SIGN_OPTIONS = Object.freeze(/* @__PURE__ */ Object.create(null));
   function signClaims(claims, seedHex) {
     const { own, id } = claimsWithId(claims);
     const expected = authorForSeed(seedHex);
     if (own.author !== expected) {
       throw new Error(`author must be ${expected} for this signing key, got ${own.author}`);
     }
-    const sig = bytesToHex(ed25519.sign(hexToBytes(id), hexToBytes(seedHex)));
-    return bareDelta(id, own, sig);
+    const sig = bytesToHex(ed25519.sign(hexToBytes(id), hexToBytes(seedHex), SIGN_OPTIONS));
+    return { id, claims: own, sig };
   }
   var Point = ed25519.ExtendedPoint;
   var L = ed25519.CURVE.n;
@@ -3071,13 +3099,14 @@
   }
   function verifyOwn({ own: delta, id }) {
     if (id !== delta.id) return "invalid";
-    if (delta.sig === void 0) return "unsigned";
+    const sig = ownField(delta, "sig");
+    if (sig === void 0) return "unsigned";
     if (!delta.claims.author.startsWith(AUTHOR_PREFIX)) return "invalid";
-    const key = delta.id + delta.sig;
+    const key = delta.id + sig;
     if (verifiedSigs.has(key)) return "verified";
     const pubHex = delta.claims.author.slice(AUTHOR_PREFIX.length);
     try {
-      if (!verifySigStrict(hexToBytes(delta.sig), hexToBytes(delta.id), hexToBytes(pubHex)))
+      if (!verifySigStrict(hexToBytes(sig), hexToBytes(delta.id), hexToBytes(pubHex)))
         return "invalid";
     } catch {
       return "invalid";
@@ -3092,7 +3121,7 @@
     const pairs = [];
     for (const p of substantive) {
       if (p.target.kind !== "entity") continue;
-      const ctx = p.target.entity.context;
+      const ctx = ownField(p.target.entity, "context");
       if (ctx !== void 0 && contexts.includes(ctx)) {
         pairs.push(`${p.target.entity.id}${ctx}`);
       }
@@ -3246,10 +3275,10 @@
     let emitted;
     try {
       emitted = ownDelta(given);
+      if (verifyDelta(emitted) !== "verified") return false;
     } catch {
       return false;
     }
-    if (verifyDelta(emitted) !== "verified") return false;
     const fromPtr = emitted.claims.pointers.find(
       (p) => p.role === `${VOCAB_PREFIX}.derived.from` && p.target.kind === "primitive"
     );
@@ -3520,12 +3549,14 @@
       }
       case "entity": {
         const entries = [["id", tstr(t.entity.id)]];
-        if (t.entity.context !== void 0) entries.push(["context", tstr(t.entity.context)]);
+        const context2 = ownField(t.entity, "context");
+        if (context2 !== void 0) entries.push(["context", tstr(context2)]);
         return map(entries);
       }
       case "delta": {
         const entries = [["delta", tstr(t.deltaRef.delta)]];
-        if (t.deltaRef.context !== void 0) entries.push(["context", tstr(t.deltaRef.context)]);
+        const context2 = ownField(t.deltaRef, "context");
+        if (context2 !== void 0) entries.push(["context", tstr(context2)]);
         return map(entries);
       }
       case "bytes":
@@ -3557,7 +3588,8 @@
       ["id", tstr(e.delta.id)],
       ["claims", claimsToCborWithExpansions(e.delta.claims, e.expanded, e.readings)]
     ];
-    if (e.delta.sig !== void 0) entries.push(["sig", tstr(e.delta.sig)]);
+    const sig = ownField(e.delta, "sig");
+    if (sig !== void 0) entries.push(["sig", tstr(sig)]);
     if (e.negated) entries.push(["negated", bool(true)]);
     return map(entries);
   }
@@ -3688,7 +3720,7 @@
       if (ptr.target.kind !== "delta" || ptr.target.deltaRef.delta !== p.targetDelta) return false;
     }
     if (p.context !== void 0) {
-      const ctx = ptr.target.kind === "entity" ? ptr.target.entity.context : ptr.target.kind === "delta" ? ptr.target.deltaRef.context : void 0;
+      const ctx = ptr.target.kind === "entity" ? ownField(ptr.target.entity, "context") : ptr.target.kind === "delta" ? ownField(ptr.target.deltaRef, "context") : void 0;
       if (ctx === void 0 || !strMatch(p.context, ctx)) return false;
     }
     if (p.targetIsPrimitive !== void 0) {
@@ -4228,7 +4260,7 @@
       for (const ptr of d.claims.pointers) {
         if (ptr.target.kind !== "entity" || ptr.target.entity.id !== root) continue;
         if (key.kind === "byTargetContext") {
-          const ctx = ptr.target.entity.context;
+          const ctx = ownField(ptr.target.entity, "context");
           if (ctx !== void 0) file(ctx, d);
         } else {
           file(ptr.role, d);
@@ -4451,10 +4483,7 @@
   }
   function evalTermWithHooks(term, input, now, hooks, root, registry, bindings) {
     if (!Number.isFinite(now)) throw new Error("now must be a finite number");
-    const valid = fork(
-      input,
-      (d) => d.claims.validFrom <= now && (d.claims.validUntil === void 0 || now < d.claims.validUntil)
-    );
+    const valid = fork(input, (d) => d.claims.validFrom <= now && validBefore(d.claims, now));
     return evalTermWithin(term, valid, root, registry, bindings, hooks.budget, hooks.memo);
   }
   function evalSchema(ref, input, root, registry, bindings, budget, memo) {
@@ -4706,8 +4735,21 @@
     if (typeof value !== "string") throw new Error("bytes target value must be a base64url string");
     return reader.bytes(mime, value);
   }
+  function plainFields(raw, what, keys) {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return;
+    plainHolder(raw, what);
+    for (const key of keys)
+      if (Object.getOwnPropertyDescriptor(raw, key)?.enumerable === false) hiddenKey(what, keys, key);
+  }
+  function claimsObject(raw, what, keys) {
+    plainFields(raw, what, keys);
+    return asObject(raw, what, keys);
+  }
   var parsingReader = {
-    object: (raw, what, keys) => what === "target" ? asOpenMap(raw, what) : asObject(raw, what, keys),
+    object: (raw, what, keys) => {
+      plainFields(raw, what, keys);
+      return what === "target" ? asOpenMap(raw, what) : asObject(raw, what, keys);
+    },
     primitive: (value) => ({ kind: "primitive", value }),
     entity: (id, context2) => ({
       kind: "entity",
@@ -4724,12 +4766,17 @@
     if (typeof o["role"] !== "string") throw new Error("pointer.role must be a string");
     return { role: o["role"], target: readTarget(o["target"], reader) };
   }
+  function contextOf(ref) {
+    const context2 = ownField(ref, "context");
+    return context2 === void 0 ? {} : { context: context2 };
+  }
   function claimsToJson(given) {
     const claims = ownClaims(given);
+    const validUntil = ownField(claims, "validUntil");
     return {
       timestamp: claims.timestamp,
       validFrom: claims.validFrom,
-      ...claims.validUntil === void 0 ? {} : { validUntil: claims.validUntil },
+      ...validUntil === void 0 ? {} : { validUntil },
       author: claims.author,
       pointers: claims.pointers.map((p) => {
         let target2;
@@ -4740,13 +4787,13 @@
           case "entity":
             target2 = {
               id: p.target.entity.id,
-              ...p.target.entity.context === void 0 ? {} : { context: p.target.entity.context }
+              ...contextOf(p.target.entity)
             };
             break;
           case "delta":
             target2 = {
               delta: p.target.deltaRef.delta,
-              ...p.target.deltaRef.context === void 0 ? {} : { context: p.target.deltaRef.context }
+              ...contextOf(p.target.deltaRef)
             };
             break;
           case "bytes":
@@ -4774,7 +4821,7 @@
     };
   }
   function parseClaims(raw) {
-    const fields2 = claimsFields(raw);
+    const fields2 = claimsFields(raw, claimsObject);
     const pointers = ownList(fields2.pointers, "claims.pointers");
     return ownClaims({ ...fields2, pointers: pointers.map((p) => readPointer(p, parsingReader)) });
   }
@@ -4789,18 +4836,23 @@
   function stringsOf(delta, out) {
     out.add(delta.id);
     out.add(delta.claims.author);
-    if (delta.sig !== void 0) out.add(delta.sig);
+    const sig = ownField(delta, "sig");
+    if (sig !== void 0) out.add(sig);
     for (const p of delta.claims.pointers) {
       out.add(p.role);
       switch (p.target.kind) {
-        case "entity":
+        case "entity": {
           out.add(p.target.entity.id);
-          if (p.target.entity.context !== void 0) out.add(p.target.entity.context);
+          const context2 = ownField(p.target.entity, "context");
+          if (context2 !== void 0) out.add(context2);
           break;
-        case "delta":
+        }
+        case "delta": {
           out.add(p.target.deltaRef.delta);
-          if (p.target.deltaRef.context !== void 0) out.add(p.target.deltaRef.context);
+          const context2 = ownField(p.target.deltaRef, "context");
+          if (context2 !== void 0) out.add(context2);
           break;
+        }
         case "primitive":
           if (typeof p.target.value === "string") out.add(p.target.value);
           break;
@@ -4816,11 +4868,11 @@
     switch (p.target.kind) {
       case "entity":
         entries.push(["e", float(idx(p.target.entity.id))]);
-        context2 = p.target.entity.context;
+        context2 = ownField(p.target.entity, "context");
         break;
       case "delta":
         entries.push(["d", float(idx(p.target.deltaRef.delta))]);
-        context2 = p.target.deltaRef.context;
+        context2 = ownField(p.target.deltaRef, "context");
         break;
       case "primitive": {
         const v = p.target.value;
@@ -4846,8 +4898,10 @@
       ["f", float(d.claims.validFrom)],
       ["p", array(d.claims.pointers.map((p) => ptrToCbor(p, idx)))]
     ];
-    if (d.claims.validUntil !== void 0) entries.push(["u", float(d.claims.validUntil)]);
-    if (d.sig !== void 0) entries.push(["s", float(idx(d.sig))]);
+    const validUntil = ownField(d.claims, "validUntil");
+    if (validUntil !== void 0) entries.push(["u", float(validUntil)]);
+    const sig = ownField(d, "sig");
+    if (sig !== void 0) entries.push(["s", float(idx(sig))]);
     return map(entries);
   }
   function memberRecord(d, manifest, envelopeIdx, idx) {
@@ -4857,11 +4911,13 @@
       ["f", float(d.claims.validFrom)],
       ["p", array(d.claims.pointers.map((p) => ptrToCbor(p, idx)))]
     ];
-    if (d.claims.validUntil !== void 0) entries.push(["u", float(d.claims.validUntil)]);
+    const validUntil = ownField(d.claims, "validUntil");
+    if (validUntil !== void 0) entries.push(["u", float(validUntil)]);
     if (d.claims.author !== manifest.claims.author) entries.push(["a", float(idx(d.claims.author))]);
     const dt = d.claims.timestamp - manifest.claims.timestamp;
     if (dt !== 0) entries.push(["dt", float(dt)]);
-    if (d.sig !== void 0) entries.push(["s", float(idx(d.sig))]);
+    const sig = ownField(d, "sig");
+    if (sig !== void 0) entries.push(["s", float(idx(sig))]);
     return map(entries);
   }
   function packSet(set) {
@@ -5361,7 +5417,7 @@
     const visiting = /* @__PURE__ */ new Set();
     let seen = epoch?.();
     let inSuppression = false;
-    const valid = (delta) => delta.claims.validFrom <= now && (delta.claims.validUntil === void 0 || now < delta.claims.validUntil);
+    const valid = (delta) => delta.claims.validFrom <= now && validBefore(delta.claims, now);
     const witnesses = (id) => {
       if (epoch !== void 0) {
         const current = epoch();
@@ -5462,7 +5518,7 @@
     } catch (e) {
       return reasonOf(e);
     }
-    if (own.sig !== void 0 && verifyOwnDelta(own, id) !== "verified")
+    if (ownField(own, "sig") !== void 0 && verifyOwnDelta(own, id) !== "verified")
       return "signature does not verify";
     if (id !== own.id) return `delta id ${own.id} does not match its claims (content addressing, P6)`;
     return void 0;
@@ -5502,8 +5558,9 @@
     }
     index(delta) {
       this.validityBoundaries = insertBoundary(this.validityBoundaries, delta.claims.validFrom);
-      if (delta.claims.validUntil !== void 0) {
-        this.validityBoundaries = insertBoundary(this.validityBoundaries, delta.claims.validUntil);
+      const validUntil = ownField(delta.claims, "validUntil");
+      if (validUntil !== void 0) {
+        this.validityBoundaries = insertBoundary(this.validityBoundaries, validUntil);
       }
       for (const ptr of delta.claims.pointers) {
         switch (ptr.target.kind) {
@@ -6006,7 +6063,7 @@
       for (const d of this.reactor.legacyHoldings().arrivals()) have.add(d.id);
       const offered = other.offeredSet().filter((d) => !have.has(d.id));
       const offeredIds = new Set(offered.map((d) => d.id));
-      const isSignedManifest = (d) => d.sig !== void 0 && verifyDelta(d) === "verified" && memberIdsOf(d).length > 0;
+      const isSignedManifest = (d) => ownField(d, "sig") !== void 0 && verifyDelta(d) === "verified" && memberIdsOf(d).length > 0;
       const bundles = [];
       const covered = /* @__PURE__ */ new Set();
       for (const m of offered.filter(isSignedManifest)) {
@@ -6016,7 +6073,7 @@
         covered.add(m.id);
       }
       const loose = offered.filter(
-        (d) => !covered.has(d.id) && d.sig !== void 0 && verifyDelta(d) === "verified"
+        (d) => !covered.has(d.id) && ownField(d, "sig") !== void 0 && verifyDelta(d) === "verified"
       );
       const withheld = offered.length - covered.size - loose.length;
       let accepted = 0;
