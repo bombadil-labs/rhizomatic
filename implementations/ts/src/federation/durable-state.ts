@@ -8,6 +8,7 @@ import { planArrivals } from "./arrival.js";
 import type { PeerState } from "./peer-state.js";
 import { decodePeerState, encodePeerState } from "./peer-state.js";
 import { isCanonicalPeerId } from "./peer-identity.js";
+import { ownField } from "../delta/own.js";
 
 const VERSION = 2;
 const DELTA_ID = /^1e20[0-9a-f]{64}$/;
@@ -114,7 +115,8 @@ function validate(state: DurablePeerState): Uint8Array {
         !DELTA_ID.test(orderId) ||
         orderId <= lastOrder ||
         orderId === event.targetId ||
-        order?.sig === undefined ||
+        order === undefined ||
+        ownField(order, "sig") === undefined ||
         eventByOrder.has(orderId)
       )
         throw new Error("durable peer state: invalid effective order");
@@ -354,7 +356,7 @@ export function validateDurablePeerStateTransition(
     const current = after.base.admitted.get(delta.id);
     if (current === undefined && !after.base.refusedIds.has(delta.id))
       throw new Error("durable peer state: holding lost without refusal");
-    if (current !== undefined && current.sig !== delta.sig)
+    if (current !== undefined && ownField(current, "sig") !== ownField(delta, "sig"))
       throw new Error("durable peer state: admitted signature changed");
   }
   if (
@@ -461,7 +463,13 @@ function buildPermanentCommit(
     )
       throw new Error("durable peer state: invalid erasure group");
     for (const orderId of group.orderIds) {
-      if (orderId === group.targetId || !additions.get(orderId)?.sig || usedOrders.has(orderId))
+      const order = additions.get(orderId);
+      if (
+        orderId === group.targetId ||
+        order === undefined ||
+        !ownField(order, "sig") ||
+        usedOrders.has(orderId)
+      )
         throw new Error("durable peer state: effective order must be a distinct signed addition");
       usedOrders.add(orderId);
     }

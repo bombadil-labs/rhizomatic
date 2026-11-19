@@ -1,5 +1,5 @@
 // SPEC-16 MR-04/08: closed delta-only grammar. Parsing never installs a capability.
-import { assertValidClaims } from "../delta/delta.js";
+import { validClaims } from "../delta/delta.js";
 import { float, map, encode } from "../delta/cbor.js";
 import { VOCAB_PREFIX } from "../delta/vocab.js";
 import type { Claims, Delta, Target } from "../delta/types.js";
@@ -13,8 +13,10 @@ import {
   decodeBindings,
   isCommandId,
   isCommandKey,
+  owned,
   type CommandFields,
 } from "./codec.js";
+import { ownField } from "../delta/own.js";
 
 export const MATERIALIZATION_PREFIX = `${VOCAB_PREFIX}.materialization.`;
 export const MATERIALIZATION_MAX_LIMITS = Object.freeze({
@@ -189,7 +191,7 @@ const setKey = (t: Target): string =>
     ? t.deltaRef.delta
     : t.kind === "primitive" && typeof t.value === "string"
       ? t.value
-      : t.kind === "entity" && t.entity.context === undefined
+      : t.kind === "entity" && ownField(t.entity, "context") === undefined
         ? t.entity.id
         : fail();
 /**
@@ -257,7 +259,9 @@ export function encodeMaterializationLimits(limits: MaterializationLimits): Uint
   return bytes;
 }
 /** Readers accept pointer permutations: set-valued roles read in their canonical sorted order. */
-export function materializationFields(delta: Delta): CommandFields {
+/** The materialization fields of a delta. It reads the own copy of the delta (`ownDelta`), once. */
+export function materializationFields(given: Delta): CommandFields {
+  const delta = owned(given);
   const fields: Record<string, Target[]> = Object.create(null) as Record<string, Target[]>;
   for (const p of delta.claims.pointers) {
     if (!p.role.startsWith(MATERIALIZATION_PREFIX)) fail();
@@ -378,7 +382,7 @@ export function readMaterializationDescription(
     // MR-13: roots are distinct nonempty entities and aliases distinct nonempty texts, each
     // sorted bytewise; a text root or an entity alias is not a registration descriptor.
     const roots = (f.roots ?? []).map((t) =>
-      t.kind === "entity" && t.entity.context === undefined ? t.entity.id : fail(),
+      t.kind === "entity" && ownField(t.entity, "context") === undefined ? t.entity.id : fail(),
     );
     const strictlyAscending = (xs: string[]) =>
       xs.every((x, i) => x && (i === 0 || compareMaterializationText(xs[i - 1]!, x) < 0));
@@ -411,7 +415,10 @@ export function readMaterializationDescription(
     for (const k of ["at", "definition-at"]) commandNumber(f, k);
     if ((verb === "retire") !== (f.capture === undefined)) fail();
     if (f.capture) commandRef(f, "capture");
-    if (delta.claims.timestamp !== delta.claims.validFrom || delta.claims.validUntil !== undefined)
+    if (
+      delta.claims.timestamp !== delta.claims.validFrom ||
+      ownField(delta.claims, "validUntil") !== undefined
+    )
       fail();
   }
   if (["authority/1", "capture/1"].includes(kind)) commandRef(f, "source-binding");
@@ -424,7 +431,7 @@ export function readMaterializationDescription(
     if (
       delta.claims.author !== commandEntity(f, "receiver") ||
       delta.claims.timestamp !== delta.claims.validFrom ||
-      delta.claims.validUntil !== undefined ||
+      ownField(delta.claims, "validUntil") !== undefined ||
       !["completed", "refused", "indeterminate"].includes(commandText(f, "status"))
     )
       fail();
@@ -445,7 +452,5 @@ export function materializationDescriptionClaims(
     if (SETS.includes(k)) targets = [...targets].sort(bySetKey);
     return targets.map((target) => ({ role: MATERIALIZATION_PREFIX + k, target }));
   });
-  const claims = { author, timestamp: at, validFrom: at, pointers };
-  assertValidClaims(claims);
-  return claims;
+  return validClaims({ author, timestamp: at, validFrom: at, pointers });
 }

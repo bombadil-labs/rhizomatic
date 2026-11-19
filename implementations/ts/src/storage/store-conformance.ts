@@ -38,6 +38,7 @@ import {
   type VectorRequirement,
 } from "./store-vector-format.js";
 import { storeVectors } from "./store-vectors.js";
+import { ownField } from "../delta/own.js";
 
 export type StoreConformanceFailure = { readonly name: string; readonly message: string };
 export type StoreConformanceReport = {
@@ -244,9 +245,9 @@ export class Run {
         check(computeId(claims) === entry.id, `vector delta ${entry.name}: id does not recompute`);
       this.corpus.set(
         entry.name,
-        entry.sig === undefined
+        ownField(entry, "sig") === undefined
           ? { id: entry.id, claims }
-          : { id: entry.id, claims, sig: entry.sig },
+          : { id: entry.id, claims, sig: ownField(entry, "sig")! },
       );
     }
     this.reference = store.profile.formatVersion === header.reference.formatVersion;
@@ -625,7 +626,10 @@ export class Run {
   matches(actual: Delta, name: string): void {
     const expected = this.delta(name);
     check(actual.id === expected.id, `expected delta ${name}, got id ${actual.id.slice(0, 12)}`);
-    check(actual.sig === expected.sig, `delta ${name}: the signature differs`);
+    check(
+      ownField(actual, "sig") === ownField(expected, "sig"),
+      `delta ${name}: the signature differs`,
+    );
     check(computeId(actual.claims) === expected.id, `delta ${name}: the claims differ`);
   }
 
@@ -654,7 +658,8 @@ export class Run {
       check(entry.arrival.id === entry.delta.id, "a scope member carries another id's arrival");
       this.sameArrival(peer, entry.arrival);
       check(
-        entry.delta.sig === this.holdings.get(peer)!.get(entry.delta.id)!.delta.sig,
+        ownField(entry.delta, "sig") ===
+          ownField(this.holdings.get(peer)!.get(entry.delta.id)!.delta, "sig"),
         "a scope member carries another appearance's signature",
       );
     }

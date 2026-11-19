@@ -2,9 +2,10 @@
 // predicate. Merge is union; this layer is selection and trust. Coordination without conscription.
 
 import { evalTermRaw, type Term } from "../resolve/eval.js";
-import { evalPred, type Pred } from "../syntax/pred.js";
+import { evalPredOn, type Pred } from "../syntax/pred.js";
+import { ownDelta, ownField } from "../delta/own.js";
 import { Reactor, type IngestResult } from "../reactor/reactor.js";
-import { manifestMemberIds } from "../delta/manifest.js";
+import { memberIdsOf } from "../delta/manifest.js";
 import { authorForSeed, signClaims, verifyDelta } from "../delta/sign.js";
 import type { Claims, Delta } from "../delta/types.js";
 
@@ -41,9 +42,11 @@ export class Peer {
     return signed;
   }
 
-  // The admission judgment (SPEC-6 §5 step 3), exposed for transport bindings (F5).
+  // The admission judgment (SPEC-6 §5 step 3), exposed for transport bindings (F5). It reads the
+  // own copy of the delta (`ownDelta`), once, and throws for a delta of the wrong shape.
   admits(d: Delta): boolean {
-    return this.admission === undefined || evalPred(this.admission, d);
+    const own = ownDelta(d);
+    return this.admission === undefined || evalPredOn(this.admission, own);
   }
 
   // The offered set: eval(lens, log) — lens fidelity is a tested invariant (F4).
@@ -64,11 +67,13 @@ export class Peer {
     // Partition per the signature boundary (F3): signed manifests carry their present members
     // as bundles; remaining signed deltas travel loose; unsigned uncovered are withheld.
     const isSignedManifest = (d: Delta) =>
-      d.sig !== undefined && verifyDelta(d) === "verified" && manifestMemberIds(d).length > 0;
+      ownField(d, "sig") !== undefined &&
+      verifyDelta(d) === "verified" &&
+      memberIdsOf(d).length > 0;
     const bundles: Array<{ manifest: Delta; members: Delta[] }> = [];
     const covered = new Set<string>();
     for (const m of offered.filter(isSignedManifest)) {
-      const members = manifestMemberIds(m)
+      const members = memberIdsOf(m)
         .filter((id) => offeredIds.has(id))
         .map((id) => offered.find((d) => d.id === id)!)
         .filter((d) => !isSignedManifest(d));
@@ -77,7 +82,8 @@ export class Peer {
       covered.add(m.id);
     }
     const loose = offered.filter(
-      (d) => !covered.has(d.id) && d.sig !== undefined && verifyDelta(d) === "verified",
+      (d) =>
+        !covered.has(d.id) && ownField(d, "sig") !== undefined && verifyDelta(d) === "verified",
     );
     const withheld = offered.length - covered.size - loose.length;
 

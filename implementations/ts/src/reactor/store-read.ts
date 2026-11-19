@@ -46,6 +46,7 @@ import {
   type Snapshot,
   type VerifiedDelta,
 } from "../storage/store.js";
+import { ownField } from "../delta/own.js";
 
 /**
  * Files a `scope` answer in the read's cache. A member the cache refuses came from the store, so
@@ -590,7 +591,8 @@ export async function fetchScope(
     ...new Set(
       members.flatMap((id) => {
         const { claims } = held.get(id)!;
-        const { validFrom, validUntil } = claims;
+        const validFrom = claims.validFrom;
+        const validUntil = ownField(claims, "validUntil");
         return Object.hasOwn(claims, "validUntil") && validUntil !== undefined
           ? [validFrom, validUntil]
           : [validFrom];

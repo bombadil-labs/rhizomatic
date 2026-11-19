@@ -40,6 +40,7 @@ import {
   mFields,
   MaterializationInputError,
 } from "./materialization-values.js";
+import { ownField, validBefore } from "../delta/own.js";
 export interface MaterializationInputBoot {
   readonly configuration: Delta;
   readonly declarations: readonly Delta[];
@@ -63,7 +64,7 @@ export interface MaterializationInputCatalog {
   readonly release: "A" | "B";
 }
 export const materializationValidAt = (d: Delta, at: number): boolean =>
-  d.claims.validFrom <= at && (d.claims.validUntil === undefined || at < d.claims.validUntil);
+  d.claims.validFrom <= at && validBefore(d.claims, at);
 export function materializationInputCatalog(
   boot: MaterializationInputBoot,
 ): MaterializationInputCatalog {
@@ -200,7 +201,7 @@ export function prepareMaterializationInput(
   const supplied = new Map<string, Delta>();
   for (const d of deltas) {
     const old = supplied.get(d.id);
-    if (!old || d.sig! < old.sig!) supplied.set(d.id, d);
+    if (!old || ownField(d, "sig")! < ownField(old, "sig")!) supplied.set(d.id, d);
   }
   const entry = supplied.get(entryId);
   if (!entry) return mFail("entry-missing");
@@ -294,7 +295,7 @@ export function prepareMaterializationInput(
     if (
       ps.length === 1 &&
       ps[0]!.target.kind === "delta" &&
-      ps[0]!.target.deltaRef.context === undefined
+      ownField(ps[0]!.target.deltaRef, "context") === undefined
     ) {
       const id = ps[0]!.target.deltaRef.delta;
       if (!supplied.has(id)) mFail("missing-support");
@@ -351,7 +352,7 @@ export function materializationRequiredBinding(p: MaterializationPreparedInput):
   if (
     targets.length !== 1 ||
     targets[0]!.target.kind !== "delta" ||
-    targets[0]!.target.deltaRef.context !== undefined ||
+    ownField(targets[0]!.target.deltaRef, "context") !== undefined ||
     !/^1e20[0-9a-f]{64}$/.test(targets[0]!.target.deltaRef.delta)
   )
     mFail("invalid-source");

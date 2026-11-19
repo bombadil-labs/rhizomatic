@@ -31,6 +31,7 @@ import {
   type Store,
   type VerifiedDelta,
 } from "./store.js";
+import { ownField } from "../delta/own.js";
 
 /** What a witness offers for following the feed. TypeScript: `positionOf` and `followFeed`. */
 export interface FeedFollower {
@@ -425,7 +426,8 @@ class FollowRun {
     for (const { delta, arrival } of pull.deltas) {
       const entry = held.get(delta.id)!;
       check(
-        delta.sig === entry.delta.sig && computeId(delta.claims) === delta.id,
+        ownField(delta, "sig") === ownField(entry.delta, "sig") &&
+          computeId(delta.claims) === delta.id,
         `the pull delivered ${delta.id.slice(0, 12)} as another appearance`,
       );
       check(

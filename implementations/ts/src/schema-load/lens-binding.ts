@@ -9,6 +9,7 @@ import type { HyperSchema } from "../schema/schema.js";
 import type { Order, Schema } from "../syntax/model.js";
 import { schemaHash, termHash } from "../syntax/term-io.js";
 import { HYPER_SCHEMA_SCHEMA } from "./schema-deltas.js";
+import { ownField } from "../delta/own.js";
 
 const BINDS = `${VOCAB_PREFIX}.lens.binds`;
 const HYPERSCHEMA = `${VOCAB_PREFIX}.lens.hyperschema`;
@@ -48,7 +49,7 @@ function readBinding(delta: Delta, name: string): LensBinding {
       p.role === BINDS &&
       p.target.kind === "entity" &&
       p.target.entity.id === name &&
-      p.target.entity.context === "lens",
+      ownField(p.target.entity, "context") === "lens",
   );
   const pins = (role: string) =>
     pointers.filter((p) => p.role === role && p.target.kind === "primitive");

@@ -16,6 +16,7 @@ import {
   type PermanentCommitInput,
 } from "./durable-state.js";
 import { isCanonicalPeerId } from "./peer-identity.js";
+import { ownField } from "../delta/own.js";
 
 const VERSION = 2;
 const DIGEST = /^1e20[0-9a-f]{64}$/;
@@ -136,7 +137,11 @@ function validateFrame(frame: PermanentPeerFrame): void {
     throw new Error("permanent journal: invalid admission");
   const ids = new Set<string>();
   for (const delta of frame.additions) {
-    if (ids.has(delta.id) || delta.sig === undefined || verifyDelta(delta) !== "verified")
+    if (
+      ids.has(delta.id) ||
+      ownField(delta, "sig") === undefined ||
+      verifyDelta(delta) !== "verified"
+    )
       throw new Error("permanent journal: invalid signed addition");
     ids.add(delta.id);
   }

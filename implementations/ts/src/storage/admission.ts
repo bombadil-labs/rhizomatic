@@ -2,9 +2,10 @@
 // reading 133). A journal peer builds its own frame and next head; the store only commits them.
 
 import { compareUtf8 } from "../delta/cbor.js";
-import { computeId } from "../delta/delta.js";
+import { idOfOwn } from "../delta/delta.js";
+import { ownDelta, ownField } from "../delta/own.js";
 import type { Delta } from "../delta/types.js";
-import { copyDelta, isPlainObject, ownFields } from "./copy.js";
+import { isPlainObject, ownFields } from "./copy.js";
 import { wellFormed, wellFormedSig } from "./request.js";
 import {
   StoreError,
@@ -90,15 +91,13 @@ export function admissionOf(
   for (let i = 0; i < deltas.length; i++) {
     let delta: Delta;
     try {
-      const given: unknown = deltas[i];
-      if (typeof given !== "object" || given === null) throw new TypeError("delta");
-      const fields = ownFields(given as { id: unknown });
-      delta = copyDelta(fields, fields.id);
-      if (computeId(delta.claims) !== delta.id) throw new TypeError("id");
+      delta = ownDelta(deltas[i]);
+      if (idOfOwn(delta.claims) !== delta.id) throw new TypeError("id");
     } catch {
       return refuse("a delta is malformed, or its id does not match its claims");
     }
-    if (delta.sig !== undefined && !wellFormedSig(delta.sig))
+    const sig = ownField(delta, "sig");
+    if (sig !== undefined && !wellFormedSig(sig))
       refuse("a signature is not 128 lowercase hex characters");
     if (!own.has(delta.id)) own.set(delta.id, delta);
   }

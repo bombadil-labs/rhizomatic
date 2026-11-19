@@ -3,6 +3,7 @@
 // exception, inView (SPEC-2 §3.1), is lowered to inSet before predicates meet data.
 
 import type { Term } from "./model.js";
+import { ownDelta, ownField } from "../delta/own.js";
 import type { Delta, Pointer, Primitive } from "../delta/types.js";
 
 export type Cmp = "eq" | "neq" | "lt" | "lte" | "gt" | "gte" | "prefix" | "inSet";
@@ -229,9 +230,9 @@ function pointerMatches(
   if (p.context !== undefined) {
     const ctx =
       ptr.target.kind === "entity"
-        ? ptr.target.entity.context
+        ? ownField(ptr.target.entity, "context")
         : ptr.target.kind === "delta"
-          ? ptr.target.deltaRef.context
+          ? ownField(ptr.target.deltaRef, "context")
           : undefined;
     if (ctx === undefined || !strMatch(p.context, ctx)) return false;
   }
@@ -312,7 +313,13 @@ export function substituteHoles(pred: Pred, bindings: Bindings | undefined): Pre
 // Total and terminating: O(|delta|) per evaluation, no data dereference (SPEC-2 §3).
 // `root` is the ambient root entity, consulted only by the root variable (E10). Holes are
 // substituted away before predicates meet data; a stray hole here means "unbound" (E15).
+// It reads the own copy of the delta (`ownDelta`), once; it throws for a delta of the wrong shape.
 export function evalPred(pred: Pred, delta: Delta, root?: string, bindings?: Bindings): boolean {
+  return evalPredOn(pred, ownDelta(delta), root, bindings);
+}
+
+/** `evalPred` on a delta that is already an own copy (`ownDelta`), such as a set member. */
+export function evalPredOn(pred: Pred, delta: Delta, root?: string, bindings?: Bindings): boolean {
   switch (pred.kind) {
     case "true":
       return true;
@@ -336,14 +343,16 @@ export function evalPred(pred: Pred, delta: Delta, root?: string, bindings?: Bin
       return delta.claims.pointers.some((ptr) => pointerMatches(pred.ppred, ptr, root, bindings));
     case "and":
       return (
-        evalPred(pred.left, delta, root, bindings) && evalPred(pred.right, delta, root, bindings)
+        evalPredOn(pred.left, delta, root, bindings) &&
+        evalPredOn(pred.right, delta, root, bindings)
       );
     case "or":
       return (
-        evalPred(pred.left, delta, root, bindings) || evalPred(pred.right, delta, root, bindings)
+        evalPredOn(pred.left, delta, root, bindings) ||
+        evalPredOn(pred.right, delta, root, bindings)
       );
     case "not":
-      return !evalPred(pred.pred, delta, root, bindings);
+      return !evalPredOn(pred.pred, delta, root, bindings);
     case "actsFor":
       throw new Error("actsFor requires an explicit principal resolver (SPEC-14)");
     case "inView":

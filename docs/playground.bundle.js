@@ -23,11 +23,11 @@
       for (const x of b) this.buf[this.len++] = x & 255;
     }
     /** Text whose every code unit is below 0x80: its UTF-8 bytes are its code units. */
-    pushAscii(text) {
+    pushAscii(text2) {
       const start = this.len;
-      this.reserve(text.length);
-      for (let i = 0; i < text.length; i++) {
-        const c = text.charCodeAt(i);
+      this.reserve(text2.length);
+      for (let i = 0; i < text2.length; i++) {
+        const c = text2.charCodeAt(i);
         if (c >= 128) {
           this.len = start;
           return false;
@@ -163,9 +163,9 @@
         if (sink.pushAscii(val.v)) return;
         sink.truncate(mark);
         if (!wellFormedUnicode(val.v)) throw new Error("cbor: text is not well-formed Unicode");
-        const bytes = utf8.encode(val.v);
-        writeHead(sink, 3, bytes.length);
-        sink.pushBytes(bytes);
+        const bytes2 = utf8.encode(val.v);
+        writeHead(sink, 3, bytes2.length);
+        sink.pushBytes(bytes2);
         return;
       }
       case "bstr":
@@ -274,13 +274,13 @@
     typeof Uint8Array.from([]).toHex === "function" && typeof Uint8Array.fromHex === "function"
   ))();
   var hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, "0"));
-  function bytesToHex(bytes) {
-    abytes(bytes);
+  function bytesToHex(bytes2) {
+    abytes(bytes2);
     if (hasHexBuiltin)
-      return bytes.toHex();
+      return bytes2.toHex();
     let hex = "";
-    for (let i = 0; i < bytes.length; i++) {
-      hex += hexes[bytes[i]];
+    for (let i = 0; i < bytes2.length; i++) {
+      hex += hexes[bytes2[i]];
     }
     return hex;
   }
@@ -689,8 +689,8 @@
       this.bufferOut32 = new Uint32Array(16);
       this.chunkOut = 0;
       this.enableXOF = true;
-      const { key, context } = opts;
-      const hasContext = context !== void 0;
+      const { key, context: context2 } = opts;
+      const hasContext = context2 !== void 0;
       if (key !== void 0) {
         if (hasContext)
           throw new Error('Only "key" or "context" can be specified at same time');
@@ -700,7 +700,7 @@
         swap32IfBE(this.IV);
         this.flags = flags | B3_Flags.KEYED_HASH;
       } else if (hasContext) {
-        const ctx = toBytes(context);
+        const ctx = toBytes(context2);
         const contextKey = new _BLAKE3({ dkLen: 32 }, B3_Flags.DERIVE_KEY_CONTEXT).update(ctx).digest();
         this.IV = u32(contextKey);
         swap32IfBE(this.IV);
@@ -845,9 +845,9 @@
         throw new Error("XOF is not possible after digest call");
       return this.writeInto(out);
     }
-    xof(bytes) {
-      anumber(bytes);
-      return this.xofInto(new Uint8Array(bytes));
+    xof(bytes2) {
+      anumber(bytes2);
+      return this.xofInto(new Uint8Array(bytes2));
     }
     digestInto(out) {
       aoutput(out, this);
@@ -867,13 +867,191 @@
   // src/delta/hash.ts
   var BLAKE3_MULTICODEC = 30;
   var DIGEST_LEN = 32;
+  var OPTIONS = Object.freeze(
+    Object.assign(/* @__PURE__ */ Object.create(null), { dkLen: DIGEST_LEN })
+  );
   function contentAddress(data) {
-    const digest = blake3(data, { dkLen: DIGEST_LEN });
+    const digest = blake3(data, OPTIONS);
     const mh = new Uint8Array(2 + digest.length);
     mh[0] = BLAKE3_MULTICODEC;
     mh[1] = digest.length;
     mh.set(digest, 2);
     return bytesToHex(mh);
+  }
+
+  // src/delta/own.ts
+  function validBefore(claims, at) {
+    const validUntil = ownField(claims, "validUntil");
+    return validUntil === void 0 || at < validUntil;
+  }
+  function refuse(message) {
+    throw new Error(message);
+  }
+  function ownField(holder2, key) {
+    return Object.hasOwn(holder2, key) ? holder2[key] : void 0;
+  }
+  function fields(given, what, hidden = () => {
+  }) {
+    const found = [];
+    for (const key of Reflect.ownKeys(given)) {
+      const field = Object.getOwnPropertyDescriptor(given, key);
+      if (field === void 0) continue;
+      if (field.enumerable !== true) {
+        hidden(key, field);
+        continue;
+      }
+      const value = Object.hasOwn(field, "value") ? field.value : field.get?.call(given);
+      if (value === void 0) continue;
+      if (typeof key === "symbol") return refuse(`${what} must not have a Symbol key`);
+      found.push([key, value]);
+    }
+    return found;
+  }
+  function isPlainObject(value) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype === null || prototype === Object.prototype) return true;
+    if (typeof prototype !== "object" || Object.getPrototypeOf(prototype) !== null) return false;
+    const constructor = Object.getOwnPropertyDescriptor(prototype, "constructor")?.value;
+    if (typeof constructor !== "function") return false;
+    return Object.getOwnPropertyDescriptor(constructor, "prototype")?.value === prototype && Object.getOwnPropertyDescriptor(constructor, "name")?.value === "Object";
+  }
+  function plainHolder(given, what) {
+    if (!isPlainObject(given))
+      refuse(
+        `${what} must be a plain object, not a class instance or an object made with Object.create`
+      );
+  }
+  function hiddenKey(what, keys, key) {
+    if (typeof key === "string" && keys.includes(key))
+      refuse(`${what} has the key "${key}", which is not enumerable`);
+  }
+  function holder(given, what, keys) {
+    if (typeof given !== "object" || given === null || Array.isArray(given))
+      return refuse(`${what} must be an object`);
+    plainHolder(given, what);
+    const own = /* @__PURE__ */ Object.create(null);
+    for (const [key, value] of fields(given, what, (key2) => hiddenKey(what, keys, key2))) {
+      if (!keys.includes(key))
+        return refuse(`${what} has the key "${key}", which is not one of: ${keys.join(", ")}`);
+      own[key] = value;
+    }
+    return own;
+  }
+  function text(value, what) {
+    return typeof value === "string" ? value : refuse(`${what} must be a string`);
+  }
+  function number(value, what) {
+    return typeof value === "number" ? value + 0 : refuse(`${what} must be a number`);
+  }
+  function context(value, what) {
+    return value === void 0 ? {} : { context: text(value, `${what}.context`) };
+  }
+  function ownList(given, what) {
+    if (!Array.isArray(given)) return refuse(`${what} must be an array`);
+    let length;
+    const items = fields(given, what, (key, field) => {
+      if (key === "length") length = field.value;
+    });
+    if (typeof length !== "number" || items.length !== length || items.some(([key], i) => key !== String(i)))
+      return refuse(`${what} must have exactly one item at each index, and no other key`);
+    return items.map(([, value]) => value);
+  }
+  var typedArrayName = Object.getOwnPropertyDescriptor(
+    Object.getPrototypeOf(Uint8Array.prototype),
+    Symbol.toStringTag
+  ).get;
+  function bytes(value, what) {
+    if (!(value instanceof Uint8Array) || typedArrayName.call(value) !== "Uint8Array")
+      return refuse(`${what} must be a Uint8Array`);
+    return new Uint8Array(value);
+  }
+  function primitive(value, what) {
+    if (typeof value === "number") return value + 0;
+    if (typeof value === "string" || typeof value === "boolean") return value;
+    return refuse(
+      `${what}: primitive value must be string, number, or boolean; got ${value === null ? "null" : typeof value}`
+    );
+  }
+  var TARGET_KEYS = {
+    primitive: ["kind", "value"],
+    entity: ["kind", "entity"],
+    delta: ["kind", "deltaRef"],
+    bytes: ["kind", "mime", "value"]
+  };
+  function target(given, what) {
+    const own = holder(given, what, ["kind", "value", "entity", "deltaRef", "mime"]);
+    const kind = own["kind"];
+    if (typeof kind !== "string" || !Object.hasOwn(TARGET_KEYS, kind))
+      return refuse(`${what}.kind must be "primitive", "entity", "delta" or "bytes"`);
+    for (const key of Object.keys(own))
+      if (!TARGET_KEYS[kind].includes(key))
+        return refuse(`${what} of kind ${kind} has the key "${key}"`);
+    switch (kind) {
+      case "primitive":
+        return { kind, value: primitive(own["value"], `${what}.value`) };
+      case "entity": {
+        const entity = holder(own["entity"], `${what}.entity`, ["id", "context"]);
+        return {
+          kind,
+          entity: {
+            id: text(entity["id"], `${what}.entity.id`),
+            ...context(entity["context"], `${what}.entity`)
+          }
+        };
+      }
+      case "delta": {
+        const ref = holder(own["deltaRef"], `${what}.deltaRef`, ["delta", "context"]);
+        return {
+          kind,
+          deltaRef: {
+            delta: text(ref["delta"], `${what}.deltaRef.delta`),
+            ...context(ref["context"], `${what}.deltaRef`)
+          }
+        };
+      }
+      default:
+        return {
+          kind: "bytes",
+          mime: text(own["mime"], `${what}.mime`),
+          value: bytes(own["value"], `${what}.value`)
+        };
+    }
+  }
+  function pointer(given, what) {
+    const own = holder(given, what, ["role", "target"]);
+    return {
+      role: text(own["role"], `${what}.role`),
+      target: target(own["target"], `${what}.target`)
+    };
+  }
+  function ownClaims(given) {
+    const own = holder(given, "claims", [
+      "timestamp",
+      "validFrom",
+      "validUntil",
+      "author",
+      "pointers"
+    ]);
+    const validUntil = own["validUntil"];
+    return {
+      timestamp: number(own["timestamp"], "claims.timestamp"),
+      validFrom: number(own["validFrom"], "claims.validFrom"),
+      ...validUntil === void 0 ? {} : { validUntil: number(validUntil, "claims.validUntil") },
+      author: text(own["author"], "claims.author"),
+      pointers: ownList(own["pointers"], "claims.pointers").map(
+        (item, i) => pointer(item, `claims.pointers[${i}]`)
+      )
+    };
+  }
+  function ownDelta(given) {
+    const own = holder(given, "the delta", ["id", "claims", "sig"]);
+    const sig = own["sig"];
+    return {
+      id: text(own["id"], "the delta id"),
+      claims: ownClaims(own["claims"]),
+      ...sig === void 0 ? {} : { sig: text(sig, "the delta sig") }
+    };
   }
 
   // src/syntax/pred.ts
@@ -989,7 +1167,7 @@
       if (ptr.target.kind !== "delta" || ptr.target.deltaRef.delta !== p.targetDelta) return false;
     }
     if (p.context !== void 0) {
-      const ctx = ptr.target.kind === "entity" ? ptr.target.entity.context : ptr.target.kind === "delta" ? ptr.target.deltaRef.context : void 0;
+      const ctx = ptr.target.kind === "entity" ? ownField(ptr.target.entity, "context") : ptr.target.kind === "delta" ? ownField(ptr.target.deltaRef, "context") : void 0;
       if (ctx === void 0 || !strMatch(p.context, ctx)) return false;
     }
     if (p.targetIsPrimitive !== void 0) {
@@ -1060,7 +1238,7 @@
         return pred;
     }
   }
-  function evalPred(pred, delta, root, bindings) {
+  function evalPredOn(pred, delta, root, bindings) {
     switch (pred.kind) {
       case "true":
         return true;
@@ -1075,11 +1253,11 @@
       case "hasPointer":
         return delta.claims.pointers.some((ptr) => pointerMatches(pred.ppred, ptr, root, bindings));
       case "and":
-        return evalPred(pred.left, delta, root, bindings) && evalPred(pred.right, delta, root, bindings);
+        return evalPredOn(pred.left, delta, root, bindings) && evalPredOn(pred.right, delta, root, bindings);
       case "or":
-        return evalPred(pred.left, delta, root, bindings) || evalPred(pred.right, delta, root, bindings);
+        return evalPredOn(pred.left, delta, root, bindings) || evalPredOn(pred.right, delta, root, bindings);
       case "not":
-        return !evalPred(pred.pred, delta, root, bindings);
+        return !evalPredOn(pred.pred, delta, root, bindings);
       case "actsFor":
         throw new Error("actsFor requires an explicit principal resolver (SPEC-14)");
       case "inView":
@@ -1111,8 +1289,8 @@
         return rank2(a.delta.claims.author) - rank2(b.delta.claims.author);
       }
       case "byPred": {
-        const am = evalPred(order.pred, a.delta) ? 0 : 1;
-        const bm = evalPred(order.pred, b.delta) ? 0 : 1;
+        const am = evalPredOn(order.pred, a.delta) ? 0 : 1;
+        const bm = evalPredOn(order.pred, b.delta) ? 0 : 1;
         if (am !== bm) return am - bm;
         return cmpByOrder(order.then, a, b);
       }
@@ -1491,12 +1669,14 @@
       }
       case "entity": {
         const entries = [["id", tstr(t.entity.id)]];
-        if (t.entity.context !== void 0) entries.push(["context", tstr(t.entity.context)]);
+        const context2 = ownField(t.entity, "context");
+        if (context2 !== void 0) entries.push(["context", tstr(context2)]);
         return map(entries);
       }
       case "delta": {
         const entries = [["delta", tstr(t.deltaRef.delta)]];
-        if (t.deltaRef.context !== void 0) entries.push(["context", tstr(t.deltaRef.context)]);
+        const context2 = ownField(t.deltaRef, "context");
+        if (context2 !== void 0) entries.push(["context", tstr(context2)]);
         return map(entries);
       }
       case "bytes":
@@ -1528,7 +1708,8 @@
       ["id", tstr(e.delta.id)],
       ["claims", claimsToCborWithExpansions(e.delta.claims, e.expanded, e.readings)]
     ];
-    if (e.delta.sig !== void 0) entries.push(["sig", tstr(e.delta.sig)]);
+    const sig = ownField(e.delta, "sig");
+    if (sig !== void 0) entries.push(["sig", tstr(sig)]);
     if (e.negated) entries.push(["negated", bool(true)]);
     return map(entries);
   }
@@ -1582,12 +1763,14 @@
       }
       case "entity": {
         const entries = [["id", tstr(t.entity.id)]];
-        if (t.entity.context !== void 0) entries.push(["context", tstr(t.entity.context)]);
+        const context2 = ownField(t.entity, "context");
+        if (context2 !== void 0) entries.push(["context", tstr(context2)]);
         return map(entries);
       }
       case "delta": {
         const entries = [["delta", tstr(t.deltaRef.delta)]];
-        if (t.deltaRef.context !== void 0) entries.push(["context", tstr(t.deltaRef.context)]);
+        const context2 = ownField(t.deltaRef, "context");
+        if (context2 !== void 0) entries.push(["context", tstr(context2)]);
         return map(entries);
       }
       // Bytes: map { "mime": tstr, "value": bstr } — the raw payload is the bstr and identity is its
@@ -1605,64 +1788,54 @@
       ["target", targetToCbor(p.target)]
     ]);
   }
-  function claimsToCbor(claims) {
+  function ownToCbor(claims) {
     const entries = [
       ["author", tstr(claims.author)],
       ["pointers", array(claims.pointers.map(pointerToCbor))],
       ["timestamp", float(claims.timestamp)],
       ["validFrom", float(claims.validFrom)]
     ];
-    if (claims.validUntil !== void 0) entries.push(["validUntil", float(claims.validUntil)]);
+    const validUntil = ownField(claims, "validUntil");
+    if (validUntil !== void 0) entries.push(["validUntil", float(validUntil)]);
     return map(entries);
   }
-  function assertValidClaims(claims) {
-    if (typeof claims.author !== "string") throw new Error("author must be a string");
+  function check(claims) {
     if (claims.author.length === 0) throw new Error("author must be non-empty");
     if (!Number.isFinite(claims.timestamp)) throw new Error("timestamp must be finite");
     if (!Number.isFinite(claims.validFrom)) throw new Error("validFrom must be finite");
-    if (claims.validUntil !== void 0) {
-      if (!Number.isFinite(claims.validUntil)) throw new Error("validUntil must be finite");
-      if (claims.validUntil <= claims.validFrom)
+    const validUntil = ownField(claims, "validUntil");
+    if (validUntil !== void 0) {
+      if (!Number.isFinite(validUntil)) throw new Error("validUntil must be finite");
+      if (validUntil <= claims.validFrom)
         throw new Error("validUntil must be greater than validFrom");
     }
     if (claims.pointers.length < 1) throw new Error("a delta MUST contain at least one pointer");
     for (const p of claims.pointers) {
-      if (typeof p.role !== "string") throw new Error("role must be a string");
       if (p.role.length === 0) throw new Error("role must be non-empty");
-      if (p.target.kind === "primitive") {
-        const v = p.target.value;
-        const t = typeof v;
-        if (t !== "string" && t !== "number" && t !== "boolean") {
-          throw new Error(
-            `primitive value must be string, number, or boolean; got ${v === null ? "null" : t}`
-          );
-        }
-        if (typeof v === "number" && !Number.isFinite(v)) {
-          throw new Error("numeric primitive must be finite");
-        }
-      }
-      if (p.target.kind === "bytes") {
-        if (typeof p.target.mime !== "string") throw new Error("bytes target mime must be a string");
-        if (p.target.mime.length === 0) {
-          throw new Error("bytes target mime must be non-empty (SPEC-1 \xA72.1)");
-        }
-        if (!(p.target.value instanceof Uint8Array)) {
-          throw new Error("bytes target value must be a Uint8Array");
-        }
-      }
-      const ctx = p.target.kind === "entity" ? p.target.entity.context : p.target.kind === "delta" ? p.target.deltaRef.context : void 0;
-      if (ctx !== void 0) {
-        if (typeof ctx !== "string") throw new Error("context, when present, must be a string");
-        if (ctx.length === 0) throw new Error("context, when present, must be non-empty");
-      }
+      const t = p.target;
+      if (t.kind === "primitive" && typeof t.value === "number" && !Number.isFinite(t.value))
+        throw new Error("numeric primitive must be finite");
+      if (t.kind === "bytes" && t.mime.length === 0)
+        throw new Error("bytes target mime must be non-empty (SPEC-1 \xA72.1)");
+      const ctx = t.kind === "entity" ? ownField(t.entity, "context") : t.kind === "delta" ? ownField(t.deltaRef, "context") : void 0;
+      if (ctx !== void 0 && ctx.length === 0)
+        throw new Error("context, when present, must be non-empty");
     }
   }
-  function canonicalBytes(claims) {
-    assertValidClaims(claims);
-    return encode(claimsToCbor(claims));
+  function encodeOwn(own) {
+    return encode(ownToCbor(own));
   }
-  function computeId(claims) {
-    return contentAddress(canonicalBytes(claims));
+  function claimsWithId(claims) {
+    const own = ownClaims(claims);
+    return { own, id: idOfOwn(own) };
+  }
+  function ownCheckedDelta(delta) {
+    const own = ownDelta(delta);
+    return { own, id: idOfOwn(own.claims) };
+  }
+  function idOfOwn(own) {
+    check(own);
+    return contentAddress(encodeOwn(own));
   }
 
   // src/delta/set.ts
@@ -1675,8 +1848,17 @@
     }
     return { timestamp, validFrom: timestamp, author, pointers };
   }
+  var put;
+  function holdChecked(set, own) {
+    put(set, own);
+  }
   var DeltaSet = class _DeltaSet {
     byId = /* @__PURE__ */ new Map();
+    static {
+      put = (set, own) => {
+        if (!set.byId.has(own.id)) set.byId.set(own.id, own);
+      };
+    }
     static from(deltas) {
       if (deltas instanceof _DeltaSet) return deltas.copy();
       const s = new _DeltaSet();
@@ -1714,13 +1896,15 @@
     }
     // Idempotent insert; returns false when the id was already present. Verifies content
     // addressing on the way in (P6): a delta whose id does not recompute is rejected, never
-    // repaired (SPEC-4 §2) — set semantics depend on true ids.
+    // repaired (SPEC-4 §2) — set semantics depend on true ids. The set holds the own copy of the
+    // delta (`ownDelta`), not the caller's object; `get` answers that copy.
     add(delta) {
-      if (this.byId.has(delta.id)) return false;
-      if (computeId(delta.claims) !== delta.id) {
-        throw new Error(`delta id ${delta.id} does not match its claims (content addressing, P6)`);
+      const own = ownDelta(delta);
+      if (this.byId.has(own.id)) return false;
+      if (idOfOwn(own.claims) !== own.id) {
+        throw new Error(`delta id ${own.id} does not match its claims (content addressing, P6)`);
       }
-      this.byId.set(delta.id, delta);
+      this.byId.set(own.id, own);
       return true;
     }
     has(id) {
@@ -1819,7 +2003,7 @@
   var ALIAS_CONCEPT = `${VOCAB_PREFIX}.alias.concept`;
   function aliasClosure(input, spec, root) {
     const trustPred = spec.trust;
-    const trusted = trustPred === void 0 ? void 0 : (n) => evalPred(trustPred, n, root);
+    const trusted = trustPred === void 0 ? void 0 : (n) => evalPredOn(trustPred, n, root);
     const negated = computeNegated(input, trusted);
     const mappings = [];
     const slotConcepts = /* @__PURE__ */ new Map();
@@ -1870,14 +2054,14 @@
       case "hasPointer": {
         const p = pred.ppred;
         const role = p.role === void 0 ? void 0 : expandStrMatch(p.role, input, root);
-        const context = p.context === void 0 ? void 0 : expandStrMatch(p.context, input, root);
-        if (role === p.role && context === p.context) return pred;
+        const context2 = p.context === void 0 ? void 0 : expandStrMatch(p.context, input, root);
+        if (role === p.role && context2 === p.context) return pred;
         return {
           kind: "hasPointer",
           ppred: {
             ...p,
             ...role === void 0 ? {} : { role },
-            ...context === void 0 ? {} : { context }
+            ...context2 === void 0 ? {} : { context: context2 }
           }
         };
       }
@@ -1975,7 +2159,7 @@
       for (const ptr of d.claims.pointers) {
         if (ptr.target.kind !== "entity" || ptr.target.entity.id !== root) continue;
         if (key.kind === "byTargetContext") {
-          const ctx = ptr.target.entity.context;
+          const ctx = ownField(ptr.target.entity, "context");
           if (ctx !== void 0) file(ctx, d);
         } else {
           file(ptr.role, d);
@@ -2013,7 +2197,7 @@
           budget,
           memo
         );
-        return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
+        return dsetResult(fork(of.set, (d) => evalPredOn(pred, d, root)));
       }
       case "union": {
         const left = expectDSet(
@@ -2072,7 +2256,7 @@
               budget,
               memo
             );
-            const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
+            const negated = computeNegated(of.set, (n) => evalPredOn(pred, n, root));
             return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
           }
         }
@@ -2198,10 +2382,7 @@
   }
   function evalTermWithHooks(term, input, now, hooks, root, registry, bindings) {
     if (!Number.isFinite(now)) throw new Error("now must be a finite number");
-    const valid = fork(
-      input,
-      (d) => d.claims.validFrom <= now && (d.claims.validUntil === void 0 || now < d.claims.validUntil)
-    );
+    const valid = fork(input, (d) => d.claims.validFrom <= now && validBefore(d.claims, now));
     return evalTermWithin(term, valid, root, registry, bindings, hooks.budget, hooks.memo);
   }
   function evalSchema(ref, input, root, registry, bindings, budget, memo) {
@@ -2430,7 +2611,7 @@
     const visiting = /* @__PURE__ */ new Set();
     let seen = epoch?.();
     let inSuppression = false;
-    const valid = (delta) => delta.claims.validFrom <= now && (delta.claims.validUntil === void 0 || now < delta.claims.validUntil);
+    const valid = (delta) => delta.claims.validFrom <= now && validBefore(delta.claims, now);
     const witnesses = (id) => {
       if (epoch !== void 0) {
         const current = epoch();
@@ -2442,8 +2623,8 @@
       }
       const cached = memo.get(id);
       if (cached !== void 0) return cached;
-      const target = source.get(id);
-      if (target === void 0) return [];
+      const target2 = source.get(id);
+      if (target2 === void 0) return [];
       if (visiting.has(id)) {
         if (inSuppression) throw new Error("negation reader re-entered during suppression");
         throw new Error(
@@ -2460,7 +2641,7 @@
           inSuppression = true;
           let grants;
           try {
-            grants = suppression(negation, target);
+            grants = suppression(negation, target2);
           } finally {
             inSuppression = outer;
           }
@@ -2478,7 +2659,7 @@
   }
 
   // src/delta/manifest.ts
-  function manifestMemberIds(manifest) {
+  function memberIdsOf(manifest) {
     return manifest.claims.pointers.filter((p) => p.role === `${VOCAB_PREFIX}.txn.member` && p.target.kind === "delta").map((p) => p.target.deltaRef.delta);
   }
 
@@ -2693,13 +2874,13 @@
     return value;
   }
   function _abytes2(value, length, title = "") {
-    const bytes = isBytes(value);
+    const bytes2 = isBytes(value);
     const len = value?.length;
     const needsLen = length !== void 0;
-    if (!bytes || needsLen && len !== length) {
+    if (!bytes2 || needsLen && len !== length) {
       const prefix = title && `"${title}" `;
       const ofLen = needsLen ? ` of length ${length}` : "";
-      const got = bytes ? `length=${len}` : `type=${typeof value}`;
+      const got = bytes2 ? `length=${len}` : `type=${typeof value}`;
       throw new Error(prefix + "expected Uint8Array" + ofLen + ", got " + got);
     }
     return value;
@@ -2709,12 +2890,12 @@
       throw new Error("hex string expected, got " + typeof hex);
     return hex === "" ? _0n : BigInt("0x" + hex);
   }
-  function bytesToNumberBE(bytes) {
-    return hexToNumber(bytesToHex(bytes));
+  function bytesToNumberBE(bytes2) {
+    return hexToNumber(bytesToHex(bytes2));
   }
-  function bytesToNumberLE(bytes) {
-    abytes(bytes);
-    return hexToNumber(bytesToHex(Uint8Array.from(bytes).reverse()));
+  function bytesToNumberLE(bytes2) {
+    abytes(bytes2);
+    return hexToNumber(bytesToHex(Uint8Array.from(bytes2).reverse()));
   }
   function numberToBytesBE(n, len) {
     return hexToBytes(n.toString(16).padStart(len * 2, "0"));
@@ -2748,8 +2929,8 @@
       diff |= a[i] ^ b[i];
     return diff === 0;
   }
-  function copyBytes(bytes) {
-    return Uint8Array.from(bytes);
+  function copyBytes(bytes2) {
+    return Uint8Array.from(bytes2);
   }
   var isPosBig = (n) => typeof n === "bigint" && _0n <= n;
   function inRange(n, min, max) {
@@ -2766,7 +2947,7 @@
     return len;
   }
   var bitMask = (n) => (_1n << BigInt(n)) - _1n;
-  function _validateObject(object, fields, optFields = {}) {
+  function _validateObject(object, fields2, optFields = {}) {
     if (!object || typeof object !== "object")
       throw new Error("expected valid options object");
     function checkField(fieldName, expectedType, isOpt) {
@@ -2777,7 +2958,7 @@
       if (current !== expectedType || val === null)
         throw new Error(`param "${fieldName}" is invalid: expected ${expectedType}, got ${current}`);
     }
-    Object.entries(fields).forEach(([k, v]) => checkField(k, v, false));
+    Object.entries(fields2).forEach(([k, v]) => checkField(k, v, false));
     Object.entries(optFields).forEach(([k, v]) => checkField(k, v, true));
   }
   var notImplemented = () => {
@@ -2818,12 +2999,12 @@
     }
     return res;
   }
-  function invert(number, modulo) {
-    if (number === _0n2)
+  function invert(number2, modulo) {
+    if (number2 === _0n2)
       throw new Error("invert: expected non-zero number");
     if (modulo <= _0n2)
       throw new Error("invert: expected positive modulus, got " + modulo);
-    let a = mod(number, modulo);
+    let a = mod(number2, modulo);
     let b = modulo;
     let x = _0n2, y = _1n2, u = _1n2, v = _0n2;
     while (a !== _0n2) {
@@ -3092,18 +3273,18 @@
         return sqrtP(f, n);
       }),
       toBytes: (num) => isLE2 ? numberToBytesLE(num, BYTES) : numberToBytesBE(num, BYTES),
-      fromBytes: (bytes, skipValidation = true) => {
+      fromBytes: (bytes2, skipValidation = true) => {
         if (allowedLengths) {
-          if (!allowedLengths.includes(bytes.length) || bytes.length > BYTES) {
-            throw new Error("Field.fromBytes: expected " + allowedLengths + " bytes, got " + bytes.length);
+          if (!allowedLengths.includes(bytes2.length) || bytes2.length > BYTES) {
+            throw new Error("Field.fromBytes: expected " + allowedLengths + " bytes, got " + bytes2.length);
           }
           const padded = new Uint8Array(BYTES);
-          padded.set(bytes, isLE2 ? 0 : padded.length - bytes.length);
-          bytes = padded;
+          padded.set(bytes2, isLE2 ? 0 : padded.length - bytes2.length);
+          bytes2 = padded;
         }
-        if (bytes.length !== BYTES)
-          throw new Error("Field.fromBytes: expected " + BYTES + " bytes, got " + bytes.length);
-        let scalar = isLE2 ? bytesToNumberLE(bytes) : bytesToNumberBE(bytes);
+        if (bytes2.length !== BYTES)
+          throw new Error("Field.fromBytes: expected " + BYTES + " bytes, got " + bytes2.length);
+        let scalar = isLE2 ? bytesToNumberLE(bytes2) : bytesToNumberBE(bytes2);
         if (modFromBytes)
           scalar = mod(scalar, ORDER);
         if (!skipValidation) {
@@ -3476,13 +3657,13 @@
         return new Point2(x, y, _1n4, modP(x * y));
       }
       // Uses algo from RFC8032 5.1.3.
-      static fromBytes(bytes, zip215 = false) {
+      static fromBytes(bytes2, zip215 = false) {
         const len = Fp2.BYTES;
         const { a, d } = CURVE;
-        bytes = copyBytes(_abytes2(bytes, len, "point"));
+        bytes2 = copyBytes(_abytes2(bytes2, len, "point"));
         _abool2(zip215, "zip215");
-        const normed = copyBytes(bytes);
-        const lastByte = bytes[len - 1];
+        const normed = copyBytes(bytes2);
+        const lastByte = bytes2[len - 1];
         normed[len - 1] = lastByte & ~128;
         const y = bytesToNumberLE(normed);
         const max = zip215 ? MASK : Fp2.ORDER;
@@ -3501,8 +3682,8 @@
           x = modP(-x);
         return Point2.fromAffine({ x, y });
       }
-      static fromHex(bytes, zip215 = false) {
-        return Point2.fromBytes(ensureBytes("point", bytes), zip215);
+      static fromHex(bytes2, zip215 = false) {
+        return Point2.fromBytes(ensureBytes("point", bytes2), zip215);
       }
       get x() {
         return this.toAffine().x;
@@ -3628,9 +3809,9 @@
       }
       toBytes() {
         const { x, y } = this.toAffine();
-        const bytes = Fp2.toBytes(y);
-        bytes[bytes.length - 1] |= x & _1n4 ? 128 : 0;
-        return bytes;
+        const bytes2 = Fp2.toBytes(y);
+        bytes2[bytes2.length - 1] |= x & _1n4 ? 128 : 0;
+        return bytes2;
       }
       toHex() {
         return bytesToHex(this.toBytes());
@@ -3752,7 +3933,7 @@
     const { prehash } = eddsaOpts;
     const { BASE, Fp: Fp2, Fn: Fn2 } = Point2;
     const randomBytes2 = eddsaOpts.randomBytes || randomBytes;
-    const adjustScalarBytes2 = eddsaOpts.adjustScalarBytes || ((bytes) => bytes);
+    const adjustScalarBytes2 = eddsaOpts.adjustScalarBytes || ((bytes2) => bytes2);
     const domain = eddsaOpts.domain || ((data, ctx, phflag) => {
       _abool2(phflag, "phflag");
       if (ctx.length || phflag)
@@ -3780,9 +3961,9 @@
     function getPublicKey(secretKey) {
       return getExtendedPublicKey(secretKey).pointBytes;
     }
-    function hashDomainToScalar(context = Uint8Array.of(), ...msgs) {
+    function hashDomainToScalar(context2 = Uint8Array.of(), ...msgs) {
       const msg = concatBytes(...msgs);
-      return modN_LE(cHash(domain(msg, ensureBytes("context", context), !!prehash)));
+      return modN_LE(cHash(domain(msg, ensureBytes("context", context2), !!prehash)));
     }
     function sign(msg, secretKey, options = {}) {
       msg = ensureBytes("message", msg);
@@ -3800,7 +3981,7 @@
     }
     const verifyOpts = { zip215: true };
     function verify(sig, msg, publicKey, options = verifyOpts) {
-      const { context, zip215 } = options;
+      const { context: context2, zip215 } = options;
       const len = lengths.signature;
       sig = ensureBytes("signature", sig, len);
       msg = ensureBytes("message", msg);
@@ -3822,7 +4003,7 @@
       }
       if (!zip215 && A.isSmallOrder())
         return false;
-      const k = hashDomainToScalar(context, R.toBytes(), A.toBytes(), msg);
+      const k = hashDomainToScalar(context2, R.toBytes(), A.toBytes(), msg);
       const RkA = R.add(A.multiplyUnsafe(k));
       return RkA.subtract(SB).clearCofactor().is0();
     }
@@ -3969,11 +4150,11 @@
     const pow_p_5_8 = pow2(b250, _2n3, P) * x % P;
     return { pow_p_5_8, b2 };
   }
-  function adjustScalarBytes(bytes) {
-    bytes[0] &= 248;
-    bytes[31] &= 127;
-    bytes[31] |= 64;
-    return bytes;
+  function adjustScalarBytes(bytes2) {
+    bytes2[0] &= 248;
+    bytes2[31] &= 127;
+    bytes2[31] |= 64;
+    return bytes2;
   }
   var ED25519_SQRT_M1 = /* @__PURE__ */ BigInt("19681161376707505956807079304988542015446066515923890162744021073123829784752");
   function uvRatio(u, v) {
@@ -4014,9 +4195,9 @@
   var INVSQRT_A_MINUS_D = /* @__PURE__ */ BigInt("54469307008909316920995813868745141605393597292927456921205312896311721017578");
   var ONE_MINUS_D_SQ = /* @__PURE__ */ BigInt("1159843021668779879193775521855586647937357759715417654439879720876111806838");
   var D_MINUS_ONE_SQ = /* @__PURE__ */ BigInt("40440834346308536858101042469323190826248399146238708352240133220865137265952");
-  var invertSqrt = (number) => uvRatio(_1n5, number);
+  var invertSqrt = (number2) => uvRatio(_1n5, number2);
   var MAX_255B = /* @__PURE__ */ BigInt("0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-  var bytes255ToNumberLE = (bytes) => ed25519.Point.Fp.create(bytesToNumberLE(bytes) & MAX_255B);
+  var bytes255ToNumberLE = (bytes2) => ed25519.Point.Fp.create(bytesToNumberLE(bytes2) & MAX_255B);
   function calcElligatorRistrettoMap(r0) {
     const { d } = ed25519_CURVE;
     const P = ed25519_CURVE_p;
@@ -4041,11 +4222,11 @@
     const W3 = mod2(_1n5 + s2);
     return new ed25519.Point(mod2(W0 * W3), mod2(W2 * W1), mod2(W1 * W3), mod2(W0 * W2));
   }
-  function ristretto255_map(bytes) {
-    abytes(bytes, 64);
-    const r1 = bytes255ToNumberLE(bytes.subarray(0, 32));
+  function ristretto255_map(bytes2) {
+    abytes(bytes2, 64);
+    const r1 = bytes255ToNumberLE(bytes2.subarray(0, 32));
     const R1 = calcElligatorRistrettoMap(r1);
-    const r2 = bytes255ToNumberLE(bytes.subarray(32, 64));
+    const r2 = bytes255ToNumberLE(bytes2.subarray(32, 64));
     const R2 = calcElligatorRistrettoMap(r2);
     return new _RistrettoPoint(R1.add(R2));
   }
@@ -4067,13 +4248,13 @@
     static hashToCurve(hex) {
       return ristretto255_map(ensureBytes("ristrettoHash", hex, 64));
     }
-    static fromBytes(bytes) {
-      abytes(bytes, 32);
+    static fromBytes(bytes2) {
+      abytes(bytes2, 32);
       const { a, d } = ed25519_CURVE;
       const P = ed25519_CURVE_p;
       const mod2 = (n) => Fp.create(n);
-      const s = bytes255ToNumberLE(bytes);
-      if (!equalBytes(Fp.toBytes(s), bytes) || isNegativeLE(s, P))
+      const s = bytes255ToNumberLE(bytes2);
+      if (!equalBytes(Fp.toBytes(s), bytes2) || isNegativeLE(s, P))
         throw new Error("invalid ristretto255 encoding 1");
       const s2 = mod2(s * s);
       const u1 = mod2(_1n5 + a * s2);
@@ -4166,20 +4347,21 @@
   function authorForSeed(seedHex) {
     return AUTHOR_PREFIX + publicKeyFromSeed(seedHex);
   }
+  var SIGN_OPTIONS = Object.freeze(/* @__PURE__ */ Object.create(null));
   function signClaims(claims, seedHex) {
+    const { own, id } = claimsWithId(claims);
     const expected = authorForSeed(seedHex);
-    if (claims.author !== expected) {
-      throw new Error(`author must be ${expected} for this signing key, got ${claims.author}`);
+    if (own.author !== expected) {
+      throw new Error(`author must be ${expected} for this signing key, got ${own.author}`);
     }
-    const id = computeId(claims);
-    const sig = bytesToHex(ed25519.sign(hexToBytes(id), hexToBytes(seedHex)));
-    return { id, claims, sig };
+    const sig = bytesToHex(ed25519.sign(hexToBytes(id), hexToBytes(seedHex), SIGN_OPTIONS));
+    return { id, claims: own, sig };
   }
   var Point = ed25519.ExtendedPoint;
   var L = ed25519.CURVE.n;
-  function bytesToNumberLE2(bytes) {
+  function bytesToNumberLE2(bytes2) {
     let n = 0n;
-    for (let i = bytes.length - 1; i >= 0; i--) n = n << 8n | BigInt(bytes[i]);
+    for (let i = bytes2.length - 1; i >= 0; i--) n = n << 8n | BigInt(bytes2[i]);
     return n;
   }
   function verifySigStrict(sig, msg, pub) {
@@ -4204,14 +4386,21 @@
   var verifiedSigs = /* @__PURE__ */ new Set();
   var VERIFIED_SIGS_MAX = 65536;
   function verifyDelta(delta) {
-    if (computeId(delta.claims) !== delta.id) return "invalid";
-    if (delta.sig === void 0) return "unsigned";
+    return verifyOwn(ownCheckedDelta(delta));
+  }
+  function verifyOwnDelta(own, id) {
+    return verifyOwn({ own, id });
+  }
+  function verifyOwn({ own: delta, id }) {
+    if (id !== delta.id) return "invalid";
+    const sig = ownField(delta, "sig");
+    if (sig === void 0) return "unsigned";
     if (!delta.claims.author.startsWith(AUTHOR_PREFIX)) return "invalid";
-    const key = delta.id + delta.sig;
+    const key = delta.id + sig;
     if (verifiedSigs.has(key)) return "verified";
     const pubHex = delta.claims.author.slice(AUTHOR_PREFIX.length);
     try {
-      if (!verifySigStrict(hexToBytes(delta.sig), hexToBytes(delta.id), hexToBytes(pubHex)))
+      if (!verifySigStrict(hexToBytes(sig), hexToBytes(delta.id), hexToBytes(pubHex)))
         return "invalid";
     } catch {
       return "invalid";
@@ -4267,6 +4456,19 @@
     }
     return next;
   }
+  var reasonOf = (e) => e instanceof Error ? e.message : String(e);
+  function refusal(own) {
+    let id;
+    try {
+      id = idOfOwn(own.claims);
+    } catch (e) {
+      return reasonOf(e);
+    }
+    if (ownField(own, "sig") !== void 0 && verifyOwnDelta(own, id) !== "verified")
+      return "signature does not verify";
+    if (id !== own.id) return `delta id ${own.id} does not match its claims (content addressing, P6)`;
+    return void 0;
+  }
   var Reactor = class {
     // The append-only log in arrival order (v0: in-memory; the log is still the truth — V2).
     log = [];
@@ -4281,16 +4483,18 @@
     // value index: role -> canonical primitive key -> { value, ids } (V1: keyed by role)
     valueIndex = /* @__PURE__ */ new Map();
     // Validate -> persist -> index. Idempotent by id; rejected deltas leave no trace (V3).
-    ingest(delta) {
-      if (this.set.has(delta.id)) return { status: "duplicate" };
-      if (delta.sig !== void 0 && verifyDelta(delta) !== "verified") {
-        return { status: "rejected", reason: "signature does not verify" };
-      }
+    // The reactor reads only the own copy of the delta (`ownDelta`), which the set holds.
+    ingest(given) {
+      let delta;
       try {
-        this.set.add(delta);
+        delta = ownDelta(given);
       } catch (e) {
-        return { status: "rejected", reason: e instanceof Error ? e.message : String(e) };
+        return { status: "rejected", reason: reasonOf(e) };
       }
+      if (this.set.has(delta.id)) return { status: "duplicate" };
+      const reason = refusal(delta);
+      if (reason !== void 0) return { status: "rejected", reason };
+      holdChecked(this.set, delta);
       this.log.push(delta);
       this.index(delta);
       this.membershipRevision += 1;
@@ -4300,8 +4504,9 @@
     }
     index(delta) {
       this.validityBoundaries = insertBoundary(this.validityBoundaries, delta.claims.validFrom);
-      if (delta.claims.validUntil !== void 0) {
-        this.validityBoundaries = insertBoundary(this.validityBoundaries, delta.claims.validUntil);
+      const validUntil = ownField(delta.claims, "validUntil");
+      if (validUntil !== void 0) {
+        this.validityBoundaries = insertBoundary(this.validityBoundaries, validUntil);
       }
       for (const ptr of delta.claims.pointers) {
         switch (ptr.target.kind) {
@@ -4317,11 +4522,11 @@
           }
           case "delta": {
             if (ptr.role === "negates") {
-              const target = ptr.target.deltaRef.delta;
-              let bucket = this.negationIndex.get(target);
+              const target2 = ptr.target.deltaRef.delta;
+              let bucket = this.negationIndex.get(target2);
               if (bucket === void 0) {
                 bucket = /* @__PURE__ */ new Set();
-                this.negationIndex.set(target, bucket);
+                this.negationIndex.set(target2, bucket);
               }
               bucket.add(delta.id);
             }
@@ -4652,10 +4857,10 @@
     }
     chainTouchesSupport(id, support, depth) {
       if (depth > 64) return true;
-      const target = this.set.get(id);
-      if (target === void 0) return false;
-      if (this.targetsSupport(target, support)) return true;
-      for (const ptr of target.claims.pointers) {
+      const target2 = this.set.get(id);
+      if (target2 === void 0) return false;
+      if (this.targetsSupport(target2, support)) return true;
+      for (const ptr of target2.claims.pointers) {
         if (ptr.role !== "negates" || ptr.target.kind !== "delta") continue;
         if (this.chainTouchesSupport(ptr.target.deltaRef.delta, support, depth + 1)) return true;
       }
@@ -4684,26 +4889,23 @@
     ingestBatch(deltas) {
       const fresh = [];
       const seen = /* @__PURE__ */ new Set();
-      for (const d of deltas) {
-        if (d.sig !== void 0 && verifyDelta(d) !== "verified") {
-          return { status: "rejected", reason: `batch member ${d.id}: signature does not verify` };
-        }
-        try {
-          const probe = new DeltaSet();
-          probe.add(d);
-        } catch (e) {
-          return {
-            status: "rejected",
-            reason: `batch member ${d.id}: ${e instanceof Error ? e.message : String(e)}`
-          };
-        }
+      let owned;
+      try {
+        owned = Array.from(deltas, (d) => ownDelta(d));
+      } catch (e) {
+        return { status: "rejected", reason: `batch member: ${reasonOf(e)}` };
+      }
+      for (const d of owned) {
+        const reason = refusal(d);
+        if (reason !== void 0)
+          return { status: "rejected", reason: `batch member ${d.id}: ${reason}` };
         if (this.set.has(d.id) || seen.has(d.id)) continue;
         seen.add(d.id);
         fresh.push(d);
       }
       if (fresh.length === 0) return { status: "duplicate" };
       for (const d of fresh) {
-        this.set.add(d);
+        holdChecked(this.set, d);
         this.log.push(d);
         this.index(d);
       }
@@ -4715,23 +4917,22 @@
     // Manifest-keyed atomic ingestion: validate everything first; all members become visible to
     // dispatch in one step, or none do. The transaction vocabulary supplies the batch boundary;
     // the reactor supplies the courtesy.
-    ingestBundle(manifest, members) {
+    ingestBundle(givenManifest, givenMembers) {
+      let manifest;
+      let members;
+      try {
+        members = Array.from(givenMembers, (d) => ownDelta(d));
+        manifest = ownDelta(givenManifest);
+      } catch (e) {
+        return { status: "rejected", reason: `bundle member: ${reasonOf(e)}` };
+      }
       const fresh = [...members, manifest].filter((d) => !this.set.has(d.id));
       for (const d of fresh) {
-        if (d.sig !== void 0 && verifyDelta(d) !== "verified") {
-          return { status: "rejected", reason: `bundle member ${d.id}: signature does not verify` };
-        }
-        try {
-          const probe = new DeltaSet();
-          probe.add(d);
-        } catch (e) {
-          return {
-            status: "rejected",
-            reason: `bundle member ${d.id}: ${e instanceof Error ? e.message : String(e)}`
-          };
-        }
+        const reason = refusal(d);
+        if (reason !== void 0)
+          return { status: "rejected", reason: `bundle member ${d.id}: ${reason}` };
       }
-      const committed = new Set(manifestMemberIds(manifest));
+      const committed = new Set(memberIdsOf(manifest));
       for (const m of members) {
         if (!committed.has(m.id)) {
           return { status: "rejected", reason: `member ${m.id} is not claimed by the manifest` };
@@ -4739,7 +4940,7 @@
       }
       if (fresh.length === 0) return { status: "duplicate" };
       for (const d of fresh) {
-        this.set.add(d);
+        holdChecked(this.set, d);
         this.log.push(d);
         this.index(d);
       }
@@ -4752,7 +4953,7 @@
     holdsAllMembers(manifestId) {
       const manifest = this.set.get(manifestId);
       if (manifest === void 0) return false;
-      return manifestMemberIds(manifest).every((id) => this.set.has(id));
+      return memberIdsOf(manifest).every((id) => this.set.has(id));
     }
   };
   function propHexesOf(h) {
@@ -4790,9 +4991,11 @@
       if (result.status === "rejected") throw new Error(`own claim rejected: ${result.reason}`);
       return signed;
     }
-    // The admission judgment (SPEC-6 §5 step 3), exposed for transport bindings (F5).
+    // The admission judgment (SPEC-6 §5 step 3), exposed for transport bindings (F5). It reads the
+    // own copy of the delta (`ownDelta`), once, and throws for a delta of the wrong shape.
     admits(d) {
-      return this.admission === void 0 || evalPred(this.admission, d);
+      const own = ownDelta(d);
+      return this.admission === void 0 || evalPredOn(this.admission, own);
     }
     // The offered set: eval(lens, log) — lens fidelity is a tested invariant (F4).
     offeredSet() {
@@ -4806,17 +5009,17 @@
       for (const d of this.reactor.legacyHoldings().arrivals()) have.add(d.id);
       const offered = other.offeredSet().filter((d) => !have.has(d.id));
       const offeredIds = new Set(offered.map((d) => d.id));
-      const isSignedManifest = (d) => d.sig !== void 0 && verifyDelta(d) === "verified" && manifestMemberIds(d).length > 0;
+      const isSignedManifest = (d) => ownField(d, "sig") !== void 0 && verifyDelta(d) === "verified" && memberIdsOf(d).length > 0;
       const bundles = [];
       const covered = /* @__PURE__ */ new Set();
       for (const m of offered.filter(isSignedManifest)) {
-        const members = manifestMemberIds(m).filter((id) => offeredIds.has(id)).map((id) => offered.find((d) => d.id === id)).filter((d) => !isSignedManifest(d));
+        const members = memberIdsOf(m).filter((id) => offeredIds.has(id)).map((id) => offered.find((d) => d.id === id)).filter((d) => !isSignedManifest(d));
         bundles.push({ manifest: m, members });
         for (const mem of members) covered.add(mem.id);
         covered.add(m.id);
       }
       const loose = offered.filter(
-        (d) => !covered.has(d.id) && d.sig !== void 0 && verifyDelta(d) === "verified"
+        (d) => !covered.has(d.id) && ownField(d, "sig") !== void 0 && verifyDelta(d) === "verified"
       );
       const withheld = offered.length - covered.size - loose.length;
       let accepted = 0;
@@ -4868,15 +5071,15 @@
       nodes.set(this, node);
     }
   };
-  function pointerTo(root, target, path = "", seen = /* @__PURE__ */ new WeakSet()) {
-    if (typeof target !== "object" || target === null) return void 0;
-    if (root === target) return path;
+  function pointerTo(root, target2, path = "", seen = /* @__PURE__ */ new WeakSet()) {
+    if (typeof target2 !== "object" || target2 === null) return void 0;
+    if (root === target2) return path;
     if (typeof root !== "object" || root === null) return void 0;
     if (seen.has(root)) return void 0;
     seen.add(root);
     for (const [key, value] of Object.entries(root)) {
       const segment = key.replace(/~/g, "~0").replace(/\//g, "~1");
-      const found = pointerTo(value, target, `${path}/${segment}`, seen);
+      const found = pointerTo(value, target2, `${path}/${segment}`, seen);
       if (found !== void 0) return found;
     }
     return void 0;
@@ -4934,15 +5137,21 @@
     if (typeof x !== "object" || x === null || Array.isArray(x)) {
       throw new ParseError("invalid-shape", `expected object for ${what}`, x);
     }
-    return x;
+    const o = Object.assign(/* @__PURE__ */ Object.create(null), x);
+    for (const key of Reflect.ownKeys(o)) if (o[key] === void 0) delete o[key];
+    if (Object.getOwnPropertySymbols(o).length > 0)
+      throw new ParseError("unknown-key", `a Symbol key on ${what}`, x);
+    return o;
   }
-  function asObject(x, what, known) {
-    const o = asRecord(x, what);
+  function closed(o, x, what, known) {
     for (const key of Object.keys(o)) {
       if (!known.includes(key))
         throw new ParseError("unknown-key", unknownKeyMessage(key, known, what), x, key);
     }
     return o;
+  }
+  function asObject(x, what, known) {
+    return closed(asRecord(x, what), x, what, known);
   }
   function asOpenMap(x, what) {
     return asRecord(x, what);
@@ -4958,7 +5167,7 @@
         tagKey
       );
     }
-    return { o: asObject(raw, `${what} ${tag}`, table[tag]), tag };
+    return { o: closed(raw, x, `${what} ${tag}`, table[tag]), tag };
   }
   function oneTag(x, tags, what) {
     const o = asObject(x, what, tags);
@@ -5424,13 +5633,13 @@
   peers["Bob"].authorClaims(seedClaim("movie:blade_runner", "director", "Denis Villeneuve"));
   peers["Bob"].authorClaims(seedClaim("movie:blade_runner", "year", 1982));
   peers["Carol"].authorClaims(seedClaim("movie:blade_runner", "rating", 9));
-  function seedClaim(entity, context, value) {
+  function seedClaim(entity, context2, value) {
     return {
       timestamp: tick(),
       validFrom: tick(),
       pointers: [
-        { role: "movie", target: { kind: "entity", entity: { id: entity, context } } },
-        { role: context, target: { kind: "primitive", value } }
+        { role: "movie", target: { kind: "entity", entity: { id: entity, context: context2 } } },
+        { role: context2, target: { kind: "primitive", value } }
       ]
     };
   }
