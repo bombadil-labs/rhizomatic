@@ -129,6 +129,12 @@ When implementation contradicts specification, **the contradiction is the delive
 
 ## Independent T3 review
 
+- The standing rules for an agent that builds or reviews a pull request are in
+  [docs/process/agent-rules.md](docs/process/agent-rules.md): the bar, the probe rules, the
+  erasure rule, the pull request body and the review format. A task brief points there.
+- The steward tracks work in GitHub issues: one `tracking` issue per arc, `follow-up` for a review
+  finding that did not block, and `needs-owner` for a decision that only the owner can make.
+
 - **Claude is the steward of both Rhizomatic and Loam** (Myk, 2026-11-09). The earlier split,
   with Sol as Rhizomatic's builder and a dedicated review thread per repository, is set aside
   until Myk restores it. Claude builds in both repositories.
