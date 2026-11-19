@@ -122714,7 +122714,7 @@
       "definition": "reexport",
       "id": "rust:anchored:DeltaSource",
       "owner": "delta",
-      "semantics": "resolve owns the existing anchored::DeltaSource reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "delta owns the existing anchored::DeltaSource reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/anchored.rs",
       "symbol": "DeltaSource",
       "target": "crate::set::DeltaSource"
@@ -122836,7 +122836,7 @@
       "definition": "reexport",
       "id": "rust:arrival:ArrivalRecord",
       "owner": "storage",
-      "semantics": "federation owns the existing arrival::ArrivalRecord reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing arrival::ArrivalRecord reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/arrival.rs",
       "symbol": "ArrivalRecord",
       "target": "crate::store::ArrivalRecord"
@@ -124172,7 +124172,7 @@
       "definition": "reexport",
       "id": "rust:eval:first_by_order",
       "owner": "resolve-kernel",
-      "semantics": "resolve owns the existing eval::first_by_order reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve-kernel owns the existing eval::first_by_order reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/eval.rs",
       "symbol": "first_by_order",
       "target": "crate::resolution::first_by_order"
@@ -124671,7 +124671,7 @@
       "definition": "reexport",
       "id": "rust:lib:Admission",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::Admission reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::Admission reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Admission",
       "target": "crate::store::Admission"
@@ -124695,7 +124695,7 @@
       "definition": "reexport",
       "id": "rust:lib:Anchor",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::Anchor reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::Anchor reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Anchor",
       "target": "crate::store::Anchor"
@@ -124707,7 +124707,7 @@
       "definition": "reexport",
       "id": "rust:lib:AppendResult",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::AppendResult reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::AppendResult reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "AppendResult",
       "target": "crate::store::AppendResult"
@@ -124719,7 +124719,7 @@
       "definition": "reexport",
       "id": "rust:lib:ArrivalCursor",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::ArrivalCursor reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::ArrivalCursor reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ArrivalCursor",
       "target": "crate::arrival::ArrivalCursor"
@@ -124731,7 +124731,7 @@
       "definition": "reexport",
       "id": "rust:lib:ArrivalPlan",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::ArrivalPlan reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::ArrivalPlan reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ArrivalPlan",
       "target": "crate::arrival::ArrivalPlan"
@@ -124743,7 +124743,7 @@
       "definition": "reexport",
       "id": "rust:lib:ArrivalRecord",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::ArrivalRecord reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::ArrivalRecord reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ArrivalRecord",
       "target": "crate::arrival::ArrivalRecord"
@@ -124755,7 +124755,7 @@
       "definition": "reexport",
       "id": "rust:lib:AssociatedKey",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::AssociatedKey reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::AssociatedKey reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "AssociatedKey",
       "target": "crate::principal::AssociatedKey"
@@ -124767,7 +124767,7 @@
       "definition": "reexport",
       "id": "rust:lib:AssociationGrade",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::AssociationGrade reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::AssociationGrade reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "AssociationGrade",
       "target": "crate::principal::AssociationGrade"
@@ -124779,7 +124779,7 @@
       "definition": "reexport",
       "id": "rust:lib:AtRest",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::AtRest reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::AtRest reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "AtRest",
       "target": "crate::store::AtRest"
@@ -124791,7 +124791,7 @@
       "definition": "reexport",
       "id": "rust:lib:BindingSpec",
       "owner": "derivation",
-      "semantics": "delta owns the existing lib::BindingSpec reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "derivation owns the existing lib::BindingSpec reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "BindingSpec",
       "target": "crate::derivation::BindingSpec"
@@ -124803,7 +124803,7 @@
       "definition": "reexport",
       "id": "rust:lib:CandidateGuard",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::CandidateGuard reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::CandidateGuard reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "CandidateGuard",
       "target": "crate::preflight::CandidateGuard"
@@ -124815,7 +124815,7 @@
       "definition": "reexport",
       "id": "rust:lib:ChangePage",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::ChangePage reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::ChangePage reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ChangePage",
       "target": "crate::store::ChangePage"
@@ -124827,7 +124827,7 @@
       "definition": "reexport",
       "id": "rust:lib:ChangeRecord",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::ChangeRecord reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::ChangeRecord reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ChangeRecord",
       "target": "crate::store::ChangeRecord"
@@ -124839,7 +124839,7 @@
       "definition": "reexport",
       "id": "rust:lib:ChangeRetention",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::ChangeRetention reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::ChangeRetention reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ChangeRetention",
       "target": "crate::store::ChangeRetention"
@@ -124851,7 +124851,7 @@
       "definition": "reexport",
       "id": "rust:lib:ChildKey",
       "owner": "resolve",
-      "semantics": "delta owns the existing lib::ChildKey reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve owns the existing lib::ChildKey reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ChildKey",
       "target": "crate::eval::ChildKey"
@@ -124863,7 +124863,7 @@
       "definition": "reexport",
       "id": "rust:lib:ChildMemo",
       "owner": "resolve",
-      "semantics": "delta owns the existing lib::ChildMemo reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve owns the existing lib::ChildMemo reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ChildMemo",
       "target": "crate::eval::ChildMemo"
@@ -124875,7 +124875,7 @@
       "definition": "reexport",
       "id": "rust:lib:ChildValue",
       "owner": "resolve",
-      "semantics": "delta owns the existing lib::ChildValue reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve owns the existing lib::ChildValue reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ChildValue",
       "target": "crate::eval::ChildValue"
@@ -124911,7 +124911,7 @@
       "definition": "reexport",
       "id": "rust:lib:DEFAULT_HVIEW_ENVELOPE_LIMITS",
       "owner": "algebra",
-      "semantics": "delta owns the existing lib::DEFAULT_HVIEW_ENVELOPE_LIMITS reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "algebra owns the existing lib::DEFAULT_HVIEW_ENVELOPE_LIMITS reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "DEFAULT_HVIEW_ENVELOPE_LIMITS",
       "target": "crate::hview_envelope::DEFAULT_HVIEW_ENVELOPE_LIMITS"
@@ -124923,7 +124923,7 @@
       "definition": "reexport",
       "id": "rust:lib:DEFAULT_READING_APPEARANCE_LIMITS",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::DEFAULT_READING_APPEARANCE_LIMITS reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::DEFAULT_READING_APPEARANCE_LIMITS reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "DEFAULT_READING_APPEARANCE_LIMITS",
       "target": "crate::evidence_codec::DEFAULT_READING_APPEARANCE_LIMITS"
@@ -124983,7 +124983,7 @@
       "definition": "reexport",
       "id": "rust:lib:DerivationHost",
       "owner": "derivation",
-      "semantics": "delta owns the existing lib::DerivationHost reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "derivation owns the existing lib::DerivationHost reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "DerivationHost",
       "target": "crate::derivation::DerivationHost"
@@ -125007,7 +125007,7 @@
       "definition": "reexport",
       "id": "rust:lib:ErasureClaim",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::ErasureClaim reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::ErasureClaim reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ErasureClaim",
       "target": "crate::store::ErasureClaim"
@@ -125019,7 +125019,7 @@
       "definition": "reexport",
       "id": "rust:lib:ErasureClass",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::ErasureClass reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::ErasureClass reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ErasureClass",
       "target": "crate::store::ErasureClass"
@@ -125031,7 +125031,7 @@
       "definition": "reexport",
       "id": "rust:lib:ErasurePosture",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::ErasurePosture reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::ErasurePosture reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ErasurePosture",
       "target": "crate::store::ErasurePosture"
@@ -125043,7 +125043,7 @@
       "definition": "reexport",
       "id": "rust:lib:EvalMemo",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::EvalMemo reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::EvalMemo reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "EvalMemo",
       "target": "crate::store_read::EvalMemo"
@@ -125055,7 +125055,7 @@
       "definition": "reexport",
       "id": "rust:lib:EvalResult",
       "owner": "resolve",
-      "semantics": "delta owns the existing lib::EvalResult reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve owns the existing lib::EvalResult reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "EvalResult",
       "target": "crate::eval::EvalResult"
@@ -125067,7 +125067,7 @@
       "definition": "reexport",
       "id": "rust:lib:EvidenceCodecError",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::EvidenceCodecError reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::EvidenceCodecError reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "EvidenceCodecError",
       "target": "crate::evidence_codec::EvidenceCodecError"
@@ -125079,7 +125079,7 @@
       "definition": "reexport",
       "id": "rust:lib:Exporter",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::Exporter reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::Exporter reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Exporter",
       "target": "crate::store::Exporter"
@@ -125091,7 +125091,7 @@
       "definition": "reexport",
       "id": "rust:lib:FetchCache",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::FetchCache reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::FetchCache reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "FetchCache",
       "target": "crate::store_read::FetchCache"
@@ -125103,7 +125103,7 @@
       "definition": "reexport",
       "id": "rust:lib:FetchedScope",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::FetchedScope reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::FetchedScope reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "FetchedScope",
       "target": "crate::store_read::FetchedScope"
@@ -125115,7 +125115,7 @@
       "definition": "reexport",
       "id": "rust:lib:FinalChildMemo",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::FinalChildMemo reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::FinalChildMemo reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "FinalChildMemo",
       "target": "crate::store_read::FinalChildMemo"
@@ -125151,7 +125151,7 @@
       "definition": "reexport",
       "id": "rust:lib:FullSurfaceRead",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::FullSurfaceRead reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::FullSurfaceRead reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "FullSurfaceRead",
       "target": "crate::store_read::FullSurfaceRead"
@@ -125163,7 +125163,7 @@
       "definition": "reexport",
       "id": "rust:lib:FullSurfaceRequest",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::FullSurfaceRequest reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::FullSurfaceRequest reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "FullSurfaceRequest",
       "target": "crate::store_read::FullSurfaceRequest"
@@ -125175,7 +125175,7 @@
       "definition": "reexport",
       "id": "rust:lib:FullSurfaceRoute",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::FullSurfaceRoute reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::FullSurfaceRoute reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "FullSurfaceRoute",
       "target": "crate::store_read::FullSurfaceRoute"
@@ -125187,7 +125187,7 @@
       "definition": "reexport",
       "id": "rust:lib:GroupKey",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::GroupKey reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::GroupKey reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "GroupKey",
       "target": "crate::eval::GroupKey"
@@ -125199,7 +125199,7 @@
       "definition": "reexport",
       "id": "rust:lib:GuardDecision",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::GuardDecision reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::GuardDecision reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "GuardDecision",
       "target": "crate::preflight::GuardDecision"
@@ -125211,7 +125211,7 @@
       "definition": "reexport",
       "id": "rust:lib:GuardedUnit",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::GuardedUnit reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::GuardedUnit reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "GuardedUnit",
       "target": "crate::preflight::GuardedUnit"
@@ -125223,7 +125223,7 @@
       "definition": "reexport",
       "id": "rust:lib:GuardedUnitStatus",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::GuardedUnitStatus reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::GuardedUnitStatus reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "GuardedUnitStatus",
       "target": "crate::preflight::GuardedUnitStatus"
@@ -125235,7 +125235,7 @@
       "definition": "reexport",
       "id": "rust:lib:HVEntry",
       "owner": "algebra",
-      "semantics": "delta owns the existing lib::HVEntry reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "algebra owns the existing lib::HVEntry reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "HVEntry",
       "target": "crate::hview::HVEntry"
@@ -125247,7 +125247,7 @@
       "definition": "reexport",
       "id": "rust:lib:HView",
       "owner": "algebra",
-      "semantics": "delta owns the existing lib::HView reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "algebra owns the existing lib::HView reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "HView",
       "target": "crate::hview::HView"
@@ -125259,7 +125259,7 @@
       "definition": "reexport",
       "id": "rust:lib:HViewEnvelopeLimits",
       "owner": "algebra",
-      "semantics": "delta owns the existing lib::HViewEnvelopeLimits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "algebra owns the existing lib::HViewEnvelopeLimits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "HViewEnvelopeLimits",
       "target": "crate::hview_envelope::HViewEnvelopeLimits"
@@ -125271,7 +125271,7 @@
       "definition": "reexport",
       "id": "rust:lib:HyperSchema",
       "owner": "schema",
-      "semantics": "delta owns the existing lib::HyperSchema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema owns the existing lib::HyperSchema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "HyperSchema",
       "target": "crate::schema::HyperSchema"
@@ -125283,7 +125283,7 @@
       "definition": "reexport",
       "id": "rust:lib:IngestResult",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::IngestResult reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::IngestResult reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "IngestResult",
       "target": "crate::reactor::IngestResult"
@@ -125319,7 +125319,7 @@
       "definition": "reexport",
       "id": "rust:lib:LensBinding",
       "owner": "schema-load",
-      "semantics": "delta owns the existing lib::LensBinding reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema-load owns the existing lib::LensBinding reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "LensBinding",
       "target": "crate::lens_binding::LensBinding"
@@ -125331,7 +125331,7 @@
       "definition": "reexport",
       "id": "rust:lib:Listing",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::Listing reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::Listing reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Listing",
       "target": "crate::store::Listing"
@@ -125343,7 +125343,7 @@
       "definition": "reexport",
       "id": "rust:lib:LooseEntryStatus",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::LooseEntryStatus reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::LooseEntryStatus reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "LooseEntryStatus",
       "target": "crate::entry::LooseEntryStatus"
@@ -125355,7 +125355,7 @@
       "definition": "reexport",
       "id": "rust:lib:LoweredProgram",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::LoweredProgram reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::LoweredProgram reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "LoweredProgram",
       "target": "crate::materialize::LoweredProgram"
@@ -125367,7 +125367,7 @@
       "definition": "reexport",
       "id": "rust:lib:MAX_ARRIVAL_COUNTER",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::MAX_ARRIVAL_COUNTER reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::MAX_ARRIVAL_COUNTER reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MAX_ARRIVAL_COUNTER",
       "target": "crate::store::MAX_ARRIVAL_COUNTER"
@@ -125379,7 +125379,7 @@
       "definition": "reexport",
       "id": "rust:lib:MAX_REVISION",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::MAX_REVISION reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::MAX_REVISION reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MAX_REVISION",
       "target": "crate::store::MAX_REVISION"
@@ -125391,7 +125391,7 @@
       "definition": "reexport",
       "id": "rust:lib:MEMORY_SCHEME",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::MEMORY_SCHEME reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::MEMORY_SCHEME reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MEMORY_SCHEME",
       "target": "crate::store_open::MEMORY_SCHEME"
@@ -125403,7 +125403,7 @@
       "definition": "reexport",
       "id": "rust:lib:MEMORY_STORE_FORMAT",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::MEMORY_STORE_FORMAT reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::MEMORY_STORE_FORMAT reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MEMORY_STORE_FORMAT",
       "target": "crate::memory_store::MEMORY_STORE_FORMAT"
@@ -125415,7 +125415,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaskPolicy",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::MaskPolicy reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::MaskPolicy reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaskPolicy",
       "target": "crate::eval::MaskPolicy"
@@ -125427,7 +125427,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationAuthoritySpec",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::MaterializationAuthoritySpec reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::MaterializationAuthoritySpec reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationAuthoritySpec",
       "target": "crate::materialization_source::MaterializationAuthoritySpec"
@@ -125439,7 +125439,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationBindingSpec",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::MaterializationBindingSpec reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::MaterializationBindingSpec reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationBindingSpec",
       "target": "crate::materialization_source::MaterializationBindingSpec"
@@ -125451,7 +125451,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationCapture",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::MaterializationCapture reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::MaterializationCapture reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationCapture",
       "target": "crate::materialization_source::MaterializationCapture"
@@ -125463,7 +125463,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationChange",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::MaterializationChange reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::MaterializationChange reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationChange",
       "target": "crate::materialize::MaterializationChange"
@@ -125475,7 +125475,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationDiagnostic",
       "owner": "command",
-      "semantics": "delta owns the existing lib::MaterializationDiagnostic reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command owns the existing lib::MaterializationDiagnostic reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationDiagnostic",
       "target": "crate::materialization_command::MaterializationDiagnostic"
@@ -125487,7 +125487,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationEndpoint",
       "owner": "command",
-      "semantics": "delta owns the existing lib::MaterializationEndpoint reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command owns the existing lib::MaterializationEndpoint reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationEndpoint",
       "target": "crate::materialization_command::MaterializationEndpoint"
@@ -125499,7 +125499,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationInputBoot",
       "owner": "command",
-      "semantics": "delta owns the existing lib::MaterializationInputBoot reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command owns the existing lib::MaterializationInputBoot reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationInputBoot",
       "target": "crate::materialization_input::MaterializationInputBoot"
@@ -125511,7 +125511,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationInputPreflight",
       "owner": "command",
-      "semantics": "delta owns the existing lib::MaterializationInputPreflight reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command owns the existing lib::MaterializationInputPreflight reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationInputPreflight",
       "target": "crate::materialization_command::MaterializationInputPreflight"
@@ -125523,7 +125523,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationLifecycleHooks",
       "owner": "command",
-      "semantics": "delta owns the existing lib::MaterializationLifecycleHooks reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command owns the existing lib::MaterializationLifecycleHooks reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationLifecycleHooks",
       "target": "crate::materialization_lifecycle::MaterializationLifecycleHooks"
@@ -125535,7 +125535,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationLimits",
       "owner": "command-data",
-      "semantics": "delta owns the existing lib::MaterializationLimits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command-data owns the existing lib::MaterializationLimits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationLimits",
       "target": "crate::materialization_data::MaterializationLimits"
@@ -125547,7 +125547,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationResult",
       "owner": "command",
-      "semantics": "delta owns the existing lib::MaterializationResult reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command owns the existing lib::MaterializationResult reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationResult",
       "target": "crate::materialization_result::MaterializationResult"
@@ -125559,7 +125559,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationResultClassification",
       "owner": "command",
-      "semantics": "delta owns the existing lib::MaterializationResultClassification reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command owns the existing lib::MaterializationResultClassification reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationResultClassification",
       "target": "crate::materialization_result::MaterializationResultClassification"
@@ -125571,7 +125571,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationResultContext",
       "owner": "command",
-      "semantics": "delta owns the existing lib::MaterializationResultContext reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command owns the existing lib::MaterializationResultContext reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationResultContext",
       "target": "crate::materialization_result::MaterializationResultContext"
@@ -125583,7 +125583,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationSigner",
       "owner": "command",
-      "semantics": "delta owns the existing lib::MaterializationSigner reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command owns the existing lib::MaterializationSigner reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationSigner",
       "target": "crate::materialization_command::MaterializationSigner"
@@ -125595,7 +125595,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationSourceCapability",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::MaterializationSourceCapability reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::MaterializationSourceCapability reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationSourceCapability",
       "target": "crate::materialization_source::MaterializationSourceCapability"
@@ -125607,7 +125607,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationSourceCommitments",
       "owner": "command",
-      "semantics": "delta owns the existing lib::MaterializationSourceCommitments reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command owns the existing lib::MaterializationSourceCommitments reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationSourceCommitments",
       "target": "crate::materialization_result::MaterializationSourceCommitments"
@@ -125619,7 +125619,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationSourceError",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::MaterializationSourceError reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::MaterializationSourceError reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationSourceError",
       "target": "crate::materialization_source::MaterializationSourceError"
@@ -125631,7 +125631,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationSourceFailure",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::MaterializationSourceFailure reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::MaterializationSourceFailure reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationSourceFailure",
       "target": "crate::materialization_source::MaterializationSourceFailure"
@@ -125643,7 +125643,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationSourceLimits",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::MaterializationSourceLimits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::MaterializationSourceLimits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationSourceLimits",
       "target": "crate::materialization_source::MaterializationSourceLimits"
@@ -125655,7 +125655,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationSourceSnapshot",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::MaterializationSourceSnapshot reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::MaterializationSourceSnapshot reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationSourceSnapshot",
       "target": "crate::materialization_source::MaterializationSourceSnapshot"
@@ -125667,7 +125667,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationVerb",
       "owner": "command-data",
-      "semantics": "delta owns the existing lib::MaterializationVerb reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command-data owns the existing lib::MaterializationVerb reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationVerb",
       "target": "crate::materialization_data::MaterializationVerb"
@@ -125679,7 +125679,7 @@
       "definition": "reexport",
       "id": "rust:lib:MemoryStore",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::MemoryStore reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::MemoryStore reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MemoryStore",
       "target": "crate::memory_store::MemoryStore"
@@ -125691,7 +125691,7 @@
       "definition": "reexport",
       "id": "rust:lib:MemoryStoreOptions",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::MemoryStoreOptions reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::MemoryStoreOptions reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MemoryStoreOptions",
       "target": "crate::memory_store::MemoryStoreOptions"
@@ -125703,7 +125703,7 @@
       "definition": "reexport",
       "id": "rust:lib:MergeFn",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::MergeFn reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::MergeFn reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MergeFn",
       "target": "crate::resolution::MergeFn"
@@ -125739,7 +125739,7 @@
       "definition": "reexport",
       "id": "rust:lib:OpenOptions",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::OpenOptions reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::OpenOptions reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "OpenOptions",
       "target": "crate::store_open::OpenOptions"
@@ -125751,7 +125751,7 @@
       "definition": "reexport",
       "id": "rust:lib:Order",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::Order reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::Order reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Order",
       "target": "crate::resolution::Order"
@@ -125763,7 +125763,7 @@
       "definition": "reexport",
       "id": "rust:lib:PURGE_BOUNDARY",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::PURGE_BOUNDARY reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::PURGE_BOUNDARY reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PURGE_BOUNDARY",
       "target": "crate::store::PURGE_BOUNDARY"
@@ -125799,7 +125799,7 @@
       "definition": "reexport",
       "id": "rust:lib:Peer",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::Peer reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::Peer reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Peer",
       "target": "crate::peer::Peer"
@@ -125811,7 +125811,7 @@
       "definition": "reexport",
       "id": "rust:lib:PeerErasure",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::PeerErasure reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::PeerErasure reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PeerErasure",
       "target": "crate::store::PeerErasure"
@@ -125823,7 +125823,7 @@
       "definition": "reexport",
       "id": "rust:lib:PeerExporter",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::PeerExporter reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::PeerExporter reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PeerExporter",
       "target": "crate::store::PeerExporter"
@@ -125835,7 +125835,7 @@
       "definition": "reexport",
       "id": "rust:lib:PeerStore",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::PeerStore reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::PeerStore reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PeerStore",
       "target": "crate::store::PeerStore"
@@ -125859,7 +125859,7 @@
       "definition": "reexport",
       "id": "rust:lib:Policy",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::Policy reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::Policy reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Policy",
       "target": "crate::resolution::Policy"
@@ -125871,7 +125871,7 @@
       "definition": "reexport",
       "id": "rust:lib:Pred",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::Pred reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::Pred reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Pred",
       "target": "crate::pred::Pred"
@@ -125883,7 +125883,7 @@
       "definition": "reexport",
       "id": "rust:lib:PreflightContext",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::PreflightContext reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::PreflightContext reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PreflightContext",
       "target": "crate::preflight::PreflightContext"
@@ -125907,7 +125907,7 @@
       "definition": "reexport",
       "id": "rust:lib:PrincipalReadOptions",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::PrincipalReadOptions reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::PrincipalReadOptions reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PrincipalReadOptions",
       "target": "crate::principal::PrincipalReadOptions"
@@ -125919,7 +125919,7 @@
       "definition": "reexport",
       "id": "rust:lib:PrincipalResolver",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::PrincipalResolver reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::PrincipalResolver reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PrincipalResolver",
       "target": "crate::principal::PrincipalResolver"
@@ -125931,7 +125931,7 @@
       "definition": "reexport",
       "id": "rust:lib:PrincipalResult",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::PrincipalResult reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::PrincipalResult reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PrincipalResult",
       "target": "crate::principal::PrincipalResult"
@@ -125943,7 +125943,7 @@
       "definition": "reexport",
       "id": "rust:lib:PrincipalSuppression",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::PrincipalSuppression reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::PrincipalSuppression reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PrincipalSuppression",
       "target": "crate::principal::PrincipalSuppression"
@@ -125955,7 +125955,7 @@
       "definition": "reexport",
       "id": "rust:lib:PruneKeep",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::PruneKeep reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::PruneKeep reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PruneKeep",
       "target": "crate::eval::PruneKeep"
@@ -125967,7 +125967,7 @@
       "definition": "reexport",
       "id": "rust:lib:PurgeOutcome",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::PurgeOutcome reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::PurgeOutcome reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PurgeOutcome",
       "target": "crate::store::PurgeOutcome"
@@ -125979,7 +125979,7 @@
       "definition": "reexport",
       "id": "rust:lib:PurgeReport",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::PurgeReport reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::PurgeReport reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PurgeReport",
       "target": "crate::store::PurgeReport"
@@ -125991,7 +125991,7 @@
       "definition": "reexport",
       "id": "rust:lib:PurgeSurface",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::PurgeSurface reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::PurgeSurface reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PurgeSurface",
       "target": "crate::store::PurgeSurface"
@@ -126003,7 +126003,7 @@
       "definition": "reexport",
       "id": "rust:lib:PurgeTarget",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::PurgeTarget reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::PurgeTarget reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PurgeTarget",
       "target": "crate::store::PurgeTarget"
@@ -126015,7 +126015,7 @@
       "definition": "reexport",
       "id": "rust:lib:Pushdown",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::Pushdown reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::Pushdown reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Pushdown",
       "target": "crate::store::Pushdown"
@@ -126027,7 +126027,7 @@
       "definition": "reexport",
       "id": "rust:lib:PushdownFields",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::PushdownFields reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::PushdownFields reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "PushdownFields",
       "target": "crate::store::PushdownFields"
@@ -126039,7 +126039,7 @@
       "definition": "reexport",
       "id": "rust:lib:Reactor",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::Reactor reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::Reactor reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Reactor",
       "target": "crate::reactor::Reactor"
@@ -126051,7 +126051,7 @@
       "definition": "reexport",
       "id": "rust:lib:ReadRequest",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::ReadRequest reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::ReadRequest reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ReadRequest",
       "target": "crate::store_read::ReadRequest"
@@ -126063,7 +126063,7 @@
       "definition": "reexport",
       "id": "rust:lib:ReadingAppearanceLimits",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::ReadingAppearanceLimits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::ReadingAppearanceLimits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ReadingAppearanceLimits",
       "target": "crate::evidence_codec::ReadingAppearanceLimits"
@@ -126075,7 +126075,7 @@
       "definition": "reexport",
       "id": "rust:lib:Revision",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::Revision reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::Revision reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Revision",
       "target": "crate::store::Revision"
@@ -126087,7 +126087,7 @@
       "definition": "reexport",
       "id": "rust:lib:RoundMemo",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::RoundMemo reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::RoundMemo reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "RoundMemo",
       "target": "crate::store_read::RoundMemo"
@@ -126099,7 +126099,7 @@
       "definition": "reexport",
       "id": "rust:lib:RoundReport",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::RoundReport reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::RoundReport reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "RoundReport",
       "target": "crate::store_read::RoundReport"
@@ -126123,7 +126123,7 @@
       "definition": "reexport",
       "id": "rust:lib:Schema",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::Schema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::Schema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Schema",
       "target": "crate::resolution::Schema"
@@ -126135,7 +126135,7 @@
       "definition": "reexport",
       "id": "rust:lib:SchemaRegistry",
       "owner": "schema",
-      "semantics": "delta owns the existing lib::SchemaRegistry reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema owns the existing lib::SchemaRegistry reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "SchemaRegistry",
       "target": "crate::schema::SchemaRegistry"
@@ -126147,7 +126147,7 @@
       "definition": "reexport",
       "id": "rust:lib:ScopePolicy",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::ScopePolicy reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::ScopePolicy reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ScopePolicy",
       "target": "crate::principal::ScopePolicy"
@@ -126159,7 +126159,7 @@
       "definition": "reexport",
       "id": "rust:lib:ScopeRequest",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::ScopeRequest reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::ScopeRequest reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ScopeRequest",
       "target": "crate::store::ScopeRequest"
@@ -126171,7 +126171,7 @@
       "definition": "reexport",
       "id": "rust:lib:ScopeResult",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::ScopeResult reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::ScopeResult reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ScopeResult",
       "target": "crate::store::ScopeResult"
@@ -126183,7 +126183,7 @@
       "definition": "reexport",
       "id": "rust:lib:ScopeSource",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::ScopeSource reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::ScopeSource reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ScopeSource",
       "target": "crate::store::ScopeSource"
@@ -126195,7 +126195,7 @@
       "definition": "reexport",
       "id": "rust:lib:Selection",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::Selection reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::Selection reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Selection",
       "target": "crate::store_read::Selection"
@@ -126207,7 +126207,7 @@
       "definition": "reexport",
       "id": "rust:lib:SkippedScript",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::SkippedScript reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::SkippedScript reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "SkippedScript",
       "target": "crate::store_conformance::SkippedScript"
@@ -126219,7 +126219,7 @@
       "definition": "reexport",
       "id": "rust:lib:Snapshot",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::Snapshot reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::Snapshot reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Snapshot",
       "target": "crate::store::Snapshot"
@@ -126243,7 +126243,7 @@
       "definition": "reexport",
       "id": "rust:lib:Store",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::Store reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::Store reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Store",
       "target": "crate::store::Store"
@@ -126255,7 +126255,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreCapabilities",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::StoreCapabilities reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::StoreCapabilities reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreCapabilities",
       "target": "crate::store::StoreCapabilities"
@@ -126267,7 +126267,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreConformanceError",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::StoreConformanceError reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::StoreConformanceError reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreConformanceError",
       "target": "crate::store_conformance::StoreConformanceError"
@@ -126279,7 +126279,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreConformanceFailure",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::StoreConformanceFailure reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::StoreConformanceFailure reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreConformanceFailure",
       "target": "crate::store_conformance::StoreConformanceFailure"
@@ -126291,7 +126291,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreConformanceReport",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::StoreConformanceReport reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::StoreConformanceReport reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreConformanceReport",
       "target": "crate::store_conformance::StoreConformanceReport"
@@ -126303,7 +126303,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreError",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::StoreError reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::StoreError reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreError",
       "target": "crate::store::StoreError"
@@ -126315,7 +126315,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreErrorCode",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::StoreErrorCode reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::StoreErrorCode reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreErrorCode",
       "target": "crate::store::StoreErrorCode"
@@ -126327,7 +126327,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreFactory",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::StoreFactory reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::StoreFactory reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreFactory",
       "target": "crate::store_open::StoreFactory"
@@ -126339,7 +126339,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreFactoryFn",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::StoreFactoryFn reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::StoreFactoryFn reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreFactoryFn",
       "target": "crate::store_conformance::StoreFactoryFn"
@@ -126363,7 +126363,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreMeter",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::StoreMeter reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::StoreMeter reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreMeter",
       "target": "crate::memory_store::StoreMeter"
@@ -126375,7 +126375,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreProfile",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::StoreProfile reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::StoreProfile reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreProfile",
       "target": "crate::store::StoreProfile"
@@ -126399,7 +126399,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreRead",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::StoreRead reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::StoreRead reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreRead",
       "target": "crate::store_read::StoreRead"
@@ -126411,7 +126411,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreReadError",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::StoreReadError reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::StoreReadError reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreReadError",
       "target": "crate::store_read::StoreReadError"
@@ -126435,7 +126435,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreRequirement",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::StoreRequirement reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::StoreRequirement reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreRequirement",
       "target": "crate::store::StoreRequirement"
@@ -126447,7 +126447,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreSchemes",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::StoreSchemes reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::StoreSchemes reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreSchemes",
       "target": "crate::store_open::StoreSchemes"
@@ -126459,7 +126459,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreVectors",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::StoreVectors reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::StoreVectors reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreVectors",
       "target": "crate::store_conformance::StoreVectors"
@@ -126471,7 +126471,7 @@
       "definition": "reexport",
       "id": "rust:lib:StoreWriters",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::StoreWriters reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::StoreWriters reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "StoreWriters",
       "target": "crate::store::StoreWriters"
@@ -126483,7 +126483,7 @@
       "definition": "reexport",
       "id": "rust:lib:SurfaceState",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::SurfaceState reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::SurfaceState reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "SurfaceState",
       "target": "crate::store::SurfaceState"
@@ -126495,7 +126495,7 @@
       "definition": "reexport",
       "id": "rust:lib:SyncReport",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::SyncReport reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::SyncReport reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "SyncReport",
       "target": "crate::peer::SyncReport"
@@ -126519,7 +126519,7 @@
       "definition": "reexport",
       "id": "rust:lib:Term",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::Term reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::Term reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Term",
       "target": "crate::eval::Term"
@@ -126531,7 +126531,7 @@
       "definition": "reexport",
       "id": "rust:lib:TransferUnit",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::TransferUnit reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::TransferUnit reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "TransferUnit",
       "target": "crate::preflight::TransferUnit"
@@ -126543,7 +126543,7 @@
       "definition": "reexport",
       "id": "rust:lib:UNKNOWN_SCHEME_MESSAGE",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::UNKNOWN_SCHEME_MESSAGE reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::UNKNOWN_SCHEME_MESSAGE reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "UNKNOWN_SCHEME_MESSAGE",
       "target": "crate::store_open::UNKNOWN_SCHEME_MESSAGE"
@@ -126567,7 +126567,7 @@
       "definition": "reexport",
       "id": "rust:lib:ValidityInterval",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::ValidityInterval reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::ValidityInterval reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "ValidityInterval",
       "target": "crate::principal::ValidityInterval"
@@ -126591,7 +126591,7 @@
       "definition": "reexport",
       "id": "rust:lib:VerifiedDelta",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::VerifiedDelta reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::VerifiedDelta reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "VerifiedDelta",
       "target": "crate::store::VerifiedDelta"
@@ -126603,7 +126603,7 @@
       "definition": "reexport",
       "id": "rust:lib:View",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::View reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::View reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "View",
       "target": "crate::resolution::View"
@@ -126627,7 +126627,7 @@
       "definition": "reexport",
       "id": "rust:lib:alias_closure",
       "owner": "resolve",
-      "semantics": "delta owns the existing lib::alias_closure reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve owns the existing lib::alias_closure reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "alias_closure",
       "target": "crate::eval::alias_closure"
@@ -126639,7 +126639,7 @@
       "definition": "reexport",
       "id": "rust:lib:apply_policy",
       "owner": "resolve-kernel",
-      "semantics": "delta owns the existing lib::apply_policy reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve-kernel owns the existing lib::apply_policy reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "apply_policy",
       "target": "crate::resolution::apply_policy"
@@ -126651,7 +126651,7 @@
       "definition": "reexport",
       "id": "rust:lib:associated_keys",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::associated_keys reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::associated_keys reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "associated_keys",
       "target": "crate::principal::associated_keys"
@@ -126663,7 +126663,7 @@
       "definition": "reexport",
       "id": "rust:lib:authors_for_principal",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::authors_for_principal reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::authors_for_principal reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "authors_for_principal",
       "target": "crate::principal::authors_for_principal"
@@ -126675,7 +126675,7 @@
       "definition": "reexport",
       "id": "rust:lib:bundle_entry_status",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::bundle_entry_status reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::bundle_entry_status reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "bundle_entry_status",
       "target": "crate::entry::bundle_entry_status"
@@ -126711,7 +126711,7 @@
       "definition": "reexport",
       "id": "rust:lib:cbor_to_json",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::cbor_to_json reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::cbor_to_json reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "cbor_to_json",
       "target": "crate::term_io::cbor_to_json"
@@ -126723,7 +126723,7 @@
       "definition": "reexport",
       "id": "rust:lib:collect_delta_set",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::collect_delta_set reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::collect_delta_set reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "collect_delta_set",
       "target": "crate::store::collect_delta_set"
@@ -126735,7 +126735,7 @@
       "definition": "reexport",
       "id": "rust:lib:collect_reading_refs",
       "owner": "schema",
-      "semantics": "delta owns the existing lib::collect_reading_refs reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema owns the existing lib::collect_reading_refs reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "collect_reading_refs",
       "target": "crate::schema::collect_reading_refs"
@@ -126747,7 +126747,7 @@
       "definition": "reexport",
       "id": "rust:lib:collect_refs",
       "owner": "schema",
-      "semantics": "delta owns the existing lib::collect_refs reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema owns the existing lib::collect_refs reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "collect_refs",
       "target": "crate::schema::collect_refs"
@@ -126759,7 +126759,7 @@
       "definition": "reexport",
       "id": "rust:lib:compare_primitives",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::compare_primitives reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::compare_primitives reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "compare_primitives",
       "target": "crate::pred::compare_primitives"
@@ -126783,7 +126783,7 @@
       "definition": "reexport",
       "id": "rust:lib:decode_hview_envelope",
       "owner": "algebra",
-      "semantics": "delta owns the existing lib::decode_hview_envelope reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "algebra owns the existing lib::decode_hview_envelope reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "decode_hview_envelope",
       "target": "crate::hview_envelope::decode_hview_envelope"
@@ -126795,7 +126795,7 @@
       "definition": "reexport",
       "id": "rust:lib:decode_materialization_appearance",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::decode_materialization_appearance reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::decode_materialization_appearance reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "decode_materialization_appearance",
       "target": "crate::materialization_source::decode_materialization_appearance"
@@ -126807,7 +126807,7 @@
       "definition": "reexport",
       "id": "rust:lib:decode_materialization_authority_spec",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::decode_materialization_authority_spec reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::decode_materialization_authority_spec reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "decode_materialization_authority_spec",
       "target": "crate::materialization_source::decode_materialization_authority_spec"
@@ -126819,7 +126819,7 @@
       "definition": "reexport",
       "id": "rust:lib:decode_materialization_binding_spec",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::decode_materialization_binding_spec reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::decode_materialization_binding_spec reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "decode_materialization_binding_spec",
       "target": "crate::materialization_source::decode_materialization_binding_spec"
@@ -126831,7 +126831,7 @@
       "definition": "reexport",
       "id": "rust:lib:decode_materialization_snapshot",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::decode_materialization_snapshot reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::decode_materialization_snapshot reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "decode_materialization_snapshot",
       "target": "crate::materialization_source::decode_materialization_snapshot"
@@ -126843,7 +126843,7 @@
       "definition": "reexport",
       "id": "rust:lib:decode_reading_appearance",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::decode_reading_appearance reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::decode_reading_appearance reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "decode_reading_appearance",
       "target": "crate::reading_appearance::decode_reading_appearance"
@@ -126855,7 +126855,7 @@
       "definition": "reexport",
       "id": "rust:lib:decode_view",
       "owner": "resolve-kernel",
-      "semantics": "delta owns the existing lib::decode_view reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve-kernel owns the existing lib::decode_view reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "decode_view",
       "target": "crate::resolution::decode_view"
@@ -126867,7 +126867,7 @@
       "definition": "reexport",
       "id": "rust:lib:encode_hview_envelope",
       "owner": "algebra",
-      "semantics": "delta owns the existing lib::encode_hview_envelope reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "algebra owns the existing lib::encode_hview_envelope reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "encode_hview_envelope",
       "target": "crate::hview_envelope::encode_hview_envelope"
@@ -126879,7 +126879,7 @@
       "definition": "reexport",
       "id": "rust:lib:encode_materialization_appearance",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::encode_materialization_appearance reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::encode_materialization_appearance reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "encode_materialization_appearance",
       "target": "crate::materialization_source::encode_materialization_appearance"
@@ -126891,7 +126891,7 @@
       "definition": "reexport",
       "id": "rust:lib:encode_materialization_limits",
       "owner": "command-data",
-      "semantics": "delta owns the existing lib::encode_materialization_limits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command-data owns the existing lib::encode_materialization_limits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "encode_materialization_limits",
       "target": "crate::materialization_data::encode_materialization_limits"
@@ -126903,7 +126903,7 @@
       "definition": "reexport",
       "id": "rust:lib:encode_reading_appearance",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::encode_reading_appearance reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::encode_reading_appearance reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "encode_reading_appearance",
       "target": "crate::reading_appearance::encode_reading_appearance"
@@ -126915,7 +126915,7 @@
       "definition": "reexport",
       "id": "rust:lib:eval_pred",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::eval_pred reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::eval_pred reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "eval_pred",
       "target": "crate::pred::eval_pred"
@@ -126927,7 +126927,7 @@
       "definition": "reexport",
       "id": "rust:lib:eval_principal_term",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::eval_principal_term reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::eval_principal_term reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "eval_principal_term",
       "target": "crate::principal::eval_principal_term"
@@ -126939,7 +126939,7 @@
       "definition": "reexport",
       "id": "rust:lib:eval_term",
       "owner": "resolve",
-      "semantics": "delta owns the existing lib::eval_term reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve owns the existing lib::eval_term reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "eval_term",
       "target": "crate::eval::eval_term"
@@ -126951,7 +126951,7 @@
       "definition": "reexport",
       "id": "rust:lib:expand_aliased",
       "owner": "resolve",
-      "semantics": "delta owns the existing lib::expand_aliased reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve owns the existing lib::expand_aliased reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "expand_aliased",
       "target": "crate::eval::expand_aliased"
@@ -126975,7 +126975,7 @@
       "definition": "reexport",
       "id": "rust:lib:fetch_scope",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::fetch_scope reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::fetch_scope reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "fetch_scope",
       "target": "crate::store_read::fetch_scope"
@@ -126987,7 +126987,7 @@
       "definition": "reexport",
       "id": "rust:lib:first_by_order",
       "owner": "resolve-kernel",
-      "semantics": "delta owns the existing lib::first_by_order reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve-kernel owns the existing lib::first_by_order reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "first_by_order",
       "target": "crate::resolution::first_by_order"
@@ -127011,7 +127011,7 @@
       "definition": "reexport",
       "id": "rust:lib:governed_deltas",
       "owner": "resolve",
-      "semantics": "delta owns the existing lib::governed_deltas reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve owns the existing lib::governed_deltas reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "governed_deltas",
       "target": "crate::eval::governed_deltas"
@@ -127023,7 +127023,7 @@
       "definition": "reexport",
       "id": "rust:lib:hview_canonical_hex",
       "owner": "algebra",
-      "semantics": "delta owns the existing lib::hview_canonical_hex reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "algebra owns the existing lib::hview_canonical_hex reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "hview_canonical_hex",
       "target": "crate::hview::hview_canonical_hex"
@@ -127035,7 +127035,7 @@
       "definition": "reexport",
       "id": "rust:lib:hyper_schema_schema",
       "owner": "schema-load",
-      "semantics": "delta owns the existing lib::hyper_schema_schema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema-load owns the existing lib::hyper_schema_schema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "hyper_schema_schema",
       "target": "crate::schema_deltas::hyper_schema_schema"
@@ -127047,7 +127047,7 @@
       "definition": "reexport",
       "id": "rust:lib:initialize_materialization_control",
       "owner": "command",
-      "semantics": "delta owns the existing lib::initialize_materialization_control reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command owns the existing lib::initialize_materialization_control reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "initialize_materialization_control",
       "target": "crate::materialization_lifecycle::initialize_materialization_control"
@@ -127059,7 +127059,7 @@
       "definition": "reexport",
       "id": "rust:lib:is_root_anchored",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::is_root_anchored reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::is_root_anchored reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "is_root_anchored",
       "target": "crate::materialize::is_root_anchored"
@@ -127071,7 +127071,7 @@
       "definition": "reexport",
       "id": "rust:lib:json_to_cbor",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::json_to_cbor reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::json_to_cbor reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "json_to_cbor",
       "target": "crate::term_io::json_to_cbor"
@@ -127083,7 +127083,7 @@
       "definition": "reexport",
       "id": "rust:lib:latest_by_key",
       "owner": "resolve",
-      "semantics": "delta owns the existing lib::latest_by_key reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve owns the existing lib::latest_by_key reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "latest_by_key",
       "target": "crate::eval::latest_by_key"
@@ -127095,7 +127095,7 @@
       "definition": "reexport",
       "id": "rust:lib:load_governed_hyper_schema",
       "owner": "schema-load",
-      "semantics": "delta owns the existing lib::load_governed_hyper_schema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema-load owns the existing lib::load_governed_hyper_schema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "load_governed_hyper_schema",
       "target": "crate::schema_deltas::load_governed_hyper_schema"
@@ -127107,7 +127107,7 @@
       "definition": "reexport",
       "id": "rust:lib:load_governed_schema",
       "owner": "schema-load",
-      "semantics": "delta owns the existing lib::load_governed_schema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema-load owns the existing lib::load_governed_schema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "load_governed_schema",
       "target": "crate::schema_deltas::load_governed_schema"
@@ -127119,7 +127119,7 @@
       "definition": "reexport",
       "id": "rust:lib:load_hyper_schema",
       "owner": "schema-load",
-      "semantics": "delta owns the existing lib::load_hyper_schema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema-load owns the existing lib::load_hyper_schema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "load_hyper_schema",
       "target": "crate::schema_deltas::load_hyper_schema"
@@ -127131,7 +127131,7 @@
       "definition": "reexport",
       "id": "rust:lib:load_lens_binding",
       "owner": "schema-load",
-      "semantics": "delta owns the existing lib::load_lens_binding reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema-load owns the existing lib::load_lens_binding reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "load_lens_binding",
       "target": "crate::lens_binding::load_lens_binding"
@@ -127143,7 +127143,7 @@
       "definition": "reexport",
       "id": "rust:lib:load_schema",
       "owner": "schema-load",
-      "semantics": "delta owns the existing lib::load_schema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema-load owns the existing lib::load_schema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "load_schema",
       "target": "crate::schema_deltas::load_schema"
@@ -127155,7 +127155,7 @@
       "definition": "reexport",
       "id": "rust:lib:loose_entry_status",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::loose_entry_status reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::loose_entry_status reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "loose_entry_status",
       "target": "crate::entry::loose_entry_status"
@@ -127167,7 +127167,7 @@
       "definition": "reexport",
       "id": "rust:lib:lower_principal_registry",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::lower_principal_registry reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::lower_principal_registry reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "lower_principal_registry",
       "target": "crate::principal::lower_principal_registry"
@@ -127179,7 +127179,7 @@
       "definition": "reexport",
       "id": "rust:lib:lower_principal_term",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::lower_principal_term reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::lower_principal_term reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "lower_principal_term",
       "target": "crate::principal::lower_principal_term"
@@ -127239,7 +127239,7 @@
       "definition": "reexport",
       "id": "rust:lib:materialization_capture_basis",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::materialization_capture_basis reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::materialization_capture_basis reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "materialization_capture_basis",
       "target": "crate::materialization_source::materialization_capture_basis"
@@ -127251,7 +127251,7 @@
       "definition": "reexport",
       "id": "rust:lib:materialization_component_commitments",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::materialization_component_commitments reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::materialization_component_commitments reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "materialization_component_commitments",
       "target": "crate::materialization_source::materialization_component_commitments"
@@ -127263,7 +127263,7 @@
       "definition": "reexport",
       "id": "rust:lib:materialization_description_claims",
       "owner": "command-data",
-      "semantics": "delta owns the existing lib::materialization_description_claims reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command-data owns the existing lib::materialization_description_claims reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "materialization_description_claims",
       "target": "crate::materialization_data::materialization_description_claims"
@@ -127275,7 +127275,7 @@
       "definition": "reexport",
       "id": "rust:lib:materialization_max_limits",
       "owner": "command-data",
-      "semantics": "delta owns the existing lib::materialization_max_limits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command-data owns the existing lib::materialization_max_limits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "materialization_max_limits",
       "target": "crate::materialization_data::materialization_max_limits"
@@ -127287,7 +127287,7 @@
       "definition": "reexport",
       "id": "rust:lib:memory_store_profile",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::memory_store_profile reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::memory_store_profile reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "memory_store_profile",
       "target": "crate::memory_store::memory_store_profile"
@@ -127311,7 +127311,7 @@
       "definition": "reexport",
       "id": "rust:lib:missing_requirements",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::missing_requirements reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::missing_requirements reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "missing_requirements",
       "target": "crate::store::missing_requirements"
@@ -127361,7 +127361,7 @@
       "definition": "reexport",
       "id": "rust:lib:offer_for",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::offer_for reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::offer_for reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "offer_for",
       "target": "crate::http::offer_for"
@@ -127373,7 +127373,7 @@
       "definition": "reexport",
       "id": "rust:lib:open_store",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::open_store reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::open_store reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "open_store",
       "target": "crate::store_open::open_store"
@@ -127385,7 +127385,7 @@
       "definition": "reexport",
       "id": "rust:lib:pack_id",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::pack_id reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::pack_id reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "pack_id",
       "target": "crate::pack::pack_id"
@@ -127397,7 +127397,7 @@
       "definition": "reexport",
       "id": "rust:lib:pack_set",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::pack_set reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::pack_set reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "pack_set",
       "target": "crate::pack::pack_set"
@@ -127409,7 +127409,7 @@
       "definition": "reexport",
       "id": "rust:lib:parse_pred",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::parse_pred reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::parse_pred reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "parse_pred",
       "target": "crate::term_json::parse_pred"
@@ -127421,7 +127421,7 @@
       "definition": "reexport",
       "id": "rust:lib:parse_pred_diagnostic",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::parse_pred_diagnostic reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::parse_pred_diagnostic reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "parse_pred_diagnostic",
       "target": "crate::term_json::parse_pred_diagnostic"
@@ -127433,7 +127433,7 @@
       "definition": "reexport",
       "id": "rust:lib:parse_term",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::parse_term reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::parse_term reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "parse_term",
       "target": "crate::term_json::parse_term"
@@ -127445,7 +127445,7 @@
       "definition": "reexport",
       "id": "rust:lib:parse_term_diagnostic",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::parse_term_diagnostic reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::parse_term_diagnostic reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "parse_term_diagnostic",
       "target": "crate::term_json::parse_term_diagnostic"
@@ -127457,7 +127457,7 @@
       "definition": "reexport",
       "id": "rust:lib:plan_arrivals",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::plan_arrivals reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::plan_arrivals reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "plan_arrivals",
       "target": "crate::arrival::plan_arrivals"
@@ -127469,7 +127469,7 @@
       "definition": "reexport",
       "id": "rust:lib:preflight_materialization_input",
       "owner": "command",
-      "semantics": "delta owns the existing lib::preflight_materialization_input reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command owns the existing lib::preflight_materialization_input reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "preflight_materialization_input",
       "target": "crate::materialization_command::preflight_materialization_input"
@@ -127481,7 +127481,7 @@
       "definition": "reexport",
       "id": "rust:lib:preflight_transfer",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::preflight_transfer reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::preflight_transfer reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "preflight_transfer",
       "target": "crate::preflight::preflight_transfer"
@@ -127493,7 +127493,7 @@
       "definition": "reexport",
       "id": "rust:lib:principal_resolver",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::principal_resolver reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::principal_resolver reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "principal_resolver",
       "target": "crate::principal::principal_resolver"
@@ -127505,7 +127505,7 @@
       "definition": "reexport",
       "id": "rust:lib:principal_resolver_for_reactor",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::principal_resolver_for_reactor reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::principal_resolver_for_reactor reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "principal_resolver_for_reactor",
       "target": "crate::principal::principal_resolver_for_reactor"
@@ -127517,7 +127517,7 @@
       "definition": "reexport",
       "id": "rust:lib:publish_hyper_schema_claims",
       "owner": "schema-load",
-      "semantics": "delta owns the existing lib::publish_hyper_schema_claims reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema-load owns the existing lib::publish_hyper_schema_claims reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "publish_hyper_schema_claims",
       "target": "crate::schema_deltas::publish_hyper_schema_claims"
@@ -127529,7 +127529,7 @@
       "definition": "reexport",
       "id": "rust:lib:publish_lens_binding_claims",
       "owner": "schema-load",
-      "semantics": "delta owns the existing lib::publish_lens_binding_claims reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema-load owns the existing lib::publish_lens_binding_claims reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "publish_lens_binding_claims",
       "target": "crate::lens_binding::publish_lens_binding_claims"
@@ -127541,7 +127541,7 @@
       "definition": "reexport",
       "id": "rust:lib:publish_schema_claims",
       "owner": "schema-load",
-      "semantics": "delta owns the existing lib::publish_schema_claims reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema-load owns the existing lib::publish_schema_claims reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "publish_schema_claims",
       "target": "crate::schema_deltas::publish_schema_claims"
@@ -127555,7 +127555,7 @@
       "definition": "reexport",
       "id": "rust:lib:pull_from_url",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::pull_from_url reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::pull_from_url reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "pull_from_url",
       "target": "crate::http::pull_from_url"
@@ -127567,7 +127567,7 @@
       "definition": "reexport",
       "id": "rust:lib:read_anchored",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::read_anchored reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::read_anchored reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "read_anchored",
       "target": "crate::store_read::read_anchored"
@@ -127579,7 +127579,7 @@
       "definition": "reexport",
       "id": "rust:lib:read_anchored_with_memo",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::read_anchored_with_memo reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::read_anchored_with_memo reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "read_anchored_with_memo",
       "target": "crate::store_read::read_anchored_with_memo"
@@ -127591,7 +127591,7 @@
       "definition": "reexport",
       "id": "rust:lib:read_full_surface",
       "owner": "reactor",
-      "semantics": "delta owns the existing lib::read_full_surface reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing lib::read_full_surface reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "read_full_surface",
       "target": "crate::store_read::read_full_surface"
@@ -127603,7 +127603,7 @@
       "definition": "reexport",
       "id": "rust:lib:read_materialization_description",
       "owner": "command-data",
-      "semantics": "delta owns the existing lib::read_materialization_description reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command-data owns the existing lib::read_materialization_description reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "read_materialization_description",
       "target": "crate::materialization_data::read_materialization_description"
@@ -127615,7 +127615,7 @@
       "definition": "reexport",
       "id": "rust:lib:read_materialization_limits",
       "owner": "command-data",
-      "semantics": "delta owns the existing lib::read_materialization_limits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command-data owns the existing lib::read_materialization_limits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "read_materialization_limits",
       "target": "crate::materialization_data::read_materialization_limits"
@@ -127627,7 +127627,7 @@
       "definition": "reexport",
       "id": "rust:lib:read_materialization_result",
       "owner": "command",
-      "semantics": "delta owns the existing lib::read_materialization_result reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "command owns the existing lib::read_materialization_result reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "read_materialization_result",
       "target": "crate::materialization_result::read_materialization_result"
@@ -127639,7 +127639,7 @@
       "definition": "reexport",
       "id": "rust:lib:register_principal_materialization",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::register_principal_materialization reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::register_principal_materialization reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "register_principal_materialization",
       "target": "crate::principal::register_principal_materialization"
@@ -127675,7 +127675,7 @@
       "definition": "reexport",
       "id": "rust:lib:resolve_principal",
       "owner": "principal",
-      "semantics": "delta owns the existing lib::resolve_principal reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "principal owns the existing lib::resolve_principal reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "resolve_principal",
       "target": "crate::principal::resolve_principal"
@@ -127687,7 +127687,7 @@
       "definition": "reexport",
       "id": "rust:lib:resolve_view",
       "owner": "resolve-kernel",
-      "semantics": "delta owns the existing lib::resolve_view reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve-kernel owns the existing lib::resolve_view reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "resolve_view",
       "target": "crate::resolution::resolve_view"
@@ -127699,7 +127699,7 @@
       "definition": "reexport",
       "id": "rust:lib:result_canonical_hex",
       "owner": "resolve",
-      "semantics": "delta owns the existing lib::result_canonical_hex reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve owns the existing lib::result_canonical_hex reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "result_canonical_hex",
       "target": "crate::eval::result_canonical_hex"
@@ -127711,7 +127711,7 @@
       "definition": "reexport",
       "id": "rust:lib:run_store_conformance",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::run_store_conformance reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::run_store_conformance reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "run_store_conformance",
       "target": "crate::store_conformance::run_store_conformance"
@@ -127723,7 +127723,7 @@
       "definition": "reexport",
       "id": "rust:lib:schema_canonical_hex",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::schema_canonical_hex reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::schema_canonical_hex reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "schema_canonical_hex",
       "target": "crate::term_io::schema_canonical_hex"
@@ -127735,7 +127735,7 @@
       "definition": "reexport",
       "id": "rust:lib:schema_hash",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::schema_hash reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::schema_hash reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "schema_hash",
       "target": "crate::term_io::schema_hash"
@@ -127747,7 +127747,7 @@
       "definition": "reexport",
       "id": "rust:lib:schema_schema",
       "owner": "schema-load",
-      "semantics": "delta owns the existing lib::schema_schema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "schema-load owns the existing lib::schema_schema reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "schema_schema",
       "target": "crate::schema_deltas::schema_schema"
@@ -127759,7 +127759,7 @@
       "definition": "reexport",
       "id": "rust:lib:scope_source",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::scope_source reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::scope_source reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "scope_source",
       "target": "crate::store::scope_source"
@@ -127773,7 +127773,7 @@
       "definition": "reexport",
       "id": "rust:lib:serve_peer",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::serve_peer reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::serve_peer reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "serve_peer",
       "target": "crate::http::serve_peer"
@@ -127797,7 +127797,7 @@
       "definition": "reexport",
       "id": "rust:lib:signature_form",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::signature_form reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::signature_form reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "signature_form",
       "target": "crate::store::signature_form"
@@ -127809,7 +127809,7 @@
       "definition": "reexport",
       "id": "rust:lib:sync_both",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::sync_both reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::sync_both reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "sync_both",
       "target": "crate::peer::sync_both"
@@ -127821,7 +127821,7 @@
       "definition": "reexport",
       "id": "rust:lib:term_canonical_hex",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::term_canonical_hex reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::term_canonical_hex reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "term_canonical_hex",
       "target": "crate::term_io::term_canonical_hex"
@@ -127833,7 +127833,7 @@
       "definition": "reexport",
       "id": "rust:lib:term_hash",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::term_hash reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::term_hash reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "term_hash",
       "target": "crate::term_io::term_hash"
@@ -127845,7 +127845,7 @@
       "definition": "reexport",
       "id": "rust:lib:term_to_json",
       "owner": "syntax",
-      "semantics": "delta owns the existing lib::term_to_json reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "syntax owns the existing lib::term_to_json reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "term_to_json",
       "target": "crate::term_io::term_to_json"
@@ -127857,7 +127857,7 @@
       "definition": "reexport",
       "id": "rust:lib:unpack_set",
       "owner": "storage",
-      "semantics": "delta owns the existing lib::unpack_set reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing lib::unpack_set reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "unpack_set",
       "target": "crate::pack::unpack_set"
@@ -127869,7 +127869,7 @@
       "definition": "reexport",
       "id": "rust:lib:validate_materialization_capture_basis",
       "owner": "federation",
-      "semantics": "delta owns the existing lib::validate_materialization_capture_basis reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "federation owns the existing lib::validate_materialization_capture_basis reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "validate_materialization_capture_basis",
       "target": "crate::materialization_source::validate_materialization_capture_basis"
@@ -127893,7 +127893,7 @@
       "definition": "reexport",
       "id": "rust:lib:verify_pure_derivation",
       "owner": "derivation",
-      "semantics": "delta owns the existing lib::verify_pure_derivation reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "derivation owns the existing lib::verify_pure_derivation reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "verify_pure_derivation",
       "target": "crate::derivation::verify_pure_derivation"
@@ -127905,7 +127905,7 @@
       "definition": "reexport",
       "id": "rust:lib:view_canonical_hex",
       "owner": "resolve-kernel",
-      "semantics": "delta owns the existing lib::view_canonical_hex reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "resolve-kernel owns the existing lib::view_canonical_hex reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "view_canonical_hex",
       "target": "crate::resolution::view_canonical_hex"
@@ -128622,7 +128622,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MATERIALIZATION_CONTROL_EMPTY_REVISION",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::MATERIALIZATION_CONTROL_EMPTY_REVISION reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::MATERIALIZATION_CONTROL_EMPTY_REVISION reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MATERIALIZATION_CONTROL_EMPTY_REVISION",
       "target": "crate::materialization_control::MATERIALIZATION_CONTROL_EMPTY_REVISION"
@@ -128634,7 +128634,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MATERIALIZATION_CONTROL_FORMAT",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::MATERIALIZATION_CONTROL_FORMAT reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::MATERIALIZATION_CONTROL_FORMAT reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MATERIALIZATION_CONTROL_FORMAT",
       "target": "crate::materialization_control::MATERIALIZATION_CONTROL_FORMAT"
@@ -128646,7 +128646,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlActive",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlActive reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::MaterializationControlActive reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlActive",
       "target": "crate::materialization_control::MaterializationControlActive"
@@ -128658,7 +128658,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlEntry",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlEntry reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::MaterializationControlEntry reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlEntry",
       "target": "crate::materialization_control::MaterializationControlEntry"
@@ -128670,7 +128670,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlError",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlError reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::MaterializationControlError reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlError",
       "target": "crate::materialization_control::MaterializationControlError"
@@ -128682,7 +128682,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlImage",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlImage reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::MaterializationControlImage reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlImage",
       "target": "crate::materialization_control::MaterializationControlImage"
@@ -128694,7 +128694,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlInitialize",
       "owner": "storage",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlInitialize reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing materialization_peer::MaterializationControlInitialize reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlInitialize",
       "target": "crate::materialization_store::MaterializationControlInitialize"
@@ -128706,7 +128706,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlLimits",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlLimits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::MaterializationControlLimits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlLimits",
       "target": "crate::materialization_control::MaterializationControlLimits"
@@ -128718,7 +128718,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlPlan",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlPlan reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::MaterializationControlPlan reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlPlan",
       "target": "crate::materialization_control::MaterializationControlPlan"
@@ -128730,7 +128730,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlRead",
       "owner": "storage",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlRead reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing materialization_peer::MaterializationControlRead reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlRead",
       "target": "crate::materialization_store::MaterializationControlRead"
@@ -128742,7 +128742,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlRefusal",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlRefusal reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::MaterializationControlRefusal reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlRefusal",
       "target": "crate::materialization_control::MaterializationControlRefusal"
@@ -128754,7 +128754,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlSelected",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlSelected reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::MaterializationControlSelected reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlSelected",
       "target": "crate::materialization_control::MaterializationControlSelected"
@@ -128766,7 +128766,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlSelection",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlSelection reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::MaterializationControlSelection reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlSelection",
       "target": "crate::materialization_control::MaterializationControlSelection"
@@ -128778,7 +128778,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlStatus",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlStatus reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::MaterializationControlStatus reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlStatus",
       "target": "crate::materialization_control::MaterializationControlStatus"
@@ -128790,7 +128790,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlStore",
       "owner": "storage",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlStore reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing materialization_peer::MaterializationControlStore reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlStore",
       "target": "crate::materialization_store::MaterializationControlStore"
@@ -128802,7 +128802,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlTransition",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlTransition reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::MaterializationControlTransition reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlTransition",
       "target": "crate::materialization_control::MaterializationControlTransition"
@@ -128814,7 +128814,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlWrite",
       "owner": "storage",
-      "semantics": "federation owns the existing materialization_peer::MaterializationControlWrite reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "storage owns the existing materialization_peer::MaterializationControlWrite reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlWrite",
       "target": "crate::materialization_store::MaterializationControlWrite"
@@ -128826,7 +128826,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:decode_materialization_control",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::decode_materialization_control reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::decode_materialization_control reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "decode_materialization_control",
       "target": "crate::materialization_control::decode_materialization_control"
@@ -128838,7 +128838,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:empty_materialization_control",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::empty_materialization_control reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::empty_materialization_control reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "empty_materialization_control",
       "target": "crate::materialization_control::empty_materialization_control"
@@ -128850,7 +128850,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:encode_materialization_control",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::encode_materialization_control reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::encode_materialization_control reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "encode_materialization_control",
       "target": "crate::materialization_control::encode_materialization_control"
@@ -128862,7 +128862,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:materialization_appearance_key",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::materialization_appearance_key reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::materialization_appearance_key reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "materialization_appearance_key",
       "target": "crate::materialization_control::materialization_appearance_key"
@@ -128874,7 +128874,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:materialization_control_image",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::materialization_control_image reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::materialization_control_image reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "materialization_control_image",
       "target": "crate::materialization_control::materialization_control_image"
@@ -128886,7 +128886,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:materialization_control_revision",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::materialization_control_revision reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::materialization_control_revision reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "materialization_control_revision",
       "target": "crate::materialization_control::materialization_control_revision"
@@ -128909,7 +128909,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:plan_materialization_control",
       "owner": "reactor",
-      "semantics": "federation owns the existing materialization_peer::plan_materialization_control reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "reactor owns the existing materialization_peer::plan_materialization_control reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "plan_materialization_control",
       "target": "crate::materialization_control::plan_materialization_control"
@@ -131114,7 +131114,7 @@
       "definition": "reexport",
       "id": "rust:reactor:NegationReader",
       "owner": "delta",
-      "semantics": "reactor owns the existing reactor::NegationReader reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "delta owns the existing reactor::NegationReader reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "NegationReader",
       "target": "crate::set::NegationReader"
@@ -131676,7 +131676,7 @@
       "definition": "reexport",
       "id": "rust:resolve_evidence:HView",
       "owner": "algebra",
-      "semantics": "resolve owns the existing resolve_evidence::HView reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "algebra owns the existing resolve_evidence::HView reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/resolve_evidence.rs",
       "symbol": "HView",
       "target": "crate::hview::HView"
@@ -131688,7 +131688,7 @@
       "definition": "reexport",
       "id": "rust:resolve_evidence:HViewEnvelopeLimits",
       "owner": "algebra",
-      "semantics": "resolve owns the existing resolve_evidence::HViewEnvelopeLimits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "algebra owns the existing resolve_evidence::HViewEnvelopeLimits reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/resolve_evidence.rs",
       "symbol": "HViewEnvelopeLimits",
       "target": "crate::hview_envelope::HViewEnvelopeLimits"
@@ -131700,7 +131700,7 @@
       "definition": "reexport",
       "id": "rust:resolve_evidence:decode_hview_envelope",
       "owner": "algebra",
-      "semantics": "resolve owns the existing resolve_evidence::decode_hview_envelope reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "algebra owns the existing resolve_evidence::decode_hview_envelope reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/resolve_evidence.rs",
       "symbol": "decode_hview_envelope",
       "target": "crate::hview_envelope::decode_hview_envelope"
@@ -131712,7 +131712,7 @@
       "definition": "reexport",
       "id": "rust:resolve_evidence:encode_hview_envelope",
       "owner": "algebra",
-      "semantics": "resolve owns the existing resolve_evidence::encode_hview_envelope reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "algebra owns the existing resolve_evidence::encode_hview_envelope reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/resolve_evidence.rs",
       "symbol": "encode_hview_envelope",
       "target": "crate::hview_envelope::encode_hview_envelope"
@@ -131724,7 +131724,7 @@
       "definition": "reexport",
       "id": "rust:resolve_evidence:hview_canonical_hex",
       "owner": "algebra",
-      "semantics": "resolve owns the existing resolve_evidence::hview_canonical_hex reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "semantics": "algebra owns the existing resolve_evidence::hview_canonical_hex reexport; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/resolve_evidence.rs",
       "symbol": "hview_canonical_hex",
       "target": "crate::hview::hview_canonical_hex"

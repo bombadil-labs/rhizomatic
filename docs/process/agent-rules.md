@@ -29,7 +29,7 @@ it. The steps are:
 4. Copy the backup over the file. Check with `cmp` that the two are equal.
 
 Never undo a probe with `git checkout <file>`, `git restore` or `git stash`. A mutant that fails no
-test is a finding.
+test goes into the review.
 
 ### The machine
 
@@ -47,6 +47,12 @@ So a merge commit needs the whole bar too.
 
 Commit first. The generators must then leave the tree clean.
 
+Use the compiler that CI uses. Set `RUSTUP_TOOLCHAIN=1.100.0` in the shell for steps 2 to 6.
+That covers the Rust steps, the WASM step and `node tools/precheck.mjs`. Install it once:
+`rustup toolchain install 1.100.0 --no-self-update -c rustfmt,clippy -t wasm32-unknown-unknown`.
+To raise the pin, change in one commit the seven `dtolnay/rust-toolchain` lines of `ci.yml`, this
+paragraph and the Commands section of `AGENTS.md`. Then run the heavy tier once.
+
 1. In `implementations/ts`: `npm run gen-vectors`, `npm run docs:build`, then `npm run check`.
 2. In `implementations/rust`: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
    `cargo test`, `cargo clippy --lib -- -D warnings`.
@@ -56,9 +62,11 @@ Commit first. The generators must then leave the tree clean.
 4. The WASM clippy and build, as the Rust witness job of `.github/workflows/ci.yml` runs them.
 5. At the root: `node tools/precheck.mjs` and `node tools/check-rust-command-boundaries.mjs`.
 6. At the root: the `node --test` line of the `contracts` job of `ci.yml`.
-7. `node tools/check-all.mjs haskell elixir`, for a change to `vectors/`, to the Haskell or Elixir
-   witness, or to a witness's delta, hash or canonical encoding code. When those tools are not
-   installed, say so in the body. CI runs them for a code change.
+7. Run `node tools/check-all.mjs haskell elixir` for a change to `vectors/` or to the Haskell or
+   Elixir witness. Run it for a change to the delta, hash or canonical encoding code of the other
+   witnesses: `implementations/ts/src/delta/`, and `delta.rs`, `hash.rs` and `cbor.rs` in
+   `implementations/rust/src/`. Run it where GHC and Elixir are installed. When they are not, say
+   so in the body. CI runs them for a code change.
 
 What a change can skip:
 
@@ -72,6 +80,7 @@ is for a release candidate only: `gh workflow run ci.yml --ref <branch> -f heavy
 
 ## A builder
 
+- Name the consumer call that needs the change. When you cannot, stop and report.
 - Read the spec text and the other witness before you write code.
 - List each rule that you implement, with the line of the other witness that it matches.
 - A new normative behavior gets its vector before or with its code.
@@ -95,7 +104,7 @@ A purge, a peer delete and every success report of them are erasure code.
   count.
 - The change widens when the new build removes a delta that the old build kept on that state.
 - An old error or refusal keeps the delta. A removal there is a widening.
-- A crash is a panic or an abort of the old build. Only a crash is not kept behavior.
+- A crash is a panic or an abort of the old release build. Only a crash is not kept behavior.
 - An error that the old code returns or throws keeps the delta, also part-way through a call.
 - Name each crash state in the body. When you are not sure that it is a crash, treat it as kept.
 - When the change widens, write at the top of the body that the owner merges it.
@@ -118,10 +127,14 @@ A purge, a peer delete and every success report of them are erasure code.
 
 ### The Rust export inventory
 
-- `contracts/command/rust-exports.json` must match the source. `precheck` says when it is stale.
-- The checker compares the dependency rows as a sorted list. Keep a repeated row repeated.
-- Update a row whose owner or target moved.
-- Keep the hand-written `classification` and `semantics` fields of existing rows.
+- Run `node tools/check-rust-command-boundaries.mjs --adopt` at the root. It rewrites
+  `contracts/command/rust-exports.json` from the source and prints rows added, removed, updated and kept.
+- It keeps the hand-written texts of an export. It replaces them when the owner or definition moved.
+- It prints one line for each export that it adds, removes or regenerates, and for each export
+  whose text it kept while a field changed. A line for a replaced or removed text shows the old text.
+- Read each line, and correct a text that is no longer true.
+- A removed export loses its hand-written texts. For a rename, copy them to the new row.
+- It refuses an empty or malformed file, and a source that the checker refuses. It writes nothing then.
 - Name a new module in `implementations/rust/examples/command_inventory.rs`.
 - The scanner refuses some forms, such as an inline production module and an undeclared
   capability. Read its message and change the code, not the scanner.
@@ -129,39 +142,91 @@ A purge, a peer delete and every success report of them are erasure code.
 
 ## A reviewer
 
-- You did not write the change. You start with no knowledge of the builder's reasoning.
-- Review the exact head that the brief names. Say its full SHA in the review.
-- Read the head in a checkout of your own, or read its git objects.
-- Run mutants only in a checkout that holds no uncommitted work of another agent.
-- Use a neutral question: which inputs or states give a wrong outcome?
-- Mark each finding CONFIRMED, when you ran or read the proof, or PLAUSIBLE.
-- For each finding, give the file and line, a severity, the expected behavior, how to reproduce
-  it, and your uncertainty. A counterexample is the best proof.
-- Review the tests too. Could this test pass with the fix reverted, or with the feature deleted?
-- Run mutants of your own, not only the builder's.
-- Check the claims of the body against the code. A sentence that states more than the code does
-  is a finding.
-- For erasure code, judge each report by one question: can this report be false?
-- Do not commit, push, edit the pull request or merge. Restore every file that a probe changed.
-- Delete a `target` directory that you made.
-- Say what you checked and what you did not check. A clean result is a valid result.
-- Post the review as a comment on the pull request. Name the reviewer's model and the builder's.
-- End with one verdict: MERGE, or FIX FIRST with what blocks.
-- For a pull request that the owner merges, the verdicts are READY FOR THE OWNER and FIX FIRST.
+A review here is a prosecution. It builds a case in service of the goal of the change. It does
+not list everything that looks wrong.
+
+- The brief states the goal: who needs the change, and which public call serves them. When it
+  states none, ask for it.
+- You did not write the change. Review the exact head that the brief names, and say its SHA.
+
+### What blocks
+
+Two kinds of charge block. Everything else is a note.
+
+- **A defect.** Quote the claim that it breaks. Give evidence that you ran or read. Say the harm:
+  who gets a wrong result, and from which state.
+- **A premise.** Quote the goal. Say why the change is more than the goal needs, or names no
+  consumer. Give the smaller form.
+
+Three rules decide between a charge and a note:
+
+- A suspicion is a note until you prove it. Run it, or read the lines.
+- The state must be one that a store can get into: by public calls, or by a fault of its medium,
+  such as a crash, a torn write or a lost row. A state that only a defect in other code can make
+  gives a note.
+- In erasure code, a report that can be false and a loss of a bystander's data are charges in
+  every state of the rule above.
+
+Give five notes at most, in order of weight. A mutant that fails no test is a note, or a charge
+when you can show the harm.
+
+### How to work
+
+- Test the claim where it is most likely to fail. Do not test everything.
+- Read the head in a checkout of your own, or read its git objects. Run mutants only where no
+  other agent has uncommitted work.
+- Do not commit, push, edit the pull request or merge. Restore every file that a probe changed,
+  and delete a `target` directory that you made.
+- A second round tests the answer to each charge and the code that the answer changed. It does
+  not open the rest again.
+- Say what you tested and what you did not. End with one verdict: MERGE when you have no charge,
+  FIX FIRST with the charges. For a pull request that the owner merges, write READY FOR THE OWNER
+  in place of MERGE.
+- Post the review on the pull request. Name the reviewer's model and the builder's.
 
 ## The steward
 
-- A merge needs a green fast tier on the reviewed head, and a posted review of that head.
+### Reviews
+
+- Write the goal into the brief. A change with no consumer that you can name does not go to
+  review. It becomes an issue.
+- A charge that holds gets a fix, and the fix gets a second round. A charge that does not hold
+  gets an answer on the pull request.
+- A note becomes an issue with the label `follow-up`, or nothing. It starts no round.
+- A pull request with a charge that holds does not merge.
+- The steward can start three rounds alone. When round three ends with a charge that holds, do
+  not start round four. Cut the part that the charge is about, or ask the owner or a reviewer
+  from another model family whether to cut it or to fix it.
+
+### A reviewer from another model family
+
+A reviewer of the builder's own family tests whether the code keeps a rule. One from another
+family is more likely to ask whether the rule should exist.
+
+- Ask for one at each milestone and before each decision on direction. It reads the goal, the
+  plan and the contract, not the code.
+- Ask for one on each pull request that changes a contract, the erasure code or this process.
+  It reads the diff too.
+- Ask for one when round three of any pull request ends with a charge that holds.
+- Use an account that the owner approved for this work. Never print or commit its key.
+- Post its answer on the pull request or the issue, with the name of the model.
+
+### A merge
+
+- A merge needs a green fast tier on the reviewed head.
+- It needs a posted review of that head with the verdict MERGE or READY FOR THE OWNER.
 - A release needs a green heavy tier on `main` first.
 - A reviewer in a fresh context writes that review.
 - A change to Markdown alone gets no CI run. It needs the review only.
 - Read the conclusion of each CI run before the merge.
-- Review again after every fix. The fix is where the next defect usually is.
 - The owner merges a change that widens what erasure removes, and a stable release.
 - The owner also merges a change to what the system promises outside the active arc.
 - The steward merges the rest.
-- A review finding that does not block becomes an issue with the label `follow-up`. Do not fix it
-  in the next pull request.
+- A pull request that the owner merges does not wait on a branch. Bring it to the owner in the
+  session in which it is ready, or build it last.
+
+### The record
+
 - A question for the owner becomes an issue with the label `needs-owner`. It holds the context,
   the options and a recommendation. Ask in chat too when it blocks work.
 - Update the tracking issue at each merge.
