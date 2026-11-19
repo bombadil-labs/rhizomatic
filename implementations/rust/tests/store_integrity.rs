@@ -178,6 +178,12 @@ impl Snapshot for DamagedSnapshot {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
+    fn root(&self) -> Option<&str> {
+        self.inner.root()
+    }
+    fn digest(&self, prefix: &str) -> Result<rhizomatic::store_digest::DigestNode, StoreFailure> {
+        self.inner.digest(prefix)
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.control.call("get")?;
         self.inner.get(ids)

@@ -5,7 +5,8 @@
 import { describe, expect, it } from "vitest";
 import { makeDelta, parseTerm } from "../src/index.js";
 import type { Delta } from "../src/delta/types.js";
-import { fetchScope, readAnchored } from "../src/reactor/store-read.js";
+import { StoreReactor, captureScope, fetchScope, readAnchored } from "../src/reactor/store-read.js";
+import { StoreViews } from "../src/reactor/store-views.js";
 import { admissionOf } from "../src/storage/admission.js";
 import { createMemoryStore } from "../src/storage/memory-store.js";
 import {
@@ -148,5 +149,118 @@ describe("a read of a store that answers a malformed scope member", () => {
 
   it("fetchScope throws the store fault malformed-member", async () => {
     expect(await faultOf(fetchScope(await forging(), [X]))).toBe("fault malformed-member");
+  });
+
+  /**
+   * A memory store whose peer holds one fact at X; a handle of that peer whose `scope` answers
+   * each member under another id while `forge` is on; and counts of the handle's reads, `scope`
+   * calls and releases.
+   */
+  async function counting() {
+    const store = createMemoryStore();
+    const writer = await store.createPeer("peer:p", { erasure: "unproven" });
+    await add(writer, [fact(X)]);
+    const other = fact("entity:other").id;
+    const control = { forge: true, reads: 0, scopes: 0, releases: 0 };
+    const reset = (forge: boolean): void => {
+      Object.assign(control, { forge, reads: 0, scopes: 0, releases: 0 });
+    };
+    const counts = (): number[] => [control.reads, control.scopes, control.releases];
+    const peer: PeerStore = {
+      id: writer.id,
+      get history() {
+        return writer.history;
+      },
+      get appFormat() {
+        return writer.appFormat;
+      },
+      erasure: writer.erasure,
+      read: async () => {
+        control.reads++;
+        const real = await writer.read();
+        return {
+          ...real,
+          lastSequence: real.lastSequence,
+          lastTransfer: real.lastTransfer,
+          scope: async (request) => {
+            control.scopes++;
+            const answer = await real.scope(request);
+            if (!control.forge) return answer;
+            return {
+              ...answer,
+              deltas: answer.deltas.map((m) => ({
+                delta: { ...m.delta, id: other },
+                arrival: { ...m.arrival, id: other },
+              })),
+            };
+          },
+          release: () => {
+            control.releases++;
+            real.release();
+          },
+        };
+      },
+      append: (batch) => writer.append(batch),
+      purge: (ids) => writer.purge(ids),
+      changes: (from, to) => writer.changes(from, to),
+    };
+    return { writer, peer, reset, counts };
+  }
+
+  it("StoreReactor.read throws the store fault after one read and one scope call, and releases the snapshot", async () => {
+    const { peer, reset, counts } = await counting();
+    const reactor = StoreReactor.open(peer);
+    reset(true);
+    expect(await faultOf(reactor.read({ term: LEAF, root: X, now: 10 }))).toBe(
+      "fault malformed-member",
+    );
+    expect(counts()).toEqual([1, 1, 1]);
+  });
+
+  it("StoreReactor.fetch throws the store fault after one read and one scope call, and releases the snapshot", async () => {
+    const { peer, reset, counts } = await counting();
+    const reactor = StoreReactor.open(peer);
+    reset(true);
+    expect(await faultOf(reactor.fetch([X]))).toBe("fault malformed-member");
+    expect(counts()).toEqual([1, 1, 1]);
+  });
+
+  it("captureScope throws the store fault after one scope call", async () => {
+    const { peer, reset, counts } = await counting();
+    const snapshot = await peer.read();
+    reset(true);
+    expect(await faultOf(captureScope(snapshot, [X], 10))).toBe("fault malformed-member");
+    expect(counts()).toEqual([0, 1, 0]);
+  });
+
+  it("a hold throws the store fault after one read and one scope call, releases the snapshot and keeps no view", async () => {
+    const { peer, reset, counts } = await counting();
+    const views = new StoreViews(peer);
+    views.register("leaf", { term: LEAF });
+    const empty = views.indexSizes();
+    reset(true);
+    expect(await faultOf(views.hold("leaf", X, 10))).toBe("fault malformed-member");
+    expect(counts()).toEqual([1, 1, 1]);
+    expect(views.indexSizes()).toEqual(empty);
+  });
+
+  it("a refresh throws the store fault after one read and one scope call, releases the snapshot and keeps its view; the next refresh reads again at the same revision", async () => {
+    const { writer, peer, reset, counts } = await counting();
+    const views = new StoreViews(peer);
+    views.register("leaf", { term: LEAF });
+    reset(false);
+    const held = await views.hold("leaf", X, 10);
+    await add(writer, [fact(X)]);
+    const sizes = views.indexSizes();
+    reset(true);
+    expect(await faultOf(views.refresh(10))).toBe("fault malformed-member");
+    expect(counts()).toEqual([1, 1, 1]);
+    expect(views.indexSizes()).toEqual(sizes);
+    reset(false);
+    const refresh = await views.refresh(10);
+    expect([refresh.position.revision, refresh.reread.length]).toEqual([
+      held.position.revision + 1,
+      1,
+    ]);
   });
 });

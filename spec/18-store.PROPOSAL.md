@@ -1168,7 +1168,8 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     message (§4.10).
 13. **The memory profile in slice 1** reports `values`, `journal`, `views`, `derivedIndexes` and
     `digest` false, and `arrival` true. §5.1's "every capability" is the target for slice 6.
-    Step 4d of slice 4 switches `digest` on in the TypeScript stores (reading 139).
+    Step 4d of slice 4 switches `digest` on in the TypeScript stores (reading 139), and step
+    4e in the Rust memory store.
 14. **Anchors** are a tagged union with one member, `{ kind: "entity", entity }`. A store refuses
     an anchor kind it has no index for with `capability-absent`.
 15. **`ArrivalRecord`** moved from the `federation` package boundary to `storage`, which stores
@@ -2775,7 +2776,9 @@ decided as follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`
      transaction, along the path of each id they change: O(depth × 16) rows per id, never the
      held set. Measured on WSL, 100 single-id appends at 2,000 and 32,000 deltas: 119 and 126 ms
      before, 208 and 215 ms after; 100 purges: 165 and 176 ms before, 214 and 230 ms after.
-     Loam's use of the root as a pool's version address is a slice 5 decision (§10.1).
+     Loam's use of the root as a pool's version address is a slice 5 decision (§10.1). Step 4e
+     gives the Rust memory store the same tree, `Snapshot::root`, `Snapshot::digest` and the
+     `fsck` check, and runs `digest.json` on it.
 140. **The strict call** (slice 4, step 4d; reading 131). The digest keeps no arrival sequence, so
      `digest` cannot answer as at an older revision. It is strict: in the transaction of the
      call it refuses `snapshot-moved` when the peer's last sequence is not the snapshot's

@@ -1,9 +1,10 @@
 //! The cost rail (SPEC-18 proposal §8, §4.11 reading 17). The memory store counts its index work
 //! through one door. The same operations over the same footprint make the same counts beside 0
 //! and beside N unrelated deltas, and no core operation walks a whole map. Only the exporter
-//! scans. Those rails count; the scope-source rail and the two change-feed rails at the end
-//! time their work from outside instead, because the code under test could do work it does not
-//! count. `Instant` is monotonic, so a step of the wall clock cannot move a timing.
+//! scans. Those rails count; the scope-source rail, the two change-feed rails and the two commit
+//! rails at the end time their work from outside instead, because the code under test could do
+//! work it does not count. `Instant` is monotonic, so a step of the wall clock cannot move a
+//! timing.
 
 use std::collections::BTreeMap;
 use std::hint::black_box;
@@ -13,9 +14,10 @@ use rhizomatic::memory_store::{MemoryStore, MemoryStoreOptions, StoreMeter};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSource};
 use rhizomatic::store::{
     scope_source, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ChangeRetention,
-    CreatePeerOptions, ErasurePosture, PeerStore, Pushdown, Revision, ScopeRequest, Store,
-    VerifiedDelta,
+    CreatePeerOptions, ErasurePosture, PeerStore, PurgeOutcome, Pushdown, Revision, ScopeRequest,
+    Store, VerifiedDelta,
 };
+use rhizomatic::store_digest::digest_of;
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 
 fn fact(entity: &str, context: &str, value: f64, timestamp: f64) -> Delta {
@@ -86,8 +88,9 @@ fn noise(n: usize) -> Vec<Delta> {
 }
 
 /// Runs every core operation over one fixed footprint beside `n` unrelated facts, and reports
-/// the index work of each.
-fn measure(n: usize) -> Vec<(&'static str, StoreMeter)> {
+/// the index work of each, and the levels of the digest on the path of each id that the append
+/// and the purge change.
+fn measure(n: usize) -> (Vec<(&'static str, StoreMeter)>, [usize; 2]) {
     let store = MemoryStore::new();
     let mut work = Vec::new();
     let mut measured = |name: &'static str, store: &MemoryStore, op: &mut dyn FnMut()| {
@@ -137,6 +140,12 @@ fn measure(n: usize) -> Vec<(&'static str, StoreMeter)> {
     ];
     let ids: Vec<String> = footprint.iter().map(|d| d.id.clone()).collect();
 
+    let mut held: Vec<String> = unrelated.iter().map(|d| d.id.clone()).collect();
+    held.extend(ids.iter().cloned());
+    let levels = [
+        digest_levels(&held, &ids),
+        digest_levels(&held, &[struck.id.clone(), shared.id.clone()]),
+    ];
     measured("append", &store, &mut || {
         append(peer.as_ref(), (Some("a-1"), "a-2"), last, &footprint)
     });
@@ -217,24 +226,72 @@ fn measure(n: usize) -> Vec<(&'static str, StoreMeter)> {
     measured("purge of a debt", &store, &mut || {
         peer.purge(std::slice::from_ref(&shared.id)).unwrap();
     });
-    work
+    (work, levels)
 }
 
+/// How many rows of the holdings digest over `held` lie on the paths of `changed`, summed over
+/// the changed ids: the root, and each child of a node of more than 16 ids that holds an id
+/// (`vectors/store/README.md` §12.2). The levels come from the ids, not from the store.
+fn digest_levels(held: &[String], changed: &[String]) -> usize {
+    let count = |prefix: &str| digest_of(held, prefix).unwrap().count;
+    changed
+        .iter()
+        .map(|id| {
+            1 + (1..=id.len())
+                .take_while(|&k| count(&id[..k - 1]) > 16 && count(&id[..k]) > 0)
+                .count()
+        })
+        .sum()
+}
+
+/// Lookups an append or a purge may make per level of the digest on the path of a changed id,
+/// on average over the path: the 16 child rows a level reads, the row it writes, and at the leaf
+/// its held ids and the rows below it. TypeScript's rail has the same bound.
+const PER_LEVEL: u64 = 24;
+
+/// Each core operation makes the same index calls beside 0 and beside N unrelated deltas, but
+/// append and purge, whose lookups stay within a fixed bound per digest level of each changed id
+/// (§4.13 reading 139). A walk of the digest tree, or a lookup per held id, goes over the bound.
 #[test]
 fn core_operations_cost_their_footprint_not_the_store() {
-    let empty = measure(0);
-    let full = measure(4000);
+    let (empty, empty_levels) = measure(0);
+    let (full, full_levels) = measure(4000);
     for ((name, beside_none), (_, beside_many)) in empty.iter().zip(&full) {
-        assert_eq!(
-            beside_none, beside_many,
-            "{name}: index work grew with unrelated deltas"
-        );
         assert_eq!(
             beside_many.scans, 0,
             "{name}: a core operation walked a whole map"
         );
+        let path = match *name {
+            "append" => Some(0),
+            "purge" => Some(1),
+            _ => None,
+        };
+        let Some(path) = path else {
+            assert_eq!(
+                beside_none, beside_many,
+                "{name}: index work grew with unrelated deltas"
+            );
+            continue;
+        };
+        assert_eq!(
+            (beside_none.visited, beside_none.scans),
+            (beside_many.visited, beside_many.scans),
+            "{name}: members read grew with unrelated deltas"
+        );
+        let bound = beside_none.lookups + PER_LEVEL * full_levels[path] as u64;
+        println!(
+            "memory cost, {name}: {} lookups beside 0 ({} levels), {} beside 6000 ({} levels), bound {bound}",
+            beside_none.lookups, empty_levels[path], beside_many.lookups, full_levels[path]
+        );
+        assert!(
+            beside_many.lookups <= bound,
+            "{name}: {} lookups over {} levels, bound {bound}",
+            beside_many.lookups,
+            full_levels[path]
+        );
     }
     // The meter is live: each operation that reads an index counted something.
+    assert!(full_levels[0] > empty_levels[0] && full_levels[1] > empty_levels[1]);
     for (name, meter) in &full {
         assert!(meter.lookups > 0, "{name}: the meter counted no lookup");
     }
@@ -735,4 +792,131 @@ fn an_append_under_bounded_retention_costs_the_same_with_any_number_kept() {
     let slow =
         crate::timed::remeasured(|| scales_linearly("an append under bounded retention", run));
     assert!(slow.is_none(), "{}", slow.unwrap());
+}
+
+/// A peer that holds `n` facts, and one more fact that each round appends and purges.
+struct Committing {
+    _store: MemoryStore,
+    peer: Box<dyn PeerStore>,
+    head: usize,
+    sequence: u64,
+    touch: Delta,
+}
+
+impl Committing {
+    fn new(n: usize) -> Self {
+        let store = MemoryStore::new();
+        let peer = store
+            .create_peer(
+                "peer:commit",
+                &CreatePeerOptions::new(ErasurePosture::Unproven),
+            )
+            .unwrap();
+        let held: Vec<Delta> = (0..n)
+            .map(|i| fact(&format!("held:{i}"), "x", i as f64, 1.0))
+            .collect();
+        append(peer.as_ref(), (None, "head-0"), 0, &held);
+        Committing {
+            _store: store,
+            peer,
+            head: 0,
+            sequence: n as u64,
+            touch: fact("touch", "x", 0.0, 2.0),
+        }
+    }
+
+    /// Appends the touch beside the holdings, and answers how long the append took.
+    fn append(&mut self) -> Duration {
+        let head = format!("head-{}", self.head);
+        self.head += 1;
+        let start = Instant::now();
+        append(
+            self.peer.as_ref(),
+            (Some(&head), &format!("head-{}", self.head)),
+            self.sequence,
+            std::slice::from_ref(&self.touch),
+        );
+        let took = start.elapsed();
+        self.sequence += 1;
+        took
+    }
+
+    /// Purges the touch, which releases it, and answers how long the purge took.
+    fn purge(&mut self) -> Duration {
+        let start = Instant::now();
+        let report = black_box(
+            self.peer
+                .purge(std::slice::from_ref(&self.touch.id))
+                .unwrap(),
+        );
+        let took = start.elapsed();
+        assert_eq!(report.targets[0].outcome, PurgeOutcome::Removed);
+        took
+    }
+}
+
+/// The run at N of a commit rail takes at least this long. A longer run means a larger N, where
+/// work per commit that grows with the holdings stands out more against the fixed cost.
+const COMMIT_RUN: Duration = Duration::from_millis(200);
+
+/// N rounds beside N holdings, each an append of one id and a purge that releases it, on a peer
+/// built once per size; the appends alone, or the purges alone, are timed. The method of README
+/// §3.9.9, with two changes: the run at N takes at least `COMMIT_RUN`, and a run at 8N stops
+/// once it reaches the bound, so a commit that walks the holdings fails in seconds, not hours.
+fn commit_ratio(what: &str, purges: bool) -> Option<String> {
+    let mut built: BTreeMap<usize, Committing> = BTreeMap::new();
+    let mut run = |n: usize, cut: Duration| {
+        let peer = built.entry(n).or_insert_with(|| Committing::new(n));
+        let mut spent = Duration::ZERO;
+        for _ in 0..n {
+            let appended = peer.append();
+            let purged = peer.purge();
+            spent += if purges { purged } else { appended };
+            if spent >= cut {
+                break;
+            }
+        }
+        spent
+    };
+    let mut n = 256;
+    let at_n = loop {
+        let at_n = fastest(5, Duration::ZERO, || run(n, Duration::MAX));
+        if at_n >= COMMIT_RUN {
+            break at_n;
+        }
+        n *= 2;
+    };
+    let cut = at_n.mul_f64(BOUND);
+    let at_8n = fastest(3, cut, || run(8 * n, cut));
+    let ratio = at_8n.as_secs_f64() / at_n.as_secs_f64();
+    println!("timed, {what}: N = {n}, {at_n:?} and {at_8n:?}, ratio {ratio:.2}");
+    (ratio >= BOUND).then(|| {
+        format!(
+            "{what}: the run at 8N = {} took {ratio:.1} times as long as at N = {n} \
+             ({at_8n:?} against {at_n:?}; a run stops at the bound); work that does not grow with \
+             the holdings gives about 8",
+            8 * n
+        )
+    })
+}
+
+fn commit_rail(what: &str, purges: bool) {
+    let _timed = crate::timed::exclusive();
+    let slow = crate::timed::remeasured(|| commit_ratio(what, purges));
+    assert!(slow.is_none(), "{}", slow.unwrap());
+}
+
+/// An append of one id costs its path in the digest, not the holdings (SPEC-18 §4.7.6, README
+/// §11.6). The meter counts index calls only; this rail times the whole commit, so work the
+/// meter does not count, such as a rebuild of the digest from the holdings, goes over the bound.
+#[test]
+fn an_append_of_one_id_costs_its_digest_path_not_the_holdings_in_time() {
+    commit_rail("an append of one id beside N holdings", false);
+}
+
+/// A purge that releases one id costs its path in the digest, not the holdings (SPEC-18
+/// §4.7.6, README §11.6). Timed from outside, as the append is.
+#[test]
+fn a_purge_of_one_id_costs_its_digest_path_not_the_holdings_in_time() {
+    commit_rail("a purge of one id beside N holdings", true);
 }

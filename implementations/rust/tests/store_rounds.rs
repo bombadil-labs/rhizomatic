@@ -679,6 +679,12 @@ impl Snapshot for Tracing {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
+    fn root(&self) -> Option<&str> {
+        self.inner.root()
+    }
+    fn digest(&self, prefix: &str) -> Result<rhizomatic::store_digest::DigestNode, StoreFailure> {
+        self.inner.digest(prefix)
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.note("get", ids.len(), 0);
         self.inner.get(ids)
@@ -793,6 +799,12 @@ impl Snapshot for Double {
     }
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
+    }
+    fn root(&self) -> Option<&str> {
+        self.inner.root()
+    }
+    fn digest(&self, prefix: &str) -> Result<rhizomatic::store_digest::DigestNode, StoreFailure> {
+        self.inner.digest(prefix)
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
@@ -1739,6 +1751,12 @@ impl Snapshot for Released {
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
     }
+    fn root(&self) -> Option<&str> {
+        self.inner.root()
+    }
+    fn digest(&self, prefix: &str) -> Result<rhizomatic::store_digest::DigestNode, StoreFailure> {
+        self.inner.digest(prefix)
+    }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)
     }
@@ -1873,6 +1891,12 @@ impl Snapshot for Restamped {
     }
     fn last_transfer(&self) -> u64 {
         self.inner.last_transfer()
+    }
+    fn root(&self) -> Option<&str> {
+        self.inner.root()
+    }
+    fn digest(&self, prefix: &str) -> Result<rhizomatic::store_digest::DigestNode, StoreFailure> {
+        self.inner.digest(prefix)
     }
     fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreFailure> {
         self.inner.get(ids)

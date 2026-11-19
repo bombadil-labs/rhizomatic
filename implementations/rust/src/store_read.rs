@@ -337,8 +337,12 @@ impl From<StoreFault> for StoreReadError {
 }
 
 /// A fetch's error in a body that also reads: a refusal, a store fault and an integrity fault keep
-/// their kind. `FeedError::Read` carries the message of a held view's read that failed for
-/// another reason, the evaluator's.
+/// their kind. `FeedError::Read` becomes `Eval` with its message unchanged. A pass of held views
+/// makes `Read` from a read error of another kind: `Eval` or `Unanchored`. `StoreViews::register`
+/// refuses an unanchored term, so the message is the evaluator's, with one exception. The read's
+/// check that the gather answers an HView is a guard the analysis already holds; if it fires in a
+/// held view, `Eval` carries `term is not anchored: result-sort`. A host that builds `Read` itself
+/// gets `Eval` with its own message.
 impl From<FeedError> for StoreReadError {
     fn from(error: FeedError) -> Self {
         match error {
