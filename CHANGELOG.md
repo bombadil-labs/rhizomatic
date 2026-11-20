@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+## 0.11.0-next.12 — 2026-11-20
+
 Follow-ups from the reviews of slice 4 and from the first Loam trial on `0.11.0-next.11`
 (TypeScript). Three changes can need action from a consumer: the `unknown-scheme` message has
 new text, a busy open of a SQLite file refuses `store-unavailable` where it refused
