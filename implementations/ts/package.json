@@ -59,6 +59,7 @@
     "release:minor": "tsx tools/release.ts minor",
     "release:major": "tsx tools/release.ts major",
     "test": "vitest run",
+    "bench:store": "tsx tools/bench-store.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
