@@ -32,7 +32,8 @@ end.
 - The script `tools/bench-store.ts` imports only the sources of the public entries `.` and
   `./store/sqlite`.
 - A seeded PRNG makes every delta. The run is the same each time.
-- 100,000 entities. Each delta has a `subject` entity and 1 to 3 more pointers.
+- 100,000 entities. Each delta that is not a negation has a `subject` entity and 1 to 3 more
+  pointers.
 - The other pointers use six roles. 40% point at an entity, the rest hold small primitives.
 - About 2% of the deltas negate an earlier delta.
 - 8 authors. The deltas are unsigned: `append` takes a delta without `sig`.
@@ -96,7 +97,7 @@ that row timed an empty node. This run replaces all numbers of the first run.
 - The time of the rebuild (`VACUUM`) apart from the rest of a purge. The public surface does not
   separate it, so the purge row is the wall time of the whole call.
 - More than one peer. The script takes `--peers`, but this run used one.
-- Signed deltas. A signature adds bytes per delta and a cost in the host, not in the store.
+- Signed deltas.
 - A purge of 1 id by a `proven` peer, and many such purges in a row.
 - Concurrent readers or writers in other processes.
 - Appends of one delta per call. Each such call makes one revision and one commit. The rate then
