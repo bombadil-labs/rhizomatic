@@ -252,10 +252,10 @@ function table(out: Record<string, unknown>): string {
     v === null
       ? "n/a"
       : typeof v === "number"
-      ? Number.isInteger(v)
-        ? String(v)
-        : v.toFixed(v < 10 ? 3 : 1)
-      : String(v);
+        ? Number.isInteger(v)
+          ? String(v)
+          : v.toFixed(v < 10 ? 3 : 1)
+        : String(v);
   const rows: Row[] = [
     ["append wall s", get("append.wallSeconds")],
     ["append s (calls only)", get("append.appendSeconds")],
