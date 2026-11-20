@@ -3235,6 +3235,14 @@ schema.
   On these and every other platform the class is `unprovable`. Postgres keeps dead
   rows until `VACUUM`, and even `VACUUM FULL` leaves WAL archives, replicas and backups, so it is
   `unprovable`.
+- **A stated exception to the cost rule.** The rebuild costs O(store) and blocks the thread. So
+  a purge by a peer of posture `proven`, and a `prove()` call, break the rule that no operation
+  costs O(store) (§3, §4.2). The rebuild runs only when the store's class is `proven` and the
+  file is not clean (reading 117). A purge by a peer of a weaker posture runs no rebuild: its
+  cost follows the rows of its targets, not the size of the store.
+
+  A host that cannot pay the pause gives its peers a weaker posture.
+  `docs/store-threat-model.md` states what the `proven` report defends.
 - **Many processes** (step 4c, §4.13 readings 120 to 125): every write holds the write lock from
   its start and reads what it builds on in that transaction, so the profile says
   `many-processes`. The file's identity (device, file index, birth time) is in `meta`, and a
