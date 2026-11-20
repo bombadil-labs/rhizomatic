@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+## 0.11.0-next.12 — 2026-11-20
+
 Follow-ups from the reviews of slice 4 and from the first Loam trial on `0.11.0-next.11`
 (TypeScript). Three changes can need action from a consumer: the `unknown-scheme` message has
 new text, a busy open of a SQLite file refuses `store-unavailable` where it refused
@@ -220,8 +222,8 @@ Step 4d adds more, listed under Breaking.
   row of the peer below it, so a damaged count or a lost row keeps no hash of a purged id below
   a rewritten leaf. `fsck` reports `digest-mismatch`, also for a stray row. A row that damage
   moved off a purged id's path is outside a `proven` claim (reading 142). The package root
-  exports `digestOf`, `EMPTY_DIGEST`, `DigestNode`, `runDigestConformance`, `digestVectors` and
-  `STORE_DIGEST_FORMAT`. New shared vectors: `vectors/store/digest.json` (README §12). The Rust
+  exports `digestOf`, `EMPTY_DIGEST`, `DigestNode`, `runDigestConformance`,
+  `DigestConformanceReport`, `digestVectors`, `STORE_DIGEST_FORMAT` and `StoreDigestDocument`. New shared vectors: `vectors/store/digest.json` (README §12). The Rust
   witness checks the file's trees byte for byte, and takes the digest in its stores in step 4e.
 - A purge of a peer of posture `proven` on the SQLite store tries its truncate again while
   another connection is in a checkpoint (§4.13 reading 143). SQLite answers that truncate busy
@@ -580,6 +582,8 @@ Step 4d adds more, listed under Breaking.
   not a `StoreError`.
 - **A malformed `scope` member is the store fault `malformed-member`.** A host that caught
   `invalid-request` from a read for it must catch `StoreFaultError`.
+- **`StoreFaultRule` has a new member, `malformed-member`.** A host that exhaustively matches
+  the rule must handle it.
 - **Rust `StoreFault` has a new variant, `MalformedMember`.** A Rust `match` on `StoreFault`
   handles it. A Rust host that matched `invalid-request` from a read for a malformed member
   matches `StoreReadError::Fault` or `FeedError::Fault`.
