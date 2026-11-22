@@ -11706,9 +11706,18 @@ replayed digest  ${replayed.slice(4, 36)}\u2026
     }
   };
   function evalSuite(label, file, doc) {
+    try {
+      return evalSuiteUnguarded(label, file, doc);
+    } catch (e) {
+      const why = e instanceof Error ? e.message : String(e);
+      return { label, file, cases: [{ name: `the suite did not load: ${why}`, pass: false }] };
+    }
+  }
+  function evalSuiteUnguarded(label, file, doc) {
     const set = DeltaSet.from(doc.fixture.deltas.map((d) => makeDelta(parseClaims(d.claims))));
     const registry = doc.schemas === void 0 ? void 0 : SchemaRegistry.build(
-      doc.schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) }))
+      doc.schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+      (doc.readings ?? []).map((r) => parseSchema(r))
     );
     const cases = [
       tryCase(
@@ -11854,6 +11863,7 @@ replayed digest  ${replayed.slice(4, 36)}\u2026
             };
             if (c.root !== void 0) req["root"] = c.root;
             if (doc.schemas !== void 0) req["schemas"] = doc.schemas;
+            if (doc.readings !== void 0) req["readings"] = doc.readings;
             return okStr(rust.call(req), "hex") === c.expectedCanonicalHex;
           })
         )
