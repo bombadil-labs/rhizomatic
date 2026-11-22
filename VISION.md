@@ -7,7 +7,8 @@ that a third person can connect two tools after both have shipped, and every rea
 who connected them and how.**
 
 This page is the argument. The [README](README.md) is the format. The
-[overview](spec/00-overview.md) is the design.
+[overview](spec/00-overview.md) is the design. [SPEC-3](spec/03-schema.md) and
+[SPEC-5](spec/05-resolution.md) define the HyperSchema and the Schema.
 
 ## The moment
 
@@ -64,26 +65,56 @@ signed manifest. Four consequences follow:
 - **The carrier does not matter.** A file, a request and a repository carry the same claims,
   and a claim verifies the same way wherever it lands.
 
-## Meaning is decided when you read
+## The hyperschema
 
-Writers agree on the shape of a claim. Readers choose how to interpret the claims they hold.
-A reader applies a lens: which claims are in scope, whose word counts, and how to settle a
-conflict. A lens is data, a program in a small closed algebra, and not arbitrary code. Two
-readers can hold the same claims and see different answers, and each can say exactly why.
+A set of claims that only grows is not yet something a program can use. The piece that makes it
+usable, and that makes the rest of this page work, is the **HyperSchema**.
 
-The step that matters most: **a mapping between two vocabularies is itself a claim.** One tool
-calls a person's employer `employer`. Another calls it `job`. A third party can publish claims
-that map both names to the organization end of an employment relationship. A query that uses
-those mappings finds older claims under either spelling, and each result keeps its original
-name. Nobody edits their data. A reader who does not accept that third party's mappings sees
-what they saw before.
+A HyperSchema is a small, named program. Give it one thing, such as a person or a project, and
+it says which claims are relevant to that thing: the claims that point at it, the claims
+reached from those through the relationships the program chooses to follow, and any claim that
+negates one of these. Its result is a **HyperView**: every relevant claim, filed by property,
+each still carrying its author. Nothing is decided yet. If two sources disagree about a name,
+both names are there.
 
-So schema stops being a contract that everyone signs first. It accumulates, with an author on
-every part.
+A second step decides. A **Schema** applies one **Policy** to each property: the latest claim
+wins, or a ranked list of authors wins, or every value is kept. Its result is a **View**, the
+plain object that a program wants.
 
-Computation fits the same rule. A reducer, a model or an agent that adjudicates messy records
-is another author: its output enters as ordinary signed claims that a reader can inspect,
-trust or ignore.
+```
+HyperView = eval(HyperSchema, claims)     which claims matter, with provenance
+View      = resolve(Schema, HyperView)    what this reader takes them to mean
+```
+
+Relevance and resolution are separate on purpose. Most of what this page promises comes from
+that separation:
+
+- **A boundary on an unbounded set.** A HyperSchema names exactly which new claim can change
+  which result. A view can be kept current as claims arrive, with no scan of everything.
+- **Disagreement with an address.** Two readers can share a HyperSchema and differ only in
+  Policy. They see different answers, and they can point at the exact claims where they part.
+- **One answer everywhere.** The same claims, HyperSchema and Schema give the same bytes in
+  every implementation. Two people see different truths only because they chose different
+  inputs.
+- **A way of reading is data.** A HyperSchema is itself stored as claims. You can sign one,
+  publish it, fork it and retract it. A tool can ship its HyperSchemas beside its claims. A
+  stranger can adopt them, or write a new one over the same claims, including claims written
+  long before that HyperSchema existed.
+- **Safe to accept from a stranger.** A HyperSchema is a program in a small closed algebra with
+  no escape hatch. Reading someone's HyperSchema is not running their code.
+
+So schema stops being a contract that everyone signs before the first write. It becomes
+something a reader brings, and something that accumulates, with an author on every part.
+
+**A mapping between two vocabularies is a claim too.** One tool calls a person's employer
+`employer`. Another calls it `job`. A third party can publish claims that map both names to the
+organization end of an employment relationship. A HyperSchema that uses those mappings finds
+older claims under either spelling, and each result keeps its original name. Nobody edits their
+data. A reader who does not accept that third party's mappings sees what they saw before.
+
+Computation follows the same rule. A reducer, a model or an agent that adjudicates messy
+records is another author: its output enters as ordinary signed claims that a reader can
+inspect, trust or ignore.
 
 ## The practice
 
@@ -92,10 +123,10 @@ Six habits make up Rhizomatic Engineering:
 1. **Emit claims, not rows.** Say who asserts what about which things.
 2. **Never overwrite.** Correct by adding.
 3. **Keep the disagreement.** Resolve it for a reader, not for everyone.
-4. **Decide the schema late**, at the edge, for one purpose.
+4. **Decide the schema late**, at the edge, for one purpose. Publish it as claims.
 5. **Write the last mile, not the stack.** Keep the tool you have. Add the adapter that turns
-   what it already knows into claims, and the lens that turns other people's claims into what
-   it needs. This is work an agent does well.
+   what it already knows into claims, and the HyperSchema and Schema that turn other people's
+   claims into what it needs. This is work an agent does well.
 6. **Assume a third party.** Publish so that someone you never met can build on it.
 
 ## What this does not do
@@ -127,6 +158,6 @@ The TypeScript package is on npm as
 [`@bombadil/rhizomatic`](https://www.npmjs.com/package/@bombadil/rhizomatic). It is pre-1.0,
 and the newest work ships as `next` prereleases.
 
-To see it run, open the [interactive tour](https://mbilokonsky.github.io/rhizomatic/). To try
-the practice, point your agent at this repository and ask it to turn one thing you already
-have into claims.
+To see it run, clone this repository and run the terminal demo: `cd implementations/ts &&
+npm install && npm run demo`. To try the practice, point your agent at this repository and ask
+it to turn one thing you already have into claims.
