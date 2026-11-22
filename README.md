@@ -2,6 +2,8 @@
 
 **A portable format for arbitrarily relational data — composable, forkable, mergeable, and federate-able by default.**
 
+> **Why this exists:** read [Rhizomatic Engineering](VISION.md), the argument for building software this way.
+
 Rhizomatic is not a database. A database is one kind of machine you can build on top of it. Rhizomatic is the format underneath: a way of writing down anything anyone claims about anything, such that any two collections of such claims can be combined by set union — no migration, no coordination protocol, no merge conflicts, no central authority deciding what's true.
 
 This repository contains the specification and four witnesses built against a shared
