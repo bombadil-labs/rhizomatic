@@ -16,7 +16,7 @@ export const count = (n: number, noun: string): string => `${n} ${noun}${n === 1
 
 export const MAPPING_ADDS = MAPPER_CLAIMS.map((d) => short(d.id)).join(", ");
 
-export const SPELLINGS_LINE = `This reader asks for \`${REPORT_SPELLING}\`. The gate asks for \`${GATE_SPELLING}\`.`;
+export const SPELLINGS_LINE = `This reader asks for "${REPORT_SPELLING}". The gate asks for "${GATE_SPELLING}".`;
 
 export interface PageText {
   readonly gateAnswer: string;

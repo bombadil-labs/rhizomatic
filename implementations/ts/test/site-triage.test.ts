@@ -176,7 +176,7 @@ describe("the landing page's release triage", () => {
       );
       expect(Object.values(t).join(" ")).not.toContain("(s)");
     }
-    expect(SPELLINGS_LINE).toBe("This reader asks for `verdict`. The gate asks for `status`.");
+    expect(SPELLINGS_LINE).toBe('This reader asks for "verdict". The gate asks for "status".');
     expect(MAPPING_ADDS).toBe(MAPPER_CLAIMS.map((d) => short(d.id)).join(", "));
   });
 

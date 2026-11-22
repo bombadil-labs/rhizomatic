@@ -4944,7 +4944,7 @@
   var short = (id) => `${id.slice(4, 16)}\u2026`;
   var count = (n, noun) => `${n} ${noun}${n === 1 ? "" : "s"}`;
   var MAPPING_ADDS = MAPPER_CLAIMS.map((d) => short(d.id)).join(", ");
-  var SPELLINGS_LINE = `This reader asks for \`${REPORT_SPELLING}\`. The gate asks for \`${GATE_SPELLING}\`.`;
+  var SPELLINGS_LINE = `This reader asks for "${REPORT_SPELLING}". The gate asks for "${GATE_SPELLING}".`;
   function pageText(input) {
     const g = gate(input);
     const r = report({ mapping: input.mapping });
