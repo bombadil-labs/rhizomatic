@@ -8,12 +8,12 @@ data: composable, forkable, mergeable, and federatable by default.
 - **Truth is not stored; it is resolved per-reader** under a trust policy. Provenance and
   time-travel are intrinsic.
 
-This is **one of two parallel witnesses** to the [specification](https://github.com/mbilokonsky/rhizomatic/tree/main/spec)
+This is **one of two parallel witnesses** to the [specification](https://github.com/bombadil-labs/rhizomatic/tree/main/spec)
 (the other is the npm package [`@bombadil/rhizomatic`](https://www.npmjs.com/package/@bombadil/rhizomatic)).
-Both pass the same [conformance vectors](https://github.com/mbilokonsky/rhizomatic/tree/main/vectors)
+Both pass the same [conformance vectors](https://github.com/bombadil-labs/rhizomatic/tree/main/vectors)
 byte-for-byte — the canonical CBOR encoder, content addresses, and signatures reproduce across both,
 exactly. The crate also builds to `wasm32-unknown-unknown`, which is how the
-[interactive tour](https://mbilokonsky.github.io/rhizomatic/) runs the Rust witness in your browser
+[interactive tour](https://bombadil-labs.github.io/rhizomatic/) runs the Rust witness in your browser
 next to the TypeScript one.
 
 ## Status
@@ -27,10 +27,10 @@ published to crates.io** — nothing depends on it yet. Build it from `implement
 
 The Rust surface mirrors the TypeScript witness module-for-module (canonical bytes, content
 addressing, delta-set algebra, the operator evaluator, resolution policies, packs, the reactor,
-federation, and derivation). See the [spec](https://github.com/mbilokonsky/rhizomatic/tree/main/spec)
+federation, and derivation). See the [spec](https://github.com/bombadil-labs/rhizomatic/tree/main/spec)
 for what each layer means, and the crate's tests for worked usage against the shared vectors.
 
 ## License
 
-Dual-licensed under either of [MIT](https://github.com/mbilokonsky/rhizomatic/blob/main/LICENSE-MIT)
-or [Apache-2.0](https://github.com/mbilokonsky/rhizomatic/blob/main/LICENSE-APACHE), at your option.
+Dual-licensed under either of [MIT](https://github.com/bombadil-labs/rhizomatic/blob/main/LICENSE-MIT)
+or [Apache-2.0](https://github.com/bombadil-labs/rhizomatic/blob/main/LICENSE-APACHE), at your option.
