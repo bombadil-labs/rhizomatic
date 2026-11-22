@@ -148,11 +148,10 @@ Six habits make up Rhizomatic Engineering:
   decisions.
 - **It is not a database.** A database is one machine you can build on it.
 
-The honest risk is adoption. Good formats for open, attributed data existed before: RDF and
-nanopublications, the AT Protocol, patch theory, CRDTs, lens-based schema translation. This
-work borrows from all of them. Its bet is narrower than theirs: that an agent can make the
-first adapter cheap enough to justify writing it before anyone knows who the second reader
-will be.
+The honest risk is adoption. This work draws on RDF, nanopublications, the AT Protocol, patch
+theory, CRDTs and lens-based schema translation. Its bet is narrower than theirs: that an agent
+can make the first adapter cheap enough to justify writing it before anyone knows who the second
+reader will be.
 
 ## Where it stands
 
