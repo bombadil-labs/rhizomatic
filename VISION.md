@@ -72,8 +72,10 @@ usable, and that makes the rest of this page work, is the **HyperSchema**.
 
 A HyperSchema is a small, named program. Give it one thing, such as a person or a project, and
 it says which claims are relevant to that thing. A typical one selects the claims that point at
-the thing, follows declared relationships through child schemas, and accounts for negations: a
-claim that its author took back drops out. Its result is a **HyperView**: the surviving claims,
+the thing, follows declared relationships through child schemas, and accounts for negations.
+Any author can negate a claim. The program decides which negations count and whether to hide
+or mark a claim while an effective negation stands. Its result is a **HyperView**: the
+surviving claims,
 filed by property, each still carrying its author. Nothing is decided yet. If two sources
 disagree about a name and both claims survive, both names are there.
 
@@ -89,14 +91,14 @@ View      = resolve(Schema, HyperView)    what this reader takes them to mean
 Relevance and resolution are separate on purpose. Most of what this page promises comes from
 that separation:
 
-- **A boundary on an unbounded set.** A HyperSchema tells the engine which results a new claim
-  can affect. For most programs a view stays current as claims arrive, with no scan of
-  everything. A program that asks questions about the whole set can need a fresh evaluation.
+- **A boundary on an unbounded set.** The engine uses the HyperSchema to narrow down which
+  results may need an update when a claim arrives. A program that asks about the whole set can
+  need a new evaluation on every arrival.
 - **Disagreement with an address.** Two readers can share a HyperSchema and differ only in
   Policy. Their policies can give different answers from the same claims, and they can point at
   the exact claims where they part.
-- **One answer everywhere.** Conforming implementations give identical canonical bytes for the
-  same root, claims, read time and schema definitions. Two people see different truths only
+- **One answer everywhere.** Conforming evaluators give identical canonical bytes for the same
+  root, claims, read time, parameter bindings and resolved schema definitions. Two people see different truths only
   because they chose different inputs.
 - **A way of reading is data.** A HyperSchema is itself stored as claims. You can sign one,
   publish it, fork it and retract it. A tool can ship its HyperSchemas beside its claims. A
