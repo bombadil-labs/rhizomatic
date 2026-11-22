@@ -12,7 +12,7 @@ This is **one of two parallel witnesses** to the [specification](https://github.
 (the other is a [Rust witness](https://github.com/bombadil-labs/rhizomatic/tree/main/implementations/rust)
 in the same repo). Both pass the same
 [conformance vectors](https://github.com/bombadil-labs/rhizomatic/tree/main/vectors), byte-for-byte —
-determinism is the contract. See it run in the [interactive tour](https://mbilokonsky.github.io/rhizomatic/).
+determinism is the contract. See it run in the [interactive tour](https://bombadil-labs.github.io/rhizomatic/).
 
 ## Install
 

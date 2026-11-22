@@ -20,7 +20,7 @@ The TS/Rust witnesses also implement [command profile 1](spec/15-command.md): si
 > as a dependency. Chorus (agent memory built on the format) was extracted from this repo and is
 > being reborn as a **loam app**.
 
-**See it run:** the docs site is live at **https://mbilokonsky.github.io/rhizomatic/** —
+**See it run:** the docs site is live at **https://bombadil-labs.github.io/rhizomatic/** —
 a landing page leading to the interactive tour and the playground. Locally: open
 [docs/index.html](docs/index.html) in a browser
 (`npx serve docs` from the repo root, or any static server) — a guided, narrated walk through
