@@ -153,7 +153,7 @@
   <ol class="lines">
     <li><strong>Two tools, no shared schema.</strong> One says <code>status</code>, the other says <code>verdict</code>. Each adapter signs one claim about the same build.</li>
     <li><strong>A mapping is a claim.</strong> Sam's mapping claims carry later timestamps. Without them, the gate does not match the <code>verdict</code> claim.</li>
-    <li><strong>The reader decides.</strong> The policy picks one claim. The page names the claim that decided. The support helper's claim has the higher claimed timestamp, so that policy answers <code>block</code>. Engineering's word wins answers <code>ship</code>.</li>
+    <li><strong>The reader decides.</strong> The policy picks one claim. The page names the claim that decided. Without Sam's mapping, both policies answer <code>ship</code>. With it, the timestamp policy answers <code>block</code> because support's claim has the higher claimed timestamp. Engineering's word wins still answers <code>ship</code>.</li>
     <li><strong>A third tool needed nobody's permission.</strong> The report reads only the pack of published claims.</li>
   </ol>
 </section>

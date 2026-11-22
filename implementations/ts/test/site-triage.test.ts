@@ -171,8 +171,8 @@ describe("the landing page's release triage", () => {
       );
       expect(t.reportMeta).toMatch(
         input.mapping
-          ? /^The pack holds 5 claims in \d+ bytes, pack .+…, signed by 3 authors\.$/
-          : /^The pack holds 2 claims in \d+ bytes, pack .+…, signed by 2 authors\.$/,
+          ? /^Pack .+… contains 5 claims in \d+ bytes\. The claims carry signatures from 3 authors\.$/
+          : /^Pack .+… contains 2 claims in \d+ bytes\. The claims carry signatures from 2 authors\.$/,
       );
       expect(Object.values(t).join(" ")).not.toContain("(s)");
     }

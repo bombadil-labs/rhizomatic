@@ -38,8 +38,8 @@ export function pageText(input: { mapping: boolean; policy: PolicyName }): PageT
         : `decided by: ${g.decidedBy.who}, claim ${short(g.decidedBy.id)}`,
     gateTitle: `in the HyperView under "decision": ${count(g.inView.length, "claim")}`,
     reportMeta:
-      `The pack holds ${count(r.packedClaims, "claim")} in ${count(r.packBytes, "byte")}, ` +
-      `pack ${short(r.packId)}, signed by ${count(r.packAuthors, "author")}.`,
+      `Pack ${short(r.packId)} contains ${count(r.packedClaims, "claim")} in ${count(r.packBytes, "byte")}. ` +
+      `The claims carry signatures from ${count(r.packAuthors, "author")}.`,
     reportView: JSON.stringify(r.view),
     reportMatched:
       `The report matched ${count(r.claims.length, "claim")}.` +
