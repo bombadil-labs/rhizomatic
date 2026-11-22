@@ -73,9 +73,9 @@ usable, and that makes the rest of this page work, is the **HyperSchema**.
 A HyperSchema is a small, named program. Give it one thing, such as a person or a project, and
 it says which claims are relevant to that thing. A typical one selects the claims that point at
 the thing, follows declared relationships through child schemas, and accounts for negations.
-Any author can negate a claim, and the program says what that does: hide the claim, hide it
-only when an accepted author negated it, or keep it and mark it. Its result is a **HyperView**:
-the surviving claims,
+Any author can negate a claim. The program decides which negations count and whether to hide
+or mark a claim while an effective negation stands. Its result is a **HyperView**: the
+surviving claims,
 filed by property, each still carrying its author. Nothing is decided yet. If two sources
 disagree about a name and both claims survive, both names are there.
 
