@@ -4813,8 +4813,8 @@
       SUPPORT.seed
     );
   }
-  var SUPPORT_CLAIM = adaptSupportHelper(SUPPORT_HELPER_RECORD, 1e3);
-  var ENGINEER_CLAIM = adaptReleaseScript(RELEASE_SCRIPT_RECORD, 2e3);
+  var ENGINEER_CLAIM = adaptReleaseScript(RELEASE_SCRIPT_RECORD, 1e3);
+  var SUPPORT_CLAIM = adaptSupportHelper(SUPPORT_HELPER_RECORD, 2e3);
   var samSigns = (at2, pointers) => signClaims({ author: SAM.author, timestamp: at2, validFrom: at2, pointers }, SAM.seed);
   var SLOT_DECLARATION = samSigns(3e3, [
     {
@@ -4863,11 +4863,13 @@
     alg: 1,
     body: parseTerm(recallBody(spelling))
   });
-  var GATE_HYPERSCHEMA = recall("ReleaseGate", "status");
-  var REPORT_HYPERSCHEMA = recall("DiscrepancyReport", "verdict");
+  var GATE_SPELLING = "status";
+  var REPORT_SPELLING = "verdict";
+  var GATE_HYPERSCHEMA = recall("ReleaseGate", GATE_SPELLING);
+  var REPORT_HYPERSCHEMA = recall("DiscrepancyReport", REPORT_SPELLING);
   var POLICIES = {
-    latest: { label: "latest claim wins", order: { byTimestamp: "desc" } },
-    support: { label: "support's word wins", order: { byAuthorRank: [SUPPORT.author] } }
+    latest: { label: "highest claimed timestamp wins", order: { byTimestamp: "desc" } },
+    engineering: { label: "engineering's word wins", order: { byAuthorRank: [ENGINEER.author] } }
   };
   var REPORT_SCHEMA = parseSchema({
     props: { [PROPERTY]: { conflicts: { order: { byTimestamp: "desc" } } } },
@@ -4930,11 +4932,30 @@
       fromPack: true,
       packId: packId(bytes2),
       packBytes: bytes2.length,
-      packedClaims: set.size
+      packedClaims: set.size,
+      packAuthors: new Set([...set].map((d) => d.claims.author)).size
     };
   }
   function report(input) {
     return reportFromPack(packSet(published(input.mapping)));
+  }
+
+  // demo/site/page-text.ts
+  var short = (id) => `${id.slice(4, 16)}\u2026`;
+  var count = (n, noun) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+  var MAPPING_ADDS = MAPPER_CLAIMS.map((d) => short(d.id)).join(", ");
+  var SPELLINGS_LINE = `This reader asks for \`${REPORT_SPELLING}\`. The gate asks for \`${GATE_SPELLING}\`.`;
+  function pageText(input) {
+    const g = gate(input);
+    const r = report({ mapping: input.mapping });
+    return {
+      gateAnswer: g.answer === void 0 ? "(no answer)" : String(g.answer),
+      gateDecided: g.decidedBy === void 0 ? "" : `decided by: ${g.decidedBy.who}, claim ${short(g.decidedBy.id)}`,
+      gateTitle: `in the HyperView under "decision": ${count(g.inView.length, "claim")}`,
+      reportMeta: `The pack holds ${count(r.packedClaims, "claim")} in ${count(r.packBytes, "byte")}, pack ${short(r.packId)}, signed by ${count(r.packAuthors, "author")}.`,
+      reportView: JSON.stringify(r.view),
+      reportMatched: `The report matched ${count(r.claims.length, "claim")}.` + (r.claims.length < 2 ? " No conflict to keep." : "")
+    };
   }
 
   // demo/site/landing.ts
@@ -4943,7 +4964,6 @@
     if (node === null) throw new Error(`the page has no element #${id}`);
     return node;
   };
-  var short = (id) => `${id.slice(4, 16)}\u2026`;
   function el(tag, cls, text2) {
     const node = document.createElement(tag);
     if (cls !== "") node.className = cls;
@@ -4963,10 +4983,11 @@
     const mapping2 = $("ctl-mapping").checked;
     const policy = $("ctl-policy").value;
     const g = gate({ mapping: mapping2, policy });
-    $("gate-answer").textContent = g.answer === void 0 ? "(no answer)" : String(g.answer);
-    $("gate-decided").textContent = g.decidedBy === void 0 ? "" : `decided by: ${g.decidedBy.who}, claim ${short(g.decidedBy.id)}`;
+    const t = pageText({ mapping: mapping2, policy });
+    $("gate-answer").textContent = t.gateAnswer;
+    $("gate-decided").textContent = t.gateDecided;
     $("gate-claims").replaceChildren(
-      el("div", "panel-title", `in the HyperView under "decision": ${g.inView.length} claim(s)`),
+      el("div", "panel-title", t.gateTitle),
       ...g.inView.map(claimLine)
     );
     $("gate-unmatched").replaceChildren(
@@ -4976,8 +4997,9 @@
       ]
     );
     const r = report({ mapping: mapping2 });
-    $("report-meta").textContent = `built from the pack alone: ${r.packedClaims} signed claims, ${r.packBytes} bytes, pack ${short(r.packId)} \xB7 ${r.signers.length} signer(s)`;
-    $("report-view").textContent = r.claims.length < 2 ? `${JSON.stringify(r.view)}  no conflict: the report matches ${r.claims.length} claim` : JSON.stringify(r.view);
+    $("report-meta").textContent = t.reportMeta;
+    $("report-view").textContent = t.reportView;
+    $("report-matched").textContent = t.reportMatched;
     $("report-claims").replaceChildren(...r.claims.map(claimLine));
   }
   function start() {
@@ -4987,8 +5009,9 @@
     $("rec-b").textContent = JSON.stringify(SUPPORT_HELPER_RECORD);
     $("adapter-b").textContent = adaptSupportHelper.toString();
     $("delta-b").textContent = `signed delta ${short(SUPPORT_CLAIM.id)}`;
-    $("mapper-claims").textContent = `Sam's claims: a slot declaration and two mappings ("status" and "verdict" name one release decision): ${MAPPER_CLAIMS.map((d) => short(d.id)).join(", ")}`;
-    $("gate-schema").textContent = JSON.stringify(recallBody("status"), null, 1);
+    $("mapper-claims").textContent = `a slot declaration and two mappings ("status" and "verdict" name one release decision): ` + MAPPING_ADDS;
+    $("report-spellings").textContent = SPELLINGS_LINE;
+    $("gate-schema").textContent = JSON.stringify(recallBody(GATE_SPELLING), null, 1);
     const select = $("ctl-policy");
     select.replaceChildren(
       ...Object.entries(POLICIES).map(([value, p]) => {

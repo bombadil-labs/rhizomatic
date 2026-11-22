@@ -80,8 +80,8 @@ export function adaptSupportHelper(
   );
 }
 
-export const SUPPORT_CLAIM = adaptSupportHelper(SUPPORT_HELPER_RECORD, 1000);
-export const ENGINEER_CLAIM = adaptReleaseScript(RELEASE_SCRIPT_RECORD, 2000);
+export const ENGINEER_CLAIM = adaptReleaseScript(RELEASE_SCRIPT_RECORD, 1000);
+export const SUPPORT_CLAIM = adaptSupportHelper(SUPPORT_HELPER_RECORD, 2000);
 
 const samSigns = (at: number, pointers: Delta["claims"]["pointers"]): Delta =>
   signClaims({ author: SAM.author, timestamp: at, validFrom: at, pointers }, SAM.seed);
@@ -140,14 +140,16 @@ const recall = (name: string, spelling: string): HyperSchema => ({
   body: parseTerm(recallBody(spelling)),
 });
 
-export const GATE_HYPERSCHEMA = recall("ReleaseGate", "status");
-export const REPORT_HYPERSCHEMA = recall("DiscrepancyReport", "verdict");
+export const GATE_SPELLING = "status";
+export const REPORT_SPELLING = "verdict";
+export const GATE_HYPERSCHEMA = recall("ReleaseGate", GATE_SPELLING);
+export const REPORT_HYPERSCHEMA = recall("DiscrepancyReport", REPORT_SPELLING);
 
-export type PolicyName = "latest" | "support";
+export type PolicyName = "latest" | "engineering";
 
 export const POLICIES: Readonly<Record<PolicyName, { label: string; order: unknown }>> = {
-  latest: { label: "latest claim wins", order: { byTimestamp: "desc" } },
-  support: { label: "support's word wins", order: { byAuthorRank: [SUPPORT.author] } },
+  latest: { label: "highest claimed timestamp wins", order: { byTimestamp: "desc" } },
+  engineering: { label: "engineering's word wins", order: { byAuthorRank: [ENGINEER.author] } },
 };
 
 export const REPORT_SCHEMA = parseSchema({
@@ -238,6 +240,7 @@ export interface PackedReport extends Report {
   readonly packId: string;
   readonly packBytes: number;
   readonly packedClaims: number;
+  readonly packAuthors: number;
 }
 
 export function reportFromPack(bytes: Uint8Array): PackedReport {
@@ -248,6 +251,7 @@ export function reportFromPack(bytes: Uint8Array): PackedReport {
     packId: packId(bytes),
     packBytes: bytes.length,
     packedClaims: set.size,
+    packAuthors: new Set([...set].map((d) => d.claims.author)).size,
   };
 }
 

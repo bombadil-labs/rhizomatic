@@ -18,18 +18,19 @@ import {
   reportFrom,
   reportFromPack,
 } from "../demo/site/triage.js";
+import { MAPPING_ADDS, SPELLINGS_LINE, pageText, short } from "../demo/site/page-text.js";
 
 describe("the landing page's release triage", () => {
   it("signs every published claim with its author's fixed key", () => {
     for (const d of [...TOOL_CLAIMS, ...MAPPER_CLAIMS]) expect(verifyDelta(d)).toBe("verified");
     expect(MAPPER_CLAIMS.every((d) => d.claims.author === SAM.author)).toBe(true);
-    expect(adaptReleaseScript({ build: "web@4.2.0", status: "ship" }, 2000).id).toBe(
+    expect(adaptReleaseScript({ build: "web@4.2.0", status: "ship" }, 1000).id).toBe(
       ENGINEER_CLAIM.id,
     );
   });
 
   it("without the mapping the gate answers ship from the status claim and leaves the verdict claim unmatched", () => {
-    for (const policy of ["latest", "support"] as const) {
+    for (const policy of ["latest", "engineering"] as const) {
       const g = gate({ mapping: false, policy });
       expect(g.answer).toBe("ship");
       expect(g.inView.map((c) => c.id)).toEqual([ENGINEER_CLAIM.id]);
@@ -50,36 +51,44 @@ describe("the landing page's release triage", () => {
     expect(Object.keys(g.view as object)).toEqual(["decision"]);
   });
 
-  it("with the mapping, latest claim wins answers the later claim's value", () => {
+  it("with the mapping, highest claimed timestamp wins answers block from the later support claim", () => {
+    expect(SUPPORT_CLAIM.claims.timestamp).toBeGreaterThan(ENGINEER_CLAIM.claims.timestamp);
+    expect(MAPPER_CLAIMS.every((d) => d.claims.timestamp > SUPPORT_CLAIM.claims.timestamp)).toBe(
+      true,
+    );
     const g = gate({ mapping: true, policy: "latest" });
-    const later = [ENGINEER_CLAIM, SUPPORT_CLAIM].sort(
-      (a, b) => b.claims.timestamp - a.claims.timestamp,
-    )[0]!;
-    expect(g.decidedBy?.id).toBe(later.id);
-    expect(g.answer).toBe(g.decidedBy?.value);
-    expect(g.answer).toBe("ship");
-  });
-
-  it("with the mapping, support's word wins answers block from the support claim", () => {
-    const g = gate({ mapping: true, policy: "support" });
     expect(g.answer).toBe("block");
     expect(g.decidedBy?.id).toBe(SUPPORT_CLAIM.id);
     expect(g.decidedBy?.spelling).toBe("verdict");
+  });
+
+  it("with the mapping, engineering's word wins answers ship from the release script claim", () => {
+    const g = gate({ mapping: true, policy: "engineering" });
+    expect(g.answer).toBe("ship");
+    expect(g.decidedBy?.id).toBe(ENGINEER_CLAIM.id);
+    expect(g.decidedBy?.spelling).toBe("status");
   });
 
   it("with the mapping the report from the pack shows both claims, both signers and the conflict", () => {
     const r = report({ mapping: true });
     expect(r.fromPack).toBe(true);
     expect(r.packedClaims).toBe(5);
+    expect(r.packAuthors).toBe(3);
     expect(r.claims.map((c) => c.id).sort()).toEqual([ENGINEER_CLAIM.id, SUPPORT_CLAIM.id].sort());
     expect(r.signers).toEqual([ENGINEER.author, SUPPORT.author].sort());
-    expect(r.view).toEqual({ decision: ["ship", "block"] });
+    expect(r.view).toEqual({ decision: ["block", "ship"] });
   });
 
   it("the report from a pack round trip equals the report from the live set", () => {
     for (const mapping of [true, false]) {
-      const { fromPack, packId, packBytes, packedClaims, ...packed } = report({ mapping });
-      expect([fromPack, packedClaims]).toEqual([true, published(mapping).size]);
+      const { fromPack, packId, packBytes, packedClaims, packAuthors, ...packed } = report({
+        mapping,
+      });
+      expect([fromPack, packedClaims, packAuthors]).toEqual([
+        true,
+        published(mapping).size,
+        mapping ? 3 : 2,
+      ]);
       expect(packId.length).toBeGreaterThan(0);
       expect(packBytes).toBeGreaterThan(0);
       expect(packed).toEqual(reportFrom(published(mapping)));
@@ -91,9 +100,94 @@ describe("the landing page's release triage", () => {
     const without = DeltaSet.from([...full].filter((d) => d.claims.author !== SAM.author));
     const r = reportFromPack(packSet(without));
     expect(r.packedClaims).toBe(2);
+    expect(r.packAuthors).toBe(2);
     expect(r.claims.map((c) => c.id)).toEqual([SUPPORT_CLAIM.id]);
     expect(r.signers).toEqual([SUPPORT.author]);
     expect(r.view).toEqual({});
+  });
+
+  it("a pack without the support claim gives a report of the release script claim alone, while the live set holds both", () => {
+    const live = published(true);
+    const pack = packSet(DeltaSet.from([...live].filter((d) => d.id !== SUPPORT_CLAIM.id)));
+    expect(
+      reportFrom(live)
+        .claims.map((c) => c.id)
+        .sort(),
+    ).toEqual([ENGINEER_CLAIM.id, SUPPORT_CLAIM.id].sort());
+    const r = reportFromPack(pack);
+    expect(r.packedClaims).toBe(4);
+    expect(r.packAuthors).toBe(2);
+    expect(r.claims.map((c) => c.id)).toEqual([ENGINEER_CLAIM.id]);
+    expect(r.signers).toEqual([ENGINEER.author]);
+    expect(r.view).toEqual({});
+  });
+
+  it("the page text names the gate answer, the deciding claim and the report view for every switch state", () => {
+    const off = { gateTitle: 'in the HyperView under "decision": 1 claim' };
+    const offReport = {
+      reportView: "{}",
+      reportMatched: "The report matched 1 claim. No conflict to keep.",
+    };
+    const onReport = {
+      reportView: '{"decision":["block","ship"]}',
+      reportMatched: "The report matched 2 claims.",
+    };
+    const by = (d: typeof ENGINEER_CLAIM, who: string) =>
+      `decided by: ${who}, claim ${short(d.id)}`;
+    const cases = [
+      [
+        { mapping: false, policy: "latest" },
+        "ship",
+        by(ENGINEER_CLAIM, ENGINEER.name),
+        off,
+        offReport,
+      ],
+      [
+        { mapping: false, policy: "engineering" },
+        "ship",
+        by(ENGINEER_CLAIM, ENGINEER.name),
+        off,
+        offReport,
+      ],
+      [{ mapping: true, policy: "latest" }, "block", by(SUPPORT_CLAIM, SUPPORT.name), {}, onReport],
+      [
+        { mapping: true, policy: "engineering" },
+        "ship",
+        by(ENGINEER_CLAIM, ENGINEER.name),
+        {},
+        onReport,
+      ],
+    ] as const;
+    for (const [input, answer, decided, gateExtra, reportExtra] of cases) {
+      const t = pageText(input);
+      expect(t, JSON.stringify(input)).toMatchObject({
+        gateAnswer: answer,
+        gateDecided: decided,
+        ...gateExtra,
+        ...reportExtra,
+      });
+      expect(t.gateTitle).toBe(
+        `in the HyperView under "decision": ${input.mapping ? "2 claims" : "1 claim"}`,
+      );
+      expect(t.reportMeta).toMatch(
+        input.mapping
+          ? /^The pack holds 5 claims in \d+ bytes, pack .+…, signed by 3 authors\.$/
+          : /^The pack holds 2 claims in \d+ bytes, pack .+…, signed by 2 authors\.$/,
+      );
+      expect(Object.values(t).join(" ")).not.toContain("(s)");
+    }
+    expect(SPELLINGS_LINE).toBe("This reader asks for `verdict`. The gate asks for `status`.");
+    expect(MAPPING_ADDS).toBe(MAPPER_CLAIMS.map((d) => short(d.id)).join(", "));
+  });
+
+  it("no singular-or-plural (s) form appears on the page or in its scripts", () => {
+    for (const path of [
+      "../demo/site/landing.ts",
+      "../demo/site/page-text.ts",
+      "../../../docs/index.html",
+    ]) {
+      expect(readFileSync(new URL(path, import.meta.url), "utf8"), path).not.toContain("(s)");
+    }
   });
 
   it("every element id that the landing script looks up exists once in docs/index.html", () => {

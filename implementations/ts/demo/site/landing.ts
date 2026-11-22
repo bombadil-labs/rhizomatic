@@ -1,9 +1,10 @@
 // The landing page: DOM glue over demo/site/triage.ts. Every answer on the page comes from the
 // fixture, which runs the library in src/. A start-up failure renders a visible error line.
 
+import { MAPPING_ADDS, SPELLINGS_LINE, pageText, short } from "./page-text.js";
 import {
   ENGINEER_CLAIM,
-  MAPPER_CLAIMS,
+  GATE_SPELLING,
   POLICIES,
   RELEASE_SCRIPT_RECORD,
   SUPPORT_CLAIM,
@@ -34,6 +35,8 @@ type Id =
   | "gate-claims"
   | "gate-unmatched"
   | "report-meta"
+  | "report-spellings"
+  | "report-matched"
   | "report-view"
   | "report-claims";
 
@@ -42,8 +45,6 @@ const $ = (id: Id): HTMLElement => {
   if (node === null) throw new Error(`the page has no element #${id}`);
   return node;
 };
-
-const short = (id: string): string => `${id.slice(4, 16)}…`;
 
 function el(tag: string, cls: string, text: string): HTMLElement {
   const node = document.createElement(tag);
@@ -67,13 +68,11 @@ function render(): void {
   const policy = ($("ctl-policy") as HTMLSelectElement).value as PolicyName;
 
   const g = gate({ mapping, policy });
-  $("gate-answer").textContent = g.answer === undefined ? "(no answer)" : String(g.answer);
-  $("gate-decided").textContent =
-    g.decidedBy === undefined
-      ? ""
-      : `decided by: ${g.decidedBy.who}, claim ${short(g.decidedBy.id)}`;
+  const t = pageText({ mapping, policy });
+  $("gate-answer").textContent = t.gateAnswer;
+  $("gate-decided").textContent = t.gateDecided;
   $("gate-claims").replaceChildren(
-    el("div", "panel-title", `in the HyperView under "decision": ${g.inView.length} claim(s)`),
+    el("div", "panel-title", t.gateTitle),
     ...g.inView.map(claimLine),
   );
   $("gate-unmatched").replaceChildren(
@@ -86,13 +85,9 @@ function render(): void {
   );
 
   const r = report({ mapping });
-  $("report-meta").textContent =
-    `built from the pack alone: ${r.packedClaims} signed claims, ${r.packBytes} bytes, ` +
-    `pack ${short(r.packId)} · ${r.signers.length} signer(s)`;
-  $("report-view").textContent =
-    r.claims.length < 2
-      ? `${JSON.stringify(r.view)}  no conflict: the report matches ${r.claims.length} claim`
-      : JSON.stringify(r.view);
+  $("report-meta").textContent = t.reportMeta;
+  $("report-view").textContent = t.reportView;
+  $("report-matched").textContent = t.reportMatched;
   $("report-claims").replaceChildren(...r.claims.map(claimLine));
 }
 
@@ -104,9 +99,10 @@ function start(): void {
   $("adapter-b").textContent = adaptSupportHelper.toString();
   $("delta-b").textContent = `signed delta ${short(SUPPORT_CLAIM.id)}`;
   $("mapper-claims").textContent =
-    `Sam's claims: a slot declaration and two mappings ("status" and "verdict" name one ` +
-    `release decision): ${MAPPER_CLAIMS.map((d) => short(d.id)).join(", ")}`;
-  $("gate-schema").textContent = JSON.stringify(recallBody("status"), null, 1);
+    `a slot declaration and two mappings ("status" and "verdict" name one release decision): ` +
+    MAPPING_ADDS;
+  $("report-spellings").textContent = SPELLINGS_LINE;
+  $("gate-schema").textContent = JSON.stringify(recallBody(GATE_SPELLING), null, 1);
 
   const select = $("ctl-policy") as HTMLSelectElement;
   select.replaceChildren(
