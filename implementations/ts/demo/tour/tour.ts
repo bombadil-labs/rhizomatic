@@ -811,6 +811,7 @@ interface KeyVector {
 interface EvalDoc {
   fixture: { deltas: Array<{ name: string; id: string; claims: unknown }> };
   schemas?: Array<{ name: string; alg: number; body: unknown }>;
+  readings?: unknown[];
   cases: Array<{ name: string; root?: string; term: unknown; expectedCanonicalHex: string }>;
 }
 
@@ -822,13 +823,25 @@ const tryCase = (name: string, check: () => boolean): VecCase => {
   }
 };
 
+// A suite that cannot be set up is one failed case. It must never throw: a throw here stops the
+// whole page, and every widget below stays empty.
 function evalSuite(label: string, file: string, doc: EvalDoc): Suite {
+  try {
+    return evalSuiteUnguarded(label, file, doc);
+  } catch (e) {
+    const why = e instanceof Error ? e.message : String(e);
+    return { label, file, cases: [{ name: `the suite did not load: ${why}`, pass: false }] };
+  }
+}
+
+function evalSuiteUnguarded(label: string, file: string, doc: EvalDoc): Suite {
   const set = DeltaSet.from(doc.fixture.deltas.map((d) => makeDelta(parseClaims(d.claims))));
   const registry =
     doc.schemas === undefined
       ? undefined
       : SchemaRegistry.build(
           doc.schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+          (doc.readings ?? []).map((r) => parseSchema(r)),
         );
   const cases: VecCase[] = [
     tryCase("fixture ids are pinned", () =>
@@ -992,6 +1005,7 @@ function runRustConformance(rust: RustWitness): Map<string, VecCase[]> {
           };
           if (c.root !== undefined) req["root"] = c.root;
           if (doc.schemas !== undefined) req["schemas"] = doc.schemas;
+          if (doc.readings !== undefined) req["readings"] = doc.readings;
           return okStr(rust.call(req), "hex") === c.expectedCanonicalHex;
         }),
       ),

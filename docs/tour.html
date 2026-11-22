@@ -160,6 +160,8 @@
   @media (max-width: 640px) { .lblurb { display: none; } }
   footer { margin-top: 6em; padding-top: 1.5em; border-top: 1px solid var(--border); color: var(--dim); font-size: 0.9em; }
   .footnav { display: flex; gap: 1.5em; flex-wrap: wrap; margin-bottom: 1em; }
+  /* The nav bar is sticky. Without this margin, a link to a section puts its heading under the bar. */
+  section, #packs { scroll-margin-top: 56px; }
 </style>
 </head>
 <body>
