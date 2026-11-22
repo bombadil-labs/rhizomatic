@@ -71,11 +71,11 @@ A set of claims that only grows is not yet something a program can use. The piec
 usable, and that makes the rest of this page work, is the **HyperSchema**.
 
 A HyperSchema is a small, named program. Give it one thing, such as a person or a project, and
-it says which claims are relevant to that thing: the claims that point at it, the claims
-reached from those through the relationships the program chooses to follow, and any claim that
-negates one of these. Its result is a **HyperView**: every relevant claim, filed by property,
-each still carrying its author. Nothing is decided yet. If two sources disagree about a name,
-both names are there.
+it says which claims are relevant to that thing. A typical one selects the claims that point at
+the thing, follows declared relationships through child schemas, and accounts for negations: a
+claim that its author took back drops out. Its result is a **HyperView**: the surviving claims,
+filed by property, each still carrying its author. Nothing is decided yet. If two sources
+disagree about a name and both claims survive, both names are there.
 
 A second step decides. A **Schema** applies one **Policy** to each property: the latest claim
 wins, or a ranked list of authors wins, or every value is kept. Its result is a **View**, the
@@ -89,13 +89,15 @@ View      = resolve(Schema, HyperView)    what this reader takes them to mean
 Relevance and resolution are separate on purpose. Most of what this page promises comes from
 that separation:
 
-- **A boundary on an unbounded set.** A HyperSchema names exactly which new claim can change
-  which result. A view can be kept current as claims arrive, with no scan of everything.
+- **A boundary on an unbounded set.** A HyperSchema tells the engine which results a new claim
+  can affect. For most programs a view stays current as claims arrive, with no scan of
+  everything. A program that asks questions about the whole set can need a fresh evaluation.
 - **Disagreement with an address.** Two readers can share a HyperSchema and differ only in
-  Policy. They see different answers, and they can point at the exact claims where they part.
-- **One answer everywhere.** The same claims, HyperSchema and Schema give the same bytes in
-  every implementation. Two people see different truths only because they chose different
-  inputs.
+  Policy. Their policies can give different answers from the same claims, and they can point at
+  the exact claims where they part.
+- **One answer everywhere.** Conforming implementations give identical canonical bytes for the
+  same root, claims, read time and schema definitions. Two people see different truths only
+  because they chose different inputs.
 - **A way of reading is data.** A HyperSchema is itself stored as claims. You can sign one,
   publish it, fork it and retract it. A tool can ship its HyperSchemas beside its claims. A
   stranger can adopt them, or write a new one over the same claims, including claims written
@@ -108,9 +110,10 @@ something a reader brings, and something that accumulates, with an author on eve
 
 **A mapping between two vocabularies is a claim too.** One tool calls a person's employer
 `employer`. Another calls it `job`. A third party can publish claims that map both names to the
-organization end of an employment relationship. A HyperSchema that uses those mappings finds
-older claims under either spelling, and each result keeps its original name. Nobody edits their
-data. A reader who does not accept that third party's mappings sees what they saw before.
+organization end of an employment relationship. A HyperSchema that asks for `employer` through
+those mappings also matches `job` on older claims, and each result keeps its original spelling.
+Nobody edits their data. A reader who does not accept that third party's mappings sees what
+they saw before.
 
 Computation follows the same rule. A reducer, a model or an agent that adjudicates messy
 records is another author: its output enters as ordinary signed claims that a reader can
