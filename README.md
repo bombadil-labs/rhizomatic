@@ -1,39 +1,85 @@
 # Rhizomatic
 
-**A portable format for arbitrarily relational data — composable, forkable, mergeable, and federate-able by default.**
+**A format for claims, and a small closed algebra for reading them. Any two sets of claims merge
+by set union. Each reader decides which claims matter and how to resolve them, with rules that
+are themselves stored as claims.**
 
-> **Why this exists:** read [Rhizomatic Engineering](VISION.md), the argument for building software this way.
+> **Why this exists:** read [Rhizomatic Engineering](VISION.md), the argument for building
+> software this way. The same text is at **https://bombadil-labs.github.io/rhizomatic/**.
 
-Rhizomatic is not a database. A database is one kind of machine you can build on top of it. Rhizomatic is the format underneath: a way of writing down anything anyone claims about anything, such that any two collections of such claims can be combined by set union — no migration, no coordination protocol, no merge conflicts, no central authority deciding what's true.
+## An example
 
-This repository contains the specification and four witnesses built against a shared
-conformance-vector suite ([vectors/](vectors)): TypeScript and Rust, full-depth and in lockstep
-(all six substrate milestones, M0-M5, conformance Levels 0-4), plus Elixir and Haskell at
-Level 0 — complete citizens at their declared level (issue #19's model). See
-[PROGRESS.md](PROGRESS.md) for the full build log and [§ For the Implementer](#for-the-implementer)
-for the rules of engagement.
+Two tools record a release decision. An engineer's script writes `status: ship`. A support
+helper writes `verdict: block`. The tools never met, and neither changes.
 
-The TS/Rust witnesses also implement [command profile 1](spec/15-command.md): signed portable descriptions for durable retain and explicit evaluation, attributed signed outcomes, and four serialized construction/validation/execution/readback ports. [Command CI](contracts/command/CI.md) checks independent golden artifacts, real durable fault recovery, both mixed directions, seeded towers and exact replay. Elixir/Haskell retain their declared Level 0 scope. Full command acceptance additionally requires independent review of the exact source commit.
+A third person, Sam, publishes three claims that map `status` and `verdict` to one slot. A
+reader who trusts Sam's mapping now sees both values under either name, each with its author
+and its original spelling. A Policy decides between them: the latest claim wins, or
+engineering's word wins. A reader who does not trust Sam sees what they saw before.
 
-> **Applications live in their own repos.** The substrate is published as
-> [`@bombadil/rhizomatic`](https://www.npmjs.com/package/@bombadil/rhizomatic); products consume it
-> as a dependency. Chorus (agent memory built on the format) was extracted from this repo and is
-> being reborn as a **loam app**.
+[Run it in your browser](https://bombadil-labs.github.io/rhizomatic/demo.html). It uses the
+TypeScript implementation in your tab, and it shows the claims.
 
-**See it run:** the docs site is live at **https://bombadil-labs.github.io/rhizomatic/** —
-the vision on the front page, then a live example, the interactive tour and the playground.
-Locally: open [docs/tour.html](docs/tour.html) in a browser
-(`npx serve docs` from the repo root, or any static server) — a guided, narrated walk through
-the format where every widget runs the real implementation: live content addressing,
-superposition, policy lenses, retraction + audit, time travel, and two peers converging by
-union. **Both witnesses are on the page**: the TypeScript implementation is bundled, the Rust
-implementation is loaded as WebAssembly, and the tour runs the committed conformance vectors
-through each — then has Rust reproduce, byte for byte, every delta you author live. The free-form version is
-[docs/playground.html](docs/playground.html) — three sovereign peers, no narration.
+## Next to the AT Protocol
 
-For the terminal version: `cd implementations/ts && npm install && npm run demo` — a seven-act
-story covering superposition, policy lenses, retraction + audit views, time travel, federation,
-derived authors, and packs.
+The AT Protocol defines how public records are structured, hosted and exchanged. Rhizomatic
+also specifies federation, including HTTP sync. Its distinctive feature is that readers can
+publish and reuse rules for interpreting claims. An AT AppView can combine records from many
+repositories. In Rhizomatic, a reader can publish, sign and fork a HyperSchema that follows
+declared relationships and a Schema that resolves the resulting claims.
+
+Rhizomatic's format and implementations work independently of the AT Protocol. A separate
+bridge that reads AT records as claims is in development outside this repository.
+[The full comparison is in the vision page](VISION.md#beside-the-at-protocol).
+
+## In one minute
+
+- **The delta.** One structure: an immutable claim with one or more pointers, each labelled
+  with its role. Its id is the hash of the canonical bytes of its claims. The signature is not
+  part of the hash. A delta that crosses to another peer must be signed or be covered by a
+  signed manifest ([SPEC-1](spec/01-delta.md)).
+- **Nothing is overwritten.** A retraction is a new claim about an old claim. Two collections
+  of claims combine with no migration and no write-time conflict.
+- **The HyperSchema** says which claims are relevant to one thing. Its result is a
+  **HyperView**: the surviving claims, filed by property, each still carrying its author
+  ([SPEC-3](spec/03-schema.md)).
+- **The Schema** applies one **Policy** to each property. Its result is a **View**, the plain
+  object that a program wants ([SPEC-5](spec/05-resolution.md)).
+- **A way of reading is data.** A HyperSchema is itself stored as claims. It uses a closed
+  query algebra with no arbitrary host code execution, though evaluators must still bound cost
+  on untrusted queries.
+- **A mapping is a claim too.** SPEC-9 is a proposal. TypeScript and Rust implement its alias
+  closure and relation signatures ([SPEC-9](spec/09-alias.PROPOSAL.md)).
+
+```
+HyperView = eval(HyperSchema, claims)     which claims matter, with provenance
+View      = resolve(Schema, HyperView)    what this reader takes them to mean
+```
+
+Rhizomatic is not a database. A database is one machine you can build on it.
+
+## Try it
+
+- **In a browser:** [the live example](https://bombadil-labs.github.io/rhizomatic/demo.html)
+  and [the playground](https://bombadil-labs.github.io/rhizomatic/playground.html).
+- **In a terminal:** `cd implementations/ts && npm install && npm run demo`.
+- **In your own code:** `npm install @bombadil/rhizomatic@next`. The package is pre-1.0.
+  Prereleases ship under the npm tag `next`.
+- **With an agent:** point your agent at this repository and ask it to turn one thing you
+  already have into claims. Issues with what it finds are welcome.
+
+## What is in this repository
+
+The specification ([spec/](spec), start at [SPEC-0](spec/00-overview.md)) and four independent
+implementations ("witnesses") checked against one shared suite of conformance vectors
+([vectors/](vectors)). TypeScript and Rust cover Levels 0–4 against shared vectors. A separate
+HTTP probe checks cross-language convergence. Elixir and Haskell cover Level 0.
+[PROGRESS.md](PROGRESS.md) is the build log, and [For the Implementer](#for-the-implementer)
+gives the rules of engagement.
+
+Applications live in their own repositories and consume
+[`@bombadil/rhizomatic`](https://www.npmjs.com/package/@bombadil/rhizomatic) as a dependency.
+The code here is in active change. The specification and the vectors are the stable surface.
 
 ---
 
@@ -87,7 +133,7 @@ So that no implementer re-litigates them by accident (re-litigating them *on pur
 1. **Format, not machine.** The normative artifact is a spec plus conformance vectors, not a reference implementation. Any codebase that passes the vectors is a first-class citizen ([SPEC-0 §5](spec/00-overview.md)).
 2. **Identity is content-derived.** A delta's id is the hash of its canonical bytes. No instance mints identity; negations pin their targets cryptographically (Merkle); signatures sign hashes ([SPEC-1 §4–5](spec/01-delta.md)).
 3. **Timestamps are claims.** There is no clock in the format. Trust in claimed time is resolution policy ([SPEC-1 §6](spec/01-delta.md)).
-4. **Determinism is layered; pluralism is parameterized.** `eval(schema, deltaSet)` and `resolve(policy, hyperview)` are pure functions. Two people see different truths only because they chose different inputs — never because the machine wobbled ([SPEC-0 P5](spec/00-overview.md)).
+4. **Determinism is layered; pluralism is parameterized.** `eval(schema, deltaSet)` and `resolve(schema, hyperview)` are pure functions. Two people see different truths only because they chose different inputs — never because the machine wobbled ([SPEC-0 P5](spec/00-overview.md)).
 5. **Kernel closed, userland open.** Terms ship and run automatically; code ships as content-addressed blobs and runs by explicit consent. A trust gradient, not a trust cliff ([SPEC-0 P4](spec/00-overview.md), [SPEC-7 §7](spec/07-derivation.md)).
 6. **Grouping is a claim, never a container.** Transactions are manifest deltas committing to sovereign members by hash. Deltas are always independently extractable; atomic acceptance is a verifiable courtesy, not a format invariant ([SPEC-1 §9](spec/01-delta.md)).
 7. **The logical form is sacred; the physical form is free.** At rest, transaction members dehydrate against their manifest's envelope and rehydrate byte-exactly on extraction. Hash the hydrated form, always ([SPEC-8 §2](spec/08-storage.md)).
@@ -101,7 +147,7 @@ You may be a person. You may be a Claude instance reading this at the top of a f
 **Build order.** Each milestone maps to a conformance level ([SPEC-0 §5.1](spec/00-overview.md)) and is independently valuable:
 
 - **M0 — The atom.** Canonical CBOR serialization, content addressing, signatures, the delta-set operations. Smallest possible library, heaviest possible test vectors. Everything else stands on this; get it boring and bulletproof. *(Level 0)*
-- **M1 — The evaluator.** The eight operators as a pure function over in-memory delta sets. No persistence, no reactivity — just `eval(term, set)` matching vectors byte-for-byte. This is also where the `rhizomatic.HyperSchemaSchema` bootstrap ([SPEC-3 §5](spec/03-schema.md)) gets pinned. *(Level 1)*
+- **M1 — The evaluator.** The operators as a pure function over in-memory delta sets. No persistence, no reactivity — just `eval(term, set)` matching vectors byte-for-byte. This is also where the `rhizomatic.HyperSchemaSchema` bootstrap ([SPEC-3 §5](spec/03-schema.md)) gets pinned. *(Level 1)*
 - **M2 — The reactor.** Ingest pipeline, the four core indexes, dispatch, incremental maintenance with the incremental-equivalence property tested against batch evaluation under randomized ingestion orders. *(Level 2)*
 - **M3 — Packs.** The L0 round-trip. Can be built any time after M0; pairs well with M2's checkpoints. *(Level 0 extension)*
 - **M4 — Federation.** Two reactors converging from arbitrary divergent states. Property-test it: random fork pairs MUST converge to union. *(Level 3)*
@@ -113,13 +159,15 @@ You may be a person. You may be a Claude instance reading this at the top of a f
 
 ## Status
 
+The TS/Rust witnesses also implement [command profile 1](spec/15-command.md): signed portable descriptions for durable retain and explicit evaluation, attributed signed outcomes, and four serialized construction/validation/execution/readback ports. [Command CI](contracts/command/CI.md) checks independent golden artifacts, real durable fault recovery, both mixed directions, seeded towers and exact replay. Elixir/Haskell retain their declared Level 0 scope. Full command acceptance additionally requires independent review of the exact source commit.
+
 Specification draft **with four working witnesses**: TypeScript and Rust parity-verified
 byte-for-byte against shared vectors at every layer — canonical CBOR, content addressing (now
 including the `bytes` Target kind, 0.4), Ed25519 signatures, the operator algebra
 (including parameterized terms and the SPEC-9 alias closure), resolution policies, the
 schemas-as-deltas bootstrap, the incremental reactor, packs, federation, and derivation.
 The interactive tour at the docs site runs the committed vectors through BOTH witnesses in your
-browser (the Rust one as WebAssembly): 149/149. Cross-implementation HTTP federation is proven
+browser (the Rust one as WebAssembly). Cross-implementation HTTP federation is proven
 (a Rust peer converging with a live TypeScript server to identical canonical digests). Gaps and
 contradictions found during implementation are recorded in per-spec ERRATA files
 (`spec/*.ERRATA.md`) — including genuine spec bugs the conformance suite caught — and every
