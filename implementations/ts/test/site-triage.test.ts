@@ -184,15 +184,15 @@ describe("the landing page's release triage", () => {
     for (const path of [
       "../demo/site/landing.ts",
       "../demo/site/page-text.ts",
-      "../../../docs/index.html",
+      "../../../docs/demo.html",
     ]) {
       expect(readFileSync(new URL(path, import.meta.url), "utf8"), path).not.toContain("(s)");
     }
   });
 
-  it("every element id that the landing script looks up exists once in docs/index.html", () => {
+  it("every element id that the landing script looks up exists once in docs/demo.html", () => {
     const script = readFileSync(new URL("../demo/site/landing.ts", import.meta.url), "utf8");
-    const page = readFileSync(new URL("../../../docs/index.html", import.meta.url), "utf8");
+    const page = readFileSync(new URL("../../../docs/demo.html", import.meta.url), "utf8");
     const typed = [...script.matchAll(/^\s+\| "([a-z-]+)"$/gm)].map((m) => m[1]!);
     const looked = [...script.matchAll(/\$\("([a-z-]+)"\)/g)].map((m) => m[1]!);
     expect(typed.length).toBeGreaterThan(10);
@@ -201,5 +201,28 @@ describe("the landing page's release triage", () => {
       expect(page.split(`id="${id}"`).length - 1, id).toBe(1);
     }
     expect(page).toContain('<script src="landing.bundle.js"');
+  });
+});
+
+describe("the front page", () => {
+  it("docs/index.html is the page that docs:build renders from the current VISION.md", async () => {
+    const { renderVisionPage } = await import("../demo/site/vision-page.js");
+    const vision = readFileSync(new URL("../../../VISION.md", import.meta.url), "utf8");
+    const page = readFileSync(new URL("../../../docs/index.html", import.meta.url), "utf8");
+    expect(page).toBe(renderVisionPage(vision));
+  });
+
+  it("the front page carries every section of VISION.md, links to the live example, and leaves no Markdown syntax", async () => {
+    const { renderVisionBody } = await import("../demo/site/vision-page.js");
+    const vision = readFileSync(new URL("../../../VISION.md", import.meta.url), "utf8");
+    const body = renderVisionBody(vision);
+    const headings = [...vision.matchAll(/^## (.+)$/gm)].map((m) => m[1]!);
+    expect(headings.length).toBeGreaterThan(7);
+    for (const h of headings) expect(body).toContain(`<h2>${h}</h2>`);
+    expect(body).toContain('href="demo.html"');
+    expect(body).not.toMatch(/\*\*|\]\(|^\s*[-|] |^## /m);
+    expect(body).toContain(
+      'href="https://github.com/bombadil-labs/rhizomatic/blob/main/README.md"',
+    );
   });
 });

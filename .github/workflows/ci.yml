@@ -70,6 +70,8 @@ jobs:
           if [ -n "$base" ] && git cat-file -e "$base^{commit}" 2>/dev/null; then
             # Markdown alone changes no witness, vector, bundle or contract.
             if ! git diff --name-only "$base" HEAD | grep -qvE '\.md$'; then code=false; fi
+            # VISION.md is the source of docs/index.html, and a test compares the two.
+            if ! git diff --quiet "$base" HEAD -- VISION.md; then code=true; fi
           fi
           if [ "$heavy" = "true" ]; then code=true; fi
           # Any other label changes nothing that CI checks.

@@ -21,8 +21,8 @@ The TS/Rust witnesses also implement [command profile 1](spec/15-command.md): si
 > being reborn as a **loam app**.
 
 **See it run:** the docs site is live at **https://bombadil-labs.github.io/rhizomatic/** —
-a landing page leading to the interactive tour and the playground. Locally: open
-[docs/index.html](docs/index.html) in a browser
+the vision on the front page, then a live example, the interactive tour and the playground.
+Locally: open [docs/tour.html](docs/tour.html) in a browser
 (`npx serve docs` from the repo root, or any static server) — a guided, narrated walk through
 the format where every widget runs the real implementation: live content addressing,
 superposition, policy lenses, retraction + audit, time travel, and two peers converging by
