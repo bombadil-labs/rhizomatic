@@ -123,7 +123,7 @@ View      = resolve(Schema, HyperView)    what this reader takes them to mean</p
     <li><strong>Two authors who disagree.</strong> A Schema assigns policies to properties and supplies a default. Given the same HyperView and Schema, conforming evaluators produce identical canonical View bytes.</li>
   </ul>
   <p>So the difference is not the network. An AT AppView can combine records from many repositories. In Rhizomatic, a reader can publish, sign and fork a HyperSchema that follows declared relationships and a Schema that resolves the resulting claims. Given identical inputs, conforming implementations produce identical canonical View bytes.</p>
-  <p>The two could work together. A Lexicon could define a record carrying a small delta as bytes or referencing a larger one as a blob. A PDS could host the record, and a relay could carry its updates. The DID identifies the AT account. Linking it to the delta's Ed25519 author key would require a verifiable binding. This integration is a proposal. It is not built.</p>
+  <p>The two could work together. A Lexicon could define a record carrying a small delta as bytes or referencing a larger one as a blob. A PDS could host the record, and a relay could carry its updates. The DID identifies the AT account. Linking it to the delta's Ed25519 author key would require a verifiable binding. Hosting deltas in AT repositories is a proposal and is not built. A separate bridge that reads AT records as claims is in development.</p>
 </section>
 <section id="the-practice">
   <h2>The practice</h2>

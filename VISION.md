@@ -159,7 +159,8 @@ conforming implementations produce identical canonical View bytes.
 The two could work together. A Lexicon could define a record carrying a small delta as bytes
 or referencing a larger one as a blob. A PDS could host the record, and a relay could carry its
 updates. The DID identifies the AT account. Linking it to the delta's Ed25519 author key would
-require a verifiable binding. This integration is a proposal. It is not built.
+require a verifiable binding. Hosting deltas in AT repositories is a proposal and is not built.
+A separate bridge that reads AT records as claims is in development.
 
 ## The practice
 
