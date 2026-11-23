@@ -121,6 +121,46 @@ Computation follows the same rule. A reducer, a model or an agent that adjudicat
 records is another author: its output enters as ordinary signed claims that a reader can
 inspect, trust or ignore.
 
+## Beside the AT Protocol
+
+The nearest neighbour is the AT Protocol. The AT Protocol defines how public records are
+structured, hosted and exchanged. Rhizomatic also specifies federation, including HTTP sync.
+Its distinctive feature is that readers can publish and reuse rules for interpreting claims.
+The two overlap more than a first look suggests:
+
+- **The unit.** An AT record has a repository path and a CID for its contents. A Rhizomatic
+  delta hashes its claims and connects one or more targets through named roles.
+- **Records about records.** Both have them. A Bluesky like is itself a record whose subject
+  pairs another record's AT URI with its CID. When a delta refers to another delta, it
+  identifies that delta by hash.
+- **Change.** An AT account can replace or delete a record at its path. Delta sets merge by
+  union. A correction adds a claim. A negation points to the old claim by hash, and the
+  reader's rules determine whether it still counts.
+- **Signatures.** An AT repository commit authenticates its records. Independent labelers can
+  sign and negate annotations, and readers can choose labelers. Rhizomatic permits unsigned
+  local deltas. Federation requires a signature on the delta's hash or a signed manifest
+  covering it.
+- **Schema.** An AT record declares its type. Readers can resolve its published Lexicon through
+  DNS to a schema record in the designated repository. Rhizomatic publishes read programs as
+  claims: a HyperSchema selects and groups claims, and a Schema resolves the result.
+- **Two vocabularies.** AT applications can share Lexicons and reuse an AppView that joins
+  records. In Rhizomatic, a third party can map role or context names to the same end of a
+  relation. Readers choose which mappings to trust. The mappings match names without
+  transforming record structures.
+- **Two authors who disagree.** A Schema assigns policies to properties and supplies a default.
+  Given the same HyperView and Schema, conforming evaluators produce identical canonical View
+  bytes.
+
+So the difference is not the network. An AT AppView can combine records from many
+repositories. In Rhizomatic, a reader can publish, sign and fork a HyperSchema that follows
+declared relationships and a Schema that resolves the resulting claims. Given identical inputs,
+conforming implementations produce identical canonical View bytes.
+
+The two could work together. A Lexicon could define a record carrying a small delta as bytes
+or referencing a larger one as a blob. A PDS could host the record, and a relay could carry its
+updates. The DID identifies the AT account. Linking it to the delta's Ed25519 author key would
+require a verifiable binding. This integration is a proposal. It is not built.
+
 ## The practice
 
 Six habits make up Rhizomatic Engineering:

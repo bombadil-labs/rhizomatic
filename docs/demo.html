@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The release example · Rhizomatic Engineering</title>
+<link rel="icon" href="data:," />
+<meta name="description" content="Software that exchanges claims in one shared form, so that a third person can connect two tools after both have shipped. The example on this page runs the real implementation in your tab." />
+<style>
+  :root {
+    --bg: #0f0f14;
+    --panel: #17171f;
+    --panel-2: #1c1c26;
+    --border: #2a2a38;
+    --text: #d8d8e0;
+    --dim: #8a8a9a;
+    --accent: #e8b04b;
+    --ok: #6fd08c;
+    --bad: #e06c75;
+    --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  main { max-width: 1040px; margin: 0 auto; padding: 0 16px 4em; }
+  .prose { max-width: 760px; }
+  header.hero { padding: 1.4em 0 0.2em; }
+  h1 { font-size: 2.2em; margin: 0 0 0.25em; letter-spacing: -0.02em; line-height: 1.15; }
+  .lead { font-size: 0.98em; line-height: 1.55; margin: 0 0 0.8em; }
+  section { margin-top: 3.2em; }
+  h2 { font-size: 1.5em; letter-spacing: -0.01em; margin: 0 0 0.5em; }
+  p { margin: 0.8em 0; }
+  code { font-family: var(--mono); font-size: 0.88em; }
+  .strip {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1em 1.1em; margin: 0.6em 0 0;
+  }
+  .caption { color: var(--dim); font-size: 0.85em; margin: 0 0 0.8em; }
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.9em; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.9em; }
+  @media (max-width: 960px) { .grid3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .grid3 > .gate { grid-column: 1 / -1; } }
+  @media (max-width: 760px) { .grid2, .grid3 { grid-template-columns: minmax(0, 1fr); } }
+  .card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 0.8em 0.9em; min-width: 0; }
+  .card h3 { margin: 0 0 0.3em; font-size: 0.95em; }
+  .panel-title {
+    font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--dim); margin: 0.8em 0 0.3em;
+  }
+  pre.code {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.5em 0.7em; overflow: auto; max-height: 9.5em;
+    font-family: var(--mono); font-size: 0.72em; line-height: 1.45;
+    margin: 0.2em 0; white-space: pre-wrap; word-break: break-word;
+  }
+  pre.code.src { max-height: none; overflow: visible; font-size: 0.68em; }
+  .mapping-adds .panel-title { display: block; margin: 0 0 0.1em; }
+  .mono { font-family: var(--mono); }
+  .meta { color: var(--dim); font-size: 0.82em; word-break: break-word; }
+  .dim { color: var(--dim); }
+  .val { color: var(--ok); }
+  .error { color: var(--bad); font-family: var(--mono); font-size: 0.85em; }
+  .error:empty { display: none; }
+  .entry { padding: 0.2em 0; border-bottom: 1px dashed var(--border); font-size: 0.9em; word-break: break-word; }
+  .entry:last-of-type { border-bottom: none; }
+  .controls { display: flex; flex-direction: column; gap: 0.5em; align-items: flex-start; margin: 0.2em 0 0.6em; }
+  label { display: flex; flex-wrap: wrap; gap: 0.5em; align-items: center; font-size: 0.92em; max-width: 100%; }
+  select {
+    font: inherit; font-size: 0.95em; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 0.3em 0.5em; max-width: 100%;
+  }
+  input[type="checkbox"] { accent-color: var(--accent); width: 1.1em; height: 1.1em; }
+  .answer { font-family: var(--mono); font-size: 2em; color: var(--accent); line-height: 1.2; }
+  details summary { cursor: pointer; color: var(--dim); font-size: 0.82em; margin-top: 0.6em; }
+  ol.lines { padding-left: 1.4em; }
+  ol.lines li { margin: 0.3em 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92em; margin: 1em 0; }
+  td, th { border: 1px solid var(--border); padding: 0.5em 0.7em; text-align: left; vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; }
+  ul.links li { margin: 0.35em 0; }
+  footer { border-top: 1px solid var(--border); color: var(--dim); font-size: 0.88em; padding: 1.2em 16px; text-align: center; }
+</style>
+</head>
+<body>
+
+<main>
+<header class="hero prose">
+  <p class="caption"><a href="index.html">Rhizomatic Engineering</a> · the live example</p>
+  <h1>Two tools, a mapping and a policy</h1>
+  <p class="lead">Two tools record a release decision under different field names. A third person
+  publishes a mapping between the names. A reader chooses whether to accept that mapping, and
+  which policy decides. <a href="index.html">The argument for building software this way</a> is on the
+  front page.</p>
+</header>
+
+<div class="strip" id="strip">
+  <p class="caption">This runs the real implementation in your tab. No server.</p>
+  <p class="error" id="strip-error">The live example is starting. If this line stays, the script did not run.</p>
+
+  <div class="grid3">
+    <div class="card">
+      <h3>Tool A: an engineer's release script</h3>
+      <div class="panel-title">its native record</div>
+      <pre class="code" id="rec-a"></pre>
+      <div class="panel-title">its adapter</div>
+      <pre class="code src" id="adapter-a"></pre>
+      <div class="meta mono" id="delta-a"></div>
+    </div>
+    <div class="card">
+      <h3>Tool B: a support helper</h3>
+      <div class="panel-title">its native record</div>
+      <pre class="code" id="rec-b"></pre>
+      <div class="panel-title">its adapter</div>
+      <pre class="code src" id="adapter-b"></pre>
+      <div class="meta mono" id="delta-b"></div>
+    </div>
+    <div class="card gate">
+      <h3>The Release Gate</h3>
+      <div class="controls">
+        <label><input type="checkbox" id="ctl-mapping" /> Accept Sam's mapping</label>
+        <div class="mapping-adds"><span class="panel-title">Mapping this switch adds</span>
+        <div class="meta" id="mapper-claims"></div></div>
+        <label>Policy <select id="ctl-policy"></select></label>
+      </div>
+      <div class="answer" id="gate-answer"></div>
+      <div class="meta" id="gate-decided"></div>
+      <div id="gate-claims"></div>
+      <div id="gate-unmatched"></div>
+      <details><summary>the gate's HyperSchema</summary><pre class="code" id="gate-schema"></pre></details>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:0.9em">
+    <h3>A discrepancy report, written afterwards</h3>
+    <p class="caption">View computed from packed claims. Signer names are demo labels.</p>
+    <div class="meta" id="report-meta"></div>
+    <div class="meta" id="report-spellings"></div>
+    <div class="panel-title">its View, with a keep-the-conflict policy</div>
+    <pre class="code" id="report-view"></pre>
+    <div class="meta" id="report-matched"></div>
+    <div class="panel-title">the claims it read</div>
+    <div id="report-claims"></div>
+  </div>
+</div>
+
+<section class="prose">
+  <h2>What just happened</h2>
+  <ol class="lines">
+    <li><strong>Two tools, no shared schema.</strong> One says <code>status</code>, the other says <code>verdict</code>. Each adapter signs one claim about the same build.</li>
+    <li><strong>A mapping is a claim.</strong> Sam's mapping claims carry later timestamps. Without them, the gate does not match the <code>verdict</code> claim.</li>
+    <li><strong>The reader decides.</strong> The policy picks one claim. The page names the claim that decided. Without Sam's mapping, both policies answer <code>ship</code>. With it, the timestamp policy answers <code>block</code> because support's claim has the higher claimed timestamp. Engineering's word wins still answers <code>ship</code>.</li>
+    <li><strong>A third tool needed nobody's permission.</strong> The report reads only the pack of published claims.</li>
+  </ol>
+</section>
+
+<section class="prose">
+  <h2>Go further</h2>
+  <ul class="links">
+    <li><a href="index.html">Rhizomatic Engineering: the argument in full</a></li>
+    <li><a href="tour.html">The format tour (older; being rewritten)</a></li>
+    <li><a href="playground.html">The playground</a></li>
+    <li><a href="https://github.com/bombadil-labs/rhizomatic/blob/main/spec/00-overview.md">The specification</a></li>
+    <li><a href="https://www.npmjs.com/package/@bombadil/rhizomatic">npm: <code>@bombadil/rhizomatic</code></a></li>
+    <li>Point your agent at this repository and ask it to turn one thing you already have into claims.</li>
+  </ul>
+</section>
+</main>
+
+<footer>Mushrooms versus towers, all the way down. · <a href="https://github.com/bombadil-labs/rhizomatic">github.com/bombadil-labs/rhizomatic</a></footer>
+
+<script src="landing.bundle.js" onerror="document.getElementById('strip-error').textContent='The live example did not load: landing.bundle.js is missing.'"></script>
+</body>
+</html>
